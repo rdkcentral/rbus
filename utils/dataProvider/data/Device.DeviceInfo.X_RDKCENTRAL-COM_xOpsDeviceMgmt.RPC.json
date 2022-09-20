@@ -1,0 +1,21 @@
+{
+  "name": "Device.DeviceInfo.X_RDKCENTRAL-COM_xOpsDeviceMgmt.RPC",
+  "provider" : "xOpsDeviceMgmt",
+  "is_list" : false,
+  "properties":
+    [
+      {"name": "RebootPendingNotification", "type": "string", "optional": false, "writable": true, "version": "2.0"},
+      {"name": "DeferFWDownloadReboot", "type": "string", "optional": false, "writable": true, "version": "2.0"},
+      {"name": "RebootDevice", "type": "string", "optional": false, "writable": true, "version": "2.0"},
+      {"name": "FirmwareDownloadStartedNotification", "type": "string", "optional": false, "writable": true, "version": "2.0"},
+      {"name": "FirmwareDownloadCompletedNotification", "type": "bool", "optional": false, "writable": true, "version": "2.0"},
+      {"name": "AbortReboot", "type": "string", "optional": false, "writable": true, "version": "2.0"},
+      {"name": "DeviceManageableNotification", "type": "string", "optional": false, "writable": true, "version": "2.0"},
+      {"name": "ConfigAcquiredNotification", "type": "string", "optional": false, "writable": true, "version": "2.0"},
+      {"name": "ThumbnailReadyNotification", "type": "string", "optional": false, "writable": true, "version": "2.0"},
+      {"name": "LiveStreamReadyNotification", "type": "string", "optional": false, "writable": true, "version": "2.0"},
+      {"name": "CVRReadyNotification", "type": "string", "optional": false, "writable": true, "version": "2.0"},
+      {"name": "ThermalMonitorNotification", "type": "string", "optional": false, "writable": true, "version": "2.0"},
+      {"name": "PowerLostNotification", "type": "string", "optional": false, "writable": true, "version": "2.0"}
+    ]
+}

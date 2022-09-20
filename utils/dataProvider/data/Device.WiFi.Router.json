@@ -1,0 +1,9 @@
+{
+  "name": "Device.WiFi.Router",
+  "provider" : "netsrvmgr",
+  "is_list" : false,
+  "properties":
+    [
+      {"name": "Name", "type": "string", "optional": false, "writable": false, "version": "2.0"}
+    ]
+}

@@ -1,0 +1,13 @@
+{
+  "name": "Device.WiFi.Radio",
+  "provider" : "netsrvmgr_wifiRadio",
+  "is_list" : true,
+  "properties":
+    [
+      {"name": "SupportedFrequencyBands", "type": "string", "optional": false, "writable": false, "version": "2.0"},
+      {"name": "Channel", "type": "string", "optional": false, "writable": false, "version": "2.0"},
+      {"name": "OperatingChannelBandwidth", "type": "string", "optional": false, "writable": false, "version": "2.0"},
+      {"name": "SupportedStandards", "type": "string", "optional": false, "writable": false, "version": "2.0"},
+      {"name": "X_RDKCENTRAL-COM_SNR", "type": "string", "optional": false, "writable": false, "version": "2.0"}
+    ]
+}

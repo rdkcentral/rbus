@@ -1,0 +1,11 @@
+{
+  "name": "Device.DeviceInfo.MemoryStatus",
+  "provider" : "general",
+  "is_list" : false,
+  "properties":
+    [
+        {"name": "Total", "type": "string", "optional": false, "writable": false, "version": "2.0"},
+        {"name": "Free", "type": "string", "optional": false, "writable": false, "version": "2.0"}
+    ]
+}
+

@@ -1,0 +1,12 @@
+{
+  "name": "Device.X_RDKCENTRAL-COM_Camera.Stream",
+  "provider" : "camera",
+  "is_list" : true,
+  "properties":
+    [
+      {"name": "Alias", "type": "string", "optional": false, "writable": false, "version": "2.0"},
+      {"name": "Type", "type": "string", "optional": false, "writable": false, "version": "2.0"},
+      {"name": "EncoderWindow", "type": "string", "optional": false, "writable": false, "version": "2.0"},
+      {"name": "BufferId", "type": "string", "optional": false, "writable": false, "version": "2.0"}
+    ]
+}

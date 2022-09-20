@@ -1,0 +1,45 @@
+#!/bin/sh
+
+START=25
+
+DAEMON=/usr/bin/rtrouted
+NAME=rtrouted
+DESC="rbus daemon"
+
+case "$1" in
+    start)
+        echo -n "Starting $DESC: "
+        start-stop-daemon --start --background --oknodo --quiet --exec $DAEMON
+        echo "${DAEMON##*/}."
+        ;;
+
+    stop)
+        echo -n "Stopping $DESC: "
+        start-stop-daemon --stop --oknodo --quiet --exec $DAEMON
+        echo "${DAEMON##*/}."
+        ;;
+
+    restart|force-reload)
+        $0 stop
+        sleep 1
+        $0 start
+        ;;
+
+    status)
+        pidof ${DAEMON} >/dev/null
+        status=$?
+        if [ $status -eq 0 ]; then
+            echo "rbus is running."
+        else
+            echo "rbus is not running"
+        fi
+        exit $status
+        ;;
+
+    *)
+        N=/etc/init.d/rbus
+        echo "Usage: $N {start|stop|restart|force-reload|status}" >&2
+        exit 1
+        ;;
+esac
+exit 0

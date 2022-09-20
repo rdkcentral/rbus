@@ -1,0 +1,9 @@
+{
+  "name": "Device.X_COMCAST-COM_Xcalibur",
+  "provider" : "xCaliberClient",
+  "is_list" : false,
+  "properties":
+  [
+  ]
+}
+

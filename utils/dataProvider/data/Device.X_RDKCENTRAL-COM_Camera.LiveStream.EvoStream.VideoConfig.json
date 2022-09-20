@@ -1,0 +1,17 @@
+{
+  "name": "Device.X_RDKCENTRAL-COM_Camera.LiveStream.EvoStream.VideoConfig",
+  "provider" : "camera",
+  "is_list" : false,
+  "properties":
+    [
+	{"name": "StreamType", "type": "string", "optional": false, "writable": true, "version": "2.0"},
+	{"name": "FrameWidth", "type": "string", "optional": false, "writable": true, "version": "2.0"},
+	{"name": "FrameHeight", "type": "string", "optional": false, "writable": true, "version": "2.0"},
+	{"name": "FrameRate", "type": "string", "optional": false, "writable": true, "version": "2.0"},
+  {"name": "GovLength", "type": "string", "optional": false, "writable": true, "version": "2.0"},
+  {"name": "Profile", "type": "string", "optional": false, "writable": true, "version": "2.0"},
+  {"name": "QualityType", "type": "string", "optional": false, "writable": true, "version": "2.0"},
+  {"name": "QualityLevel", "type": "string", "optional": false, "writable": true, "version": "2.0"},
+  {"name": "BitRate", "type": "string", "optional": false, "writable": true, "version": "2.0"}
+    ]
+}

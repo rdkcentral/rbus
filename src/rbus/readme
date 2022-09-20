@@ -1,0 +1,3 @@
+This directory contains source files of RBus component including
+any private header files required for the implementation. The 
+public facing RBus Interface header file is not included here.

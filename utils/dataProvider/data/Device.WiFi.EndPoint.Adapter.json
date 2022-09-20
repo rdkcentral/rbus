@@ -1,0 +1,9 @@
+{
+  "name": "Device.WiFi.EndPoint.Adapter",
+  "provider" : "netsrvmgr",
+  "is_list" : true,
+  "properties":
+    [
+      {"name": "Alias", "type": "string", "optional": false, "writable": false, "version": "2.0"}
+    ]
+}

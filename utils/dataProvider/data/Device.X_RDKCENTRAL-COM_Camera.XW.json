@@ -1,0 +1,11 @@
+{
+  "name": "Device.X_RDKCENTRAL-COM_Camera.XW",
+  "provider" : "camera",
+  "is_list" : false,
+  "properties":
+    [
+      {"name": "FirmwareName", "type": "string", "optional": false, "writable": false, "version": "2.0"},
+      {"name": "MAC", "type": "string", "optional": false, "writable": false, "version": "2.0"},
+      {"name": "Model", "type": "string", "optional": false, "writable": false, "version": "2.0"}
+    ]
+}

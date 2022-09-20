@@ -1,0 +1,11 @@
+set(rBus_VERSION 1.1.1)
+
+@PACKAGE_INIT@
+
+
+include(CMakeFindDependencyMacro)
+
+find_library(RBUS_LIBRARIES NAMES rbus)
+find_path(RBUS_INCLUDE_DIRS NAMES rbus.h PATH_SUFFIXES rbus)
+
+FIND_PACKAGE_HANDLE_STANDARD_ARGS(rbus RBUS_INCLUDE_DIRS RBUS_LIBRARIES)

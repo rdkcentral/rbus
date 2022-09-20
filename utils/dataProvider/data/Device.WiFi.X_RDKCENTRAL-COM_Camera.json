@@ -1,0 +1,10 @@
+{
+  "name": "Device.WiFi.X_RDKCENTRAL-COM_Camera",
+  "provider" : "general",
+  "is_list" : false,
+  "properties":
+    [
+	{"name": "Speed", "type": "string", "optional": false, "writable": false, "version": "2.0"},
+	{"name": "SignalStrength", "type": "string", "optional": false, "writable": false, "version": "2.0"}
+    ]
+}

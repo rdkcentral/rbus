@@ -1,0 +1,8 @@
+{
+  "name" : "Device.Services",
+  "provider" : "general",
+  "is_list" : false,
+  "properties":
+    [
+    ]
+}

@@ -1,0 +1,9 @@
+{
+  "name": "Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.AccountInfo",
+  "provider" : "RFCFeature",
+  "is_list" : false,
+  "properties":
+    [
+	{"name": "AccountID", "type": "string", "optional": false, "writable": true, "version": "2.0"}
+    ]
+}

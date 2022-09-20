@@ -1,0 +1,2 @@
+This directory contains RBus Public Interface (header files) that various 
+components use to make interprocess communications betweem them.

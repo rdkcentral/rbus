@@ -1,0 +1,10 @@
+{
+  "name": "Device.X_RDKCENTRAL-COM_Camera",
+  "provider" : "camera",
+  "is_list" : false,
+  "properties":
+    [
+      {"name": "StreamNumberOfEntries", "type": "string", "optional": false, "writable": false, "version": "2.0"},
+      {"name": "StreamIdsOfEntries", "type": "string", "optional": false, "writable": false, "version": "2.0"}
+    ]
+}

@@ -1,0 +1,13 @@
+{
+  "name": "Device.X_RDKCENTRAL-COM_Camera.LiveStream.EvoStream",
+  "provider" : "camera",
+  "is_list" : false,
+  "properties":
+    [
+	{"name": "ServerIP", "type": "string", "optional": false, "writable": true, "version": "2.0"},
+	{"name": "ServerPort", "type": "string", "optional": false, "writable": true, "version": "2.0"},
+	{"name": "RoomName", "type": "string", "optional": false, "writable": true, "version": "2.0"},
+	{"name": "AuthToken", "type": "string", "optional": false, "writable": true, "version": "2.0"},
+  {"name": "AudioSupport", "type": "string", "optional": false, "writable": true, "version": "2.0"}
+    ]
+}

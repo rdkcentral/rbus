@@ -1,0 +1,12 @@
+{
+  "name" : "Device.DeviceInfo.Webpa",
+  "provider" : "Webpa",
+  "is_list" : false,
+  "properties" :    
+    [
+      {"name": "X_COMCAST-COM_CID", "type": "string", "optional": false, "writable": false, "version": "2.0"},
+      {"name": "X_COMCAST-COM_CMC", "type": "string", "optional": false, "writable": false, "version": "2.0"},
+      {"name": "X_COMCAST-COM_SyncProtocolVersion", "type": "string", "optional": false, "writable": false, "version": "2.0"},
+      {"name": "X_RDKCENTRAL-COM_LastReconnectReason", "type": "string", "optional": false, "writable": false, "version": "2.0"}
+    ]
+}

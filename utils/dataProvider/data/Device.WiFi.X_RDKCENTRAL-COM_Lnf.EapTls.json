@@ -1,0 +1,9 @@
+{
+  "name": "Device.WiFi.X_RDKCENTRAL-COM_Lnf.EapTls",
+  "provider" : "RFCFeature",
+  "is_list" : false,
+  "properties":
+    [
+	{"name": "Enable", "type": "string", "optional": false, "writable": true, "version": "2.0"}
+    ]
+}

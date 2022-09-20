@@ -1,0 +1,10 @@
+{
+  "name" : "Device",
+  "provider" : "general",
+  "is_list" : false,
+  "properties" :
+    [
+      {"name": "X_RDKCENTRAL-COM_Camera_FirmwareDownload", "type": "string", "optional": false, "writable": true, "version": "2.0"},
+      {"name": "X_RDKCENTRAL-COM_Camera_FirmwareDownloadStatus", "type": "string", "optional": false, "writable": false, "version": "2.0"}
+    ]
+}

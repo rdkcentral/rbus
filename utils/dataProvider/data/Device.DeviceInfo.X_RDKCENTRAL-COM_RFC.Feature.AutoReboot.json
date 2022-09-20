@@ -1,0 +1,10 @@
+{
+    "name": "Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.AutoReboot",
+    "provider" : "RFCFeature",
+    "is_list" : false,
+    "properties":
+      [
+        {"name": "Enable", "type": "bool", "optional": false, "writable": true, "version": "2.0"},
+        {"name": "UpTime", "type": "string", "optional": false, "writable": true, "version": "2.0"}
+    ]
+  }

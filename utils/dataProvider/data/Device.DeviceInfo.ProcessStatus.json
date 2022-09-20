@@ -1,0 +1,11 @@
+{
+  "name" : "Device.DeviceInfo.ProcessStatus",
+  "provider" : "general",
+  "is_list" : false,
+  "properties" :    
+    [
+        {"name": "ProcessNumberOfEntries", "type": "string", "optional": false, "writable": false, "version": "2.0"},
+        {"name": "MaxCPU", "type": "string", "optional": false, "writable": false, "version": "2.0"},    	
+        {"name": "CPUUsage", "type": "string", "optional": false, "writable": false, "version": "2.0"}
+    ]
+}

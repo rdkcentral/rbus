@@ -1,0 +1,9 @@
+{
+  "name": "Device.WiFi.EndPoint.Stats",
+  "provider" : "general",
+  "is_list" : false,
+  "properties":
+    [
+      {"name": "SignalStrength", "type": "string", "optional": false, "writable": false, "version": "2.0"}
+    ]
+}

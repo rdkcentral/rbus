@@ -1,0 +1,9 @@
+{
+  "name": "Device.DeviceInfo.X_RDKCENTRAL-COM_xOpsDeviceMgmt",
+  "provider" : "xOpsDeviceMgmt",
+  "is_list" : false,
+  "properties":
+    [
+    ]
+}
+~  

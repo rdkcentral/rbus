@@ -1,0 +1,9 @@
+{
+  "name": "Device.DeviceInfo.X_RDKCENTRAL-COM_xOpsDeviceMgmt.RPC.Feature",
+  "provider" : "xOpsDeviceMgmtFeature",
+  "is_list" : false,
+  "properties":
+    [
+    ]
+}
+
