@@ -44,6 +44,7 @@ TEST(rbusSessionTest, test1)
 
     rc = rbus_closeSession(handle, sessionId);
     EXPECT_EQ(rc, RBUS_ERROR_SUCCESS);
+    rbus_close(handle);
   }
   free(componentName);
 }
