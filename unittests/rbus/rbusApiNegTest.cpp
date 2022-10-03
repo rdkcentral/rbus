@@ -413,6 +413,7 @@ TEST(rbusSetMultiNegTest, test3)
     rc = rbus_setMulti(handle, 1, next, NULL);
     EXPECT_EQ(rc,RBUS_ERROR_INVALID_INPUT);
     rbusProperty_Release(next);
+    rbusValue_Release(setVal1);
 }
 
 TEST(rbusSetIntNegTest, test1)
@@ -897,10 +898,9 @@ TEST(rbusSessionNegTest, test6)
 TEST(rbusInvokeNegTest, test1)
 {
     int rc = RBUS_ERROR_BUS_ERROR;
-    rbusHandle_t handle = NULL;
+    rbusHandle_t handle;
     rbusObject_t inParams = NULL, outParams = NULL;
     const char *componentName = "rbusApi";
-    handle = (struct _rbusHandle *) malloc(sizeof(struct _rbusHandle));
 
     rc=rbus_open(&handle,componentName);
     EXPECT_EQ(rc, RBUS_ERROR_SUCCESS);
@@ -910,7 +910,8 @@ TEST(rbusInvokeNegTest, test1)
     EXPECT_EQ(rc, RBUS_ERROR_INVALID_INPUT);
     if(outParams)
         rbusObject_Release(outParams);
-
+    if(inParams)
+       rbusObject_Release(inParams);
     rc=rbus_close(handle);
     EXPECT_EQ(rc, RBUS_ERROR_SUCCESS);
 }
@@ -926,16 +927,17 @@ TEST(rbusInvokeNegTest, test2)
     EXPECT_EQ(rc, RBUS_ERROR_INVALID_INPUT);
     if(outParams)
         rbusObject_Release(outParams);
+    if(inParams)
+       rbusObject_Release(inParams);
 }
 
 TEST(rbusInvokeNegTest, test3)
 {
     int rc = RBUS_ERROR_BUS_ERROR;
-    rbusHandle_t handle = NULL;
+    rbusHandle_t handle;
     rbusObject_t inParams = NULL, outParams = NULL;
     const char *method = "Device.rbusProvider.Method123()";
     const char *componentName = "rbusApi";
-    handle = (struct _rbusHandle *) malloc(sizeof(struct _rbusHandle));
 
     rc=rbus_open(&handle,componentName);
     EXPECT_EQ(rc, RBUS_ERROR_SUCCESS);
@@ -945,6 +947,10 @@ TEST(rbusInvokeNegTest, test3)
     EXPECT_EQ(rc, RBUS_ERROR_DESTINATION_NOT_REACHABLE);
     if(outParams)
         rbusObject_Release(outParams);
+    if(inParams)
+       rbusObject_Release(inParams);
+    rc=rbus_close(handle);
+    EXPECT_EQ(rc, RBUS_ERROR_SUCCESS);
 }
 
 TEST(rbusInvokeAsyncNegTest, test1)

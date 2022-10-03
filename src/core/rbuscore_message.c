@@ -71,6 +71,7 @@
     }\
     return RT_OK;
 
+
 struct _rbusMessage
 {
     rtRetainable retainable;
@@ -109,7 +110,8 @@ void rbusMessage_Retain(rbusMessage message)
 
 void rbusMessage_Release(rbusMessage message)
 {
-    rtRetainable_release(message, rbusMessage_Destroy);
+    if(message)
+        rtRetainable_release(message, rbusMessage_Destroy);
 }
 
 void rbusMessage_FromBytes(rbusMessage* message, uint8_t const* buff, uint32_t n)
