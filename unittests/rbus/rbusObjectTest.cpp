@@ -309,6 +309,7 @@ TEST(rbusObjectTest, testFwrite)
 
   rbusObject_Init (&obj_ch, "ch_gTestObject");
   rbusObject_SetProperty(obj_ch, prop_ch);
+  rbusProperty_Release(prop_ch);
 
   rbusValue_Init(&val);
   EXPECT_EQ(rbusValue_SetFromString(val,RBUS_STRING,"ptr_string"),true);
@@ -336,5 +337,6 @@ TEST(rbusObjectTest, testFwrite)
   EXPECT_NE(strstr(stream_buf,"ptr_gTestProp"), nullptr);
   EXPECT_NE(strstr(stream_buf,"ch_gTestObject"), nullptr);
   EXPECT_NE(strstr(stream_buf,"ptr_gTestObject"), nullptr);
+  free(stream_buf);
 }
 

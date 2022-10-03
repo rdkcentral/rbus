@@ -1146,7 +1146,7 @@ rtConnection_SendInternal(rtConnection con, uint8_t const* buff, uint32_t n, cha
   int max_attempts;
   ssize_t bytes_sent;
   rtMessageHeader header;
-  uint8_t const* message;
+  uint8_t const* message =NULL;
   uint32_t message_length;
 
   if (!con)
@@ -1179,7 +1179,7 @@ rtConnection_SendInternal(rtConnection con, uint8_t const* buff, uint32_t n, cha
     message_length = n;
   }
 
-  max_attempts = 2;
+  max_attempts = 3;
   num_attempts = 0;
 
   rtMessageHeader_Init(&header);
@@ -1231,11 +1231,19 @@ rtConnection_SendInternal(rtConnection con, uint8_t const* buff, uint32_t n, cha
     return err;
   }
 
+if(message ==NULL)
+{
+rtLog_Warn("**$$$$$$___Deepak  %s:%d  ***message:%s**  ERR:%d",__FUNCTION__,__LINE__,message, err);
+   return err;
+
+}
+rtLog_Warn("**$$$$$$___Deepak 2 %s:%d  ***message:%s**  ERR:%d",__FUNCTION__,__LINE__,message, err);
   struct iovec send_vec[] = {{con->send_buffer, header.header_length}, {(void *)message, header.payload_length}};
   struct msghdr send_hdr = {NULL, 0, send_vec, 2, NULL, 0, 0};
 
   do
   {
+    err = RT_OK;
     bytes_sent = sendmsg(con->fd, &send_hdr, MSG_NOSIGNAL);
     if (bytes_sent != (ssize_t)(header.header_length + header.payload_length))
     {
