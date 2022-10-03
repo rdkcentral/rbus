@@ -1231,13 +1231,6 @@ rtConnection_SendInternal(rtConnection con, uint8_t const* buff, uint32_t n, cha
     return err;
   }
 
-if(message ==NULL)
-{
-rtLog_Warn("**$$$$$$___Deepak  %s:%d  ***message:%s**  ERR:%d",__FUNCTION__,__LINE__,message, err);
-   return err;
-
-}
-rtLog_Warn("**$$$$$$___Deepak 2 %s:%d  ***message:%s**  ERR:%d",__FUNCTION__,__LINE__,message, err);
   struct iovec send_vec[] = {{con->send_buffer, header.header_length}, {(void *)message, header.payload_length}};
   struct msghdr send_hdr = {NULL, 0, send_vec, 2, NULL, 0, 0};
 
