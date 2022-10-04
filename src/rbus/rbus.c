@@ -2334,9 +2334,6 @@ exit_error1:
 
 exit_error0:
 
-    if(handle)
-        *handle = NULL;
-
     if(ret == RBUS_ERROR_SUCCESS)
         ret = RBUS_ERROR_BUS_ERROR;
 
@@ -4604,7 +4601,7 @@ rbusError_t rbus_createSession(rbusHandle_t handle, uint32_t *pSessionId)
     (void)handle;
     rbusError_t rc = RBUS_ERROR_SUCCESS;
     rbusCoreError_t err = RBUSCORE_SUCCESS;
-    rbusMessage response;
+    rbusMessage response  = NULL;
     if (pSessionId && handle)
     {
         *pSessionId = 0;
@@ -4627,6 +4624,7 @@ rbusError_t rbus_createSession(rbusHandle_t handle, uint32_t *pSessionId)
             RBUSLOG_ERROR("Failed to communicated with session manager.");
             rc = rbusCoreError_to_rbusError(err);
         }
+	rbusMessage_Release(response);
     }
     else
     {
@@ -4641,7 +4639,7 @@ rbusError_t rbus_getCurrentSession(rbusHandle_t handle, uint32_t *pSessionId)
     (void)handle;
     rbusError_t rc = RBUS_ERROR_SUCCESS;
     rbusCoreError_t err = RBUSCORE_SUCCESS;
-    rbusMessage response;
+    rbusMessage response = NULL;
 
     if (pSessionId && handle)
     {
@@ -4665,6 +4663,7 @@ rbusError_t rbus_getCurrentSession(rbusHandle_t handle, uint32_t *pSessionId)
             RBUSLOG_ERROR("Failed to communicated with session manager.");
             rc = rbusCoreError_to_rbusError(err);
         }
+	rbusMessage_Release(response);
     }
     else
     {
@@ -4683,7 +4682,7 @@ rbusError_t rbus_closeSession(rbusHandle_t handle, uint32_t sessionId)
     if ((0 != sessionId) && (handle))
     {
         rbusMessage inputSession;
-        rbusMessage response;
+        rbusMessage response = NULL;
 
         rbusMessage_Init(&inputSession);
         rbusMessage_SetInt32(inputSession, /*MESSAGE_FIELD_PAYLOAD,*/ sessionId);
@@ -4701,8 +4700,9 @@ rbusError_t rbus_closeSession(rbusHandle_t handle, uint32_t sessionId)
         else
         {
             RBUSLOG_ERROR("Failed to communicated with session manager.");
-            rc = rbusCoreError_to_rbusError(err);
+            rc = rbuscoreError_to_rbusError(err);
         }
+        rbusMessage_Release(response);
     }
     else
     {
