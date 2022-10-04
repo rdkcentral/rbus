@@ -71,6 +71,8 @@
     }\
     return RT_OK;
 
+#define VERIFY_NULL(T)          if(NULL == T){ RBUSCORELOG_WARN(#T" is NULL"); return; }
+
 struct _rbusMessage
 {
     rtRetainable retainable;
@@ -109,6 +111,7 @@ void rbusMessage_Retain(rbusMessage message)
 
 void rbusMessage_Release(rbusMessage message)
 {
+    VERIFY_NULL(message);
     rtRetainable_release(message, rbusMessage_Destroy);
 }
 

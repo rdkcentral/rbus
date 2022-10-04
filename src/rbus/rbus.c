@@ -4624,10 +4624,7 @@ rbusError_t rbus_createSession(rbusHandle_t handle, uint32_t *pSessionId)
             RBUSLOG_ERROR("Failed to communicated with session manager.");
             rc = rbusCoreError_to_rbusError(err);
         }
-	if (response != NULL)
-	{
-	    rbusMessage_Release(response);
-	}
+	rbusMessage_Release(response);
     }
     else
     {
@@ -4666,10 +4663,7 @@ rbusError_t rbus_getCurrentSession(rbusHandle_t handle, uint32_t *pSessionId)
             RBUSLOG_ERROR("Failed to communicated with session manager.");
             rc = rbusCoreError_to_rbusError(err);
         }
-	if (response != NULL)
-	{
-	    rbusMessage_Release(response);
-	}
+	rbusMessage_Release(response);
     }
     else
     {
@@ -4708,10 +4702,7 @@ rbusError_t rbus_closeSession(rbusHandle_t handle, uint32_t sessionId)
             RBUSLOG_ERROR("Failed to communicated with session manager.");
             rc = rbuscoreError_to_rbusError(err);
         }
-        if (response != NULL)
-        {
-            rbusMessage_Release(response);
-        }
+        rbusMessage_Release(response);
     }
     else
     {
