@@ -4700,7 +4700,7 @@ rbusError_t rbus_closeSession(rbusHandle_t handle, uint32_t sessionId)
         else
         {
             RBUSLOG_ERROR("Failed to communicated with session manager.");
-            rc = rbuscoreError_to_rbusError(err);
+            rc = rbusCoreError_to_rbusError(err);
         }
         rbusMessage_Release(response);
     }
