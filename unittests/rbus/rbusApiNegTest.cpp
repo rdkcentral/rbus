@@ -409,7 +409,6 @@ TEST(rbusSetMultiNegTest, test3)
     rbusValue_Init(&setVal1);
     rbusValue_SetFromString(setVal1, RBUS_STRING, "Gtest_set_multi_1");
     rbusProperty_Init(&next, NULL, setVal1);
-    rbusValue_Release(setVal1);
 
     rc = rbus_setMulti(handle, 1, next, NULL);
     EXPECT_EQ(rc,RBUS_ERROR_INVALID_INPUT);

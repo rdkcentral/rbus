@@ -2686,8 +2686,7 @@ rbusError_t rbus_get(rbusHandle_t handle, char const* name, rbusValue_t* value)
                 errorcode = CCSPError_to_rbusError(legacyRetCode);
             }
         }
-        if(response != NULL)//check if "response" is already Freed And Set to Null in rbus_invokeRemoteMethod()
-            rbusMessage_Release(response);
+        rbusMessage_Release(response);
     }
     return errorcode;
 }
