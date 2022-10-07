@@ -85,7 +85,7 @@ rbusError_t getVCHandler(rbusHandle_t handle, rbusProperty_t property, rbusGetHa
 
     rbusValue_SetInt32(value, mydata);
   } else if(strcmp("Device.rbusProvider.DateTime",name) == 0) {
-    rbusDateTime_t timeVal;
+    rbusDateTime_t timeVal={NULL,NULL};
     struct tm compileTime;
     getCompileTime(&compileTime);
     memcpy(&(timeVal.m_time), &compileTime, sizeof(struct tm));
