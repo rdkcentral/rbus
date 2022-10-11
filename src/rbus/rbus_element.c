@@ -237,11 +237,11 @@ elementNode* insertElement(elementNode* root, rbusDataElement_t* elem)
        mutex_init = 1;
     }
 
-    LOCK();
     if(currentNode == NULL || elem == NULL)
     {
         return NULL;
     }
+    LOCK();
     nextNode = currentNode->child;
     createChild = 1;
 

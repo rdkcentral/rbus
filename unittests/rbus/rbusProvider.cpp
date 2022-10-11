@@ -86,6 +86,7 @@ rbusError_t getVCHandler(rbusHandle_t handle, rbusProperty_t property, rbusGetHa
     rbusValue_SetInt32(value, mydata);
   } else if(strcmp("Device.rbusProvider.DateTime",name) == 0) {
     rbusDateTime_t timeVal;
+    memset(&timeVal,0,sizeof(timeVal));
     struct tm compileTime;
     getCompileTime(&compileTime);
     memcpy(&(timeVal.m_time), &compileTime, sizeof(struct tm));
@@ -94,10 +95,12 @@ rbusError_t getVCHandler(rbusHandle_t handle, rbusProperty_t property, rbusGetHa
     rbusObject_t obj = NULL;
     rbusObject_Init(&obj, name);
     rbusValue_SetObject(value, obj);
+    rbusObject_Release(obj);
   } else if(strcmp("Device.rbusProvider.Property",name) == 0) {
     rbusProperty_t prop = NULL;
     rbusProperty_Init(&prop, name, NULL);
     rbusValue_SetProperty(value, prop);
+    rbusProperty_Release(prop);
   }
   else if(strcmp("Device.rbusProvider.Int16",name) == 0)
     rbusValue_SetInt16(value, GTEST_VAL_INT16);
