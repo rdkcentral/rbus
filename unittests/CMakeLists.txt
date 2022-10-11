@@ -53,7 +53,6 @@ else ()
     include_directories("${GTEST_INCLUDE_DIR}")
 endif()
 
-include_directories(../include)
 # someone needs to figure out how to run this stuff under valgrind
 add_custom_target(test_memcheck
   COMMAND "${CMAKE_CTEST_COMMAND} --force-new-ctest-process --test-action memcheck"
