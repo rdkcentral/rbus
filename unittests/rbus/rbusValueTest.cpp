@@ -152,6 +152,7 @@ static void exec_validate_test(rbusValueType_t type,char *buffer)
       EXPECT_EQ(strncmp(pRet,buffer,len-1),0);
     }
   }
+  free(stream_buf);
 }
 
 static void increment_val(char *buffer)

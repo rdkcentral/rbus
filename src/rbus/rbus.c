@@ -2686,7 +2686,6 @@ rbusError_t rbus_get(rbusHandle_t handle, char const* name, rbusValue_t* value)
                 errorcode = CCSPError_to_rbusError(legacyRetCode);
             }
         }
-
         rbusMessage_Release(response);
     }
     return errorcode;

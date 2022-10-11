@@ -83,6 +83,7 @@ static void printRow(elementNode* root)
         fprintRegisteredElements(fp, root, 0);
         fflush(fp);
         fclose(fp);
+        free(buffer);
     }
 }
 

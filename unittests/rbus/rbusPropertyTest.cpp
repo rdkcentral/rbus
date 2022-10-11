@@ -92,8 +92,8 @@ TEST(rbusPropertyTest, testGetValue)
 
 TEST(rbusPropertyTest, testGetNext)
 {
-  rbusValue_t value;
-  rbusProperty_t prop1;
+  rbusValue_t value=NULL;
+  rbusProperty_t prop1=NULL;
   rbusProperty_t prop2;
   rbusProperty_t prop3;
   char const* name;
@@ -117,9 +117,10 @@ TEST(rbusPropertyTest, testGetNext)
   rbusProperty_SetNext(prop2, prop3);
   rbusValue_Release(value);
 
-  while(prop1) {
-      value = rbusProperty_GetValue(prop1);
-      rbus_val = rbusProperty_GetName(prop1);
+  rbusProperty_t next= prop1;
+  while(next) {
+      value = rbusProperty_GetValue(next);
+      rbus_val = rbusProperty_GetName(next);
       name = rbusValue_GetString(value, &len);
       if(strcmp(rbus_val,"Device.rbusPropertyTest1") == 0) {
 	  EXPECT_STREQ("test1", name) << "rbusProperty_GetNext failed testGetNext";
@@ -128,7 +129,7 @@ TEST(rbusPropertyTest, testGetNext)
       } else if(strcmp(rbus_val,"Device.rbusPropertyTest3") == 0) {
 	  EXPECT_STREQ("test3", name) << "rbusProperty_GetNext failed testGetNext";
       }
-      prop1 = rbusProperty_GetNext(prop1);
+      next = rbusProperty_GetNext(next);
   }
 
   rbusProperty_Release(prop1);
@@ -163,9 +164,11 @@ TEST(rbusPropertyTest, testPushBack)
   rbusProperty_Append(prop2, prop3);
   rbusValue_Release(value);
 
-  while(prop1) {
-      value = rbusProperty_GetValue(prop1);
-      rbus_val = rbusProperty_GetName(prop1);
+
+  rbusProperty_t next= prop1;
+  while(next) {
+      value = rbusProperty_GetValue(next);
+      rbus_val = rbusProperty_GetName(next);
       name = rbusValue_GetString(value, &len);
       if(strcmp(rbus_val,"Device.rbusPropertyTest1") == 0) {
 	  EXPECT_STREQ("test1", name) << "rbusProperty_Append failed testPushBack";
@@ -174,7 +177,7 @@ TEST(rbusPropertyTest, testPushBack)
       } else if(strcmp(rbus_val,"Device.rbusPropertyTest3") == 0) {
 	  EXPECT_STREQ("test3", name) << "rbusProperty_Append failed testPushBack";
       }
-      prop1 = rbusProperty_GetNext(prop1);
+      next = rbusProperty_GetNext(next);
   }
 
   rbusProperty_Release(prop1);
@@ -248,4 +251,5 @@ TEST(rbusPropertyTest, testFwrite)
   pRet = strstr(stream_buf,"value:");
   pRet += strlen("value:");
   EXPECT_EQ(strncmp(pRet,"test1",strlen("test1")),0);
+  free(stream_buf);
 }
