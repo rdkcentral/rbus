@@ -191,7 +191,7 @@ if (ENABLE_CODE_COVERAGE)
     set(COVERAGE_EXCLUDES
       "${CMAKE_CURRENT_BINARY_DIR}/unittests/gtest/*"
       "test/*"
-      "util/*"
+      "utils/*"
       "/usr/include/*"
       "sampleapps/*")
     option (ENABLE_UNIT_TESTING "ENABLE_UNIT_TESTING" ON)
