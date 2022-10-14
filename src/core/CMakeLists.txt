@@ -35,3 +35,5 @@ set_target_properties(rbuscore
 install (TARGETS rbuscore
     RUNTIME DESTINATION bin
     LIBRARY DESTINATION lib)
+
+install (FILES rbuscore.h rbuscore_message.h  rbuscore_types.h  DESTINATION "include/rbus")

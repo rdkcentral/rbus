@@ -26,18 +26,12 @@ Test Case : Testing rbus communications from client end
 #include <stdbool.h>
 extern "C" {
 #include "rbuscore.h"
+#include "rbus_session_mgr.h"
 
 }
 #include "gtest_app.h"
 
 #define DEFAULT_RESULT_BUFFERSIZE 128
-
-#define RBUS_SMGR_DESTINATION_NAME "_rbus_session_mgr" //Where to send the RPC calls.
-/* Supported RPC methods */
-#define RBUS_SMGR_METHOD_GET_CURRENT_SESSION_ID "get_curr_s" //Returns session id as int32, key MESSAGE_FIELD_PAYLOAD
-#define RBUS_SMGR_METHOD_REQUEST_SESSION_ID "req_new_s" //Returns new session id as int32, key MESSAGE_FIELD_PAYLOAD
-#define RBUS_SMGR_METHOD_END_SESSION "end_of_s" // Requires session id as input argument, key MESSAGE_FIELD_PAYLOAD
-
 
 typedef struct
 {
