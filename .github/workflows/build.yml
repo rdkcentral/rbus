@@ -1,11 +1,9 @@
 name: build Rbus
 on:
   push:
-     branches: 
-        - main
+     branches: [ main, 'rbus-**' ]
   pull_request:
-     branches: 
-        - main
+     branches: [ main, 'rbus-**' ]
 jobs:
   all:
     runs-on: ubuntu-latest
