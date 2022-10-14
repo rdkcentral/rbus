@@ -1,0 +1,54 @@
+name: build Rbus
+on:
+  push:
+     branches: 
+        - main
+  pull_request:
+     branches: 
+        - main
+jobs:
+  all:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up cache
+        id: cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            build
+            install
+          key: ${{ runner.os }}-${{ github.sha }}
+
+      - name: Set up CMake
+        # 3.16.x To support flow control commands to be overridden.
+        # Installs in: find /opt -ipath *bin/cmake
+        uses: jwlawson/actions-setup-cmake@v1.12
+        with:
+          cmake-version: '3.16.x'
+      - name: Install packages
+        run: >
+          sudo apt update && sudo apt install -y libcurl4-openssl-dev libgtest-dev
+      - name: Checkout rbus
+        if: steps.cache.outputs.cache-hit != 'true'
+        uses: actions/checkout@v3
+        with:
+          path: rbus
+      - name: Configure Rbus
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: >
+          cmake 
+          -S "${{github.workspace}}/rbus"
+          -B build/rbus 
+          -DCMAKE_INSTALL_PREFIX="${{github.workspace}}/install/usr" 
+          -DBUILD_FOR_DESKTOP=ON
+          -DENABLE_UNIT_TESTING=ON          
+          -DCMAKE_BUILD_TYPE=Debug
+      - name: Build Rbus
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: >
+          make -C build/rbus 
+      - name: Install rbus
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: >
+          make -C build/rbus install
+          
