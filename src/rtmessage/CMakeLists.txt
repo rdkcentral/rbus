@@ -117,3 +117,21 @@ endif (BUILD_RBUS_DAEMON)
 
 
 install (TARGETS rtMessage rtrouted rtrouted_diag RUNTIME DESTINATION bin LIBRARY DESTINATION lib)
+install (
+  FILES
+  rtMessage.h
+  rtMessageHeader.h
+  rtError.h
+  rtConnection.h
+  rtVector.h
+  rtRetainable.h
+  rtLog.h
+  rtList.h
+  rtTime.h
+  rtAtomic.h
+  rtAdvisory.h
+  rtThreadPool.h
+  rtHashMap.h
+  rtMemory.h
+  rtm_discovery_api.h
+  DESTINATION "include/rtmessage")
