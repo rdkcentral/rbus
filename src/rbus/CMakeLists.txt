@@ -54,6 +54,5 @@ install (TARGETS rbus
     RUNTIME DESTINATION bin
     LIBRARY DESTINATION lib)
 
-install (DIRECTORY ${PROJECT_SOURCE_DIR}/include
-    DESTINATION "include/rbus")
+install (DIRECTORY ${PROJECT_SOURCE_DIR}/include/ DESTINATION "include/rbus")
 
