@@ -1508,8 +1508,13 @@ dispatch:
       //rtConnection_SendErrorMessageToCaller(clnt->fd, &clnt->header);
     }
 #ifdef MSG_ROUNDTRIP_TIME
-    printf("Consumer does not exist\n");
-    rtRouted_TransactionTimingDetails(clnt->header);
+    /* Checking whether the header flag has only rtMessageFlags_RawBinary bit set or not. As rtMessageFlags_RawBinary is the only flag being used
+       in case of rbus_sendMessage() function call which is used in rbus publish function call. Added to avoid the issue RDKB-44765 */
+    if(clnt->header.flags != rtMessageFlags_RawBinary)
+    {
+      printf("Consumer does not exist\n");
+      rtRouted_TransactionTimingDetails(clnt->header);
+    }
 #endif
   }
 }

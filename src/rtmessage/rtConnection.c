@@ -128,6 +128,9 @@ struct _rtConnection
   int                     check_remote_router;
 #endif
   pid_t                   read_tid;
+#ifdef MSG_ROUNDTRIP_TIME
+  unsigned int            rt_timeout;
+#endif
 };
 
 typedef struct _rtMessageInfo
@@ -592,6 +595,9 @@ rtConnection_CreateInternal(rtConnection* con, char const* application_name, cha
   c->run_threads = 0;
   c->read_tid = 0;
   c->reconnect_in_progress = 0;
+#ifdef MSG_ROUNDTRIP_TIME
+  c->rt_timeout = 0;
+#endif
   rtTime_Now(&c->start_time);
 #ifdef WITH_SPAKE2
   c->cipher = NULL;
@@ -1130,6 +1136,9 @@ dequeue_and_continue:
 
     if(ret == RT_ERROR_TIMEOUT)
     {
+#ifdef MSG_ROUNDTRIP_TIME
+      con->rt_timeout = 1;
+#endif
       rtLog_Info("rtConnection_SendRequest TIMEOUT");
     }
 
@@ -1610,7 +1619,7 @@ rtConnection_Read(rtConnection con, int32_t timeout)
       pthread_mutex_unlock(&con->mutex);
       /* The listItem is not present in the pending_requests_list, as it is been removed from the list because of request timeout */
 #ifdef MSG_ROUNDTRIP_TIME
-      if(listItem == NULL)
+      if(con->rt_timeout)
       {
         rtMessage m;
         rtMessage_Create(&m);
@@ -1623,6 +1632,7 @@ rtConnection_Read(rtConnection con, int32_t timeout)
         rtMessage_SetString(m, "reply_topic", msginfo->header.reply_topic);
         rtConnection_SendMessage(con, m, RTROUTED_TRANSACTION_TIME_INFO);
         rtMessage_Release(m);
+        con->rt_timeout = 0;
       }
 #endif
     }
