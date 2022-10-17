@@ -1608,8 +1608,8 @@ rtConnection_Read(rtConnection con, int32_t timeout)
         }
       }
       pthread_mutex_unlock(&con->mutex);
-      /* The listItem is not present in the pending_requests_list, as it is been removed from the list because of request timeout */
 #ifdef MSG_ROUNDTRIP_TIME
+      /* The listItem is not present in the pending_requests_list, as it is been removed from the list because of request timeout */
       if(listItem == NULL)
       {
         rtMessage m;
