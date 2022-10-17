@@ -546,14 +546,7 @@ void rtRoutingTree_GetTopicRoutes(rtRoutingTree rt, const char* topic, rtList* r
 #endif
     }
 
-    /* Here, treeTopic should be the topic for the last token in workTokens list*/
-    
-    if(topic[strlen(topic)-1] == '.')
-    {
-        /* If its a partial path or a table send all routes listening to sub topics */
-        *routes = treeTopic->routeList2;
-    }
-    else if(treeTopic->isTable)
+    if(treeTopic->isTable)
     {
         /* If we ended on a table, then we need an additional check.
           We allow querying a table without adding the ".{i}" suffix.
