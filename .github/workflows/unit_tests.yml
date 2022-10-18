@@ -1,4 +1,4 @@
-name: build Rbus
+name: unit_tests
 on:
   push:
      branches: [ main, 'rbus-**' ]
@@ -49,4 +49,21 @@ jobs:
         if: steps.cache.outputs.cache-hit != 'true'
         run: >
           make -C build/rbus install
+      - name: Start rtrouted
+        # nohup to keep it running.
+        run: |
+          cd install/usr
+          export PREFIX=$PWD
+          export LD_LIBRARY_PATH=$PREFIX/lib
+          nohup ./bin/rtrouted -f -l DEBUG > /tmp/rtrouted_log.txt &
+      - name: Run Unit test
+        run: |
+          cd install/usr
+          export PREFIX=$PWD
+          export LD_LIBRARY_PATH=$PREFIX/lib
+          nohup ./bin/rbusTestProvider >/tmp/plog.txt &
+          ./bin/rbusTestConsumer -a
+      - name: Stop rtrouted
+        run: |
+          killall -9 rtrouted
           
