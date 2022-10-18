@@ -171,7 +171,7 @@ static void _client_disconnect_callback_handler(char const* listener)
 static void resolveWildcardExpression(const char* expression, int expected_entries, char result_array[][MAX_ELEMENT_NAME_LENGTH])
 {
     rbusCoreError_t err = RBUSCORE_SUCCESS;
-    char ** destinations;
+    char ** destinations = NULL;
     int num_entries = 0;
 
     err = rbus_discoverWildcardDestinations(expression, &num_entries, &destinations);
@@ -188,7 +188,8 @@ static void resolveWildcardExpression(const char* expression, int expected_entri
                 strncpy(*(result_array + i), destinations[i], MAX_ELEMENT_NAME_LENGTH);
             free(destinations[i]);
         }
-        free(destinations);
+        if(destinations != NULL)
+            free(destinations);
     }
     return;
 }
