@@ -169,7 +169,7 @@ void rbusValue_Retain(rbusValue_t value);
  */
 void rbusValue_Release(rbusValue_t value);
 
-void rbusValue_ReleaseMany(int count, ...);
+void rbusValue_Releases(int count, ...);
 
 /** @fn void rbusValue_Compare(rbusValue_t value1, rbusValue_t value2)
  *  @brief Compare two values for equality.  They are equal if both the type and data are equal.
