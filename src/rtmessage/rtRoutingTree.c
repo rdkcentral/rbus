@@ -442,14 +442,7 @@ rtError rtRoutingTree_AddTopicRoute(rtRoutingTree rt, const char* topicPath, con
 
     rtLog_Debug("%s: %s", __FUNCTION__, topicPath);
 
-    rtList list = NULL;
-
-    rtRoutingTree_GetTopicRoutes(rt, topicPath, &list);
-    if (list && err_on_dup && (0 != strcmp (topicPath, "_RTROUTED.ADVISORY")))
-    {
-        rtLog_Debug("Rejecting a duplicate registraion");
-        return RT_ERROR_DUPLICATE_ENTRY;
-    }
+    tokenizeExpression(topicPath);
 
     if(workTokenCount == 0)
         return rc;
@@ -467,6 +460,13 @@ rtError rtRoutingTree_AddTopicRoute(rtRoutingTree rt, const char* topicPath, con
     for(i = 0; i < workTokenCount; ++i)
     {
        topic = getChildByName(rt, topic, workTokens[i].name, 1/*create missing topic*/, &isCreated, 0);
+    }
+
+    if (err_on_dup && (0 == isCreated) && (topic->routeList) && (0 != strcmp (topicPath, "_RTROUTED.ADVISORY")))
+    {
+        /* Controlled Error log will be printed in rtrouted */
+        rtLog_Debug("Rejecting a duplicate registraion");
+        return RT_ERROR_DUPLICATE_ENTRY;
     }
 
     if(!topic->routeList)
@@ -545,7 +545,12 @@ void rtRoutingTree_GetTopicRoutes(rtRoutingTree rt, const char* topic, rtList* r
         }
 #endif
     }
-
+    if(topic[strlen(topic)-1] == '.')
+    {
+        /* If its a partial path or a table send all routes listening to sub topics */
+        *routes = treeTopic->routeList2;
+    }
+    else
     if(treeTopic->isTable)
     {
         /* If we ended on a table, then we need an additional check.
