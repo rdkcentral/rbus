@@ -50,10 +50,11 @@ static int exec_rbus_get_test(rbusHandle_t handle, const char *param)
 {
   int rc = RBUS_ERROR_BUS_ERROR;
   rbusValue_t val = NULL;
+  rbusValue_t retVal = NULL;
   rbusValueType_t type = RBUS_NONE;
 
   isElementPresent(handle, param);
-  rbusValue_Init(&val);
+  retVal = rbusValue_Init(&val);
   rc = rbus_get(handle, param, &val);
   EXPECT_EQ(rc, RBUS_ERROR_SUCCESS);
 
@@ -119,6 +120,7 @@ static int exec_rbus_get_test(rbusHandle_t handle, const char *param)
 
 exit:
   rbusValue_Release(val);
+  rbusValue_Release(retVal);
 
   return rc;
 }
@@ -626,7 +628,10 @@ int rbusConsumer(rbusGtest_t test, pid_t pid, int runtime)
         rc = rbus_getStr(handle, param, &value);
 
         if(value)
+        {
           rc |= strcmp(value,"Device.rbusProvider.PartialPath.1.Param1");
+          free(value);
+        }
       }
       break;
     case RBUS_GTEST_GET26:
