@@ -53,7 +53,6 @@ static int exec_rbus_get_test(rbusHandle_t handle, const char *param)
   rbusValueType_t type = RBUS_NONE;
 
   isElementPresent(handle, param);
-  rbusValue_Init(&val);
   rc = rbus_get(handle, param, &val);
   EXPECT_EQ(rc, RBUS_ERROR_SUCCESS);
 
@@ -626,7 +625,10 @@ int rbusConsumer(rbusGtest_t test, pid_t pid, int runtime)
         rc = rbus_getStr(handle, param, &value);
 
         if(value)
+        {
           rc |= strcmp(value,"Device.rbusProvider.PartialPath.1.Param1");
+          free(value);
+        }
       }
       break;
     case RBUS_GTEST_GET26:
