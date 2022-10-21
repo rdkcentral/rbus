@@ -50,11 +50,9 @@ static int exec_rbus_get_test(rbusHandle_t handle, const char *param)
 {
   int rc = RBUS_ERROR_BUS_ERROR;
   rbusValue_t val = NULL;
-  rbusValue_t retVal = NULL;
   rbusValueType_t type = RBUS_NONE;
 
   isElementPresent(handle, param);
-  retVal = rbusValue_Init(&val);
   rc = rbus_get(handle, param, &val);
   EXPECT_EQ(rc, RBUS_ERROR_SUCCESS);
 
@@ -120,7 +118,6 @@ static int exec_rbus_get_test(rbusHandle_t handle, const char *param)
 
 exit:
   rbusValue_Release(val);
-  rbusValue_Release(retVal);
 
   return rc;
 }
