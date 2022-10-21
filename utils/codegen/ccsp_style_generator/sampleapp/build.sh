@@ -21,4 +21,4 @@
 
 INCS="-I./ -I../../src -I../../../../../../include/rbus -I../../../../../..//include/rtmessage"
 LIBS="-L../../../../../../lib"
-gcc $INCS $LIBS -o Sample_app Sample_app.c Sample_rbus.c Sample_hal.c ../../src/rbus_context_helpers.c -lrbus -lrbus-core -lrtMessage -lmsgpackc -g
+gcc $INCS $LIBS -o Sample_app Sample_app.c Sample_rbus.c Sample_hal.c ../../src/rbus_context_helpers.c -lrbus -lrbuscore -lrtMessage -lmsgpackc -g
