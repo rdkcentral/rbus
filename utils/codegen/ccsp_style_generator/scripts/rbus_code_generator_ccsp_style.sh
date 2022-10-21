@@ -31,7 +31,7 @@ echo "File Base Name=$3"
 python $1 $2 $3
 
 #build test app to verify generated code compiles
-gcc $CFLAGS $LD_FLAGS -o "$3_app" "$3_app.c" "$3_rbus.c" ../../src/rbus_context_helpers.c -lrbus -lrbus-core -lrtMessage -lmsgpackc
+gcc $CFLAGS $LD_FLAGS -o "$3_app" "$3_app.c" "$3_rbus.c" ../../src/rbus_context_helpers.c -lrbus -lrbuscore -lrtMessage -lmsgpackc
 
 echo "Done"
 

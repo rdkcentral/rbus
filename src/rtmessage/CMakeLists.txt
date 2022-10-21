@@ -115,6 +115,9 @@ if (BUILD_RBUS_DAEMON)
     target_link_libraries(rtrouted_diag rtMessage)
 endif (BUILD_RBUS_DAEMON)
 
+set_target_properties(rtMessage
+    PROPERTIES SOVERSION "0"
+    VERSION "${PROJECT_VERSION}")
 
 install (TARGETS rtMessage rtrouted rtrouted_diag RUNTIME DESTINATION bin LIBRARY DESTINATION lib)
 install (
