@@ -3025,13 +3025,13 @@ static rbusError_t rbus_getByType(rbusHandle_t handle, char const* paramName, vo
                         break;
                 }
 
-                rbusValue_Release(value);
             }
             else
             {
                 RBUSLOG_ERROR("%s rbus_get type missmatch. expected %d. got %d", __FUNCTION__, type, rbusValue_GetType(value));
                 errorcode = RBUS_ERROR_BUS_ERROR;
             }
+            rbusValue_Release(value);
         }
     }
     return errorcode;
