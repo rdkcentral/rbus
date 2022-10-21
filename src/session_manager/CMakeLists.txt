@@ -33,4 +33,4 @@ endif (BUILD_SESSIONMGR_SAMPLE_APPS)
 install (TARGETS rbus_session_mgr 
         RUNTIME DESTINATION bin)
 
-
+install(FILES rbus_session_mgr.h DESTINATION "include/rbus")
