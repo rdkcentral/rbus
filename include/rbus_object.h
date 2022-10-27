@@ -178,6 +178,8 @@ void rbusObject_SetPropertyValue(rbusObject_t object, char const* name, rbusValu
  */
 ///@{
 rbusValueError_t rbusObject_GetPropertyBoolean(rbusObject_t object, char const* name, bool* b);
+rbusValueError_t rbusObject_GetPropertyInt8(rbusObject_t object, char const* name, int8_t* i8);
+rbusValueError_t rbusObject_GetPropertyUInt8(rbusObject_t object, char const* name, uint8_t* u8);
 rbusValueError_t rbusObject_GetPropertyInt16(rbusObject_t object, char const* name, int16_t* i16);
 rbusValueError_t rbusObject_GetPropertyUInt16(rbusObject_t object, char const* name, uint16_t* u16);
 rbusValueError_t rbusObject_GetPropertyInt32(rbusObject_t object, char const* name, int32_t* i32);
@@ -191,6 +193,8 @@ rbusValueError_t rbusObject_GetPropertyString(rbusObject_t object, char const* n
 rbusValueError_t rbusObject_GetPropertyBytes(rbusObject_t object, char const* name, uint8_t const** bytes, int* len);
 rbusValueError_t rbusObject_GetPropertyProperty(rbusObject_t object, char const* name, struct _rbusProperty** p);
 rbusValueError_t rbusObject_GetPropertyObject(rbusObject_t object, char const* name, struct _rbusObject** o);
+rbusValueError_t rbusObject_GetPropertyChar(rbusObject_t object, char const* name, char* c);
+rbusValueError_t rbusObject_GetPropertyByte(rbusObject_t object, char const* name, unsigned char* c);
 ///@}
 
 /** @name rbusObject_SetValue[Type]
@@ -205,6 +209,8 @@ rbusValueError_t rbusObject_GetPropertyObject(rbusObject_t object, char const* n
  */
 ///@{
 void rbusObject_SetPropertyBoolean(rbusObject_t object, char const* name, bool b);
+void rbusObject_SetPropertyInt8(rbusObject_t object, char const* name, int8_t i8);
+void rbusObject_SetPropertyUInt8(rbusObject_t object, char const* name, uint8_t u8);
 void rbusObject_SetPropertyInt16(rbusObject_t object, char const* name, int16_t i16);
 void rbusObject_SetPropertyUInt16(rbusObject_t object, char const* name, uint16_t u16);
 void rbusObject_SetPropertyInt32(rbusObject_t object, char const* name, int32_t i32);
@@ -218,6 +224,8 @@ void rbusObject_SetPropertyString(rbusObject_t object, char const* name, char co
 void rbusObject_SetPropertyBytes(rbusObject_t object, char const* name, uint8_t const* bytes, int len);
 void rbusObject_SetPropertyProperty(rbusObject_t object, char const* name, struct _rbusProperty* p);
 void rbusObject_SetPropertyObject(rbusObject_t object, char const* name, struct _rbusObject* o);
+void rbusObject_SetPropertyChar(rbusObject_t object, char const* name, char c);
+void rbusObject_SetPropertyByte(rbusObject_t object, char const* name, unsigned char c);
 ///@}
 
 rbusObject_t rbusObject_GetParent(rbusObject_t object);

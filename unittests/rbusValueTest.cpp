@@ -205,8 +205,7 @@ static void exec_copy_compare_test(rbusValueType_t type,void *buffer)
 
   EXPECT_EQ(rbusValue_Compare( val1, val2),0);
 
-  rbusValue_Release(val1);
-  rbusValue_Release(val2);
+  rbusValue_Releases(2, val1, val2);
 }
 
 static void exec_neg_copy_compare_test(rbusValueType_t type,void *buffer)

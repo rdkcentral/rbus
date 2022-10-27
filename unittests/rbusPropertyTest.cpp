@@ -253,3 +253,177 @@ TEST(rbusPropertyTest, testFwrite)
   EXPECT_EQ(strncmp(pRet,"test1",strlen("test1")),0);
   free(stream_buf);
 }
+
+TEST(rbusPropertyTest, testGetString)
+{
+  char const teststring[] = "Hello World";
+  char const string[] = "Good Morning";
+  char const *name;
+  rbusProperty_t prop1 = rbusProperty_InitString("prop1",teststring);
+  rbusProperty_SetString(prop1, string);
+  EXPECT_STREQ((char const*)rbusProperty_GetString(prop1, NULL), string) << "rbusProperty_GetString failed testGetValue";
+  rbusProperty_Release(prop1);
+}
+
+TEST(rbusPropertyTest, testAppendString)
+{
+  char const teststring[] = "Hello World";
+  char const *name;
+  rbusProperty_t prop;
+  rbusProperty_t prop1 = rbusProperty_InitString("prop1","Device.PropertyTest");
+  rbusProperty_SetString(prop1, teststring);
+  name = rbusProperty_GetString(prop1, NULL);
+  EXPECT_STREQ(teststring, name) << "rbusProperty_GetString failed testGetValue";
+  rbusProperty_AppendString(prop1, "Device.rbusPropertyTest1", "Good Morning");
+  rbusProperty_Release(prop1);
+}
+
+TEST(rbusPropertyTest, NegtestGetString)
+{
+  char const *name;
+  //Negative test passing NULL value for property
+  name = rbusProperty_GetString(NULL, NULL);
+  EXPECT_EQ(NULL, NULL) << "rbusProperty_GetString failed testGetValue";
+}
+
+TEST(rbusPropertyTest, testGetBytes)
+{
+  char const teststring[] = "Hello World";
+  char const string[] = "test1";
+  char const *value;
+  rbusProperty_t prop1 = rbusProperty_InitBytes("prop1", (uint8_t const*)teststring, strlen(teststring)+1);
+  rbusProperty_SetBytes(prop1, (uint8_t const*)string, strlen(string)+1);
+  EXPECT_STREQ((char const*)rbusProperty_GetBytes(prop1, NULL), string) << "rbusProperty_GetBytes failed testGetBytes";
+
+  rbusProperty_Release(prop1);
+}
+
+TEST(rbusPropertyTest, testGetBoolean)
+{
+  rbusProperty_t prop1 = rbusProperty_InitBoolean("prop1",true);
+  rbusProperty_SetBoolean(prop1, false);
+  EXPECT_EQ(rbusProperty_GetBoolean(prop1), false);
+  rbusProperty_Release(prop1);
+}
+
+TEST(rbusPropertyTest, testGetInt8)
+{
+  rbusProperty_t prop1 = rbusProperty_InitInt8("prop1",-100);
+  rbusProperty_SetInt8(prop1, -123);
+  EXPECT_EQ(rbusProperty_GetInt8(prop1), -123);
+  rbusProperty_Release(prop1);
+}
+
+TEST(rbusPropertyTest, testGetUInt8)
+{
+  rbusProperty_t prop1 = rbusProperty_InitUInt8("prop1",100);
+  rbusProperty_SetUInt8(prop1, 123);
+  EXPECT_EQ(rbusProperty_GetUInt8(prop1), 123);
+  rbusProperty_Release(prop1);
+}
+
+TEST(rbusPropertyTest, testGetInt16)
+{
+  rbusProperty_t prop1 = rbusProperty_InitInt16("prop1",-1234);
+  rbusProperty_SetInt16(prop1, -4567);
+  EXPECT_EQ(rbusProperty_GetInt16(prop1), -4567);
+  rbusProperty_Release(prop1);
+}
+
+TEST(rbusPropertyTest, testGetUInt16)
+{
+  rbusProperty_t prop1 = rbusProperty_InitUInt16("prop1",1234);
+  rbusProperty_SetUInt16(prop1, 4567);
+  EXPECT_EQ(rbusProperty_GetUInt16(prop1), 4567);
+  rbusProperty_Release(prop1);
+}
+
+TEST(rbusPropertyTest, testGetInt32)
+{
+  rbusProperty_t prop1 = rbusProperty_InitInt32("prop1",-123456);
+  rbusProperty_SetInt32(prop1, -456789);
+  EXPECT_EQ(rbusProperty_GetInt32(prop1), -456789);
+  rbusProperty_Release(prop1);
+}
+
+TEST(rbusPropertyTest, testGetUInt32)
+{
+  rbusProperty_t prop1 = rbusProperty_InitUInt32("prop1",123456);
+  rbusProperty_SetUInt32(prop1, 456789);
+  EXPECT_EQ(rbusProperty_GetUInt32(prop1), 456789);
+  rbusProperty_Release(prop1);
+}
+
+TEST(rbusPropertyTest, testGetUInt64)
+{
+  rbusProperty_t prop1 = rbusProperty_InitUInt64("prop1",123456789012);
+  rbusProperty_SetUInt64(prop1, 456789012345);
+  EXPECT_EQ(rbusProperty_GetUInt64(prop1), 456789012345);
+  rbusProperty_Release(prop1);
+}
+
+TEST(rbusPropertyTest, testGetInt64)
+{
+  rbusProperty_t prop1 = rbusProperty_InitInt64("prop1",-123456789012);
+  rbusProperty_SetUInt64(prop1, -456789012345);
+  EXPECT_EQ(rbusProperty_GetUInt64(prop1), -456789012345);
+  rbusProperty_Release(prop1);
+}
+
+TEST(rbusPropertyTest, testGetSingle)
+{
+  rbusProperty_t prop1 = rbusProperty_InitSingle("prop1",354.678f);
+  rbusProperty_SetSingle(prop1, -354.678f);
+  EXPECT_EQ(rbusProperty_GetSingle(prop1), -354.678f);
+  rbusProperty_Release(prop1);
+}
+
+TEST(rbusPropertyTest, testGetDouble)
+{
+  rbusProperty_t prop1 = rbusProperty_InitDouble("prop1",-789.4738291023);
+  rbusProperty_SetDouble(prop1, -789.4738291023);
+  EXPECT_EQ(rbusProperty_GetDouble(prop1), -789.4738291023);
+  rbusProperty_Release(prop1);
+}
+
+TEST(rbusPropertyTest, testGetProperty)
+{
+  rbusProperty_t prop;
+  rbusProperty_Init(&prop, "MyProp", NULL);
+  rbusProperty_t prop1;
+  rbusProperty_Init(&prop1, "MyProp1", NULL);
+  rbusProperty_t prop2 = rbusProperty_InitProperty("MyProp2",prop);
+  rbusProperty_SetProperty(prop2, prop1);
+  EXPECT_EQ(rbusProperty_GetProperty(prop2), prop1);
+  rbusProperty_Releases(3, prop,prop1,prop2);
+}
+
+TEST(rbusPropertyTest, testGetObject)
+{
+  rbusObject_t obj;
+  rbusObject_Init(&obj, "MyObj");
+  rbusObject_t obj1;
+  rbusObject_Init(&obj1, "MyObj1");
+  rbusProperty_t obj2 = rbusProperty_InitObject("MyProp2",obj);
+  rbusProperty_SetObject(obj2, obj1);
+  EXPECT_STREQ(rbusObject_GetName(rbusProperty_GetObject(obj2)), "MyObj1");
+  rbusObject_Releases(2, obj,obj1);
+  rbusProperty_Release(obj2);
+}
+
+TEST(rbusPropertyTest, testGetChar)
+{
+  rbusProperty_t prop1 = rbusProperty_InitChar("prop1", -123);
+  rbusProperty_SetChar(prop1, 123);
+  EXPECT_EQ(rbusProperty_GetChar(prop1), 123);
+  rbusProperty_Release(prop1);
+}
+
+TEST(rbusPropertyTest, testGetByte)
+{
+  rbusProperty_t prop1 = rbusProperty_InitByte("prop1", 250);
+  rbusProperty_SetChar(prop1, 130);
+  unsigned char s = rbusProperty_GetChar(prop1);
+  EXPECT_EQ(s, 130);
+  rbusProperty_Release(prop1);
+}
