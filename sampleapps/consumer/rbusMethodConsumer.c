@@ -109,8 +109,6 @@ int main(int argc, char *argv[])
         value2=rbusObject_GetValue(outParams, "error_string");
         rbusValue_fwrite(value1, 1, stdout);
         rbusValue_fwrite(value2, 1, stdout);
-        rbusValue_Release(value1);
-        rbusValue_Release(value2);
         rbusObject_Release(outParams);
     }
 
