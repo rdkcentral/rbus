@@ -104,8 +104,6 @@ int main(int argc, char *argv[])
 
     if(rc != RBUS_ERROR_SUCCESS)
     {
-        rbusObject_GetValue(outParams, "error_code");
-        rbusObject_GetValue(outParams, "error_string");
         rbusObject_fwrite(outParams, 1, stdout);
         rbusObject_Release(outParams);
     }
