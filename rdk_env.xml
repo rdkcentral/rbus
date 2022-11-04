@@ -22,12 +22,12 @@
   <components>
 
     <rbus>
-     <dependencies>rdklogger, cjson, msgpack</dependencies>
+     <dependencies>linenoise, rdklogger, cjson, msgpack</dependencies>
      <is_coverity_supported>True</is_coverity_supported>
     </rbus>
 
     <xwrbus>
-     <dependencies>xwrdklogger, xwmsgpack, xwcjson</dependencies>
+     <dependencies>xwlinenoise, xwrdklogger, xwmsgpack, xwcjson</dependencies>
      <paths>
       <scripts>xw/rbus/</scripts>
       <target>xw/rbus/</target>

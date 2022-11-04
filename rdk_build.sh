@@ -70,7 +70,7 @@ fi
 
 #export COMP_BASE_PATH=${RDK_SCRIPTS_PATH%/*}
 export COMP_BASE_PATH=${RDK_SCRIPTS_PATH}/../
-export SEARCH_PATH="$RDK_FSROOT_PATH/usr;$RDK_FSROOT_PATH/usr/local"
+export SEARCH_PATH="$RDK_FSROOT_PATH/usr;$RDK_FSROOT_PATH/usr/local;$RDK_FSROOT_PATH/usr/include"
 export INSTALL_PATH=$RDK_FSROOT_PATH/usr
 
 #The cross compile tools are exported already in XHB1;lets avoid only that (Because SOURCETOOLCHAIN is not exported in XHB1)
@@ -121,7 +121,7 @@ done
 ARGS=$@
 
 # functional modules
-export CFLAGS=" -Wno-format-truncation "
+export CFLAGS=" -Wno-format-truncation -I${RDK_PROJECT_ROOT_PATH}/rdklogger/include -I${RDK_FSROOT_PATH}/usr/include"
 function configure()
 {
     pd=`pwd`
