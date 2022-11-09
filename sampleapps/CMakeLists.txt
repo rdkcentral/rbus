@@ -93,6 +93,10 @@ add_executable(rbusMessageSender message/rbusMessageSender.c)
 add_dependencies(rbusMessageSender rbus)
 target_link_libraries(rbusMessageSender rbus)
 
+add_executable(rbusOpenTelemetry consumer/rbusOpenTelemetry.c)
+add_dependencies(rbusOpenTelemetry rbus)
+target_link_libraries(rbusOpenTelemetry rbus)
+
 
 install (TARGETS 
     rbusSampleProvider
@@ -110,6 +114,7 @@ install (TARGETS
     rbusValueChangeConsumer
     rbusMessageListener
     rbusMessageSender
+    rbusOpenTelemetry
     RUNTIME DESTINATION bin)
 
 endif (BUILD_RBUS_SAMPLE_APPS)
