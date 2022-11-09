@@ -24,6 +24,8 @@ include_directories(${PROJECT_SOURCE_DIR}/src/core)
 include_directories(${PROJECT_SOURCE_DIR}/src/rtmessage)
 include_directories(${PROJECT_SOURCE_DIR}/src/session_manager)
 
+string(REPLACE "-Werror" "" CMAKE_CXX_FLAGS_DEBUG ${CMAKE_CXX_FLAGS_DEBUG})
+string(REPLACE "-Werror" "" CMAKE_CXX_FLAGS_RELEASE ${CMAKE_CXX_FLAGS_RELEASE})
 if (NOT GTEST_INCLUDE_DIR)
     message("Warning GTest wasn't found. GTest library will be built.")
     include(ExternalProject)
