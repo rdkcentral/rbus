@@ -105,8 +105,12 @@ if (BUILD_RBUS_DAEMON)
     target_link_libraries(rtrouted rtMessage)
 
     if (INCLUDE_BREAKPAD)
-      add_dependencies(rtrouted ${BREAKPAD_PATH})
-      target_link_libraries(rtrouted -lbreakpadwrap)
+      add_dependencies(rtrouted breakpad)
+      if (RDKC_BUILD)
+        target_link_libraries(rtrouted -lbreakpadwrap)
+      else ()
+        target_link_libraries(rtrouted -lbreakpadwrapper)
+      endif (RDKC_BUILD)
     endif (INCLUDE_BREAKPAD)
 
     # rtrouted_diag
