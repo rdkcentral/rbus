@@ -2139,10 +2139,7 @@ rbusCoreError_t unsubscribeOnevent(const char * path);
 
 rbuscore_bus_status_t rbuscore_checkBusStatus(void)
 {
-#ifdef RBUS_ALWAYS_ON
-    RBUSCORELOG_INFO ("RBus Enabled");
-    return RBUSCORE_ENABLED;
-#else
+#ifdef RBUS_SUPPORT_DISABLING
     if(0 != access("/nvram/rbus_disable", F_OK))
     {
         RBUSCORELOG_INFO ("Currently RBus Enabled");
@@ -2153,7 +2150,10 @@ rbuscore_bus_status_t rbuscore_checkBusStatus(void)
         RBUSCORELOG_INFO ("Currently RBus Disabled");
         return RBUSCORE_DISABLED;
     }
-#endif /* RBUS_ALWAYS_ON */
+#else
+    RBUSCORELOG_INFO ("RBus Enabled");
+    return RBUSCORE_ENABLED;
+#endif /* RBUS_SUPPORT_DISABLING */
 }
 
 rbusCoreError_t rbus_sendResponse(const rtMessageHeader* hdr, rbusMessage response)
