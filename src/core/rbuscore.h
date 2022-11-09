@@ -30,6 +30,11 @@
 #define MAX_EVENT_NAME_LENGTH MAX_OBJECT_NAME_LENGTH
 #define MAX_SUPPORTED_METHODS 32
 #define MAX_REGISTERED_OBJECTS 64
+#define RBUS_OPEN_TELEMETRY_DATA_MAX 512
+
+void rbus_getOpenTelemetryContext(const char **s, const char **t);
+void rbus_setOpenTelemetryContext(const char *s, const char *t);
+void rbus_clearOpenTelemetryContext();
 
 #ifdef __cplusplus
 extern "C" {
