@@ -227,10 +227,14 @@ TEST_F(MultipleServerTest, rbus_multipleServer_test1)
     if(is_parent)
     {
         sleep(2);
-        conn_status = OPEN_BROKER_CONNECTION2(client_name);
         int num_comps;
         char** components;
-        rbusCoreError_t err = rbus_discoverRegisteredComponents(&num_comps, &components);
+        rbusCoreError_t err;
+        //Neg test discover Registered components without connection
+        err = rbus_discoverRegisteredComponents(&num_comps, &components);
+        EXPECT_EQ(err, RBUSCORE_ERROR_INVALID_STATE) << "rbus_discoverRegisteredComponents failed";
+        conn_status = OPEN_BROKER_CONNECTION2(client_name);
+        err = rbus_discoverRegisteredComponents(&num_comps, &components);
         EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_discoverRegisteredComponents failed";
         std::vector <std::string> object_list;
         if(RBUSCORE_SUCCESS == err)

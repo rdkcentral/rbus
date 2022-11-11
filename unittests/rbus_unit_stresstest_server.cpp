@@ -828,7 +828,13 @@ TEST_F(StressTestServer, rbusMessage_GetElementsAddedByObject_test1)
     else if (pid > 0)
     {
         sleep(2);
+        //Neg test discovering Object before connection
+        err = rbus_discoverObjectElements("test.", NULL, &objects);
+        EXPECT_EQ(err, RBUSCORE_ERROR_INVALID_STATE) << "rbusMessage_discoverObjectElements failed";
         conn_status = OPEN_BROKER_CONNECTION(client_name);
+        //Neg test passing NULL as count
+        err = rbus_discoverObjectElements("test.", NULL, &objects);
+        EXPECT_EQ(err, RBUSCORE_ERROR_INVALID_PARAM) << "rbusMessage_discoverObjectElements failed";
         err = rbus_discoverObjectElements("test.", &num_objects, &objects);
         EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbusMessage_discoverObjectElements failed";
 
@@ -1836,6 +1842,12 @@ TEST_F(StressTestServer, rbus_registerSubscribeHandler_test1)
         conn_status = OPEN_BROKER_CONNECTION(client_name);
         err = rbus_registerObj(server_obj, callback, NULL);
         EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_registerObj failed";
+        //Neg test passing object name as NULL
+        err = rbus_registerSubscribeHandler(NULL, event_subscribe_callback, NULL);
+        EXPECT_EQ(err,RBUSCORE_ERROR_INVALID_PARAM) << "rbus_registerSubscribeHandler failed";
+        //Neg test passing invalid object name
+        err = rbus_registerSubscribeHandler("obj_name", event_subscribe_callback, NULL);
+        EXPECT_EQ(err,RBUSCORE_ERROR_INVALID_PARAM) << "rbus_registerSubscribeHandler failed";
         err = rbus_registerSubscribeHandler(server_obj, event_subscribe_callback, NULL);
         EXPECT_EQ(err,RBUSCORE_SUCCESS) << "rbus_registerSubscribeHandler failed";
         if(conn_status)
