@@ -44,6 +44,21 @@ static const char * DEFAULT_EVENT = "";
 /* End constant definitions.*/
 
 /* Begin type definitions.*/
+typedef struct _rbusOpenTelemetryContext
+{
+  char otTraceParent[RBUS_OPEN_TELEMETRY_DATA_MAX];
+  char otTraceState[RBUS_OPEN_TELEMETRY_DATA_MAX];
+} rbusOpenTelemetryContext;
+
+static pthread_once_t _open_telemetry_once = PTHREAD_ONCE_INIT;
+static pthread_key_t  _open_telemetry_key;
+static rbusOpenTelemetryContext* rbus_getOpenTelemetryContextFromThreadLocal();
+
+static void rbus_init_open_telemeetry_thread_specific_key()
+{
+  pthread_key_create(&_open_telemetry_key, NULL);
+}
+
 
 /* Begin rbus_server */
 
@@ -366,12 +381,43 @@ static void perform_cleanup()
     unlock();
 }
 
-rbusCoreError_t set_message_method(rbusMessage msg, const char *method)
+
+void _rbusMessage_SetMetaInfo(rbusMessage m,
+  char const *method_name,
+  char const *ot_parent,
+  char const *ot_state)
 {
-    rbusMessage_BeginMetaSectionWrite(msg);
-    rbusMessage_SetString(msg, method);
-    rbusMessage_EndMetaSectionWrite(msg);
-	  return RBUSCORE_SUCCESS;
+  rbusMessage_BeginMetaSectionWrite(m);
+  rbusMessage_SetString(m, method_name);
+  rbusMessage_SetString(m, ot_parent);
+  rbusMessage_SetString(m, ot_state);
+  rbusMessage_EndMetaSectionWrite(m);
+
+  #if 0
+  printf("set metainfo\n");
+  printf("\tmethod_name:%s\n", method_name);
+  printf("\tot_parent  :%s\n", ot_parent);
+  printf("\tot_state   :%s\n", ot_state);
+  #endif
+}
+
+void _rbusMessage_GetMetaInfo(rbusMessage m,
+  char const **method_name,
+  char const **ot_parent,
+  char const **ot_state)
+{
+  rbusMessage_BeginMetaSectionRead(m);
+  rbusMessage_GetString(m, method_name);
+  rbusMessage_GetString(m, ot_parent);
+  rbusMessage_GetString(m, ot_state);
+  rbusMessage_EndMetaSectionRead(m);
+
+  #if 0
+  printf("get metainfo\n");
+  printf("\tmethod_name:%s\n", *method_name);
+  printf("\tot_parent  :%s\n", *ot_parent);
+  printf("\tot_state   :%s\n", *ot_state);
+  #endif
 }
 
 static server_object_t get_object(const char * object_name)
@@ -391,12 +437,14 @@ static void dispatch_method_call(rbusMessage msg, const rtMessageHeader *hdr, se
 {
     rtError err = RT_OK;
     const char* method_name = NULL;
+    const char* traceParent = NULL;
+    const char* traceState = NULL;
     rbusMessage response = NULL;
     bool handler_invoked = false;
-    
-    rbusMessage_BeginMetaSectionRead(msg);
-    err = rbusMessage_GetString(msg, &method_name);
-    rbusMessage_EndMetaSectionRead(msg);
+
+    _rbusMessage_GetMetaInfo(msg, &method_name, &traceParent, &traceState);
+    rbus_setOpenTelemetryContext(traceParent, traceState);
+
     lock();
     if( rtVector_Size(obj->methods) > 0 && RT_OK == err)
     {
@@ -999,6 +1047,11 @@ rbusCoreError_t rbus_invokeRemoteMethod(const char * object_name, const char *me
     rtError err = RT_OK;
     rbusCoreError_t ret = RBUSCORE_SUCCESS;
 
+    char const *traceParent = NULL;
+    char const *traceState = NULL;
+
+    rbus_getOpenTelemetryContext(&traceParent, &traceState);
+
     if(NULL == g_connection)
     {
         RBUSCORELOG_ERROR("Not connected.");
@@ -1015,7 +1068,8 @@ rbusCoreError_t rbus_invokeRemoteMethod(const char * object_name, const char *me
     if(NULL == out)
         rbusMessage_Init(&out);
 
-    set_message_method(out, method);
+    _rbusMessage_SetMetaInfo(out, method, traceParent, traceState);
+
     err = rbus_sendRequest(g_connection, out, object_name, in, timeout_millisecs);
     if(RT_OK != err)
     {
@@ -2139,10 +2193,7 @@ rbusCoreError_t unsubscribeOnevent(const char * path);
 
 rbuscore_bus_status_t rbuscore_checkBusStatus(void)
 {
-#ifdef RBUS_ALWAYS_ON
-    RBUSCORELOG_INFO ("RBus Enabled");
-    return RBUSCORE_ENABLED;
-#else
+#ifdef RBUS_SUPPORT_DISABLING
     if(0 != access("/nvram/rbus_disable", F_OK))
     {
         RBUSCORELOG_INFO ("Currently RBus Enabled");
@@ -2153,7 +2204,10 @@ rbuscore_bus_status_t rbuscore_checkBusStatus(void)
         RBUSCORELOG_INFO ("Currently RBus Disabled");
         return RBUSCORE_DISABLED;
     }
-#endif /* RBUS_ALWAYS_ON */
+#else
+    RBUSCORELOG_INFO ("RBus Enabled");
+    return RBUSCORE_ENABLED;
+#endif /* RBUS_SUPPORT_DISABLING */
 }
 
 rbusCoreError_t rbus_sendResponse(const rtMessageHeader* hdr, rbusMessage response)
@@ -2171,7 +2225,8 @@ rbusCoreError_t rbus_sendResponse(const rtMessageHeader* hdr, rbusMessage respon
             rbusMessage_Init(&response);
             rbusMessage_SetInt32(response, RBUSCORE_ERROR_UNSUPPORTED_METHOD);
         }
-        set_message_method(response, METHOD_RESPONSE);
+
+        _rbusMessage_SetMetaInfo(response, METHOD_RESPONSE, NULL, NULL);
 
         rbusMessage_ToBytes(response, &data, &dataLength);
 
@@ -2182,6 +2237,90 @@ rbusCoreError_t rbus_sendResponse(const rtMessageHeader* hdr, rbusMessage respon
         rbusMessage_Release(response);
     }
     return err == RT_OK ? RBUSCORE_SUCCESS : RBUSCORE_ERROR_GENERAL;
+}
+
+rbusOpenTelemetryContext*
+rbus_getOpenTelemetryContextFromThreadLocal()
+{
+    pthread_once(&_open_telemetry_once, &rbus_init_open_telemeetry_thread_specific_key);
+
+    rbusOpenTelemetryContext* ot_ctx = (rbusOpenTelemetryContext *) pthread_getspecific(_open_telemetry_key);
+    if (!ot_ctx)
+    {
+        ot_ctx = malloc(sizeof(rbusOpenTelemetryContext));
+        if (ot_ctx)
+        {
+            memset(ot_ctx->otTraceParent, 0, sizeof(ot_ctx->otTraceParent));
+            memset(ot_ctx->otTraceState, 0, sizeof(ot_ctx->otTraceState));
+            pthread_setspecific(_open_telemetry_key, ot_ctx);
+        }
+    }
+
+    return ot_ctx;
+}
+
+void rbus_getOpenTelemetryContext(const char **traceParent, const char **traceState)
+{
+    rbusOpenTelemetryContext* ot_ctx = rbus_getOpenTelemetryContextFromThreadLocal();
+
+    *traceParent = &ot_ctx->otTraceParent[0];
+    *traceState = &ot_ctx->otTraceState[0];
+}
+
+void rbus_clearOpenTelemetryContext()
+{
+    rbusOpenTelemetryContext *ot_ctx = rbus_getOpenTelemetryContextFromThreadLocal();
+    ot_ctx->otTraceParent[0] = '\0';
+    ot_ctx->otTraceState[0] = '\0';
+}
+
+void rbus_setOpenTelemetryContext(const char *traceParent, const char *traceState)
+{
+    rbusOpenTelemetryContext *ot_ctx = rbus_getOpenTelemetryContextFromThreadLocal();
+
+    if (traceParent)
+    {
+        // The http header form looks like
+        // traceparent: 00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01
+        // If the caller includes the "traceparent:" part, let's trim it off
+        char const* s = strchr(traceParent, ':');
+        if (s) {
+            s++;
+            while (s && *s && isspace(*s))
+                s++;
+        }
+        else
+            s = traceParent;
+
+        if (s && strlen(s) > 0)
+            strncpy(ot_ctx->otTraceParent, s, RBUS_OPEN_TELEMETRY_DATA_MAX - 1);
+
+        ot_ctx->otTraceParent[RBUS_OPEN_TELEMETRY_DATA_MAX - 1] = '\0';
+    }
+    else
+        ot_ctx->otTraceParent[0] = '\0';
+
+    if (traceState)
+    {
+        // The http header form looks like
+        // tracestate: congo=t61rcWkgMzE
+        // If the caller includes the "tracestate:", then let's trim it off
+        char const *s = strchr(traceState, ':');
+        if (s) {
+            s++;
+            while (s && *s && isspace(*s))
+                s++;
+        }
+        else
+            s = traceState;
+
+        if (s && strlen(s) > 0)
+            strncpy(ot_ctx->otTraceState, s, RBUS_OPEN_TELEMETRY_DATA_MAX - 1);
+
+        ot_ctx->otTraceState[RBUS_OPEN_TELEMETRY_DATA_MAX - 1] = '\0';
+    }
+    else
+        ot_ctx->otTraceState[0] = '\0';
 }
 
 /* End of File */

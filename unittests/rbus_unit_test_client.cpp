@@ -216,6 +216,7 @@ rbusCoreError_t CREATE_SESSION()
         ret = RBUSCORE_ERROR_DESTINATION_UNREACHABLE;
         return ret;
     }
+    return ret;
 }
 
 rbusCoreError_t PRINT_CURRENT_SESSION_ID()
@@ -252,6 +253,7 @@ rbusCoreError_t PRINT_CURRENT_SESSION_ID()
         ret = RBUSCORE_ERROR_DESTINATION_UNREACHABLE;
         return ret;
     }
+    return ret;
 }
 
 rbusCoreError_t END_SESSION(int session)
@@ -286,6 +288,7 @@ rbusCoreError_t END_SESSION(int session)
         ret = RBUSCORE_ERROR_DESTINATION_UNREACHABLE;
         return ret;
     }
+    return ret;
 }
 
 TEST_F(TestClient, sample_test)
