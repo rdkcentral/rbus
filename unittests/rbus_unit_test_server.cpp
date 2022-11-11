@@ -237,6 +237,9 @@ TEST_F(TestServer, rbus_openBrokerConnection_test2)
         EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_openBrokerConnection failed to return error on duplicate connection attempt";
 
         RBUS_CLOSE_BROKER_CONNECTION(RBUSCORE_SUCCESS);
+        //Neg test calling rbus_closeBrokerConnection again
+        err = rbus_closeBrokerConnection();
+        EXPECT_EQ(err, RBUSCORE_ERROR_INVALID_STATE) << "rbus_closeBrokerConnection failed";
     }
     return;
 }
@@ -330,6 +333,9 @@ TEST_F(TestServer, rbus_registerObj_test2)
     char obj_name[20] = "test_server_1.obj1";
     rbusCoreError_t err = RBUSCORE_SUCCESS;
 
+    //Neg test registering object without establishing connection
+    err = rbus_registerObj(obj_name, callback, NULL);
+    EXPECT_EQ(err, RBUSCORE_ERROR_INVALID_STATE) << "rbus_registerObj failed";
     CREATE_RBUS_SERVER_REG_OBJECT(counter);
     /*Registering a new object with same name*/
     err = rbus_registerObj(obj_name, callback, NULL);
@@ -457,6 +463,19 @@ TEST_F(TestServer, rbus_registerObjNameCheck_test5)
     memset(obj_name, 't', ( sizeof(obj_name) - 2));
     err = rbus_registerObj(obj_name, callback, NULL);
     EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_registerObj failed";
+    RBUS_CLOSE_BROKER_CONNECTION(RBUSCORE_SUCCESS);
+    return;
+}
+
+TEST_F(TestServer, rbus_registerObjNameCheck_test6)
+{
+    int counter = 1;
+    rbusCoreError_t err = RBUSCORE_SUCCESS;
+
+    CREATE_RBUS_SERVER_REG_OBJECT(counter);
+    //Neg test passing NULL value as obj_name
+    err = rbus_registerObj(NULL, callback, NULL);
+    EXPECT_EQ(err, RBUSCORE_ERROR_INVALID_PARAM) << "rbus_registerObj failed";
     RBUS_CLOSE_BROKER_CONNECTION(RBUSCORE_SUCCESS);
     return;
 }
@@ -640,7 +659,6 @@ TEST_F(TestServer, rbus_registerMethod_test3)
        err = rbus_registerMethod(obj_name, buffer, handle_set1,NULL);
        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_registerMethod failed";
     }
-
     printf("Unregistering method %s \n", buffer);
     err = rbus_unregisterMethod(obj_name, buffer);
     EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_unregisterMethod failed";
@@ -740,7 +758,12 @@ TEST_F(TestServer, rbus_registerMethod_test7)
     //printf("Registering method %s \n", buffer);
     err = rbus_registerMethod(obj_name, buffer, handle_set1, NULL);
     EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_registerMethod failed";
-
+    //Neg test passing invalid method name
+    err = rbus_unregisterMethod(obj_name, "method_1");
+    EXPECT_EQ(err, RBUSCORE_ERROR_GENERAL) << "rbus_unregisterMethod failed";
+    //Neg test passing invalid object name
+    err = rbus_unregisterMethod("Device.Obj", buffer);
+    EXPECT_EQ(err, RBUSCORE_ERROR_INVALID_PARAM) << "rbus_unregisterMethod failed";
     err = rbus_registerMethod(obj_name, buffer, handle_get1, NULL);
     EXPECT_EQ(err, RBUSCORE_ERROR_INVALID_PARAM) << "rbus_registerMethod failed";
 
@@ -820,7 +843,8 @@ TEST_F(TestServer, rbus_registerMethodTable_test2)
                                            {"METHOD_31", NULL, handle_set1}, {"METHOD_32", NULL, handle_get1}};
     err = rbus_registerMethodTable(obj_name, table, 32);
     EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_registerMethodTable failed";
-
+    err = rbus_unregisterMethodTable(obj_name, table, 32);
+    EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_unregisterMethodTable failed";
     RBUS_CLOSE_BROKER_CONNECTION(RBUSCORE_SUCCESS);
     return;
 }
@@ -952,6 +976,38 @@ TEST_F(TestServer, rbus_registerMethodTable_test6)
     err = rbus_registerMethodTable(obj_name, table, 32);
     EXPECT_EQ(err, RBUSCORE_ERROR_INVALID_PARAM) << "rbus_registerMethodTable failed";
 
+    RBUS_CLOSE_BROKER_CONNECTION(RBUSCORE_SUCCESS);
+    return;
+}
+
+TEST_F(TestServer, rbus_removeElement_test1)
+{
+    int counter = 1;
+    char server_obj[] = "test_server_1.obj1";
+    char obj_name[130];
+    char server_element[] = "server_element1";
+    bool conn_status = false;
+    char test_string[] = "rbus_client_test_string";
+    rbusCoreError_t err = RBUSCORE_SUCCESS;
+
+    //Neg test adding element before establishing connection
+    err = rbus_addElement(server_obj,server_element);
+    EXPECT_EQ(err, RBUSCORE_ERROR_INVALID_STATE) << "rbus_addElement failed";
+    //Neg test removing element before establishing connection
+    err = rbus_removeElement(server_obj,server_element);
+    EXPECT_EQ(err, RBUSCORE_ERROR_INVALID_STATE) << "rbus_removeElement failed";
+    CREATE_RBUS_SERVER(counter);
+    err = rbus_addElement(server_obj,server_element);
+    EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_addElement failed";
+    //Neg test passing NULL as object name
+    err = rbus_removeElement(NULL,server_element);
+    EXPECT_EQ(err, RBUSCORE_ERROR_INVALID_PARAM) << "rbus_removeElement failed";
+    //Neg test with too long object Name
+    memset(obj_name, 'o', (sizeof(obj_name)- 1));
+    err = rbus_removeElement(obj_name,server_element);
+    EXPECT_EQ(err, RBUSCORE_ERROR_INVALID_PARAM) << "rbus_removeElement failed";
+    err = rbus_removeElement(server_obj,server_element);
+    EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_removeElement failed";
     RBUS_CLOSE_BROKER_CONNECTION(RBUSCORE_SUCCESS);
     return;
 }
