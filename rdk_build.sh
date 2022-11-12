@@ -49,6 +49,7 @@ export RDK_TOOLCHAIN_PATH=${RDK_TOOLCHAIN_PATH-`readlink -m $RDK_PROJECT_ROOT_PA
 # default component name
 export RDK_COMPONENT_NAME=${RDK_COMPONENT_NAME-`basename $RDK_SOURCE_PATH`}
 export RDK_DIR=$RDK_PROJECT_ROOT_PATH
+export RDK_DUMP_SYMS=${RDK_PROJECT_ROOT_PATH}/utility/prebuilts/breakpad-prebuilts/x86/dump_syms
 
 if [ "$XCAM_MODEL" == "SCHC2" ]; then
     if [ "$RDK_COMPONENT_NAME" == "xwrbus" ]; then
@@ -126,21 +127,30 @@ function configure()
 {
     pd=`pwd`
     echo "rbus Compiling started"
-    mkdir -p ${RDK_PROJECT_ROOT_PATH}/rbus/build
-    cd ${RDK_PROJECT_ROOT_PATH}/rbus/build
-
+    mkdir -p ${RDK_PROJECT_ROOT_PATH}/opensource/src/rbus/build
+    cd ${RDK_PROJECT_ROOT_PATH}/opensource/src/rbus/build
     cmake -DCMAKE_INSTALL_PREFIX=${INSTALL_PATH} -DCMAKE_PREFIX_PATH=${SEARCH_PATH} -DENABLE_RDKLOGGER=OFF -DCMAKE_EXE_LINKER_FLAGS="-Wl,-rpath-link,${RDK_FSROOT_PATH}/usr/lib" ..
 }
 
 function clean()
 {
-    rm -rf ${RDK_PROJECT_ROOT_PATH}/rbus/build
+    rm -rf ${RDK_PROJECT_ROOT_PATH}/opensource/src/rbus/build
 }
 
 function build()
 {
-    cd ${RDK_PROJECT_ROOT_PATH}/rbus/build
+    cd ${RDK_PROJECT_ROOT_PATH}/opensource/src/rbus/build
     make
+    $RDK_DUMP_SYMS src/rtmessage/librtMessage.so > src/rtmessage/librtMessage.so.sym
+    $RDK_DUMP_SYMS src/rtmessage/rtrouted > src/rtmessage/rtrouted.sym
+    mv src/rtmessage/*.sym $RDK_PROJECT_ROOT_PATH/sdk/fsroot/syms
+
+    $STRIP src/rtmessage/rtrouted
+
+    cp -f src/rtmessage/librt* ${RDK_PROJECT_ROOT_PATH}/opensource/lib
+    cp -f src/rtmessage/rtrouted ${RDK_PROJECT_ROOT_PATH}/opensource/bin
+    cp -f ${RDK_PROJECT_ROOT_PATH}/opensource/src/rbus/src/rtmessage/rtrouted_default.conf ${RDK_FSROOT_PATH}/etc/rtrouted.conf
+    cd -
 }
 
 function rebuild()
@@ -152,7 +162,7 @@ function rebuild()
 
 function install()
 {
-    cd ${RDK_PROJECT_ROOT_PATH}/rbus/build
+    cd ${RDK_PROJECT_ROOT_PATH}/opensource/src/rbus/build
     make install
 }
 
