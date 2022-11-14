@@ -44,6 +44,7 @@ export RDK_TARGET_PATH=${RDK_TARGET_PATH-$RDK_SOURCE_PATH}
 
 # fsroot and toolchain (valid for all devices)
 export RDK_FSROOT_PATH=${RDK_FSROOT_PATH-`readlink -m $RDK_PROJECT_ROOT_PATH/sdk/fsroot/ramdisk`}
+export RDK_XW_FSROOT_PATH=${RDK_FSROOT_PATH-`readlink -m $RDK_PROJECT_ROOT_PATH/xw/sdk/fsroot/ramdisk`}
 export RDK_TOOLCHAIN_PATH=${RDK_TOOLCHAIN_PATH-`readlink -m $RDK_PROJECT_ROOT_PATH/sdk/toolchain/staging_dir`}
 
 # default component name
@@ -72,7 +73,7 @@ fi
 #export COMP_BASE_PATH=${RDK_SCRIPTS_PATH%/*}
 export COMP_BASE_PATH=${RDK_SCRIPTS_PATH}/../
 export SEARCH_PATH="$RDK_FSROOT_PATH/usr;$RDK_FSROOT_PATH/usr/local;$RDK_FSROOT_PATH/usr/include"
-export INSTALL_PATH=$RDK_FSROOT_PATH/usr
+export INSTALL_PATH="$RDK_FSROOT_PATH/usr;$RDK_XW_FSROOT_PATH/usr"
 
 #The cross compile tools are exported already in XHB1;lets avoid only that (Because SOURCETOOLCHAIN is not exported in XHB1)
 if [ "$XCAM_MODEL" != "XHB1" ]; then
@@ -122,7 +123,7 @@ done
 ARGS=$@
 
 # functional modules
-export CFLAGS=" -Wno-format-truncation -I${RDK_PROJECT_ROOT_PATH}/rdklogger/include -I${RDK_FSROOT_PATH}/usr/include"
+export CFLAGS=" -Wno-format-truncation -I${RDK_FSROOT_PATH}/usr/include"
 function configure()
 {
     pd=`pwd`

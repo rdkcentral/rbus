@@ -24,14 +24,19 @@
     <rbus>
      <dependencies>linenoise, rdklogger, cjson, msgpack</dependencies>
      <is_coverity_supported>True</is_coverity_supported>
+     <paths>
+        <scripts>opensource/src/rbus/</scripts>
+        <target>opensource/</target>
+        <source>opensource/src/rbus/</source>
+     </paths>
     </rbus>
 
     <xwrbus>
      <dependencies>xwlinenoise, xwrdklogger, xwmsgpack, xwcjson</dependencies>
      <paths>
-      <scripts>xw/rbus/</scripts>
-      <target>xw/rbus/</target>
-      <source>xw/rbus</source>
+      <scripts>xw/opensource/src/rbus/</scripts>
+      <target>xw/opensource/</target>
+      <source>xw/opensource/src/rbus/</source>
      </paths>
      <is_coverity_supported>True</is_coverity_supported>
     </xwrbus>
