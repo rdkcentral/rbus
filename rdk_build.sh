@@ -73,7 +73,7 @@ fi
 #export COMP_BASE_PATH=${RDK_SCRIPTS_PATH%/*}
 export COMP_BASE_PATH=${RDK_SCRIPTS_PATH}/../
 export SEARCH_PATH="$RDK_FSROOT_PATH/usr;$RDK_FSROOT_PATH/usr/local;$RDK_FSROOT_PATH/usr/include"
-export INSTALL_PATH="$RDK_FSROOT_PATH/usr;$RDK_XW_FSROOT_PATH/usr"
+export INSTALL_PATH="$RDK_FSROOT_PATH/usr:$RDK_XW_FSROOT_PATH/usr"
 
 #The cross compile tools are exported already in XHB1;lets avoid only that (Because SOURCETOOLCHAIN is not exported in XHB1)
 if [ "$XCAM_MODEL" != "XHB1" ]; then
