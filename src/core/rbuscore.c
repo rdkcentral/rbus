@@ -56,7 +56,7 @@ static rbusOpenTelemetryContext* rbus_getOpenTelemetryContextFromThreadLocal();
 
 static void rbus_init_open_telemeetry_thread_specific_key()
 {
-  pthread_key_create(&_open_telemetry_key, NULL);
+  pthread_key_create(&_open_telemetry_key, free);
 }
 
 

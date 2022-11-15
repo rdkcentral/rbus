@@ -524,8 +524,8 @@ void rbusObject_appendToMessage(rbusObject_t obj, rbusMessage msg)
 
 void rbusObject_initFromMessage(rbusObject_t* obj, rbusMessage msg)
 {
-    char const* name;
-    int type;
+    char const* name = NULL;
+    int type = 0;
     int numChild = 0;
     rbusProperty_t prop;
     rbusObject_t children=NULL, previous=NULL;
