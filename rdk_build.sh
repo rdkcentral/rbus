@@ -51,14 +51,17 @@ export RDK_TOOLCHAIN_PATH=${RDK_TOOLCHAIN_PATH-`readlink -m $RDK_PROJECT_ROOT_PA
 export RDK_COMPONENT_NAME=${RDK_COMPONENT_NAME-`basename $RDK_SOURCE_PATH`}
 export RDK_DIR=$RDK_PROJECT_ROOT_PATH
 export RDK_DUMP_SYMS=${RDK_PROJECT_ROOT_PATH}/utility/prebuilts/breakpad-prebuilts/x86/dump_syms
+export INSTALL_PATH="$RDK_FSROOT_PATH/usr"
 
 if [ "$XCAM_MODEL" == "SCHC2" ]; then
     if [ "$RDK_COMPONENT_NAME" == "xwrbus" ]; then
         echo "Setting environmental variables and Pre rule makefile for xw-xCam2"
         source ${RDK_PROJECT_ROOT_PATH}/build/components/realtek/sdk/setenv2
+        export INSTALL_PATH="$RDK_XW_FSROOT_PATH/usr"
     else
         echo "Setting environmental variables and Pre rule makefile for xCam2"
         source ${RDK_PROJECT_ROOT_PATH}/build/components/amba/sdk/setenv2
+        export INSTALL_PATH="$RDK_FSROOT_PATH/usr"
     fi
 elif [ "$XCAM_MODEL" == "SERXW3" ] || [ "$XCAM_MODEL" == "SERICAM2" ] || [ "$XCAM_MODEL" == "XHB1" ]; then
     echo "Setting environmental variables and Pre rule makefile for xCam/iCam2/DBC"
@@ -73,7 +76,6 @@ fi
 #export COMP_BASE_PATH=${RDK_SCRIPTS_PATH%/*}
 export COMP_BASE_PATH=${RDK_SCRIPTS_PATH}/../
 export SEARCH_PATH="$RDK_FSROOT_PATH/usr;$RDK_FSROOT_PATH/usr/local;$RDK_FSROOT_PATH/usr/include"
-export INSTALL_PATH="$RDK_FSROOT_PATH/usr:$RDK_XW_FSROOT_PATH/usr"
 
 #The cross compile tools are exported already in XHB1;lets avoid only that (Because SOURCETOOLCHAIN is not exported in XHB1)
 if [ "$XCAM_MODEL" != "XHB1" ]; then
