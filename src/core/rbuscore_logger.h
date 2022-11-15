@@ -20,26 +20,12 @@
 #define __RBUS_CORE_LOG_H__
 
 #include <stdarg.h>
-
-#ifdef ENABLE_RDKLOGGER
-#include "rdk_debug.h"
-
-
-#define RBUSCORELOG_ERROR(format, ...)       RDK_LOG(RDK_LOG_ERROR,  "LOG.RDK.RBUSCORE", format"\n", ##__VA_ARGS__)
-#define RBUSCORELOG_WARN(format, ...)        RDK_LOG(RDK_LOG_WARN,   "LOG.RDK.RBUSCORE", format"\n", ##__VA_ARGS__)
-#define RBUSCORELOG_INFO(format, ...)        RDK_LOG(RDK_LOG_INFO,   "LOG.RDK.RBUSCORE", format"\n", ##__VA_ARGS__)
-#define RBUSCORELOG_DEBUG(format, ...)       RDK_LOG(RDK_LOG_DEBUG,  "LOG.RDK.RBUSCORE", format"\n", ##__VA_ARGS__)
-#define RBUSCORELOG_TRACE(format, ...)       RDK_LOG(RDK_LOG_TRACE1, "LOG.RDK.RBUSCORE", format"\n", ##__VA_ARGS__)
-
-#else
 #include "rtLog.h"
 
-#define RBUSCORELOG_ERROR(format...)        rtLog_Error(format)
-#define RBUSCORELOG_WARN(format...)         rtLog_Warn(format)
-#define RBUSCORELOG_INFO(format...)         rtLog_Info(format)
-#define RBUSCORELOG_DEBUG(format...)        rtLog_Debug(format)
-#define RBUSCORELOG_TRACE(format...)        rtLog_Trace(format)
-
-#endif /* ENABLE_RDKLOGGER */
+#define RBUSCORELOG_ERROR(format, ...)       rtLog_ErrorFmt("RBUSCORE", format"\n", ##__VA_ARGS__)
+#define RBUSCORELOG_WARN(format, ...)        rtLog_WarnFmt("RBUSCORE", format"\n", ##__VA_ARGS__)
+#define RBUSCORELOG_INFO(format, ...)        rtLog_InfoFmt("RBUSCORE", format"\n", ##__VA_ARGS__)
+#define RBUSCORELOG_DEBUG(format, ...)       rtLog_DebugFmt("RBUSCORE", format"\n", ##__VA_ARGS__)
+#define RBUSCORELOG_TRACE(format, ...)       rtLog_DebugFmt("RBUSCORE", format"\n", ##__VA_ARGS__)
 
 #endif  // __RBUS_CORE_LOG_H__

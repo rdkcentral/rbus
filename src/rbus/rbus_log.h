@@ -31,26 +31,13 @@
 #include <stdarg.h>
 #include "rtLog.h"
 
-#ifdef ENABLE_RDKLOGGER
-#include "rdk_debug.h"
+#define RBUSLOG_TRACE(format, ...)       rtLog_DebugFmt("RBUS", format"\n", ##__VA_ARGS__)
+#define RBUSLOG_DEBUG(format, ...)       rtLog_DebugFmt("RBUS", format"\n", ##__VA_ARGS__)
+#define RBUSLOG_INFO(format, ...)        rtLog_InfoFmt("RBUS", format"\n", ##__VA_ARGS__)
+#define RBUSLOG_WARN(format, ...)        rtLog_WarnFmt("RBUS", format"\n", ##__VA_ARGS__)
+#define RBUSLOG_ERROR(format, ...)       rtLog_ErrorFmt("RBUS", format"\n", ##__VA_ARGS__)
+#define RBUSLOG_FATAL(format, ...)       rtLog_FatalFmt("RBUS", format"\n", ##__VA_ARGS__)
 
-#define RBUSLOG_TRACE(format, ...)       RDK_LOG(RDK_LOG_TRACE1, "LOG.RDK.RBUS", format"\n", ##__VA_ARGS__)
-#define RBUSLOG_DEBUG(format, ...)       RDK_LOG(RDK_LOG_DEBUG,  "LOG.RDK.RBUS", format"\n", ##__VA_ARGS__)
-#define RBUSLOG_INFO(format, ...)        RDK_LOG(RDK_LOG_INFO,   "LOG.RDK.RBUS", format"\n", ##__VA_ARGS__)
-#define RBUSLOG_WARN(format, ...)        RDK_LOG(RDK_LOG_WARN,   "LOG.RDK.RBUS", format"\n", ##__VA_ARGS__)
-#define RBUSLOG_ERROR(format, ...)       RDK_LOG(RDK_LOG_ERROR,  "LOG.RDK.RBUS", format"\n", ##__VA_ARGS__)
-#define RBUSLOG_FATAL(format, ...)       RDK_LOG(RDK_LOG_FATAL,  "LOG.RDK.RBUS", format"\n", ##__VA_ARGS__)
-
-#else
-
-#define RBUSLOG_TRACE rtLog_Debug
-#define RBUSLOG_DEBUG rtLog_Debug
-#define RBUSLOG_INFO rtLog_Info
-#define RBUSLOG_WARN rtLog_Warn
-#define RBUSLOG_ERROR rtLog_Error
-#define RBUSLOG_FATAL rtLog_Fatal
-
-#endif /* ENABLE_RDKLOGGER */
 #endif
 
 /** @} */
