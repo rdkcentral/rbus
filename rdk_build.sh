@@ -44,7 +44,6 @@ export RDK_TARGET_PATH=${RDK_TARGET_PATH-$RDK_SOURCE_PATH}
 
 # fsroot and toolchain (valid for all devices)
 export RDK_FSROOT_PATH=${RDK_FSROOT_PATH-`readlink -m $RDK_PROJECT_ROOT_PATH/sdk/fsroot/ramdisk`}
-export RDK_XW_FSROOT_PATH=${RDK_FSROOT_PATH-`readlink -m $RDK_PROJECT_ROOT_PATH/xw/sdk/fsroot/ramdisk`}
 export RDK_TOOLCHAIN_PATH=${RDK_TOOLCHAIN_PATH-`readlink -m $RDK_PROJECT_ROOT_PATH/sdk/toolchain/staging_dir`}
 
 # default component name
@@ -56,6 +55,7 @@ export INSTALL_PATH="$RDK_FSROOT_PATH/usr"
 if [ "$XCAM_MODEL" == "SCHC2" ]; then
     if [ "$RDK_COMPONENT_NAME" == "xwrbus" ]; then
         echo "Setting environmental variables and Pre rule makefile for xw-xCam2"
+        export RDK_XW_FSROOT_PATH=${RDK_XW_FSROOT_PATH-`readlink -m $RDK_PROJECT_ROOT_PATH/xw/sdk/fsroot/ramdisk`}
         source ${RDK_PROJECT_ROOT_PATH}/build/components/realtek/sdk/setenv2
         export INSTALL_PATH="$RDK_XW_FSROOT_PATH/usr"
     else
