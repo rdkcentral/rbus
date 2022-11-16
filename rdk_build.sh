@@ -18,7 +18,7 @@
 # limitations under the License.
 ##########################################################################
 #
-#
+
 #######################################
 #
 # Build Framework standard script for
@@ -124,15 +124,20 @@ done
 
 ARGS=$@
 
+if [ "$RDK_COMPONENT_NAME" == "xwrbus" ]; then
+   EXTRA_OPTIONS="-DBUILD_RBUS_DAEMON=OFF -DBUILD_RBUS_SAMPLE_APPS=OFF -DBUILD_RBUS_TEST_APPS=OFF -DBUILD_ONLY_RTMESSAGE=ON"
+   export SEARCH_PATH="$RDK_TARGET_PATH;$RDK_PROJECT_ROOT_PATH/sdk/fsroot/ramdisk/usr/local/include;$RDK_FSROOT_PATH/usr/;$RDK_FSROOT_PATH/usr/include;$RDK_PROJECT_ROOT_PATH/xw/sdk/fsroot/ramdisk/usr/local/include"
+fi
+
 # functional modules
-export CFLAGS=" -Wno-format-truncation -I${RDK_FSROOT_PATH}/usr/include"
+export CFLAGS=" -Wno-format-truncation -I${RDK_FSROOT_PATH}/usr/include -I$RDK_FSROOT_PATH/usr/local/include -I$RDK_FSROOT_PATH/usr/ -I$RDK_PROJECT_ROOT_PATH/sdk/fsroot/ramdisk/usr/local/include"
 function configure()
 {
     pd=`pwd`
     echo "rbus Compiling started"
     mkdir -p ${RDK_PROJECT_ROOT_PATH}/opensource/src/rbus/build
     cd ${RDK_PROJECT_ROOT_PATH}/opensource/src/rbus/build
-    cmake -DCMAKE_INSTALL_PREFIX=${INSTALL_PATH} -DCMAKE_PREFIX_PATH=${SEARCH_PATH} -DENABLE_RDKLOGGER=OFF -DCMAKE_EXE_LINKER_FLAGS="-Wl,-rpath-link,${RDK_FSROOT_PATH}/usr/lib" ..
+    cmake -DCMAKE_INSTALL_PREFIX=${INSTALL_PATH} -DCMAKE_PREFIX_PATH=${SEARCH_PATH} -DENABLE_RDKLOGGER=OFF -DCMAKE_EXE_LINKER_FLAGS="-Wl,-rpath-link,${RDK_FSROOT_PATH}/usr/lib" ${EXTRA_OPTIONS} ..
 }
 
 function clean()
@@ -145,13 +150,18 @@ function build()
     cd ${RDK_PROJECT_ROOT_PATH}/opensource/src/rbus/build
     make
     $RDK_DUMP_SYMS src/rtmessage/librtMessage.so > src/rtmessage/librtMessage.so.sym
-    $RDK_DUMP_SYMS src/rtmessage/rtrouted > src/rtmessage/rtrouted.sym
+
+    if [ "$RDK_COMPONENT_NAME" != "xwrbus" ]; then
+       $RDK_DUMP_SYMS src/rtmessage/rtrouted > src/rtmessage/rtrouted.sym
+    fi
     mv src/rtmessage/*.sym $RDK_PROJECT_ROOT_PATH/sdk/fsroot/syms
 
-    $STRIP src/rtmessage/rtrouted
+    if [ "$RDK_COMPONENT_NAME" != "xwrbus" ]; then
+      $STRIP src/rtmessage/rtrouted
+      cp -f src/rtmessage/rtrouted ${RDK_PROJECT_ROOT_PATH}/opensource/bin
+    fi
 
     cp -f src/rtmessage/librt* ${RDK_PROJECT_ROOT_PATH}/opensource/lib
-    cp -f src/rtmessage/rtrouted ${RDK_PROJECT_ROOT_PATH}/opensource/bin
     cp -f ${RDK_PROJECT_ROOT_PATH}/opensource/src/rbus/src/rtmessage/rtrouted_default.conf ${RDK_FSROOT_PATH}/etc/rtrouted.conf
     cd -
 }

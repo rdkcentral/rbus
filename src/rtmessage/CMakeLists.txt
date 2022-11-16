@@ -81,6 +81,7 @@ add_library(
       local_benchmarking.c)
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
+include_directories(${CJSON_INCLUDE_DIRS} ${CJSON_INCLUDE_DIRS}/local/include ${CJSON_INCLUDE_DIRS}usr/local/include)
 add_dependencies(rtMessage cjson)
 target_link_libraries(rtMessage -pthread ${CJSON_LIBRARIES})
 
@@ -113,13 +114,19 @@ if (BUILD_RBUS_DAEMON)
     add_executable(rtrouted_diag diag_probe.c)
     add_dependencies(rtrouted_diag rtMessage)
     target_link_libraries(rtrouted_diag rtMessage)
+
+    install (TARGETS rtMessage rtrouted rtrouted_diag RUNTIME DESTINATION bin LIBRARY DESTINATION lib)
 endif (BUILD_RBUS_DAEMON)
+
 
 set_target_properties(rtMessage
     PROPERTIES SOVERSION "0"
     VERSION "${PROJECT_VERSION}")
 
-install (TARGETS rtMessage rtrouted rtrouted_diag RUNTIME DESTINATION bin LIBRARY DESTINATION lib)
+if (BUILD_ONLY_RTMESSAGE)
+    install (TARGETS rtMessage RUNTIME DESTINATION bin LIBRARY DESTINATION lib)
+endif (BUILD_ONLY_RTMESSAGE)
+
 install (
   FILES
   rtMessage.h
