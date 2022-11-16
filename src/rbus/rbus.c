@@ -1697,7 +1697,11 @@ static void _get_callback_handler (rbusHandle_t handle, rbusMessage request, rbu
                     }
                     /* Release the memory */
                     rbusProperty_Release(xproperties);
-
+                    for (i = 0; i < paramSize; i++)
+                    {
+                        rbusProperty_Release(properties[i]);
+                    }
+                    free (properties);
                     return;
                 }
                 else
@@ -4023,7 +4027,6 @@ static rbusError_t rbusEvent_SubscribeWithRetries(
         rtVector_PushBack(handleInfo->eventSubs, sub);
 
         RBUSLOG_INFO("%s: %s subscribe retries succeeded", __FUNCTION__, eventName);
-        
         return RBUS_ERROR_SUCCESS;
     }
     else

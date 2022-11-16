@@ -2132,6 +2132,7 @@ rbusCoreError_t rbus_discoverRegisteredComponents(int * count, char *** componen
     if(NULL == g_connection)
     {
         RBUSCORELOG_ERROR("Not connected.");
+        rtMessage_Release(out);
         return RBUSCORE_ERROR_INVALID_STATE;
     }
 
@@ -2176,7 +2177,7 @@ rbusCoreError_t rbus_discoverRegisteredComponents(int * count, char *** componen
         }
 
         rtMessage_Release(msg);
-
+        rtMessage_Release(out);
         ret = RBUSCORE_SUCCESS;
     }
     else
