@@ -185,7 +185,7 @@ static bool CALL_RBUS_PULL_OBJECT_DETAILED(char* server_obj, test_struct_t expec
 
 rbusCoreError_t CREATE_SESSION()
 {
-    rbusMessage response;
+    rbusMessage response = NULL;
     rbusCoreError_t ret = RBUSCORE_SUCCESS;
 
     ret = rbus_invokeRemoteMethod(RBUS_SMGR_DESTINATION_NAME, RBUS_SMGR_METHOD_REQUEST_SESSION_ID, NULL, 1000, &response);
@@ -198,6 +198,7 @@ rbusCoreError_t CREATE_SESSION()
             {
                 printf("ERROR Cannot create a new session, Session already exist \n");
                 ret = RBUSCORE_ERROR_INVALID_STATE;
+                rbusMessage_Release(response);
                 return ret;
             }
         }
@@ -205,6 +206,7 @@ rbusCoreError_t CREATE_SESSION()
         {
             printf("Got new session id %d\n", g_current_session_id);
             ret = RBUSCORE_SUCCESS;
+            rbusMessage_Release(response);
             return ret;
         }
         else{
@@ -214,6 +216,7 @@ rbusCoreError_t CREATE_SESSION()
     else{
         printf("RPC with session manager failed.\n");
         ret = RBUSCORE_ERROR_DESTINATION_UNREACHABLE;
+        rbusMessage_Release(response);
         return ret;
     }
     return ret;
@@ -221,7 +224,7 @@ rbusCoreError_t CREATE_SESSION()
 
 rbusCoreError_t PRINT_CURRENT_SESSION_ID()
 {
-    rbusMessage response;
+    rbusMessage response = NULL;
     rbusCoreError_t ret = RBUSCORE_SUCCESS;
 
     ret = rbus_invokeRemoteMethod(RBUS_SMGR_DESTINATION_NAME, RBUS_SMGR_METHOD_GET_CURRENT_SESSION_ID, NULL, 1000, &response);
@@ -235,6 +238,7 @@ rbusCoreError_t PRINT_CURRENT_SESSION_ID()
             {
                 printf("Session manager reports internal error %d.\n", result);
                 ret = RBUSCORE_ERROR_INVALID_STATE;
+                rbusMessage_Release(response);
                 return ret;
             }
         }
@@ -242,6 +246,7 @@ rbusCoreError_t PRINT_CURRENT_SESSION_ID()
         {
             printf("Current session id %d\n", g_current_session_id);
             ret = RBUSCORE_SUCCESS;
+            rbusMessage_Release(response);
             return ret;
         }
         else{
@@ -251,6 +256,7 @@ rbusCoreError_t PRINT_CURRENT_SESSION_ID()
     else{
         printf("RPC with session manager failed.\n");
         ret = RBUSCORE_ERROR_DESTINATION_UNREACHABLE;
+        rbusMessage_Release(response);
         return ret;
     }
     return ret;
@@ -259,7 +265,7 @@ rbusCoreError_t PRINT_CURRENT_SESSION_ID()
 rbusCoreError_t END_SESSION(int session)
 {
     rbusMessage out;
-    rbusMessage response;
+    rbusMessage response = NULL;
 
     rbusMessage_Init(&out);
     rbusMessage_SetInt32(out, session);
@@ -274,11 +280,13 @@ rbusCoreError_t END_SESSION(int session)
             {
                 printf("ERROR Cannot end session, It doesn't match active session\n");
                 ret = RBUSCORE_ERROR_INVALID_STATE;
+                rbusMessage_Release(response);
                 return ret;
             }
             else{
                 printf("Successfully ended session %d.\n", session);
                 ret = RBUSCORE_SUCCESS;
+                rbusMessage_Release(response);
                 return ret;
             }
         }
@@ -286,6 +294,7 @@ rbusCoreError_t END_SESSION(int session)
     else{
         printf("RPC with session manager failed.\n");
         ret = RBUSCORE_ERROR_DESTINATION_UNREACHABLE;
+        rbusMessage_Release(response);
         return ret;
     }
     return ret;

@@ -142,7 +142,10 @@ static int exec_rbus_multi_test(rbusHandle_t handle, int expectedRc, int numProp
   rc = rbus_setMulti(handle, numProps, next, NULL);
   EXPECT_EQ(rc,expectedRc);
 
+  rbusValue_Release(setVal1);
+  rbusValue_Release(setVal2);
   rbusProperty_Release(next);
+  rbusProperty_Release(last);
 
   return rc;
 }
@@ -808,6 +811,7 @@ int rbusConsumer(rbusGtest_t test, pid_t pid, int runtime)
         rc = rbusMethod_Invoke(handle, method, inParams, &outParams);
         rbusObject_Release(inParams);
         EXPECT_EQ(rc, RBUS_ERROR_SUCCESS);
+        rbusProperty_Release(prop);
 
         if(RBUS_ERROR_SUCCESS == rc)
           rbusObject_Release(outParams);
@@ -836,6 +840,7 @@ int rbusConsumer(rbusGtest_t test, pid_t pid, int runtime)
           rc = rbusMethod_Invoke(handle, method, inParams, &outParams);
           rbusObject_Release(inParams);
           EXPECT_EQ(rc, RBUS_ERROR_SUCCESS);
+          rbusProperty_Release(prop);
           if(rc == RBUS_ERROR_SUCCESS)
           {
             rbusObject_Release(outParams);
@@ -858,7 +863,7 @@ int rbusConsumer(rbusGtest_t test, pid_t pid, int runtime)
         rbusObject_Release(inParams);
         EXPECT_NE(rc, RBUS_ERROR_SUCCESS);
         rc=0;
-
+        rbusProperty_Release(prop);
         if(outParams)
         {
           rbusObject_fwrite(outParams, 1, stdout);
@@ -881,7 +886,7 @@ int rbusConsumer(rbusGtest_t test, pid_t pid, int runtime)
         rbusObject_Release(inParams);
         EXPECT_NE(rc, RBUS_ERROR_SUCCESS);
         rc=0;
-
+        rbusProperty_Release(prop);
         if(outParams)
         {
           rbusObject_fwrite(outParams, 1, stdout);
@@ -905,6 +910,7 @@ int rbusConsumer(rbusGtest_t test, pid_t pid, int runtime)
         printf("consumer: rbusMethod_InvokeAsync(%s) %s\n", "Device.rbusProvider.MethodAsync1()",
             rc == RBUS_ERROR_SUCCESS ? "success" : "fail");
         sleep(runtime);
+        rbusObject_Release(inParams);
 
       }
       break;
@@ -925,6 +931,7 @@ int rbusConsumer(rbusGtest_t test, pid_t pid, int runtime)
          printf("consumer: rbusMethod_InvokeAsync(%s) %s\n", "Device.rbusProvider.MethodAsync_2()",
          rc == RBUS_ERROR_SUCCESS ? "success" : "fail");
          sleep(runtime);
+         rbusObject_Release(inParams);
       }
       break;
     case RBUS_GTEST_REG_ROW:
