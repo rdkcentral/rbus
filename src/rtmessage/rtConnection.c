@@ -1486,7 +1486,10 @@ rtConnection_Read(rtConnection con, int32_t timeout)
     return rtErrorFromErrno(ENOMEM);
 
   if (!con)
+  {
+    rtMessageInfo_Release(msginfo);
     return rtErrorFromErrno(EINVAL);
+  }
 
   // TODO: no error handling right now, all synch I/O
 
@@ -1532,7 +1535,7 @@ rtConnection_Read(rtConnection con, int32_t timeout)
       {
         msginfo->data = (uint8_t *)rt_try_malloc(msginfo->header.payload_length + 1);
         if(!msginfo->data)
-          return rtErrorFromErrno(ENOMEM);        
+          return rtErrorFromErrno(ENOMEM);
         msginfo->dataCapacity = msginfo->header.payload_length + 1;
       }
 

@@ -79,9 +79,9 @@ TEST(rbusTokenTest, negtestToken5)
 {
   TokenChain* tokens;
   char const* eventName="Device.rbusProvider.Param1";
-  elementNode* registryElem = (elementNode *)malloc(sizeof(elementNode));
+  elementNode* registryElem = (elementNode *)calloc(1,sizeof(elementNode));
 
-  registryElem->parent = (elementNode *)malloc(sizeof(elementNode)); 
+  registryElem->parent = (elementNode *)calloc(1,sizeof(elementNode));
 
   tokens = TokenChain_create(eventName, registryElem);
   EXPECT_EQ(tokens,nullptr);
