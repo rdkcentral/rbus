@@ -127,7 +127,7 @@ ARGS=$@
 
 if [ "$RDK_COMPONENT_NAME" == "xwrbus" ]; then
    EXTRA_OPTIONS+=" -DBUILD_RBUS_DAEMON=OFF -DBUILD_RBUS_SAMPLE_APPS=OFF -DBUILD_RBUS_TEST_APPS=OFF -DBUILD_ONLY_RTMESSAGE=ON"
-   export SEARCH_PATH="$RDK_TARGET_PATH;$RDK_PROJECT_ROOT_PATH/sdk/fsroot/ramdisk/usr/local/include;$RDK_FSROOT_PATH/usr/;$RDK_FSROOT_PATH/usr/include;$RDK_PROJECT_ROOT_PATH/xw/sdk/fsroot/ramdisk/usr/local/include"
+#   export SEARCH_PATH="$RDK_TARGET_PATH;$RDK_PROJECT_ROOT_PATH/sdk/fsroot/ramdisk/usr/local/include;$RDK_FSROOT_PATH/usr/;$RDK_FSROOT_PATH/usr/include;$RDK_PROJECT_ROOT_PATH/xw/sdk/fsroot/ramdisk/usr/local/include"
 fi
 
 # functional modules
