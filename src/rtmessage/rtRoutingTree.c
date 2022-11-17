@@ -481,7 +481,7 @@ rtError rtRoutingTree_AddTopicRoute(rtRoutingTree rt, const char* topicPath, con
     return RT_OK;
 }
 
-void rtRoutingTree_GetTopicRoutes(rtRoutingTree rt, const char* topic, rtList* routes)
+void rtRoutingTree_GetTopicRoutes(rtRoutingTree rt, const char* topic, rtList* routes, int discoverall)
 {
     int i;
     *routes = NULL;
@@ -545,7 +545,7 @@ void rtRoutingTree_GetTopicRoutes(rtRoutingTree rt, const char* topic, rtList* r
         }
 #endif
     }
-    if(treeTopic->isTable)
+    if((treeTopic->isTable) && (!discoverall))
     {
         /* If we ended on a table, then we need an additional check.
           We allow querying a table without adding the ".{i}" suffix.
