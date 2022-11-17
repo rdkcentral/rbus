@@ -874,6 +874,13 @@ int subscribeHandlerImpl(
 {
     rbusSubscription_t* subscription = NULL;
     struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
+    /*autoPublish is an output parameter used to disable the default behaviour where rbus automatically publishing events for
+    provider data elements. When providers set autoPublish to true the value will be checked once per second and the maximum event
+    rate is one event per two seconds. If faster eventing or real-time eventing is required providers can set autoPublish to false
+    and implement a custom approach. For fastest response time and to avoid missing changes that occur faster than once per second,
+    the preferred way is to use a callback triggered from the lowest level of code to detect a value change. This callback may be
+    invoked by vendor code via a HAL API or other method. This callback can be received by the component that provides this event
+    and used to send the publish message in real time.*/
     bool autoPublish = true;
 
     if(!el)
