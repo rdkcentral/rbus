@@ -156,15 +156,20 @@ if (BUILD_FOR_DESKTOP)
 
 else()
   find_package(cJSON REQUIRED)
-  find_package(msgpack REQUIRED)
-  find_package(linenoise REQUIRED)
+  if (NOT BUILD_ONLY_RTMESSAGE)
+   find_package(msgpack REQUIRED)
+   find_package(linenoise REQUIRED)
+  endif (BUILD_ONLY_RTMESSAGE)
 
   set(INCLUDE_DIR ${CMAKE_INSTALL_PREFIX}/include)
   set(LIBRARY_DIR ${CMAKE_INSTALL_PREFIX}/lib)
 
   include_directories(${CMAKE_CURRENT_SOURCE_DIR})
   include_directories(${CJSON_INCLUDE_DIRS})
-  include_directories(${MSGPACK_INCLUDE_DIRS})
+  if (NOT BUILD_ONLY_RTMESSAGE)
+   include_directories(${MSGPACK_INCLUDE_DIRS})
+  endif (BUILD_ONLY_RTMESSAGE)
+
   link_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
   if (ENABLE_RDKLOGGER)
@@ -221,6 +226,7 @@ endif()
 option(BUILD_RBUS_DAEMON "BUILD_RBUS_DAEMON" ON)
 option(BUILD_RBUS_SAMPLE_APPS "BUILD_RBUS_SAMPLE_APPS" ON)
 option(BUILD_RBUS_TEST_APPS "BUILD_RBUS_TEST_APPS" ON)
+option(BUILD_ONLY_RTMESSAGE "BUILD_ONLY_RTMESSAGE" OFF)
 
 option(BUILD_RTMESSAGE_SAMPLE_APP "BUILD_RTMESSAGE_SAMPLE_APP" OFF)
 option(BUILD_RTMESSAGE_DATAPROVIDER_LIB "BUILD_RTMESSAGE_DATAPROVIDER_LIB" OFF)
@@ -240,8 +246,12 @@ endif (ENABLE_RDKLOGGER)
 
 
 add_subdirectory(src)
-add_subdirectory(utils)
-add_subdirectory(test)
+
+if (BUILD_ONLY_RTMESSAGE)
+else()
+   add_subdirectory(utils)
+   add_subdirectory(test)
+endif (BUILD_ONLY_RTMESSAGE)
 
 if(BUILD_RBUS_SAMPLE_APPS)
     add_subdirectory(sampleapps)
