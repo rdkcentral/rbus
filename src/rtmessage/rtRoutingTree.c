@@ -545,12 +545,6 @@ void rtRoutingTree_GetTopicRoutes(rtRoutingTree rt, const char* topic, rtList* r
         }
 #endif
     }
-    if(topic[strlen(topic)-1] == '.')
-    {
-        /* If its a partial path or a table send all routes listening to sub topics */
-        *routes = treeTopic->routeList2;
-    }
-    else
     if(treeTopic->isTable)
     {
         /* If we ended on a table, then we need an additional check.
@@ -565,6 +559,11 @@ void rtRoutingTree_GetTopicRoutes(rtRoutingTree rt, const char* topic, rtList* r
           *routes = curlyChild->routeList;
         }
         /*if we didn't find one then we are in some error scenario so just leave route null*/
+    }
+    else if(topic[strlen(topic)-1] == '.')
+    {
+        /* If its a partial path or a table send all routes listening to sub topics */
+        *routes = treeTopic->routeList2;
     }
     else
     {

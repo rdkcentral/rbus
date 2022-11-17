@@ -45,8 +45,11 @@ else ()
   set (CMAKE_C_STANDARD 11)
 endif ()
 
-set(CMAKE_C_FLAGS_DEBUG "-fPIC -Wall -Werror -Wextra -Wno-type-limits -fno-inline")
-set(CMAKE_C_FLAGS_RELEASE "-fPIC -Wall -Werror -Wextra")
+set(CMAKE_C_FLAGS_DEBUG "-fPIC -Wall -Werror -Wextra -Wno-type-limits -fno-inline ${CMAKE_C_FLAGS_DEBUG} -DRBUS_ALWAYS_ON ")
+set(CMAKE_C_FLAGS_RELEASE "-fPIC -Wall -Werror -Wextra ${CMAKE_C_FLAGS_RELEASE} -DRBUS_ALWAYS_ON ")
+
+set(CMAKE_CXX_FLAGS_DEBUG "-fPIC -Wall -Werror -Wextra -Wno-type-limits -fno-inline ${CMAKE_C_FLAGS_DEBUG} -DRBUS_ALWAYS_ON ")
+set(CMAKE_CXX_FLAGS_RELEASE "-fPIC -Wall -Werror -Wextra ${CMAKE_C_FLAGS_RELEASE} -DRBUS_ALWAYS_ON ")
 
 IF (NOT DEFINED CMAKE_INSTALL_BINDIR)
     SET(CMAKE_INSTALL_BINDIR ${CMAKE_INSTALL_PREFIX}/bin)
@@ -172,12 +175,9 @@ else()
   if (ENABLE_RDKLOGGER)
     include_directories(${RDKLOGGER__INCLUDE_DIRS})
     add_definitions(-DENABLE_RDKLOGGER)
-  else ()
   endif (ENABLE_RDKLOGGER)
   
   if (INCLUDE_BREAKPAD)
-    include_directories(${BREAKPAD_PATH})
-    link_directories(${BREAKPAD_PATH})
     add_definitions(-DINCLUDE_BREAKPAD)
   endif (INCLUDE_BREAKPAD)
 

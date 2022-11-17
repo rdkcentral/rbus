@@ -702,6 +702,47 @@ rbusError_t rbus_close(
     rbusHandle_t handle);
 /** @} */
 
+/**
+ * @brief Allows a caller to propogate an OpenTelemetry context from client
+ * to server.
+ * @param rbus The currently opened rbus handle
+ * @param traceParent The traceparent part of the TraceContext in HTTP header format
+ * @param traceState The tracestate part of the TraceContext in HTTP header format
+ * @note Neither the tracePraent or traceState need to include the name of the HTTP header
+ *  only the value.
+ *  For example. An example HTTP traceparent may look like
+ *    traceparent: 00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01
+ *  The caller should only supply the actual value. There is no need to include the
+ *  "traceparent:" prefix. If the "traceparent:" prefix is also included, it will be
+ *  removed.
+ * @return
+ * @see https://www.w3.org/TR/trace-context/
+ */
+rbusError_t rbusHandle_SetTraceContextFromString(
+    rbusHandle_t  rbus,
+    char const*   traceParent,
+    char const*   traceState);
+
+rbusError_t rbusHandle_ClearTraceContext(
+    rbusHandle_t  rbus);
+
+/**
+ * @brief
+ * @param rbus The currently opened rbus handle
+ * @param traceParent
+ * @param traceParentLength
+ * @param traceState
+ * @param traceStateLength
+ * @return
+ * @see https://www.w3.org/TR/trace-context/
+ */
+rbusError_t rbusHandle_GetTraceContextAsString(
+    rbusHandle_t  rbus,
+    char*         traceParent,
+    int           traceParentLength,
+    char*         traceState,
+    int           traceStateLength);
+
 /** @addtogroup Discovery
  *  @{
  */

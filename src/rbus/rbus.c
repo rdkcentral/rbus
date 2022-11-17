@@ -45,6 +45,7 @@
 #define UNUSED4(a,b,c,d)        UNUSED1(a),UNUSED3(b,c,d)
 #define UNUSED5(a,b,c,d,e)      UNUSED1(a),UNUSED4(b,c,d,e)
 #define UNUSED6(a,b,c,d,e,f)    UNUSED1(a),UNUSED5(b,c,d,e,f)
+#define RBUS_MIN(a,b) ((a)<(b) ? (a) : (b))
 
 #ifndef FALSE
 #define FALSE                               0
@@ -523,8 +524,8 @@ void rbusObject_appendToMessage(rbusObject_t obj, rbusMessage msg)
 
 void rbusObject_initFromMessage(rbusObject_t* obj, rbusMessage msg)
 {
-    char const* name;
-    int type;
+    char const* name = NULL;
+    int type = 0;
     int numChild = 0;
     rbusProperty_t prop;
     rbusObject_t children=NULL, previous=NULL;
@@ -4779,6 +4780,73 @@ rbusError_ToString(rbusError_t e)
       s = "unknown error";
   }
   return s;
+}
+
+rbusError_t rbusHandle_ClearTraceContext(
+    rbusHandle_t  rbus)
+{
+    if (!rbus)
+        return RBUS_ERROR_INVALID_HANDLE;
+
+    rbus_clearOpenTelemetryContext();
+
+    return RBUS_ERROR_SUCCESS;
+}
+
+rbusError_t rbusHandle_SetTraceContextFromString(
+    rbusHandle_t  rbus,
+    char const*   traceParent,
+    char const*   traceState)
+{
+    if (!rbus)
+      return RBUS_ERROR_INVALID_HANDLE;
+
+    rbus_setOpenTelemetryContext(traceParent, traceState);
+
+    return RBUS_ERROR_SUCCESS;
+}
+
+rbusError_t rbusHandle_GetTraceContextAsString(
+    rbusHandle_t  rbus,
+    char*         traceParent,
+    int           traceParentLength,
+    char*         traceState,
+    int           traceStateLength)
+{
+    if (!rbus)
+      return RBUS_ERROR_INVALID_HANDLE;
+
+    size_t n;
+    char const *s = NULL;
+    char const *t = NULL;
+
+    rbus_getOpenTelemetryContext(&s, &t);
+
+    if (traceParent)
+    {
+        if (s)
+        {
+            n = RBUS_MIN( (int) strlen(s), traceParentLength - 1 );
+            strncpy(traceParent, s, n);
+            traceParent[n] ='\0';
+        }
+        else
+            traceParent[0] = '\0';
+    }
+
+    if (traceState)
+    {
+        if (t)
+        {
+            n = RBUS_MIN( (int) strlen(t), traceStateLength - 1);
+            strncpy(traceState, t, n);
+            traceState[n] = '\0';
+        }
+        else
+            traceState[0] = '\0';
+    }
+
+    return RBUS_ERROR_SUCCESS;
 }
 
 /* End of File */
