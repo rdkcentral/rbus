@@ -76,7 +76,7 @@ fi
 
 #export COMP_BASE_PATH=${RDK_SCRIPTS_PATH%/*}
 export COMP_BASE_PATH=${RDK_SCRIPTS_PATH}/../
-export SEARCH_PATH="$RDK_TARGET_PATH"
+export SEARCH_PATH="$RDK_FSROOT_PATH/usr;$RDK_FSROOT_PATH/usr/local"
 
 #The cross compile tools are exported already in XHB1;lets avoid only that (Because SOURCETOOLCHAIN is not exported in XHB1)
 if [ "$XCAM_MODEL" != "XHB1" ]; then
@@ -127,7 +127,8 @@ ARGS=$@
 
 if [ "$RDK_COMPONENT_NAME" == "xwrbus" ]; then
    EXTRA_OPTIONS+=" -DBUILD_RBUS_DAEMON=OFF -DBUILD_RBUS_SAMPLE_APPS=OFF -DBUILD_RBUS_TEST_APPS=OFF -DBUILD_ONLY_RTMESSAGE=ON"
-#   export SEARCH_PATH="$RDK_TARGET_PATH;$RDK_PROJECT_ROOT_PATH/sdk/fsroot/ramdisk/usr/local/include;$RDK_FSROOT_PATH/usr/;$RDK_FSROOT_PATH/usr/include;$RDK_PROJECT_ROOT_PATH/xw/sdk/fsroot/ramdisk/usr/local/include"
+else
+   EXTRA_OPTIONS+=" -DINCLUDE_BREAKPAD=ON"
 fi
 
 # functional modules
@@ -138,7 +139,7 @@ function configure()
     echo "rbus Compiling started"
     mkdir -p ${RDK_PROJECT_ROOT_PATH}/opensource/src/rbus/build
     cd ${RDK_PROJECT_ROOT_PATH}/opensource/src/rbus/build
-    cmake -DCMAKE_INSTALL_PREFIX=${INSTALL_PATH} -DCMAKE_PREFIX_PATH=${SEARCH_PATH} -DENABLE_RDKLOGGER=OFF -DCMAKE_EXE_LINKER_FLAGS="-Wl,-rpath-link,${RDK_FSROOT_PATH}/usr/lib" ${EXTRA_OPTIONS} ..
+    cmake -DCMAKE_INSTALL_PREFIX=${INSTALL_PATH} -DCMAKE_PREFIX_PATH=${SEARCH_PATH} -DENABLE_RDKLOGGER=ON -DRDKC_BUILD=ON -DCMAKE_EXE_LINKER_FLAGS="-Wl,-rpath-link,${RDK_FSROOT_PATH}/usr/lib" ${EXTRA_OPTIONS} ..
 }
 
 function clean()
@@ -176,7 +177,11 @@ function install()
     cd ${RDK_PROJECT_ROOT_PATH}/opensource/src/rbus/build
     make install
     cp -f src/rtmessage/librt* ${RDK_PROJECT_ROOT_PATH}/opensource/lib
-    cp -f ${RDK_PROJECT_ROOT_PATH}/opensource/src/rbus/src/rtmessage/rtrouted_default.conf ${RDK_FSROOT_PATH}/etc/rtrouted.conf
+    if [ "$XCAM_MODEL" == "XHC3" ]; then
+      cp -f ${RDK_PROJECT_ROOT_PATH}/opensource/src/rbus/src/rtmessage/rtrouted_default.conf ${RDK_FSROOT_PATH}/etc/rtrouted.conf
+    else
+      cp -f ${RDK_PROJECT_ROOT_PATH}/opensource/src/rbus/src/rtmessage/rtrouted.conf ${RDK_FSROOT_PATH}/etc/rtrouted.conf
+    fi
     cp ${RDK_SOURCE_PATH}/conf/rbus_client_rdkc.conf ${RDK_FSROOT_PATH}/etc/rbus_client.conf
 }
 
