@@ -1975,7 +1975,7 @@ static void _table_add_row_callback_handler (rbusHandle_t handle, rbusMessage re
     if(err != RT_OK || (aliasName && strlen(aliasName)==0))
         aliasName = NULL;
 
-    RBUSLOG_DEBUG("%s table [%s] alias [%s] err [%d]", __FUNCTION__, tableName, aliasName, err);
+    RBUSLOG_DEBUG("%s table [%s] alias [%s] name [%s]", __FUNCTION__, tableName, aliasName, handleInfo->componentName);
 
     elementNode* tableRegElem = retrieveElement(handleInfo->elementRoot, tableName);
     elementNode* tableInstElem = retrieveInstanceElement(handleInfo->elementRoot, tableName);
