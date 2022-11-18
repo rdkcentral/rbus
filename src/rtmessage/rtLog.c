@@ -176,7 +176,7 @@ rtLoggerSelection rtLog_GetOption()
 }
 
 #define RT_LOG_BUFFER_SIZE    1024
-void rtLogPrintfFmt(rtLogLevel level, const char* mod, const char* file, int line, const char* format, ...)
+void rtLogPrintf(rtLogLevel level, const char* mod, const char* file, int line, const char* format, ...)
 {
 
   size_t n = 0;

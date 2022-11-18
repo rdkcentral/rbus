@@ -82,19 +82,19 @@ rtLoggerSelection rtLog_GetOption();
 #define RT_PRINTF_FORMAT(IDX, FIRST)
 #endif
 
-void rtLogPrintfFmt (rtLogLevel level, const char* pModule, const char* file, int line, const char* format, ...) RT_PRINTF_FORMAT(5, 6);
+void rtLogPrintf(rtLogLevel level, const char* pModule, const char* file, int line, const char* format, ...) RT_PRINTF_FORMAT(5, 6);
 
-#define rtLog_DebugFmt(mod,FORMAT...)  rtLogPrintfFmt(RT_LOG_DEBUG, mod,__FILE__, __LINE__, FORMAT)
-#define rtLog_InfoFmt(mod,FORMAT...)   rtLogPrintfFmt(RT_LOG_INFO, mod, __FILE__, __LINE__, FORMAT)
-#define rtLog_WarnFmt(mod,FORMAT...)   rtLogPrintfFmt(RT_LOG_WARN, mod, __FILE__, __LINE__, FORMAT)
-#define rtLog_ErrorFmt(mod,FORMAT...)  rtLogPrintfFmt(RT_LOG_ERROR, mod, __FILE__, __LINE__, FORMAT)
-#define rtLog_FatalFmt(mod,FORMAT...)  rtLogPrintfFmt(RT_LOG_FATAL, mod, __FILE__, __LINE__, FORMAT)
+#define rtLog_DebugPrint(mod,FORMAT...)  rtLogPrintf(RT_LOG_DEBUG, mod,__FILE__, __LINE__, FORMAT)
+#define rtLog_InfoPrint(mod,FORMAT...)   rtLogPrintf(RT_LOG_INFO, mod, __FILE__, __LINE__, FORMAT)
+#define rtLog_WarnPrint(mod,FORMAT...)   rtLogPrintf(RT_LOG_WARN, mod, __FILE__, __LINE__, FORMAT)
+#define rtLog_ErrorPrint(mod,FORMAT...)  rtLogPrintf(RT_LOG_ERROR, mod, __FILE__, __LINE__, FORMAT)
+#define rtLog_FatalPrint(mod,FORMAT...)  rtLogPrintf(RT_LOG_FATAL, mod, __FILE__, __LINE__, FORMAT)
 
-#define rtLog_Debug(FORMAT...) rtLog_DebugFmt("RTMESSAGE",FORMAT)
-#define rtLog_Info(FORMAT...)  rtLog_InfoFmt("RTMESSAGE",FORMAT)
-#define rtLog_Warn(FORMAT...)  rtLog_WarnFmt("RTMESSAGE",FORMAT)
-#define rtLog_Error(FORMAT...) rtLog_ErrorFmt("RTMESSAGE",FORMAT)
-#define rtLog_Fatal(FORMAT...) rtLog_FatalFmt("RTMESSAGE",FORMAT)
+#define rtLog_Debug(FORMAT...) rtLog_DebugPrint("RTMESSAGE",FORMAT)
+#define rtLog_Info(FORMAT...)  rtLog_InfoPrint("RTMESSAGE",FORMAT)
+#define rtLog_Warn(FORMAT...)  rtLog_WarnPrint("RTMESSAGE",FORMAT)
+#define rtLog_Error(FORMAT...) rtLog_ErrorPrint("RTMESSAGE",FORMAT)
+#define rtLog_Fatal(FORMAT...) rtLog_FatalPrint("RTMESSAGE",FORMAT)
 
 #ifdef __cplusplus
 }
