@@ -22,7 +22,7 @@
   <components>
 
     <rbus>
-     <dependencies>linenoise, rdklogger, cjson, msgpack, libexchanger</dependencies>
+     <dependencies>linenoise, rdklogger, cjson, msgpack, libexchanger, breakpadwrap</dependencies>
      <is_coverity_supported>True</is_coverity_supported>
      <paths>
         <scripts>opensource/src/rbus/</scripts>
