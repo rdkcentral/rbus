@@ -223,9 +223,9 @@ void rtLogPrintf(rtLogLevel level, const char* mod, const char* file, int line, 
     gettimeofday(&tv, NULL);
     lt = localtime(&tv.tv_sec);
 
-    printf("%.2d:%.2d:%.2d.%.3lld %5s %s:%d -- [%s] -- Thread-%" RT_THREADID_FMT ": %s \n",
-        lt->tm_hour, lt->tm_min, lt->tm_sec, (long long int)tv.tv_usec,
-        rtLogLevelToString(level), path, line, mod, threadId, buff);
+    printf("%.2d:%.2d:%.2d.%.3lld  %-10s %5s %s:%d -- Thread-%" RT_THREADID_FMT ": %s",
+        lt->tm_hour, lt->tm_min, lt->tm_sec, (long long int)tv.tv_usec, mod,
+        rtLogLevelToString(level), path, line, threadId, buff);
   }
 }
 
