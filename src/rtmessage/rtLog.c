@@ -176,6 +176,7 @@ rtLoggerSelection rtLog_GetOption()
 }
 
 #define RT_LOG_BUFFER_SIZE    1024
+#define MODULE_BUFFER_SIZE    64
 void rtLogPrintf(rtLogLevel level, const char* mod, const char* file, int line, const char* format, ...)
 {
 
@@ -205,9 +206,9 @@ void rtLogPrintf(rtLogLevel level, const char* mod, const char* file, int line, 
     sLogHandler(level, path, line, threadId, buff);
   }
 #ifdef ENABLE_RDKLOGGER
-  else if (RT_USE_RDKLOGGER)
+  else if (sOption == RT_USE_RDKLOGGER)
   {
-    char module[RT_LOG_BUFFER_SIZE] = {0};
+    char module[MODULE_BUFFER_SIZE] = {0};
     sprintf(module, "LOG.RDK.%s", mod);
     RDK_LOG(level, module, buff);
   }
