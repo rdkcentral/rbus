@@ -28,6 +28,7 @@ if (WITH_SPAKE2)
     include_directories(${CMAKE_INSTALL_PREFIX}/include)
     link_directories(${CMAKE_INSTALL_PREFIX}/lib)
   endif (BUILD_FOR_DESKTOP)
+  set(LIBEXCHANGER_PATH ${CMAKE_CURRENT_SOURCE_DIR}/../../../../../libexchanger)
   find_library(SPAKE2_LIBRARY spake2plus HINTS "${LIBEXCHANGER_PATH}/Release/src")
   find_library(PWD_LIBRARY pwd HINTS "${LIBEXCHANGER_PATH}/password/src")
 endif (WITH_SPAKE2)
@@ -117,13 +118,19 @@ if (BUILD_RBUS_DAEMON)
     add_executable(rtrouted_diag diag_probe.c)
     add_dependencies(rtrouted_diag rtMessage)
     target_link_libraries(rtrouted_diag rtMessage)
+
+    install (TARGETS rtMessage rtrouted rtrouted_diag RUNTIME DESTINATION bin LIBRARY DESTINATION lib)
 endif (BUILD_RBUS_DAEMON)
+
 
 set_target_properties(rtMessage
     PROPERTIES SOVERSION "0"
     VERSION "${PROJECT_VERSION}")
 
-install (TARGETS rtMessage rtrouted rtrouted_diag RUNTIME DESTINATION bin LIBRARY DESTINATION lib)
+if (BUILD_ONLY_RTMESSAGE)
+    install (TARGETS rtMessage RUNTIME DESTINATION bin LIBRARY DESTINATION lib)
+endif (BUILD_ONLY_RTMESSAGE)
+
 install (
   FILES
   rtMessage.h

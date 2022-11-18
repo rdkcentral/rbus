@@ -56,7 +56,7 @@ static rbusOpenTelemetryContext* rbus_getOpenTelemetryContextFromThreadLocal();
 
 static void rbus_init_open_telemeetry_thread_specific_key()
 {
-  pthread_key_create(&_open_telemetry_key, NULL);
+  pthread_key_create(&_open_telemetry_key, free);
 }
 
 
@@ -2132,6 +2132,7 @@ rbusCoreError_t rbus_discoverRegisteredComponents(int * count, char *** componen
     if(NULL == g_connection)
     {
         RBUSCORELOG_ERROR("Not connected.");
+        rtMessage_Release(out);
         return RBUSCORE_ERROR_INVALID_STATE;
     }
 
@@ -2176,7 +2177,7 @@ rbusCoreError_t rbus_discoverRegisteredComponents(int * count, char *** componen
         }
 
         rtMessage_Release(msg);
-
+        rtMessage_Release(out);
         ret = RBUSCORE_SUCCESS;
     }
     else

@@ -227,8 +227,8 @@ TEST_F(MultipleServerTest, rbus_multipleServer_test1)
     if(is_parent)
     {
         sleep(2);
-        int num_comps;
-        char** components;
+        int num_comps = 0;
+        char** components = NULL;
         rbusCoreError_t err;
         //Neg test discover Registered components without connection
         err = rbus_discoverRegisteredComponents(&num_comps, &components);
