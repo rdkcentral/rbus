@@ -524,8 +524,8 @@ void rbusObject_appendToMessage(rbusObject_t obj, rbusMessage msg)
 
 void rbusObject_initFromMessage(rbusObject_t* obj, rbusMessage msg)
 {
-    char const* name;
-    int type;
+    char const* name = NULL;
+    int type = 0;
     int numChild = 0;
     rbusProperty_t prop;
     rbusObject_t children=NULL, previous=NULL;
@@ -874,6 +874,13 @@ int subscribeHandlerImpl(
 {
     rbusSubscription_t* subscription = NULL;
     struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
+    /*autoPublish is an output parameter used to disable the default behaviour where rbus automatically publishing events for
+    provider data elements. When providers set autoPublish to true the value will be checked once per second and the maximum event
+    rate is one event per two seconds. If faster eventing or real-time eventing is required providers can set autoPublish to false
+    and implement a custom approach. For fastest response time and to avoid missing changes that occur faster than once per second,
+    the preferred way is to use a callback triggered from the lowest level of code to detect a value change. This callback may be
+    invoked by vendor code via a HAL API or other method. This callback can be received by the component that provides this event
+    and used to send the publish message in real time.*/
     bool autoPublish = true;
 
     if(!el)
@@ -1697,7 +1704,11 @@ static void _get_callback_handler (rbusHandle_t handle, rbusMessage request, rbu
                     }
                     /* Release the memory */
                     rbusProperty_Release(xproperties);
-
+                    for (i = 0; i < paramSize; i++)
+                    {
+                        rbusProperty_Release(properties[i]);
+                    }
+                    free (properties);
                     return;
                 }
                 else
@@ -1964,7 +1975,7 @@ static void _table_add_row_callback_handler (rbusHandle_t handle, rbusMessage re
     if(err != RT_OK || (aliasName && strlen(aliasName)==0))
         aliasName = NULL;
 
-    RBUSLOG_DEBUG("%s table [%s] alias [%s] err [%d]", __FUNCTION__, tableName, aliasName, err);
+    RBUSLOG_DEBUG("%s table [%s] alias [%s] name [%s]", __FUNCTION__, tableName, aliasName, handleInfo->componentName);
 
     elementNode* tableRegElem = retrieveElement(handleInfo->elementRoot, tableName);
     elementNode* tableInstElem = retrieveInstanceElement(handleInfo->elementRoot, tableName);
@@ -4023,7 +4034,6 @@ static rbusError_t rbusEvent_SubscribeWithRetries(
         rtVector_PushBack(handleInfo->eventSubs, sub);
 
         RBUSLOG_INFO("%s: %s subscribe retries succeeded", __FUNCTION__, eventName);
-        
         return RBUS_ERROR_SUCCESS;
     }
     else

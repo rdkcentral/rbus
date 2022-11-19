@@ -49,14 +49,20 @@ export RDK_TOOLCHAIN_PATH=${RDK_TOOLCHAIN_PATH-`readlink -m $RDK_PROJECT_ROOT_PA
 # default component name
 export RDK_COMPONENT_NAME=${RDK_COMPONENT_NAME-`basename $RDK_SOURCE_PATH`}
 export RDK_DIR=$RDK_PROJECT_ROOT_PATH
+export RDK_DUMP_SYMS=${RDK_PROJECT_ROOT_PATH}/utility/prebuilts/breakpad-prebuilts/x86/dump_syms
+export INSTALL_PATH="$RDK_FSROOT_PATH/usr"
 
 if [ "$XCAM_MODEL" == "SCHC2" ]; then
+    EXTRA_OPTIONS+="-DWITH_SPAKE2=ON"
     if [ "$RDK_COMPONENT_NAME" == "xwrbus" ]; then
         echo "Setting environmental variables and Pre rule makefile for xw-xCam2"
+        export RDK_XW_FSROOT_PATH=${RDK_XW_FSROOT_PATH-`readlink -m $RDK_PROJECT_ROOT_PATH/xw/sdk/fsroot/ramdisk`}
         source ${RDK_PROJECT_ROOT_PATH}/build/components/realtek/sdk/setenv2
+        export INSTALL_PATH="$RDK_XW_FSROOT_PATH/usr"
     else
         echo "Setting environmental variables and Pre rule makefile for xCam2"
         source ${RDK_PROJECT_ROOT_PATH}/build/components/amba/sdk/setenv2
+        export INSTALL_PATH="$RDK_FSROOT_PATH/usr"
     fi
 elif [ "$XCAM_MODEL" == "SERXW3" ] || [ "$XCAM_MODEL" == "SERICAM2" ] || [ "$XCAM_MODEL" == "XHB1" ]; then
     echo "Setting environmental variables and Pre rule makefile for xCam/iCam2/DBC"
@@ -70,8 +76,7 @@ fi
 
 #export COMP_BASE_PATH=${RDK_SCRIPTS_PATH%/*}
 export COMP_BASE_PATH=${RDK_SCRIPTS_PATH}/../
-export SEARCH_PATH="$RDK_FSROOT_PATH/usr;$RDK_FSROOT_PATH/usr/local"
-export INSTALL_PATH=$RDK_FSROOT_PATH/usr
+export SEARCH_PATH="$RDK_TARGET_PATH"
 
 #The cross compile tools are exported already in XHB1;lets avoid only that (Because SOURCETOOLCHAIN is not exported in XHB1)
 if [ "$XCAM_MODEL" != "XHB1" ]; then
@@ -120,27 +125,43 @@ done
 
 ARGS=$@
 
+if [ "$RDK_COMPONENT_NAME" == "xwrbus" ]; then
+   EXTRA_OPTIONS+=" -DBUILD_RBUS_DAEMON=OFF -DBUILD_RBUS_SAMPLE_APPS=OFF -DBUILD_RBUS_TEST_APPS=OFF -DBUILD_ONLY_RTMESSAGE=ON"
+#   export SEARCH_PATH="$RDK_TARGET_PATH;$RDK_PROJECT_ROOT_PATH/sdk/fsroot/ramdisk/usr/local/include;$RDK_FSROOT_PATH/usr/;$RDK_FSROOT_PATH/usr/include;$RDK_PROJECT_ROOT_PATH/xw/sdk/fsroot/ramdisk/usr/local/include"
+fi
+
 # functional modules
-export CFLAGS=" -Wno-format-truncation "
+export CFLAGS=" -Wno-format-truncation -I${RDK_FSROOT_PATH}/usr/include -I$RDK_FSROOT_PATH/usr/local/include -I$RDK_FSROOT_PATH/usr/ -I$RDK_PROJECT_ROOT_PATH/sdk/fsroot/ramdisk/usr/local/include"
 function configure()
 {
     pd=`pwd`
     echo "rbus Compiling started"
-    mkdir -p ${RDK_PROJECT_ROOT_PATH}/rbus/build
-    cd ${RDK_PROJECT_ROOT_PATH}/rbus/build
-
-    cmake -DCMAKE_INSTALL_PREFIX=${INSTALL_PATH} -DCMAKE_PREFIX_PATH=${SEARCH_PATH} -DENABLE_RDKLOGGER=ON -DCMAKE_EXE_LINKER_FLAGS="-Wl,-rpath-link,${RDK_FSROOT_PATH}/usr/lib" ..
+    mkdir -p ${RDK_PROJECT_ROOT_PATH}/opensource/src/rbus/build
+    cd ${RDK_PROJECT_ROOT_PATH}/opensource/src/rbus/build
+    cmake -DCMAKE_INSTALL_PREFIX=${INSTALL_PATH} -DCMAKE_PREFIX_PATH=${SEARCH_PATH} -DENABLE_RDKLOGGER=OFF -DRDKC_BUILD=ON -DCMAKE_EXE_LINKER_FLAGS="-Wl,-rpath-link,${RDK_FSROOT_PATH}/usr/lib" ${EXTRA_OPTIONS} ..
 }
 
 function clean()
 {
-    rm -rf ${RDK_PROJECT_ROOT_PATH}/rbus/build
+    rm -rf ${RDK_PROJECT_ROOT_PATH}/opensource/src/rbus/build
 }
 
 function build()
 {
-    cd ${RDK_PROJECT_ROOT_PATH}/rbus/build
+    cd ${RDK_PROJECT_ROOT_PATH}/opensource/src/rbus/build
     make
+    $RDK_DUMP_SYMS src/rtmessage/librtMessage.so > src/rtmessage/librtMessage.so.sym
+
+    if [ "$RDK_COMPONENT_NAME" != "xwrbus" ]; then
+       $RDK_DUMP_SYMS src/rtmessage/rtrouted > src/rtmessage/rtrouted.sym
+    fi
+    mv src/rtmessage/*.sym $RDK_PROJECT_ROOT_PATH/sdk/fsroot/syms
+
+    if [ "$RDK_COMPONENT_NAME" != "xwrbus" ]; then
+      $STRIP src/rtmessage/rtrouted
+      cp -f src/rtmessage/rtrouted ${RDK_PROJECT_ROOT_PATH}/opensource/bin
+    fi
+    cd -
 }
 
 function rebuild()
@@ -152,8 +173,11 @@ function rebuild()
 
 function install()
 {
-    cd ${RDK_PROJECT_ROOT_PATH}/rbus/build
+    cd ${RDK_PROJECT_ROOT_PATH}/opensource/src/rbus/build
     make install
+    cp -f src/rtmessage/librt* ${RDK_PROJECT_ROOT_PATH}/opensource/lib
+    cp -f ${RDK_PROJECT_ROOT_PATH}/opensource/src/rbus/src/rtmessage/rtrouted_default.conf ${RDK_FSROOT_PATH}/etc/rtrouted.conf
+    cp ${RDK_SOURCE_PATH}/conf/rbus_client_rdkc.conf ${RDK_FSROOT_PATH}/etc/rbus_client.conf
 }
 
 # run the logic

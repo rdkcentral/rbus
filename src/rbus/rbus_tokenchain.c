@@ -70,12 +70,12 @@
 
 TokenChain* TokenChain_create(char const* sourceName, elementNode* regNode)
 {
-    TokenChain* chain;
+    TokenChain* chain = NULL;
     Token* next = NULL;
     int nameLen;
-    char* name;
-    char* ptr;
-    elementNode* node;
+    char* name = NULL;
+    char* ptr = NULL;
+    elementNode* node = NULL;
 
     if(regNode == NULL)
     {
