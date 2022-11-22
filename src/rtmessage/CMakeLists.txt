@@ -88,7 +88,7 @@ target_link_libraries(rtMessage -pthread ${CJSON_LIBRARIES})
 
 if (ENABLE_RDKLOGGER)
     add_dependencies(rtMessage rdklogger)
-    target_link_libraries(rtMessage -lrdkloggers)
+    target_link_libraries(rtMessage ${RDKLOGGER_LIBRARIES})
 endif (ENABLE_RDKLOGGER)
 
 if (OPENSSL_REQUIRED)

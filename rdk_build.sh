@@ -140,7 +140,7 @@ function configure()
     echo "rbus Compiling started"
     mkdir -p ${RDK_PROJECT_ROOT_PATH}/opensource/src/rbus/build
     cd ${RDK_PROJECT_ROOT_PATH}/opensource/src/rbus/build
-    cmake -DCMAKE_INSTALL_PREFIX=${INSTALL_PATH} -DCMAKE_PREFIX_PATH=${SEARCH_PATH} -DENABLE_RDKLOGGER=OFF -DRDKC_BUILD=ON -DCMAKE_EXE_LINKER_FLAGS="-Wl,-rpath-link,${RDK_FSROOT_PATH}/usr/lib" ${EXTRA_OPTIONS} ..
+    cmake -DCMAKE_INSTALL_PREFIX=${INSTALL_PATH} -DCMAKE_PREFIX_PATH=${SEARCH_PATH} -DENABLE_RDKLOGGER=ON -DRDKC_BUILD=ON -DCMAKE_EXE_LINKER_FLAGS="-Wl,-rpath-link,${RDK_FSROOT_PATH}/usr/lib" ${EXTRA_OPTIONS} ..
 }
 
 function clean()
@@ -178,7 +178,11 @@ function install()
     cd ${RDK_PROJECT_ROOT_PATH}/opensource/src/rbus/build
     make install
     cp -f src/rtmessage/librt* ${RDK_PROJECT_ROOT_PATH}/opensource/lib
-    cp -f ${RDK_PROJECT_ROOT_PATH}/opensource/src/rbus/src/rtmessage/rtrouted_default.conf ${RDK_FSROOT_PATH}/etc/rtrouted.conf
+    if [ "$XCAM_MODEL" == "XHC3" ]; then
+      cp -f ${RDK_PROJECT_ROOT_PATH}/opensource/src/rbus/src/rtmessage/rtrouted_default.conf ${RDK_FSROOT_PATH}/etc/rtrouted.conf
+    else
+      cp -f ${RDK_PROJECT_ROOT_PATH}/opensource/src/rbus/src/rtmessage/rtrouted.conf ${RDK_FSROOT_PATH}/etc/rtrouted.conf
+    fi
     cp ${RDK_SOURCE_PATH}/conf/rbus_client_rdkc.conf ${RDK_FSROOT_PATH}/etc/rbus_client.conf
 }
 

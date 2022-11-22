@@ -176,7 +176,8 @@ rtLoggerSelection rtLog_GetOption()
 }
 
 #define RT_LOG_BUFFER_SIZE    1024
-void rtLogPrintf(rtLogLevel level, const char* file, int line, const char* format, ...)
+#define MODULE_BUFFER_SIZE    64
+void rtLogPrintf(rtLogLevel level, const char* mod, const char* file, int line, const char* format, ...)
 {
 
   size_t n = 0;
@@ -204,6 +205,14 @@ void rtLogPrintf(rtLogLevel level, const char* file, int line, const char* forma
   {
     sLogHandler(level, path, line, threadId, buff);
   }
+#ifdef ENABLE_RDKLOGGER
+  else if (sOption == RT_USE_RDKLOGGER)
+  {
+    char module[MODULE_BUFFER_SIZE] = {0};
+    sprintf(module, "LOG.RDK.%s", mod);
+    RDK_LOG(level, module, buff);
+  }
+#endif
   else
   {
     struct timeval tv;
@@ -214,8 +223,8 @@ void rtLogPrintf(rtLogLevel level, const char* file, int line, const char* forma
     gettimeofday(&tv, NULL);
     lt = localtime(&tv.tv_sec);
 
-    printf("%.2d:%.2d:%.2d.%.3lld %5s %s:%d -- Thread-%" RT_THREADID_FMT ": %s \n",
-        lt->tm_hour, lt->tm_min, lt->tm_sec, (long long int)tv.tv_usec,
+    printf("%.2d:%.2d:%.2d.%.3lld  %-10s %5s %s:%d -- Thread-%" RT_THREADID_FMT ": %s",
+        lt->tm_hour, lt->tm_min, lt->tm_sec, (long long int)tv.tv_usec, mod,
         rtLogLevelToString(level), path, line, threadId, buff);
   }
 }
