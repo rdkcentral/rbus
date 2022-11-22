@@ -138,7 +138,7 @@ function configure()
     echo "rbus Compiling started"
     mkdir -p ${RDK_PROJECT_ROOT_PATH}/opensource/src/rbus/build
     cd ${RDK_PROJECT_ROOT_PATH}/opensource/src/rbus/build
-    cmake -DCMAKE_INSTALL_PREFIX=${INSTALL_PATH} -DCMAKE_PREFIX_PATH=${SEARCH_PATH} -DENABLE_RDKLOGGER=OFF -DRDKC_BUILD=ON -DCMAKE_EXE_LINKER_FLAGS="-Wl,-rpath-link,${RDK_FSROOT_PATH}/usr/lib" ${EXTRA_OPTIONS} ..
+    cmake -DCMAKE_INSTALL_PREFIX=${INSTALL_PATH} -DCMAKE_PREFIX_PATH=${SEARCH_PATH} -DENABLE_RDKLOGGER=ON -DRDKC_BUILD=ON -DCMAKE_EXE_LINKER_FLAGS="-Wl,-rpath-link,${RDK_FSROOT_PATH}/usr/lib" ${EXTRA_OPTIONS} ..
 }
 
 function clean()
