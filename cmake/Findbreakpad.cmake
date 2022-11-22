@@ -21,8 +21,13 @@
 
 find_package(PkgConfig)
 
-find_library(BREAKPAD_LIBRARIES NAMES breakpad)
-find_path(BREAKPAD_INCLUDE_DIRS NAMES breakpad_types.h PATH_SUFFIXES breakpad/google_breakpad/common/)
+if (RDKC_BUILD)
+  find_library(BREAKPAD_LIBRARIES NAMES breakpadwrap)
+  find_path(BREAKPAD_INCLUDE_DIRS NAMES breakpadwrap.h PATH_SUFFIXES ${CMAKE_INSTALL_PREFIX})
+else ()
+  find_library(BREAKPAD_LIBRARIES NAMES breakpadwrapper)
+  find_path(BREAKPAD_INCLUDE_DIRS NAMES breakpad_wrapper.h PATH_SUFFIXES ${CMAKE_INSTALL_PREFIX})
+endif (RDKC_BUILD)
 
 set(BREAKPAD_LIBRARIES ${BREAKPAD_LIBRARIES} CACHE PATH "Path to breakpad library")
 set(BREAKPAD_INCLUDE_DIRS ${BREAKPAD_INCLUDE_DIRS} )

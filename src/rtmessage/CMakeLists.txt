@@ -107,15 +107,9 @@ if (BUILD_RBUS_DAEMON)
     target_link_libraries(rtrouted rtMessage)
 
     if (INCLUDE_BREAKPAD)
-      if (RDKC_BUILD)
-        set(BREAKPAD_PATH ${CMAKE_CURRENT_SOURCE_DIR}/../../../../../breakpadwrap)
-        include_directories(${BREAKPAD_PATH})
-        add_dependencies(rtrouted ${BREAKPAD_PATH})
-        target_link_libraries(rtrouted -lbreakpadwrap)
-      else ()
-        add_dependencies(rtrouted breakpad)
-        target_link_libraries(rtrouted -lbreakpadwrapper)
-      endif (RDKC_BUILD)
+	find_package(breakpad REQUIRED)
+	add_dependencies(rtrouted breakpad)
+	target_link_libraries(rtrouted ${BREAKPAD_LIBRARIES})
     endif (INCLUDE_BREAKPAD)
 
     # rtrouted_diag
