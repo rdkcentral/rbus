@@ -56,8 +56,8 @@ if [ "$XCAM_MODEL" == "SCHC2" ]; then
     EXTRA_OPTIONS+="-DWITH_SPAKE2=ON"
     if [ "$RDK_COMPONENT_NAME" == "xwrbus" ]; then
         echo "Setting environmental variables and Pre rule makefile for xw-xCam2"
-        export RDK_XW_FSROOT_PATH=${RDK_XW_FSROOT_PATH-`readlink -m $RDK_PROJECT_ROOT_PATH/xw/sdk/fsroot/ramdisk`}
         source ${RDK_PROJECT_ROOT_PATH}/build/components/realtek/sdk/setenv2
+        export RDK_XW_FSROOT_PATH=${RDK_FSROOT_PATH}
         export INSTALL_PATH="$RDK_XW_FSROOT_PATH/usr"
     else
         echo "Setting environmental variables and Pre rule makefile for xCam2"
@@ -127,7 +127,6 @@ ARGS=$@
 
 if [ "$RDK_COMPONENT_NAME" == "xwrbus" ]; then
    EXTRA_OPTIONS+=" -DBUILD_RBUS_DAEMON=OFF -DBUILD_RBUS_SAMPLE_APPS=OFF -DBUILD_RBUS_TEST_APPS=OFF -DBUILD_ONLY_RTMESSAGE=ON"
-#   export SEARCH_PATH="$RDK_TARGET_PATH;$RDK_PROJECT_ROOT_PATH/sdk/fsroot/ramdisk/usr/local/include;$RDK_FSROOT_PATH/usr/;$RDK_FSROOT_PATH/usr/include;$RDK_PROJECT_ROOT_PATH/xw/sdk/fsroot/ramdisk/usr/local/include"
 else
    EXTRA_OPTIONS+=" -DINCLUDE_BREAKPAD=ON"
 fi
