@@ -18,14 +18,12 @@
 ##########################################################################
 add_subdirectory(rtmessage)
 
-if (NOT BUILD_ONLY_RTMESSAGE)
+IF (NOT BUILD_ONLY_RTMESSAGE)
  add_subdirectory(core)
-endif (BUILD_ONLY_RTMESSAGE)
 
 if (BUILD_RBUS_DAEMON)
     add_subdirectory(session_manager)
 endif (BUILD_RBUS_DAEMON)
 
-if (NOT BUILD_ONLY_RTMESSAGE)
  add_subdirectory(rbus)
-endif (BUILD_ONLY_RTMESSAGE)
+ENDIF ()
