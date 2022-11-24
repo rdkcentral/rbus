@@ -26,7 +26,11 @@ Test Case : Testing rbus server creation APIs
 #include <signal.h>
 extern "C" {
 #include "rbuscore.h"
+#include "rtMemory.h"
 }
+#include "rtList.h"
+#include "rtLog.h"
+#include "rbus.h"
 #include "gtest_app.h"
 #include "rbus_test_util.h"
 
@@ -984,7 +988,7 @@ TEST_F(TestServer, rbus_removeElement_test1)
 {
     int counter = 1;
     char server_obj[] = "test_server_1.obj1";
-    char obj_name[130];
+    char obj_name[130] = "test_server_1.obj2";
     char server_element[] = "server_element1";
     bool conn_status = false;
     char test_string[] = "rbus_client_test_string";
@@ -1010,4 +1014,380 @@ TEST_F(TestServer, rbus_removeElement_test1)
     EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_removeElement failed";
     RBUS_CLOSE_BROKER_CONNECTION(RBUSCORE_SUCCESS);
     return;
+}
+
+TEST_F(TestServer, rtmsg_rtConnection_CreateWithConfig_test1)
+{
+  char const*   router_config ="unix:///tmp/rtrouted";
+  rtError       err;
+  rtMessage     config;
+  rtConnection  connection;
+  rtMessage_Create(&config);
+  rtMessage_SetString(config, "appname", "rtsend");
+  rtMessage_SetString(config, "uri", router_config);
+  rtMessage_SetInt32(config, "start_router", 1);
+  err = rtConnection_CreateWithConfig(&connection, config);
+  EXPECT_EQ(err, RT_OK) << "rtmsg_rtconnection_CreateWithConfig failed";
+  err = rtConnection_Dispatch(connection);
+  EXPECT_EQ(err, RT_OK);
+  rtMessage_Release(config);
+  rtConnection_Destroy(connection);
+}
+
+TEST_F(TestServer, rtmsg_rtConnection_CreateWithConfig_test2)
+{
+  char const*   router_config ="unix:///tmp/rtrouted";
+  rtError       err;
+  rtMessage     config;
+  rtConnection  connection;
+  rtMessage_Create(&config);
+  rtMessage_SetString(config, "appname", "rtsend");
+  rtMessage_SetString(config, "uri", router_config);
+  rtMessage_SetInt32(config, "start_router", 0);
+  err = rtConnection_CreateWithConfig(&connection, config);
+  EXPECT_EQ(err, RT_OK) << "rtmsg_rtconnection_CreateWithConfig failed";
+  _rtConnection_TaintMessages(1);
+  rtMessage_Release(config);
+  rtConnection_Destroy(connection);
+}
+
+TEST_F(TestServer, rtmsg_rtConnection_CreateWithConfig_test3)
+{
+  char const*   router_config ="tcp://127.0.0.1:10001";
+  rtError       err;
+  rtMessage     config;
+  rtConnection  connection;
+  rtMessage_Create(&config);
+  rtMessage_SetString(config, "appname", "rtsend");
+  rtMessage_SetString(config, "uri", router_config);
+  rtMessage_SetInt32(config, "start_router", 0);
+  err = rtConnection_CreateWithConfig(&connection, config);
+  EXPECT_EQ(err, RT_NO_CONNECTION) << "rtmsg_rtconnection_CreateWithConfig failed";
+  rtMessage_Release(config);
+}
+
+TEST_F(TestServer, rtmsg_rtConnection_SendResponse_test1)
+{
+  char *name = "sample_test";
+  rtMessageHeader const* hdr = (const rtMessageHeader*)name;
+  char* buff = "TestName";
+  rtError err;
+  rtMessage res;
+
+  rtConnection  con;
+  rtConnection_Create(&con, "PROVIDER1", "unix:///tmp/rtrouted");
+  rtMessage_Create(&res);
+  rtMessage_SetString(res, "reply", buff);
+  err = rtConnection_SendResponse(con, hdr, res, 1000);
+  EXPECT_EQ(err, RT_OK);
+  rtMessage_Release(res);
+  rtConnection_Destroy(con);
+}
+
+TEST_F(TestServer, rtmsg_rtMessage_SetBool_test1)
+{
+  rtError       err;
+  rtMessage     config;
+  bool val;
+  rtMessage_Create(&config);
+  rtMessage_SetString(config, "appname", "rtsend");
+  rtMessage_SetString(config, "uri", "router_config");
+  err = rtMessage_SetBool(config, "start_router", true);
+  EXPECT_EQ(err, RT_OK) << "rtmessage_SetBool failed";
+  err = rtMessage_GetBool(config, "start_router", &val);
+  EXPECT_EQ(err, RT_OK) << "rtmessage_GetBool failed";
+  //Neg test passing invalid name
+  err = rtMessage_GetBool(config, "router", &val);
+  EXPECT_EQ(err, RT_FAIL) << "rtmessage_GetBool failed";
+  rtMessage_Release(config);
+}
+
+TEST_F(TestServer, rtmsg_rtMessage_SetDouble_test1)
+{
+  rtError       err;
+  rtMessage     config;
+  double val;
+  rtMessage_Create(&config);
+  rtMessage_SetString(config, "appname", "rtsend");
+  rtMessage_SetString(config, "uri", "router_config");
+  err = rtMessage_SetDouble(config, "start_router", 999.999);
+  EXPECT_EQ(err, RT_OK) << "rtmessage_SetDouble failed";
+  err = rtMessage_GetDouble(config, "start_router", &val);
+  EXPECT_EQ(err, RT_OK) << "rtmessage_GetDouble failed";
+  //Neg test passing invalid name
+  err = rtMessage_GetDouble(config, "router", &val);
+  EXPECT_EQ(err, RT_FAIL) << "rtmessage_GetDouble failed";
+  rtMessage_Release(config);
+}
+
+TEST_F(TestServer, rtmsg_rtMessage_SetMessage_test1)
+{
+    rtMessage req = NULL, msg = NULL;
+    rtMessage item, p;
+    char* s = NULL;
+    char val;
+    uint32_t n = 0;
+    uint32_t size = 0;
+    rtError err;
+    int32_t paramslen, j=1;
+    char *topic = "TEST_SAMPLE";
+    void const* ptr = "SAMPLE_TEST";
+
+    rtMessage_Create(&req);
+    rtMessage_SetString(req, "method", "rtsend");
+    rtMessage_SetString(req, "provider", "router_config");
+
+    rtMessage_Create(&item);
+    rtMessage_SetString(item, "name", "ITEM");
+    rtMessage_SetString(item, "value", "Book");
+
+    err = rtMessage_SetMessage(req, "params", item);
+    EXPECT_EQ(err, RT_OK) << "rtMessage_SetMessage failed";
+    err = rtMessage_AddMessage(req, "items", item);
+    EXPECT_EQ(err, RT_OK) << "rtMessage_AddMessage failed";
+    rtMessage_GetArrayLength(item, "params", &paramslen);
+
+    //Neg test passing invalid param
+    err = rtMessage_GetMessageItem(item, "name", j, &p);
+    EXPECT_EQ(err, RT_FAIL) << "rtMessage_GetMessageItem failed";
+    //Neg test passing invalid param
+    err = rtMessage_GetMessageItem(item, "params", j, &p);
+    EXPECT_EQ(err, RT_PROPERTY_NOT_FOUND) << "rtMessage_GetMessageItem failed";
+    err = rtMessage_GetStringValue(req, "method", &val, 10);
+    EXPECT_EQ(err, RT_OK) << "rtMessage_GetStringValue failed";
+    //Neg test passing invalid param
+    err = rtMessage_SetMessage(NULL, "params", item);
+    EXPECT_EQ(err, RT_ERROR_INVALID_ARG) << "rtMessage_SetMessage failed";
+    //Neg test passing invalid param
+    err = rtMessage_GetMessage(req, "config", &item);
+    EXPECT_EQ(err, RT_PROPERTY_NOT_FOUND) << "rtMessage_GetMessage failed";
+    //Neg test passing invalid param
+    err = rtMessage_ToString(NULL, &s, &n);
+    EXPECT_EQ(err, RT_FAIL) << "rtMessage_ToString failed";
+
+    err = rtMessage_AddBinaryData(req, "sample", ptr, sizeof(ptr));
+    EXPECT_EQ(err, RT_OK);
+    err = rtMessage_GetBinaryData(req, "sample", (void**)&ptr, (uint32_t*)&size);
+    EXPECT_EQ(err, RT_OK);
+    err = rtMessage_SetSendTopic(req, topic);
+    EXPECT_EQ(err, RT_OK);
+    err = rtMessage_GetSendTopic(req, topic);
+    EXPECT_EQ(err, RT_OK);
+    rtMessage_Release(req);
+    rtMessage_Release(item);
+    free(s);
+    if(ptr)
+    {
+       free((void*)ptr);
+    }
+}
+
+TEST_F(TestServer, rtmsg_rtMessage_SetMessage_test2)
+{
+    rtMessage req, msg;
+    rtMessage item;
+    rtError err;
+
+    rtMessage_Create(&req);
+    rtMessage_SetString(req, "method", "rtsend");
+    rtMessage_SetString(req, "provider", "router_config");
+    rtMessage_Create(&item);
+    rtMessage_SetString(item, "name", "ITEM");
+    rtMessage_SetString(item, "value", "Book");
+    err = rtMessage_SetMessage(req, "params", item);
+    EXPECT_EQ(err, RT_OK) << "rtMessage_SetMessage failed";
+    err = rtMessage_AddMessage(req, "items", item);
+    EXPECT_EQ(err, RT_OK) << "rtMessage_AddMessage failed";
+    err = rtMessage_GetMessage(req, "params", &msg);
+    EXPECT_EQ(err, RT_OK) << "rtMessage_GetMessage failed";
+    rtMessage_Release(msg);
+    rtMessage_Release(req);
+    rtMessage_Release(item);
+}
+
+TEST_F(TestServer, rtmsg_rtMessage_SetMessage_test3)
+{
+    rtMessage req, msg;
+    rtMessage item, p;
+    rtError err;
+    int32_t paramslen, j=1;
+
+    rtMessage_Create(&req);
+    rtMessage_SetString(req, "method", "rtsend");
+    rtMessage_SetString(req, "provider", "router_config");
+    rtMessage_Create(&item);
+    rtMessage_SetString(item, "name", "ITEM");
+    rtMessage_SetString(item, "value", "Book");
+    err = rtMessage_SetMessage(req, "params", item);
+    EXPECT_EQ(err, RT_OK) << "rtMessage_SetMessage failed";
+    err = rtMessage_AddMessage(req, "items", item);
+    EXPECT_EQ(err, RT_OK) << "rtMessage_AddMessage failed";
+    err = rtMessage_GetArrayLength(item, "params", &paramslen);
+    EXPECT_EQ(err, RT_OK) << "rtMessage_GetArrayLength failed";
+    err = rtMessage_GetMessageItem(req, "params", j, &p);
+    EXPECT_EQ(err, RT_OK) << "rtMessage_GetMessage failed";
+    rtMessage_Release(p);
+    rtMessage_Release(req);
+    rtMessage_Release(item);
+}
+
+TEST_F(TestServer, rtmsg_rtMessage_Retain_test1)
+{
+  rtError err;
+  rtMessage msg;
+
+  rtMessage_Create(&msg);
+  err = rtMessage_Retain(msg);
+  EXPECT_EQ(err, RT_OK);
+  rtMessage_Release(msg);
+  if(msg)
+     rtMessage_Release(msg);
+}
+
+TEST_F(TestServer, rtmsg_rtMessage_Clone_test1)
+{
+  rtError err;
+  rtMessage msg, cpy;
+
+  rtMessage_Create(&msg);
+  err = rtMessage_Clone(msg, &cpy);
+  EXPECT_EQ(err, RT_OK);
+  rtMessage_Release(msg);
+  rtMessage_Release(cpy);
+}
+
+TEST_F(TestServer, rtmsg_rtMessage_toByteArray_test1)
+{
+    rtError err;
+    rtMessage req, item;
+    uint8_t* buffer = NULL;
+    uint32_t size;
+    rtMessage_Create(&req);
+    rtMessage_SetString(req, "method", "rtsend");
+    rtMessage_SetString(req, "provider", "router_config");
+    rtMessage_Create(&item);
+    rtMessage_SetString(item, "name", "ITEM");
+    rtMessage_SetString(item, "value", "Book");
+    err = rtMessage_SetMessage(req, "params", item);
+    EXPECT_EQ(err, RT_OK) << "rtMessage_SetMessage failed";
+    err = rtMessage_ToByteArray(req, &buffer, &size);
+    EXPECT_EQ(err,RT_OK) << "rtMessage_ToByteArray failed";
+    free(buffer);
+    rtMessage_Release(req);
+    rtMessage_Release(item);
+}
+
+TEST_F(TestServer, rtmsg_rtError_test1)
+{
+  rtError err = RT_OK;
+  const char *s = NULL;
+  rtErrorSetLastError(err);
+  err = rtErrorGetLastError();
+  EXPECT_EQ(err, RT_OK);
+  rtStrError(err);
+  err = RT_FAIL;
+  rtStrError(err);
+  err = RT_ERROR_NOT_ENOUGH_ARGS;
+  rtStrError(err);
+  err = RT_PROP_NOT_FOUND;
+  rtStrError(err);
+  err = RT_OBJECT_NOT_INITIALIZED;
+  rtStrError(err);
+  err = RT_PROPERTY_NOT_FOUND;
+  rtStrError(err);
+  err = RT_RESOURCE_NOT_FOUND;
+  rtStrError(err);
+  err = RT_NO_CONNECTION;
+  rtStrError(err);
+  err = RT_ERROR_NOT_IMPLEMENTED;
+  rtStrError(err);
+  err = RT_ERROR_TYPE_MISMATCH;
+  rtStrError(err);
+  err = RT_ERROR_TIMEOUT;
+  rtStrError(err);
+  err = RT_ERROR_DUPLICATE_ENTRY;
+  rtStrError(err);
+  err = RT_ERROR_OBJECT_NOT_FOUND;
+  rtStrError(err);
+  err = RT_ERROR_PROTOCOL_ERROR;
+  rtStrError(err);
+  err = RT_ERROR_INVALID_OPERATION;
+  rtStrError(err);
+  err = RT_ERROR_IN_PROGRESS;
+  rtStrError(err);
+  err = RT_ERROR_QUEUE_EMPTY;
+  rtStrError(err);
+  err = RT_ERROR_STREAM_CLOSED;
+  rtStrError(err);
+}
+
+TEST_F(TestServer, rtmsg_rtList_test1)
+{
+  rtList list;
+  rtListItem items[6];
+  rtListItem item, prev;
+  rtError err;
+  void* data;
+  void* ptr;
+  data = rt_malloc(100);
+
+  rtList_Create(&list);
+  err = rtList_PushFront(list, (void*)2, &items[2]);
+  EXPECT_EQ(err, RT_OK);
+  err = rtList_PushFront(list, (void*)1, &items[1]);
+  EXPECT_EQ(err, RT_OK);
+  err = rtList_PushFront(list, (void*)0, &items[0]);
+  EXPECT_EQ(err, RT_OK);
+  err = rtList_PushBack(list, (void*)3, &items[3]);
+  EXPECT_EQ(err, RT_OK);
+  err = rtList_PushBack(list, (void*)4, &items[4]);
+  EXPECT_EQ(err, RT_OK);
+  err = rtList_PushBack(list, (void*)5, &items[5]);
+  EXPECT_EQ(err, RT_OK);
+  err = rtList_RemoveItem(list, items[0], NULL);
+  EXPECT_EQ(err, RT_OK);
+  err = rtList_InsertBefore(list, (void*)0, items[1], &items[0]);
+  EXPECT_EQ(err, RT_OK);
+  err = rtList_InsertAfter(list, (void*)0, items[2], &items[3]);
+  EXPECT_EQ(err, RT_OK);
+  err = rtListItem_SetData(items[4], data);
+  EXPECT_EQ(err, RT_OK);
+  err = rtListItem_GetData(items[4], &data);
+  EXPECT_EQ(err, RT_OK);
+  err = rtList_PushFront(list, (void*)-1, &item);
+  EXPECT_EQ(err, RT_OK);
+  err = rtList_PushFront(list, (void*)-2, &item);
+  EXPECT_EQ(err, RT_OK);
+  err = rtList_PushFront(list, (void*)-3, &item);
+  EXPECT_EQ(err, RT_OK);
+  err = rtListItem_GetPrev(item, &prev);
+  EXPECT_EQ(err, RT_OK);
+  err = rtList_GetBack(list, &item);
+  EXPECT_EQ(err, RT_OK);
+  err = rtList_RemoveAllItems(list, NULL);
+  EXPECT_EQ(err, RT_OK);
+  rtList_Destroy(list, NULL);
+  rt_free(data);
+}
+
+TEST_F(TestServer, rtmsg_rtLog_test1)
+{
+   rtLogLevel level;
+   rtLoggerSelection opt;
+   rtLogHandler sloghandler, handler = NULL;
+
+   rtLog_SetLevel(RT_LOG_INFO);
+   level = rtLog_GetLevel();
+   EXPECT_EQ(level, RT_LOG_INFO) << "rtLog_SetLevel failed";
+   rtLog_SetLevel(rtLogLevelFromString("debug"));
+   rtLog_SetLevel(rtLogLevelFromString("warn"));
+   rtLog_SetLevel(rtLogLevelFromString("info"));
+   rtLog_SetLevel(rtLogLevelFromString("error"));
+   rtLog_SetLevel(rtLogLevelFromString("fatal"));
+   rtLog_SetOption(RT_USE_RDKLOGGER);
+   opt = rtLog_GetOption();
+   EXPECT_EQ(opt, RT_USE_RDKLOGGER) << "rtLog_GetOption failed";
+   rtLogSetLogHandler(NULL);
+   sloghandler = rtLogGetLogHandler();
+   EXPECT_EQ(sloghandler, handler);
 }

@@ -412,7 +412,7 @@ rtMessage_GetSendTopic(rtMessage const m, char* topic)
   rtError err = RT_OK;
   cJSON* obj = cJSON_GetObjectItem(m->json, "_topic");
   if (obj)
-    strcpy(topic, obj->valuestring);
+    strcpy(obj->valuestring, topic);
   else
     err = RT_FAIL;
   return err;
