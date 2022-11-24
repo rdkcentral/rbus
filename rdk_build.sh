@@ -76,7 +76,7 @@ fi
 
 #export COMP_BASE_PATH=${RDK_SCRIPTS_PATH%/*}
 export COMP_BASE_PATH=${RDK_SCRIPTS_PATH}/../
-export SEARCH_PATH="$RDK_TARGET_PATH"
+export SEARCH_PATH="$RDK_FSROOT_PATH/usr;$RDK_FSROOT_PATH/usr/local"
 
 #The cross compile tools are exported already in XHB1;lets avoid only that (Because SOURCETOOLCHAIN is not exported in XHB1)
 if [ "$XCAM_MODEL" != "XHB1" ]; then
@@ -127,9 +127,6 @@ ARGS=$@
 
 if [ "$RDK_COMPONENT_NAME" == "xwrbus" ]; then
    EXTRA_OPTIONS+=" -DBUILD_RBUS_DAEMON=OFF -DBUILD_RBUS_SAMPLE_APPS=OFF -DBUILD_RBUS_TEST_APPS=OFF -DBUILD_ONLY_RTMESSAGE=ON"
-#   export SEARCH_PATH="$RDK_TARGET_PATH;$RDK_PROJECT_ROOT_PATH/sdk/fsroot/ramdisk/usr/local/include;$RDK_FSROOT_PATH/usr/;$RDK_FSROOT_PATH/usr/include;$RDK_PROJECT_ROOT_PATH/xw/sdk/fsroot/ramdisk/usr/local/include"
-else
-   EXTRA_OPTIONS+=" -DINCLUDE_BREAKPAD=ON"
 fi
 
 # functional modules
