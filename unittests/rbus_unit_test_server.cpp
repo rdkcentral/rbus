@@ -1130,7 +1130,7 @@ TEST_F(TestServer, rtmsg_rtMessage_SetMessage_test1)
     uint32_t size = 0;
     rtError err;
     int32_t paramslen, j=1;
-    char *topic = "TEST_SAMPLE";
+    char topic[50] = "TEST_SAMPLE";
     void const* ptr = "SAMPLE_TEST";
 
     rtMessage_Create(&req);
