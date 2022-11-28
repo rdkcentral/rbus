@@ -1130,7 +1130,8 @@ TEST_F(TestServer, rtmsg_rtMessage_SetMessage_test1)
     uint32_t size = 0;
     rtError err;
     int32_t paramslen, j=1;
-    char topic[50] = "TEST_SAMPLE";
+    char *topic = "TEST_SAMPLE";
+    char getTopic[50] = "";
     void const* ptr = "SAMPLE_TEST";
 
     rtMessage_Create(&req);
@@ -1171,8 +1172,10 @@ TEST_F(TestServer, rtmsg_rtMessage_SetMessage_test1)
     EXPECT_EQ(err, RT_OK);
     err = rtMessage_SetSendTopic(req, topic);
     EXPECT_EQ(err, RT_OK);
-    err = rtMessage_GetSendTopic(req, topic);
+    err = rtMessage_GetSendTopic(req, getTopic);
     EXPECT_EQ(err, RT_OK);
+ 
+    EXPECT_EQ(strcmp(getTopic,topic), 0);
     rtMessage_Release(req);
     rtMessage_Release(item);
     free(s);
