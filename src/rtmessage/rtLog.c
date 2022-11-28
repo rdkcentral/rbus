@@ -176,7 +176,7 @@ rtLoggerSelection rtLog_GetOption()
 }
 
 #ifdef ENABLE_RDKLOGGER
-rdk_LogLevel rdkLogLevelFormatLogLevel(rtLogLevel level)
+rdk_LogLevel rdkLogLevelFromrtLogLevel(rtLogLevel level)
 {
   rdk_LogLevel rdklevel = RDK_LOG_INFO;
   switch (level)
@@ -235,7 +235,7 @@ void rtLogPrintf(rtLogLevel level, const char* mod, const char* file, int line, 
   else if (sOption == RT_USE_RDKLOGGER)
   {
     char module[MODULE_BUFFER_SIZE] = {0};
-    rdk_LogLevel rdklevel = rdkLogLevelFormatLogLevel(level);
+    rdk_LogLevel rdklevel = rdkLogLevelFromrtLogLevel(level);
     sprintf(module, "LOG.RDK.%s", mod);
     RDK_LOG(rdklevel, module, buff);
   }
