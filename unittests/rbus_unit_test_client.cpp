@@ -43,7 +43,7 @@ typedef struct
 
 char server_kill[] = "killall -9 rbus_test_server";
 #ifdef BUILD_FOR_DESKTOP
-char server_create[] = "./rbus_test_server alpha > /tmp/ll.txt  2>&1 &";
+char server_create[] = "./unittests/rbus_test_server alpha > /tmp/ll.txt  2>&1 &";
 #else
 char server_create[] = "/usr/bin/rbus_test_server alpha > /tmp/ll.txt  2>&1 &";
 #endif

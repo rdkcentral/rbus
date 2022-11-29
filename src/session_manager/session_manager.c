@@ -20,6 +20,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <signal.h>
 #include "rbuscore.h"
 #include "rtLog.h"
 #include "rbus_session_mgr.h"
@@ -115,6 +116,14 @@ static int callback(const char * destination, const char * method, rbusMessage m
 
     return 0;
 }
+/*Signal handler for closing broker connection*/
+static void handle_signal(int sig)
+{
+    (void) sig;
+    rbus_closeBrokerConnection();
+    printf("rbus session manager exiting.\n");
+    exit(0);
+}
 
 int main(int argc, char *argv[])
 {
@@ -123,6 +132,16 @@ int main(int argc, char *argv[])
     rbusCoreError_t err = RBUSCORE_SUCCESS;
     printf("rbus session manager launching.\n");
     rtLog_SetLevel(RT_LOG_INFO);
+
+    if (argc == 2)
+    {
+        if (-1 == daemon(0 /*chdir to "/"*/, 1 /*redirect stdout/stderr to /dev/null*/ ))
+        {
+            rtLog_Fatal("failed to fork off daemon. %s", rtStrError(errno));
+            exit(1);
+        }
+        signal(SIGTERM, handle_signal);
+    }
 
     while(1)
     {
