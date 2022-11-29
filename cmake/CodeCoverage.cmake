@@ -230,7 +230,6 @@ function(setup_target_for_coverage_lcov)
       message(FATAL_ERROR "gcov not found! Aborting...")
     endif() # NOT GCOV_PATH
 
-    set(Coverage_EXECUTABLE "${CMAKE_INSTALL_PREFIX}/bin/rbus_gtest.bin")
     # Setup target
     add_custom_target(${Coverage_NAME}
 
@@ -240,7 +239,12 @@ function(setup_target_for_coverage_lcov)
         COMMAND ${LCOV_PATH} ${Coverage_LCOV_ARGS} --gcov-tool ${GCOV_PATH} -c -i -d . -b ${BASEDIR} -o ${Coverage_NAME}.base
 
         # Run tests
-        COMMAND ${Coverage_EXECUTABLE} ${Coverage_EXECUTABLE_ARGS}
+        COMMAND "${CMAKE_CURRENT_BINARY_DIR}/src/rtmessage/rtrouted"
+        COMMAND "${CMAKE_CURRENT_BINARY_DIR}/src/session_manager/rbus_session_mgr" "daemon"
+        COMMAND "${CMAKE_CURRENT_BINARY_DIR}/unittests/rbus_gtest.bin"
+        COMMAND "/usr/bin/killall" "-15" "rbus_session_mgr"
+        COMMAND "${CMAKE_CURRENT_BINARY_DIR}/src/rtmessage/rtrouted_diag"  "shutdown"
+        COMMAND "rm" "-rf" "/tmp/rtrouted*"
 
         # Capturing lcov counters and generating report
         COMMAND ${LCOV_PATH} ${Coverage_LCOV_ARGS} --gcov-tool ${GCOV_PATH} --directory . -b ${BASEDIR} --capture --output-file ${Coverage_NAME}.capture
@@ -329,10 +333,14 @@ function(setup_target_for_coverage_gcovr_xml)
         list(APPEND GCOVR_EXCLUDE_ARGS "${EXCLUDE}")
     endforeach()
 
-    set(Coverage_EXECUTABLE "${CMAKE_INSTALL_PREFIX}/bin/rbus_gtest.bin")
     add_custom_target(${Coverage_NAME}
         # Run tests
-        COMMAND ${Coverage_EXECUTABLE} ${Coverage_EXECUTABLE_ARGS}
+        COMMAND "${CMAKE_CURRENT_BINARY_DIR}/src/rtmessage/rtrouted"
+        COMMAND "${CMAKE_CURRENT_BINARY_DIR}/src/session_manager/rbus_session_mgr" "daemon"
+        COMMAND "${CMAKE_CURRENT_BINARY_DIR}/unittests/rbus_gtest.bin"
+        COMMAND "/usr/bin/killall" "-15" "rbus_session_mgr"
+        COMMAND "${CMAKE_CURRENT_BINARY_DIR}/src/rtmessage/rtrouted_diag" "shutdown"
+        COMMAND "rm" "-rf" "/tmp/rtrouted*"
 
         # Running gcovr
         COMMAND ${GCOVR_PATH} --xml
@@ -402,10 +410,15 @@ function(setup_target_for_coverage_gcovr_html)
         list(APPEND GCOVR_EXCLUDE_ARGS "${EXCLUDE}")
     endforeach()
 
-    set(Coverage_EXECUTABLE "${CMAKE_INSTALL_PREFIX}/bin/rbus_gtest.bin")
     add_custom_target(${Coverage_NAME}
         # Run tests
-        COMMAND ${Coverage_EXECUTABLE} ${Coverage_EXECUTABLE_ARGS}
+        COMMAND "${CMAKE_CURRENT_BINARY_DIR}/src/rtmessage/rtrouted"
+        COMMAND "${CMAKE_CURRENT_BINARY_DIR}/src/session_manager/rbus_session_mgr" "daemon"
+        COMMAND "${CMAKE_CURRENT_BINARY_DIR}/unittests/rbus_gtest.bin"
+        COMMAND "/usr/bin/killall" "-15" "rbus_session_mgr"
+        COMMAND "${CMAKE_CURRENT_BINARY_DIR}/src/rtmessage/rtrouted_diag"  "shutdown"
+        COMMAND "/usr/bin/rm" "-rf" "/tmp/rtrouted*"
+        COMMAND "/usr/bin/rm" "-rf" "/tmp/rbus_*"
 
         # Create folder
         COMMAND ${CMAKE_COMMAND} -E make_directory ${PROJECT_BINARY_DIR}/${Coverage_NAME}
