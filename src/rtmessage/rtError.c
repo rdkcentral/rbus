@@ -99,7 +99,10 @@ rtError rtErrorGetLastError()
   rtError current = 0;
   rtErrorThreadSpecific* specific = getThreadSpecific();
   if (specific)
+  {
     current = specific->last_error;
+    free(specific);
+  }
   return current;
 }
 
