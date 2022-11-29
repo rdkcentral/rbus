@@ -367,7 +367,7 @@ TEST(rbusSetNegTest, test2)
 
 TEST(rbusSetNegTest, test3)
 {
-    rbusHandle_t handle;
+    rbusHandle_t handle = NULL;
     int rc = RBUS_ERROR_SUCCESS;
     rbusValue_t value = NULL;
 
@@ -609,7 +609,7 @@ TEST(rbusSubAsyncNegTest, test1)
 {
     rbusHandle_t handle=NULL;
     int rc = RBUS_ERROR_SUCCESS;
-    rbusEventHandler_t handler;
+    rbusEventHandler_t handler = NULL;
     static char userData[] = "My Data";
 
     handle = (struct _rbusHandle *) malloc(sizeof(struct _rbusHandle));

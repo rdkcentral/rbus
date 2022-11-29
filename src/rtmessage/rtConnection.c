@@ -1534,8 +1534,10 @@ rtConnection_Read(rtConnection con, int32_t timeout)
       if(msginfo->dataCapacity < msginfo->header.payload_length + 1)
       {
         msginfo->data = (uint8_t *)rt_try_malloc(msginfo->header.payload_length + 1);
-        if(!msginfo->data)
+        if(!msginfo->data){
+          rtMessageInfo_Release(msginfo);
           return rtErrorFromErrno(ENOMEM);
+        }
         msginfo->dataCapacity = msginfo->header.payload_length + 1;
       }
 
