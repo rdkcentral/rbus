@@ -41,7 +41,7 @@
 #define RBUS_CLI_COMPONENT_NAME "rbuscli"
 #define RBUS_CLI_MAX_PARAM      25
 #define RBUS_CLI_MAX_CMD_ARG    (RBUS_CLI_MAX_PARAM * 3)
-#define RBUS_CLI_SESSION_ID     4230
+#define RBUS_CLI_SESSION_ID     0
 #define BT_BUF_SIZE 512
 
 
