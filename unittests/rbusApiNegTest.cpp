@@ -879,7 +879,7 @@ TEST(rbusSessionNegTest, test5)
 
     handle = (struct _rbusHandle *) malloc(sizeof(struct _rbusHandle));
     rc = rbus_closeSession(handle, 0);
-    EXPECT_EQ(rc, RBUS_ERROR_INVALID_INPUT);
+    EXPECT_EQ(rc, RBUS_ERROR_SUCCESS);
     free(handle);
 }
 
@@ -891,7 +891,7 @@ TEST(rbusSessionNegTest, test6)
 
     handle = (struct _rbusHandle *) malloc(sizeof(struct _rbusHandle));
     rc = rbus_closeSession(handle, sessionId);
-    EXPECT_EQ(rc, RBUS_ERROR_INVALID_INPUT);
+    EXPECT_EQ(rc, RBUS_ERROR_SUCCESS);
     free(handle);
 }
 
