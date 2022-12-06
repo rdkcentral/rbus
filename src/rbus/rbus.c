@@ -4689,11 +4689,16 @@ rbusError_t rbus_closeSession(rbusHandle_t handle, uint32_t sessionId)
     rbusError_t rc = RBUS_ERROR_SUCCESS;
     rbusCoreError_t err = RBUSCORE_SUCCESS;
 
-    if ((0 != sessionId) && (handle))
+    if (handle)
     {
         rbusMessage inputSession;
         rbusMessage response = NULL;
 
+        if (sessionId == 0)
+        {
+            RBUSLOG_WARN("Passing default session ID which is 0");
+            return RBUS_ERROR_SUCCESS;
+        }
         rbusMessage_Init(&inputSession);
         rbusMessage_SetInt32(inputSession, /*MESSAGE_FIELD_PAYLOAD,*/ sessionId);
         if((err = rbus_invokeRemoteMethod(RBUS_SMGR_DESTINATION_NAME, RBUS_SMGR_METHOD_END_SESSION, inputSession, rbusConfig_ReadSetTimeout(), &response)) == RBUSCORE_SUCCESS)
