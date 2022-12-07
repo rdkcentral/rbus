@@ -2190,6 +2190,7 @@ static void _subscribe_callback_handler (rbusHandle_t handle, rbusMessage reques
             rbusMessage_SetInt32(*response, ret);
 
             rbusMessage_GetString(request, &publishOnSubscribe);
+
             if(strcmp(publishOnSubscribe, "true") == 0)
             {
                 el = retrieveInstanceElement(handleInfo->elementRoot, event_name);
