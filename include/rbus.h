@@ -301,6 +301,7 @@ typedef struct _rbusEventSubscription
     void*               userData;   /** The userData set when subscribing to the event. */
     rbusHandle_t        handle;     /** Private use only: The rbus handle associated with this subscription */
     rbusSubscribeAsyncRespHandler_t asyncHandler;/** Private use only: The async handler being used for any background subscription retries */
+    bool                publishOnSubscribe;
 } rbusEventSubscription_t;
 
 /** @} */
