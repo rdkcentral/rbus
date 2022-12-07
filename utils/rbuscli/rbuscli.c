@@ -1740,7 +1740,7 @@ void validate_and_execute_subscribe_cmd (int argc, char *argv[], bool add, bool 
     }
 
     runSteps = __LINE__;
-    rbusEventSubscription_t subscription = {argv[2], filter, 0, 0, event_receive_handler, userData, NULL, NULL};
+    rbusEventSubscription_t subscription = {argv[2], filter, 0, 0, event_receive_handler, userData, NULL, NULL, false};
 
     /* Async will be TRUE only when add is TRUE */
     if (isAsync && add)
