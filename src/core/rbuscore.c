@@ -672,7 +672,7 @@ static rbusCoreError_t send_subscription_request(const char * object_name, const
     if(payload)
         rbusMessage_SetMessage(request, payload);
     if(publishOnSubscribe)
-        rbusMessage_SetString(request, "true");
+        rbusMessage_SetInt32(request, 1); /*for publishOnSubscribe */
 
     if(timeout_ms <= 0)
         timeout_ms = TIMEOUT_VALUE_FIRE_AND_FORGET;
@@ -709,7 +709,6 @@ static rbusCoreError_t send_subscription_request(const char * object_name, const
         }
         if(response != NULL)
             *response = internal_response;
-        rbusMessage_Release(internal_response);
     }
     else if(RBUSCORE_ERROR_DESTINATION_UNREACHABLE == ret)
     {

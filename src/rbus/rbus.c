@@ -2165,7 +2165,7 @@ static void _subscribe_callback_handler (rbusHandle_t handle, rbusMessage reques
     const char * event_name = NULL;
     int has_payload = 0;
     rbusMessage payload = NULL;
-    const char *publishOnSubscribe = NULL;
+    int publishOnSubscribe = 0;
     elementNode* el = NULL;
     struct _rbusHandle* handleInfo = handle;
 
@@ -2185,12 +2185,12 @@ static void _subscribe_callback_handler (rbusHandle_t handle, rbusMessage reques
             rbusMessage_GetInt32(request, &has_payload);
             if(has_payload)
                 rbusMessage_GetMessage(request, &payload);
+            rbusMessage_GetInt32(request, &publishOnSubscribe);
             int added = strncmp(method, METHOD_SUBSCRIBE, MAX_METHOD_NAME_LENGTH) == 0 ? 1 : 0;
             rbusCoreError_t ret = _event_subscribe_callback_handler(NULL, event_name, sender, added, payload, handle);
             rbusMessage_SetInt32(*response, ret);
 
-            rbusMessage_GetString(request, &publishOnSubscribe);
-            if(strcmp(publishOnSubscribe, "true") == 0)
+            if(publishOnSubscribe)
             {
                 el = retrieveInstanceElement(handleInfo->elementRoot, event_name);
                 if(ret == RBUSCORE_SUCCESS && el->cbTable.getHandler)
@@ -2199,29 +2199,32 @@ static void _subscribe_callback_handler (rbusHandle_t handle, rbusMessage reques
                     rbusEvent_t event = {0};
                     rbusProperty_t tmpProperties;
                     rbusGetHandlerOptions_t options;
-                    rbusValue_t val;
                     rbusObject_t data;
                     memset(&options, 0, sizeof(options));
 
                     /* Update the Get Handler input options */
+                    rbusMessage_SetInt32(*response, 1);
 
+                    options.requestingComponent = handleInfo->componentName;
                     rbusProperty_Init(&tmpProperties, event_name, NULL);
                     err = el->cbTable.getHandler(handle, tmpProperties, &options);
-                    if (err != RBUS_ERROR_SUCCESS)
+                    if (err == RBUS_ERROR_SUCCESS)
                     {
-                        RBUSLOG_WARN("called get CB with result [%d]", err);
+                        rbusObject_Init(&data, NULL);
+                        rbusObject_SetProperty(data, tmpProperties);
+
+                        event.name = event_name;
+                        event.type = RBUS_EVENT_GENERAL;
+                        event.data = data;
+                        rbusEventData_appendToMessage(&event, 0, handleInfo->componentId, *response);
+
+                        rbusObject_Release(data);
+                        rbusProperty_Release(tmpProperties);
                     }
-                    val = rbusProperty_GetValue(tmpProperties);
-                    rbusObject_Init(&data, NULL);
-                    rbusObject_SetValue(data, "initial_value", val);
-
-                    event.name = event_name;
-                    event.type = RBUS_EVENT_GENERAL;
-                    event.data = data;
-                    rbusEventData_appendToMessage(&event, 0, handleInfo->componentId, *response);
-
-                    rbusObject_Release(data);
-                    rbusProperty_Release(tmpProperties);
+                }
+                else
+                {
+                    RBUSLOG_WARN("%s: getHandler not exist for %s", __FUNCTION__, event_name);
                 }
             }
             if(payload)
@@ -4100,10 +4103,16 @@ static rbusError_t rbusEvent_SubscribeWithRetries(
 
     if(coreerr == RBUSCORE_SUCCESS)
     {
-        rtVector_PushBack(handleInfo->eventSubs, sub);
-        if(publishOnSubscribe)
-            _master_event_callback_handler(NULL, eventName, response, userData);
+        int initial_value;
 
+        rtVector_PushBack(handleInfo->eventSubs, sub);
+
+        if(publishOnSubscribe)
+        {
+            rbusMessage_GetInt32(response, &initial_value);
+            if(initial_value)
+                _master_event_callback_handler(NULL, eventName, response, userData);
+        }
         RBUSLOG_INFO("%s: %s subscribe retries succeeded", __FUNCTION__, eventName);
         return RBUS_ERROR_SUCCESS;
     }
