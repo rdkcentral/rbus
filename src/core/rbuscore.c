@@ -709,6 +709,8 @@ static rbusCoreError_t send_subscription_request(const char * object_name, const
         }
         if(response != NULL)
             *response = internal_response;
+        if(!activate)
+            rbusMessage_Release(internal_response);
     }
     else if(RBUSCORE_ERROR_DESTINATION_UNREACHABLE == ret)
     {

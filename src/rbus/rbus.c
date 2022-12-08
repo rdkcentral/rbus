@@ -2214,7 +2214,7 @@ static void _subscribe_callback_handler (rbusHandle_t handle, rbusMessage reques
                         rbusObject_SetProperty(data, tmpProperties);
 
                         event.name = event_name;
-                        event.type = RBUS_EVENT_GENERAL;
+                        event.type = RBUS_EVENT_INITIAL_VALUE;
                         event.data = data;
                         rbusEventData_appendToMessage(&event, 0, handleInfo->componentId, *response);
 
@@ -4104,6 +4104,7 @@ static rbusError_t rbusEvent_SubscribeWithRetries(
     if(coreerr == RBUSCORE_SUCCESS)
     {
         int initial_value;
+        
 
         rtVector_PushBack(handleInfo->eventSubs, sub);
 
@@ -4112,6 +4113,7 @@ static rbusError_t rbusEvent_SubscribeWithRetries(
             rbusMessage_GetInt32(response, &initial_value);
             if(initial_value)
                 _master_event_callback_handler(NULL, eventName, response, userData);
+            rbusMessage_Release(response);
         }
         RBUSLOG_INFO("%s: %s subscribe retries succeeded", __FUNCTION__, eventName);
         return RBUS_ERROR_SUCCESS;

@@ -226,7 +226,10 @@ typedef enum
                                     was deleted in table. */
     RBUS_EVENT_VALUE_CHANGED,  /**< Notification that a property value
                                     was changed. */
-    RBUS_EVENT_GENERAL         /**< Provider defined event.*/
+    RBUS_EVENT_GENERAL,        /**< Provider defined event.*/
+    RBUS_EVENT_INITIAL_VALUE,  /**< Notification of initial value immediately
+                                    after subscription*/
+    RBUS_EVENT_INTERVAL,       /**< For event with interval*/
 } rbusEventType_t;
 
 /**
