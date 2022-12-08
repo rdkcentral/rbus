@@ -252,6 +252,18 @@ void show_menu(const char* command)
             printf ("\tsub Example.SomeStrProp = \"Hello\"\n\r");
             printf ("\n\r");
         }
+        else if(matchCmd(command, 4, "subinterval"))
+        {
+            printf ("\e[1msub\e[0mscribe \e[4mevent\e[0m [\e[4minterval\e[0m]\n\r");
+            printf ("Subscribe to a event with interval\n\r");
+            printf ("For interval, can be applied using the \e[4minterval\e[0m parameter.\n\r");
+            printf ("Args:\n\r");
+            printf ("\t%-20sThe name of the event to subscribe to\n\r", "event");
+            printf ("\t%-20sThe interval trigger value\n\r", "interval");
+            printf ("Examples:\n\r");
+            printf ("\tsubint Example.SomeIntProp 10\n\r");
+            printf ("\n\r");
+        }
         else if(matchCmd(command, 5, "unsubscribe"))
         {
             printf ("\e[1munsub\e[0mscribe \e[4mevent\e[0m [\e[4moperator\e[0m \e[4mvalue\e[0m]\n\r");
@@ -1669,6 +1681,24 @@ void set_filter_value(const char* arg, rbusValue_t value)
     rbusValue_SetString(value, arg);
 }
 
+int find_filter(char *argv[])
+{
+    if(strcmp(argv[3], ">") == 0)
+       return RBUS_FILTER_OPERATOR_GREATER_THAN;
+    else if(strcmp(argv[3], ">=") == 0)
+       return RBUS_FILTER_OPERATOR_GREATER_THAN_OR_EQUAL;
+    else if(strcmp(argv[3], "<") == 0)
+       return  RBUS_FILTER_OPERATOR_LESS_THAN;
+    else if(strcmp(argv[3], "<=") == 0)
+       return  RBUS_FILTER_OPERATOR_LESS_THAN_OR_EQUAL;
+    else if(strcmp(argv[3], "=") == 0)
+       return RBUS_FILTER_OPERATOR_EQUAL;
+    else if(strcmp(argv[3], "!=") == 0)
+       return  RBUS_FILTER_OPERATOR_NOT_EQUAL;
+    else
+       return -1;
+}
+
 void validate_and_execute_subscribe_cmd (int argc, char *argv[], bool add, bool isAsync)
 {
     rbusError_t rc = RBUS_ERROR_SUCCESS;
@@ -1676,6 +1706,9 @@ void validate_and_execute_subscribe_cmd (int argc, char *argv[], bool add, bool 
     rbusValue_t filterValue = NULL;
     rbusFilter_RelationOperator_t relOp;
     char* userData = NULL;
+    int interval = 0;
+    int duration = 0;
+    bool subinterval = false;
 
     if (argc < 3)
     {
@@ -1699,48 +1732,46 @@ void validate_and_execute_subscribe_cmd (int argc, char *argv[], bool add, bool 
     if(1)
     {
         userData = rt_calloc(1, 256);
-        strcat(userData, "sub ");
+	if (matchCmd(argv[1], 4, "subinterval")) {
+            subinterval = true;
+            strcat(userData, "subint ");
+	}
+	else {
+            strcat(userData, "sub ");
+	}
         strcat(userData, argv[2]);
     }
 
     if(argc > 3) /*filter*/
     {
-        if(strcmp(argv[3], ">") == 0)
-            relOp = RBUS_FILTER_OPERATOR_GREATER_THAN;
-        else if(strcmp(argv[3], ">=") == 0)
-            relOp = RBUS_FILTER_OPERATOR_GREATER_THAN_OR_EQUAL;
-        else if(strcmp(argv[3], "<") == 0)
-            relOp = RBUS_FILTER_OPERATOR_LESS_THAN;
-        else if(strcmp(argv[3], "<=") == 0)
-            relOp = RBUS_FILTER_OPERATOR_LESS_THAN_OR_EQUAL;
-        else if(strcmp(argv[3], "=") == 0)
-            relOp = RBUS_FILTER_OPERATOR_EQUAL;
-        else if(strcmp(argv[3], "!=") == 0)
-            relOp = RBUS_FILTER_OPERATOR_NOT_EQUAL;
-        else
-        {
-            printf ("Invalid arguments. Please see the help\n\r");
-            rt_free(userData);
-            return;
-        }
-
-        if(1)
+	if (subinterval) {
+	    interval = atoi(argv[3]);
+	    strcat(userData, " ");
+	    strcat(userData, argv[3]);
+	}
+	else if (find_filter(argv) >= 0)
         {
             strcat(userData, " ");
             strcat(userData, argv[3]);
             strcat(userData, " ");
             strcat(userData, argv[4]);
+
+	    rbusValue_Init(&filterValue);
+
+            set_filter_value(argv[4], filterValue);
+
+            rbusFilter_InitRelation(&filter, relOp, filterValue);
+	}
+	else
+        {
+	  printf ("Invalid arguments. Please see the help\n\r");
+	  rt_free(userData);
+	  return;
         }
-
-        rbusValue_Init(&filterValue);
-
-        set_filter_value(argv[4], filterValue);
-
-        rbusFilter_InitRelation(&filter, relOp, filterValue);
     }
 
     runSteps = __LINE__;
-    rbusEventSubscription_t subscription = {argv[2], filter, 0, 0, event_receive_handler, userData, NULL, NULL};
+    rbusEventSubscription_t subscription = {argv[2], filter, interval, duration, event_receive_handler, userData, NULL, NULL};
 
     /* Async will be TRUE only when add is TRUE */
     if (isAsync && add)
@@ -2140,7 +2171,7 @@ int handle_cmds (int argc, char *argv[])
     {
         validate_and_execute_register_command (argc, argv, false);
     }
-    else if(matchCmd(command, 3, "subscribe"))
+    else if(matchCmd(command, 3, "subscribe") || matchCmd(command, 4, "subinterval"))
     {
         validate_and_execute_subscribe_cmd (argc, argv, true, false);
     }
@@ -2349,7 +2380,7 @@ void completion(const char *buf, linenoiseCompletions *lc) {
     {
         runSteps = __LINE__;
         completion = find_completion(tokens[0], 14, "get", "set", "add", "del", "getr", "getn", "disca", "discc", "disce",
-                "discw", "sub", "unsub", "asub", "method_no", "method_na", "method_va", "reg", "unreg", "pub",
+                "discw", "sub", "subint", "unsub", "asub", "method_no", "method_na", "method_va", "reg", "unreg", "pub",
                 "addl", "reml", "send", "log", "quit", "help");
     }
     else if(num == 2)
@@ -2471,6 +2502,10 @@ char *hints(const char *buf, int *color, int *bold) {
         else if(strcmp(tokens[0], "sub") == 0)
         {
             hint = " event [operator value]";
+        }
+        else if(strcmp(tokens[0], "subint") == 0)
+        {
+            hint = " event [interval]";
         }
         else if(strcmp(tokens[0], "unsub") == 0)
         {
