@@ -40,13 +40,42 @@ extern "C" {
 */
 #define RBUS_MAX_HANDLES 16
 
+
+struct rbusRunnable {
+  // opaque user data
+  void  *argp;
+
+  // function to use to execute current runnable. this function will take
+  // argp as it's one and only argument.
+  void (*exec)(void *);
+
+  // rbus will internall use this function to cleanup argp after the runnable
+  // has been executed.
+  void (*cleanup)(void *);
+
+  // internally, we maintain a list of runnables
+  struct rbusRunnable* next;
+};
+
+struct rbusRunnableQueue {
+  struct rbusRunnable *head;
+  struct rbusRunnable *tail;
+  int pipe_fds[2];
+  pthread_mutex_t mutex;
+  pthread_cond_t cond;
+};
+
+typedef struct rbusRunnable rbusRunnable_t;
+typedef struct rbusRunnableQueue rbusRunnableQueue_t;
+typedef void (*rbusRunnableQueue_MessageHandler_t)(rbusRunnable_t *r);
+
 struct _rbusHandle
 {
   char*                 componentName;
   int32_t               componentId;
   elementNode*          elementRoot;
 
-  /* consumer side subscriptions FIXME - 
+  /* consumer side subscriptions FIXME -
     this needs to be an associative map instead of list/vector*/
   rtVector              eventSubs; 
 
@@ -55,6 +84,8 @@ struct _rbusHandle
 
   rtVector              messageCallbacks;
   rtConnection          connection;
+
+  rbusRunnableQueue_t   eventQueue;
 };
 
 void rbusHandleList_Add(struct _rbusHandle* handle);

@@ -712,6 +712,15 @@ rbusError_t rbus_close(
     rbusHandle_t handle);
 /** @} */
 
+
+typedef struct _rbusOptions {
+  bool         use_event_loop;
+  char const  *component_name;
+} rbusOptions_t;
+
+rbusError_t rbusHandle_New(rbusHandle_t* rbus, rbusOptions_t const *opts);
+rbusError_t rbusHandle_RunOne(rbusHandle_t rbus, int32_t millis);
+
 /**
  * @brief Allows a caller to propogate an OpenTelemetry context from client
  * to server.
@@ -1721,7 +1730,41 @@ rbusError_t rbus_registerLogHandler(
 
 rbusError_t rbus_setLogLevel(rbusLogLevel_t level);
 
+
+int rbusHandle_GetEventFD(rbusHandle_t rbus);
+rbusError_t rbusHandle_RunOne(rbusHandle_t rbus, int32_t millis);
+
+typedef void (*rbusSetPropertyAsyncHandler_t)(
+    rbusHandle_t rbus,
+    rbusError_t error,
+    rbusProperty_t props,
+    void* argp);
+
+typedef void (*rbusGetPropertyAsyncHandler_t)(
+    rbusHandle_t rbus,
+    rbusError_t error,
+    rbusProperty_t props,
+    void* argp);
+
+rbusError_t rbusProperty_GetAsync(
+  rbusHandle_t rbus,
+  rbusProperty_t props,
+  int timeout,
+  rbusGetPropertyAsyncHandler_t callback,
+  void* argp);
+
+rbusError_t rbusProperty_SetAsync(
+  rbusHandle_t rbus,
+  rbusProperty_t props,
+  rbusSetOptions_t* opts,
+  int timeout,
+  rbusSetPropertyAsyncHandler_t callback,
+  void* argp);
+
 /** @} */
+
+
+// event loop specific
 
 #ifdef __cplusplus
 }

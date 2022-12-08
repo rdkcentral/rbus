@@ -16,7 +16,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
 */
-
+#define _GNU_SOURCE
+#include <fcntl.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -105,6 +106,14 @@ static pthread_mutex_t gMutex = PTHREAD_MUTEX_INITIALIZER;
 //********************************************************************************//
 
 //******************************* INTERNAL FUNCTIONS *****************************//
+
+void rbusRunnableQueue_Init(rbusRunnableQueue_t* q);
+void rbusRunnableQueue_PushBack(rbusRunnableQueue_t* q, rbusRunnable_t r);
+rbusRunnable_t* rbusRunnableQueue_PopFront(rbusRunnableQueue_t* q, int32_t millis);
+int rbusRunnableQueue_GetReadFileDescriptor(rbusRunnableQueue_t* q);
+void rbusRunnableQueue_Dispatch(rbusRunnableQueue_t* q, rbusRunnableQueue_MessageHandler_t h);
+
+
 static rbusError_t rbusCoreError_to_rbusError(rtError e)
 {
   rbusError_t err;
@@ -2229,10 +2238,19 @@ static void _rbus_mutex_destructor()
 
 rbusError_t rbus_open(rbusHandle_t* handle, char const* componentName)
 {
+  rbusOptions_t opts;
+  opts.use_event_loop = false;
+  opts.component_name = componentName;
+  return rbusHandle_New(handle, &opts);
+}
+
+rbusError_t rbusHandle_New(rbusHandle_t* handle, rbusOptions_t const *opts)
+{
     rbusError_t ret = RBUS_ERROR_SUCCESS;
     rbusCoreError_t err = RBUSCORE_SUCCESS;
     rbusHandle_t tmpHandle = NULL;
     static int32_t sLastComponentId = 0;
+    const char *componentName = opts->component_name;
 
     if(!handle || !componentName)
     {
@@ -4863,5 +4881,144 @@ rbusError_t rbusHandle_GetTraceContextAsString(
 
     return RBUS_ERROR_SUCCESS;
 }
+
+void rbusRunnableQueue_Init(rbusRunnableQueue_t *q)
+{
+    q->head = NULL;
+    q->tail = NULL;
+    pipe2(q->pipe_fds, O_CLOEXEC);
+    pthread_mutex_init(&q->mutex, NULL);
+    pthread_cond_init(&q->cond, NULL);
+}
+
+void rbusRunnableQueue_PushBack(rbusRunnableQueue_t *q, rbusRunnable_t r)
+{
+    rbusRunnable_t *item = rt_malloc(sizeof(rbusRunnable_t));
+    item->argp = r.argp;
+    item->exec = r.exec;
+    item->cleanup = r.cleanup;
+    item->next = NULL;
+
+    pthread_mutex_lock(&q->mutex);
+    if (!q->head)
+    {
+        q->head = item;
+        q->tail = item;
+    }
+    else
+    {
+        q->tail->next = item;
+        q->tail = item;
+    }
+    pthread_mutex_unlock(&q->mutex);
+    pthread_cond_signal(&q->cond);
+
+    static const char kQueueIndicator_Runnable = 'r';
+    write(q->pipe_fds[1], &kQueueIndicator_Runnable, 1);
+}
+
+rbusRunnable_t *
+rbusRunnableQueue_PopFront(rbusRunnableQueue_t *q, int32_t millis)
+{
+    rbusRunnable_t *r = NULL;
+    struct timespec waitUntil = {0, 0};
+
+    if (millis > 0)
+    {
+        int32_t s = millis / 1000;
+        int32_t m = (millis - (s * 1000));
+
+        // timing is not perfect. the pthread_cond_timedait can wake up on signal
+        // and sleep will waitUntil another full 'millis' of time. It should
+        // take this into account at some point
+        clock_gettime(CLOCK_REALTIME, &waitUntil);
+
+        waitUntil.tv_sec += s;
+        waitUntil.tv_nsec += (m * 1000 * 1000);
+    }
+
+    pthread_mutex_lock(&q->mutex);
+    while (millis > 0 && !q->head)
+    {
+        pthread_cond_timedwait(&q->cond, &q->mutex, &waitUntil);
+    }
+    if (q->head)
+    {
+        r = q->head;
+        q->head = q->head->next;
+    }
+    pthread_mutex_unlock(&q->mutex);
+
+    if (r)
+    {
+        char queue_indicator = 'z';
+        read(q->pipe_fds[0], &queue_indicator, 1);
+    }
+
+    return r;
+}
+
+int
+rbusHandle_GetEventFD(rbusHandle_t rbus)
+{
+    return rbus->eventQueue.pipe_fds[0];
+}
+
+rbusError_t
+rbusHandle_RunOne(rbusHandle_t rbus, int32_t millis)
+{
+    rbusRunnable_t* r = rbusRunnableQueue_PopFront(&rbus->eventQueue, millis);
+    if (r)
+    {
+        if (r->exec)
+        {
+            r->exec(r->argp);
+        }
+        if (r->cleanup)
+        {
+            r->cleanup(r->argp);
+        }
+        rt_free(r);
+        return RBUS_ERROR_SUCCESS;
+    }
+    return RBUS_ERROR_TIMEOUT;
+}
+
+rbusError_t
+rbusProperty_GetAsync(
+  rbusHandle_t rbus,
+  rbusProperty_t props,
+  int timeout,
+  rbusGetPropertyAsyncHandler_t callback,
+  void* argp)
+{
+  (void) rbus;
+  (void) props;
+  (void) timeout;
+  (void) callback;
+  (void) argp;
+
+  return RBUS_ERROR_SUCCESS;
+}
+
+rbusError_t
+rbusProperty_SetAsync(
+  rbusHandle_t rbus,
+  rbusProperty_t props,
+  rbusSetOptions_t* opts,
+  int timeout,
+  rbusSetPropertyAsyncHandler_t callback,
+  void* argp)
+{
+  (void) rbus;
+  (void) props;
+  (void) opts;
+  (void) timeout;
+  (void) callback;
+  (void) argp;
+
+  return RBUS_ERROR_SUCCESS;
+}
+
 
 /* End of File */
