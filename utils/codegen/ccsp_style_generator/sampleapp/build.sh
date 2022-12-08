@@ -19,6 +19,6 @@
 #  limitations under the License.
 #  
 
-INCS="-I./ -I../../src -I../../../../../../include/rbus -I../../../../../..//include/rtmessage"
-LIBS="-L../../../../../../lib"
-gcc $INCS $LIBS -o Sample_app Sample_app.c Sample_rbus.c Sample_hal.c ../../src/rbus_context_helpers.c -lrbus -lrbuscore -lrtMessage -lmsgpackc -g
+INCS="-I./ -I../../src -I../../../../../install/usr/include/rbus -I../../../../../install/usr/include/rtmessage"
+LIBS="-L../../../../../install/usr/lib"
+gcc $INCS $LIBS -o Sample_app Sample_app.c Sample_rbus.c Sample_hal.c ../../src/rbus_context_helpers.c -lrbus -lrbuscore -lrtMessage -lmsgpackc -lcjson -g

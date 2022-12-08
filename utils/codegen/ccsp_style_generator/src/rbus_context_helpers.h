@@ -108,12 +108,12 @@ typedef struct
     void* userData;         /*any context data set for the this element's containing object (e.g. row)*/
 } HandlerContext;
 
-/** @fn         HandlerContext GetHandlerContext(char const* name)
+/** @fn         HandlerContext* GetHandlerContext(char const* name)
  *  @brief      Get a handler context for a given element name
  *  @param      name            The element's full name
  *  @return     HandlerContext
  */
-HandlerContext GetHandlerContext(char const* name);
+HandlerContext* GetHandlerContext(char const* name);
 
 #define GetPropertyContext(P) GetHandlerContext(rbusProperty_GetName(P))
 #define GetTableContext(T) GetHandlerContext(T)

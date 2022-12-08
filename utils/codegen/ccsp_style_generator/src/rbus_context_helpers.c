@@ -259,11 +259,11 @@ void Context_Release()
     }
 }
 
-HandlerContext GetHandlerContext(char const* name)
+HandlerContext* GetHandlerContext(char const* name)
 {
-    HandlerContext context;
-    context.fullName = ConvertPath(name);
-    context.name = GetParamName(context.fullName);
-    context.userData = GetParentContext(context.fullName);
+    HandlerContext *context = (HandlerContext *) malloc(sizeof(HandlerContext));
+    context->fullName = ConvertPath(name);
+    context->name = GetParamName(context->fullName);
+    context->userData = GetParentContext(context->fullName);
     return context;
 }

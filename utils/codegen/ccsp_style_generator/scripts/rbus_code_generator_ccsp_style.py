@@ -335,14 +335,14 @@ def writeTable(elem,path):
 """
 static rbusError_t %s_rbus(rbusHandle_t handle, char const* tableName, char const* aliasName, uint32_t* instNum)
 {
-    HandlerContext context = GetTableContext(tableName);
-    void* rowContext = %s(context.userData, instNum);
+    HandlerContext* context = GetTableContext(tableName);
+    void* rowContext = %s(context->userData, instNum);
     if(!rowContext)
     {
         rtLog_Error("%s returned null row context");
         return RBUS_ERROR_BUS_ERROR;
     }
-    SetRowContext(context.fullName, *instNum, aliasName, rowContext);
+    SetRowContext(context->fullName, *instNum, aliasName, rowContext);
     return RBUS_ERROR_SUCCESS;
 }
 """ %(addName,addName,addName))
@@ -352,15 +352,17 @@ static rbusError_t %s_rbus(rbusHandle_t handle, char const* tableName, char cons
 """
 static rbusError_t %s_rbus(rbusHandle_t handle, char const* rowName)
 {
-    HandlerContext context = GetHandlerContext(rowName);  
-    void* rowContext = GetRowContext(context.fullName);
-    int rc = %s(context.userData, rowContext);
+    HandlerContext* context = GetHandlerContext(rowName);
+    void* rowContext = GetRowContext(context->fullName);
+    int rc = %s(context->userData, rowContext);
     if(rc != RBUS_ERROR_SUCCESS)
     {
         rtLog_Error("%s failed");
+        free(context);
         return RBUS_ERROR_BUS_ERROR;
     }
-    RemoveRowContextByName(context.fullName);
+    RemoveRowContextByName(context->fullName);
+    free(context);
     return RBUS_ERROR_SUCCESS;
 }
 """ % (delName,delName,delName)) 
@@ -398,7 +400,7 @@ def writeGetter(func,params,stype1,stype2,sparams,isDynamic,isupFunc,syncFunc):
 """
 static rbusError_t %s_rbus(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t* opts)
 {
-    HandlerContext context = GetPropertyContext(property);""" % (func))
+    HandlerContext* context = GetPropertyContext(property);""" % (func))
 
   if isDynamic and len(isupFunc)>0 and len(syncFunc)>0:
     fout_rbus_c.write(
@@ -409,14 +411,17 @@ static rbusError_t %s_rbus(rbusHandle_t handle, rbusProperty_t property, rbusGet
   if isDynamic and len(isupFunc)>0 and len(syncFunc)>0:
     fout_rbus_c.write(
 """    if((ret = do_%s_%s(context)) != RBUS_ERROR_SUCCESS)
+       {
+        free(context);
         return ret;
+       }
 
 """ % (isupFunc,syncFunc))
 
   first = True;
   for param in params:
     fout_rbus_c.write(
-"""    %sif(strcmp(context.name, "%s") == 0)
+"""    %sif(strcmp(context->name, "%s") == 0)
     {
         //rbusProperty_Set%s(property, YOUR_VALUE);
     }
@@ -427,12 +432,14 @@ static rbusError_t %s_rbus(rbusHandle_t handle, rbusProperty_t property, rbusGet
     fout_rbus_c.write(
 """    else
     {
+        free(context);
         return RBUS_ERROR_INVALID_INPUT;
     }
 """)
 
   fout_rbus_c.write(
 """
+    free(context);
     return RBUS_ERROR_SUCCESS;
 }
 """)
@@ -450,7 +457,7 @@ def writeSetter(func,params,stype1,stype2,validateFunc,commitFunc,rollbackFunc,i
 """
 rbusError_t %s_rbus(rbusHandle_t handle, rbusProperty_t property, rbusSetHandlerOptions_t* opts)
 {
-    HandlerContext context = GetPropertyContext(property);""" % (func))
+    HandlerContext* context = GetPropertyContext(property);""" % (func))
 
   if isDynamic and len(isupFunc)>0 and len(syncFunc)>0:
     fout_rbus_c.write(
@@ -462,14 +469,17 @@ rbusError_t %s_rbus(rbusHandle_t handle, rbusProperty_t property, rbusSetHandler
     fout_rbus_c.write(
 """
     if((ret = do_%s_%s(context)) != RBUS_ERROR_SUCCESS)
+    {
+        free(context);
         return ret;
+    }
 """ % (isupFunc,syncFunc))
 
   first = True;
   for param in params:
     if param.pwritable:
       fout_rbus_c.write(
-"""    %sif(strcmp(context.name, "%s") == 0)
+"""    %sif(strcmp(context->name, "%s") == 0)
     {
 """ % ("" if first else "else ", param.pname))
 
@@ -483,7 +493,7 @@ rbusError_t %s_rbus(rbusHandle_t handle, rbusProperty_t property, rbusSetHandler
         if(verr != RBUS_VALUE_ERROR_SUCCESS)
             return RBUS_ERROR_INVALID_INPUT;
 
-        /*context.userData is this objects data and val is the property's new value*/
+        /*context->userData is this objects data and val is the property's new value*/
     }
 """ % (stype2, (", NULL" if type == "char" else "")))
       first = False
@@ -492,6 +502,7 @@ rbusError_t %s_rbus(rbusHandle_t handle, rbusProperty_t property, rbusSetHandler
     fout_rbus_c.write(
 """    else
     {
+        free(context);
         return RBUS_ERROR_INVALID_INPUT;
     }
 """)
@@ -501,25 +512,29 @@ rbusError_t %s_rbus(rbusHandle_t handle, rbusProperty_t property, rbusSetHandler
 """    
     if(opts->commit)
     {
-      return do_%s_%s_%s(context.userData);
+      rbusError_t ret;
+      ret = do_%s_%s_%s(context->userData);
+      free(context);
+      return ret;
     }
 
 """ % (validateFunc,commitFunc,rollbackFunc))
   fout_rbus_c.write(
-"""    return RBUS_ERROR_SUCCESS;
+"""     free(context);
+	return RBUS_ERROR_SUCCESS;
 }
 """)
 
 def writeDynamicTableSync(isupFunc, syncFunc):
   fout_rbus_c.write(
 """
-int do_%s_%s(HandlerContext context)
+int do_%s_%s(HandlerContext *context)
 {
-    if(IsTimeToSyncDynamicTable(context.name))
+    if(IsTimeToSyncDynamicTable(context->name))
     {
-        if(%s(context.userData))
+        if(%s(context->userData))
         {
-            return %s(context.userData);
+            return %s(context->userData);
         }
     }
     return 0;

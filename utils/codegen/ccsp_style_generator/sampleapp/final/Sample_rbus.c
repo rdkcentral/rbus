@@ -136,69 +136,77 @@ rbusError_t Sample_Unload()
 
 static rbusError_t Sample_GetParamBoolValue_rbus(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t* opts)
 {
-    HandlerContext context = GetPropertyContext(property);
+    HandlerContext* context = GetPropertyContext(property);
 
-    if(strcmp(context.name, "BoolParam") == 0)
+    if(strcmp(context->name, "BoolParam") == 0)
     {
         rbusProperty_SetBoolean(property, sampleData.halData.boolVal);
     }
     else
     {
+        free(context);
         return RBUS_ERROR_INVALID_INPUT;
     }
 
+    free(context);
     return RBUS_ERROR_SUCCESS;
 }
 
 static rbusError_t Sample_GetParamIntValue_rbus(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t* opts)
 {
-    HandlerContext context = GetPropertyContext(property);
+    HandlerContext* context = GetPropertyContext(property);
 
-    if(strcmp(context.name, "IntParam") == 0)
+    if(strcmp(context->name, "IntParam") == 0)
     {
         rbusProperty_SetInt32(property, sampleData.halData.intVal);
     }
     else
     {
+        free(context);
         return RBUS_ERROR_INVALID_INPUT;
     }
 
+    free(context);
     return RBUS_ERROR_SUCCESS;
 }
 
 static rbusError_t Sample_GetParamUlongValue_rbus(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t* opts)
 {
-    HandlerContext context = GetPropertyContext(property);
+    HandlerContext* context = GetPropertyContext(property);
 
-    if(strcmp(context.name, "UlongParam") == 0)
+    if(strcmp(context->name, "UlongParam") == 0)
     {
         rbusProperty_SetUInt32(property, sampleData.halData.ulongVal);
     }
     else
     {
+        free(context);
         return RBUS_ERROR_INVALID_INPUT;
     }
 
+    free(context);
     return RBUS_ERROR_SUCCESS;
 }
 
 static rbusError_t Sample_GetParamStringValue_rbus(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t* opts)
 {
-    HandlerContext context = GetPropertyContext(property);
+    HandlerContext* context = GetPropertyContext(property);
 
-    if(strcmp(context.name, "StringParam") == 0)
+    if(strcmp(context->name, "StringParam") == 0)
     {
         rbusProperty_SetString(property, sampleData.halData.stringVal);
     }
-    else if(strcmp(context.name, "ReadonlyStringParam") == 0)
+    else if(strcmp(context->name, "ReadonlyStringParam") == 0)
     {
         rbusProperty_SetString(property, "My read-only string value");
     }
     else
     {
+        free(context);
         return RBUS_ERROR_INVALID_INPUT;
     }
 
+    free(context);
     return RBUS_ERROR_SUCCESS;
 }
 
@@ -251,9 +259,9 @@ rbusError_t do_Sample_Validate_Sample_Commit_Sample_Rollback(void* context)
 
 rbusError_t Sample_SetParamBoolValue_rbus(rbusHandle_t handle, rbusProperty_t property, rbusSetHandlerOptions_t* opts)
 {
-    HandlerContext context = GetPropertyContext(property);
+    HandlerContext* context = GetPropertyContext(property);
 
-    if(strcmp(context.name, "BoolParam") == 0)
+    if(strcmp(context->name, "BoolParam") == 0)
     {
         bool val;
 
@@ -266,22 +274,27 @@ rbusError_t Sample_SetParamBoolValue_rbus(rbusHandle_t handle, rbusProperty_t pr
     }
     else
     {
+        free(context);
         return RBUS_ERROR_INVALID_INPUT;
     }
     
     if(opts->commit)
     {
-      return do_Sample_Validate_Sample_Commit_Sample_Rollback(context.userData);
+      rbusError_t ret;
+      ret = do_Sample_Validate_Sample_Commit_Sample_Rollback(context->userData);
+      free(context);
+      return ret;
     }
 
+    free(context);
     return RBUS_ERROR_SUCCESS;
 }
 
 rbusError_t Sample_SetParamIntValue_rbus(rbusHandle_t handle, rbusProperty_t property, rbusSetHandlerOptions_t* opts)
 {
-    HandlerContext context = GetPropertyContext(property);
+    HandlerContext* context = GetPropertyContext(property);
 
-    if(strcmp(context.name, "IntParam") == 0)
+    if(strcmp(context->name, "IntParam") == 0)
     {
         int32_t val;
 
@@ -294,22 +307,27 @@ rbusError_t Sample_SetParamIntValue_rbus(rbusHandle_t handle, rbusProperty_t pro
     }
     else
     {
+        free(context);
         return RBUS_ERROR_INVALID_INPUT;
     }
     
     if(opts->commit)
     {
-      return do_Sample_Validate_Sample_Commit_Sample_Rollback(context.userData);
+      rbusError_t ret;
+      ret = do_Sample_Validate_Sample_Commit_Sample_Rollback(context->userData);
+      free(context);
+      return ret;
     }
 
+    free(context);
     return RBUS_ERROR_SUCCESS;
 }
 
 rbusError_t Sample_SetParamUlongValue_rbus(rbusHandle_t handle, rbusProperty_t property, rbusSetHandlerOptions_t* opts)
 {
-    HandlerContext context = GetPropertyContext(property);
+    HandlerContext* context = GetPropertyContext(property);
 
-    if(strcmp(context.name, "UlongParam") == 0)
+    if(strcmp(context->name, "UlongParam") == 0)
     {
         uint32_t val;
 
@@ -322,22 +340,27 @@ rbusError_t Sample_SetParamUlongValue_rbus(rbusHandle_t handle, rbusProperty_t p
     }
     else
     {
+        free(context);
         return RBUS_ERROR_INVALID_INPUT;
     }
     
     if(opts->commit)
     {
-      return do_Sample_Validate_Sample_Commit_Sample_Rollback(context.userData);
+      rbusError_t ret;
+      ret = do_Sample_Validate_Sample_Commit_Sample_Rollback(context->userData);
+      free(context);
+      return ret;
     }
 
+    free(context);
     return RBUS_ERROR_SUCCESS;
 }
 
 rbusError_t Sample_SetParamStringValue_rbus(rbusHandle_t handle, rbusProperty_t property, rbusSetHandlerOptions_t* opts)
 {
-    HandlerContext context = GetPropertyContext(property);
+    HandlerContext* context = GetPropertyContext(property);
 
-    if(strcmp(context.name, "StringParam") == 0)
+    if(strcmp(context->name, "StringParam") == 0)
     {
         const char* val;
         int len;
@@ -351,14 +374,19 @@ rbusError_t Sample_SetParamStringValue_rbus(rbusHandle_t handle, rbusProperty_t 
     }
     else
     {
+        free(context);
         return RBUS_ERROR_INVALID_INPUT;
     }
     
     if(opts->commit)
     {
-      return do_Sample_Validate_Sample_Commit_Sample_Rollback(context.userData);
+      rbusError_t ret;
+      ret = do_Sample_Validate_Sample_Commit_Sample_Rollback(context->userData);
+      free(context);
+      return ret;
     }
 
+    free(context);
     return RBUS_ERROR_SUCCESS;
 }
 
@@ -378,14 +406,14 @@ void* WritableTable_AddEntry(void* ctx, uint32_t* instNum)
 
 static rbusError_t WritableTable_AddEntry_rbus(rbusHandle_t handle, char const* tableName, char const* aliasName, uint32_t* instNum)
 {
-    HandlerContext context = GetTableContext(tableName);
-    void* rowContext = WritableTable_AddEntry(context.userData, instNum);
+    HandlerContext* context = GetTableContext(tableName);
+    void* rowContext = WritableTable_AddEntry(context->userData, instNum);
     if(!rowContext)
     {
         rtLog_Error("WritableTable_AddEntry returned null row context");
         return RBUS_ERROR_BUS_ERROR;
     }
-    SetRowContext(context.fullName, *instNum, aliasName, rowContext);
+    SetRowContext(context->fullName, *instNum, aliasName, rowContext);
     return RBUS_ERROR_SUCCESS;
 }
 
@@ -403,91 +431,101 @@ rbusError_t WritableTable_DelEntry(void* ctx, void* inst)
 
 static rbusError_t WritableTable_DelEntry_rbus(rbusHandle_t handle, char const* rowName)
 {
-    HandlerContext context = GetHandlerContext(rowName);  
-    void* rowContext = GetRowContext(context.fullName);
-    int rc = WritableTable_DelEntry(context.userData, rowContext);
+    HandlerContext* context = GetHandlerContext(rowName);
+    void* rowContext = GetRowContext(context->fullName);
+    int rc = WritableTable_DelEntry(context->userData, rowContext);
     if(rc != RBUS_ERROR_SUCCESS)
     {
         rtLog_Error("WritableTable_DelEntry failed");
+        free(context);
         return RBUS_ERROR_BUS_ERROR;
     }
-    RemoveRowContextByName(context.fullName);
+    RemoveRowContextByName(context->fullName);
+    free(context);
     return RBUS_ERROR_SUCCESS;
 }
 
 static rbusError_t WritableTable_GetParamBoolValue_rbus(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t* opts)
 {
-    HandlerContext context = GetPropertyContext(property);
-    DmlWritableRecord* record = (DmlWritableRecord*)context.userData;
+    HandlerContext* context = GetPropertyContext(property);
+    DmlWritableRecord* record = (DmlWritableRecord*)context->userData;
     if(!record)
         return RBUS_ERROR_INVALID_INPUT;
 
-    if(strcmp(context.name, "BoolParam") == 0)
+    if(strcmp(context->name, "BoolParam") == 0)
     {
         rbusProperty_SetBoolean(property, record->halData.boolVal);
     }
     else
     {
+        free(context);
         return RBUS_ERROR_INVALID_INPUT;
     }
 
+    free(context);
     return RBUS_ERROR_SUCCESS;
 }
 
 static rbusError_t WritableTable_GetParamIntValue_rbus(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t* opts)
 {
-    HandlerContext context = GetPropertyContext(property);
-    DmlWritableRecord* record = (DmlWritableRecord*)context.userData;
+    HandlerContext* context = GetPropertyContext(property);
+    DmlWritableRecord* record = (DmlWritableRecord*)context->userData;
     if(!record)
         return RBUS_ERROR_INVALID_INPUT;
 
-    if(strcmp(context.name, "IntParam") == 0)
+    if(strcmp(context->name, "IntParam") == 0)
     {
         rbusProperty_SetInt32(property, record->halData.intVal);
     }
     else
     {
+        free(context);
         return RBUS_ERROR_INVALID_INPUT;
     }
 
+    free(context);
     return RBUS_ERROR_SUCCESS;
 }
 
 static rbusError_t WritableTable_GetParamUlongValue_rbus(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t* opts)
 {
-    HandlerContext context = GetPropertyContext(property);
-    DmlWritableRecord* record = (DmlWritableRecord*)context.userData;
+    HandlerContext* context = GetPropertyContext(property);
+    DmlWritableRecord* record = (DmlWritableRecord*)context->userData;
     if(!record)
         return RBUS_ERROR_INVALID_INPUT;
 
-    if(strcmp(context.name, "UlongParam") == 0)
+    if(strcmp(context->name, "UlongParam") == 0)
     {
         rbusProperty_SetUInt32(property, record->halData.ulongVal);
     }
     else
     {
+        free(context);
         return RBUS_ERROR_INVALID_INPUT;
     }
 
+    free(context);
     return RBUS_ERROR_SUCCESS;
 }
 
 static rbusError_t WritableTable_GetParamStringValue_rbus(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t* opts)
 {
-    HandlerContext context = GetPropertyContext(property);
-    DmlWritableRecord* record = (DmlWritableRecord*)context.userData;
+    HandlerContext* context = GetPropertyContext(property);
+    DmlWritableRecord* record = (DmlWritableRecord*)context->userData;
     if(!record)
         return RBUS_ERROR_INVALID_INPUT;
 
-    if(strcmp(context.name, "StringParam") == 0)
+    if(strcmp(context->name, "StringParam") == 0)
     {
         rbusProperty_SetString(property, record->halData.stringVal);
     }
     else
     {
+        free(context);
         return RBUS_ERROR_INVALID_INPUT;
     }
 
+    free(context);
     return RBUS_ERROR_SUCCESS;
 }
 
@@ -537,12 +575,12 @@ rbusError_t do_WritableTable_Validate_WritableTable_Commit_WritableTable_Rollbac
 
 rbusError_t WritableTable_SetParamBoolValue_rbus(rbusHandle_t handle, rbusProperty_t property, rbusSetHandlerOptions_t* opts)
 {
-    HandlerContext context = GetPropertyContext(property);
-    DmlWritableRecord* record = (DmlWritableRecord*)context.userData;
+    HandlerContext* context = GetPropertyContext(property);
+    DmlWritableRecord* record = (DmlWritableRecord*)context->userData;
     if(!record)
         return RBUS_ERROR_INVALID_INPUT;
 
-    if(strcmp(context.name, "BoolParam") == 0)
+    if(strcmp(context->name, "BoolParam") == 0)
     {
       bool val;
 
@@ -555,25 +593,30 @@ rbusError_t WritableTable_SetParamBoolValue_rbus(rbusHandle_t handle, rbusProper
     }
     else
     {
+        free(context);
         return RBUS_ERROR_INVALID_INPUT;
     }
     
     if(opts->commit)
     {
-      return do_WritableTable_Validate_WritableTable_Commit_WritableTable_Rollback(context.userData);
+      rbusError_t ret;
+      ret = do_WritableTable_Validate_WritableTable_Commit_WritableTable_Rollback(context->userData);
+      free(context);
+      return ret;
     }
 
+    free(context);
     return RBUS_ERROR_SUCCESS;
 }
 
 rbusError_t WritableTable_SetParamIntValue_rbus(rbusHandle_t handle, rbusProperty_t property, rbusSetHandlerOptions_t* opts)
 {
-    HandlerContext context = GetPropertyContext(property);
-    DmlWritableRecord* record = (DmlWritableRecord*)context.userData;
+    HandlerContext* context = GetPropertyContext(property);
+    DmlWritableRecord* record = (DmlWritableRecord*)context->userData;
     if(!record)
         return RBUS_ERROR_INVALID_INPUT;
 
-    if(strcmp(context.name, "IntParam") == 0)
+    if(strcmp(context->name, "IntParam") == 0)
     {
       int32_t val;
 
@@ -586,25 +629,30 @@ rbusError_t WritableTable_SetParamIntValue_rbus(rbusHandle_t handle, rbusPropert
     }
     else
     {
+        free(context);
         return RBUS_ERROR_INVALID_INPUT;
     }
     
     if(opts->commit)
     {
-      return do_WritableTable_Validate_WritableTable_Commit_WritableTable_Rollback(context.userData);
+      rbusError_t ret;
+      ret = do_WritableTable_Validate_WritableTable_Commit_WritableTable_Rollback(context->userData);
+      free(context);
+      return ret;
     }
 
+    free(context);
     return RBUS_ERROR_SUCCESS;
 }
 
 rbusError_t WritableTable_SetParamUlongValue_rbus(rbusHandle_t handle, rbusProperty_t property, rbusSetHandlerOptions_t* opts)
 {
-    HandlerContext context = GetPropertyContext(property);
-    DmlWritableRecord* record = (DmlWritableRecord*)context.userData;
+    HandlerContext* context = GetPropertyContext(property);
+    DmlWritableRecord* record = (DmlWritableRecord*)context->userData;
     if(!record)
         return RBUS_ERROR_INVALID_INPUT;
 
-    if(strcmp(context.name, "UlongParam") == 0)
+    if(strcmp(context->name, "UlongParam") == 0)
     {
       uint32_t val;
 
@@ -617,25 +665,30 @@ rbusError_t WritableTable_SetParamUlongValue_rbus(rbusHandle_t handle, rbusPrope
     }
     else
     {
+        free(context);
         return RBUS_ERROR_INVALID_INPUT;
     }
     
     if(opts->commit)
     {
-      return do_WritableTable_Validate_WritableTable_Commit_WritableTable_Rollback(context.userData);
+      rbusError_t ret;
+      ret = do_WritableTable_Validate_WritableTable_Commit_WritableTable_Rollback(context->userData);
+      free(context);
+      return ret;
     }
 
+    free(context);
     return RBUS_ERROR_SUCCESS;
 }
 
 rbusError_t WritableTable_SetParamStringValue_rbus(rbusHandle_t handle, rbusProperty_t property, rbusSetHandlerOptions_t* opts)
 {
-    HandlerContext context = GetPropertyContext(property);
-    DmlWritableRecord* record = (DmlWritableRecord*)context.userData;
+    HandlerContext* context = GetPropertyContext(property);
+    DmlWritableRecord* record = (DmlWritableRecord*)context->userData;
     if(!record)
         return RBUS_ERROR_INVALID_INPUT;
 
-    if(strcmp(context.name, "StringParam") == 0)
+    if(strcmp(context->name, "StringParam") == 0)
     {
        const char* val;
         int len;
@@ -649,90 +702,102 @@ rbusError_t WritableTable_SetParamStringValue_rbus(rbusHandle_t handle, rbusProp
     }
     else
     {
+        free(context);
         return RBUS_ERROR_INVALID_INPUT;
     }
     
     if(opts->commit)
     {
-      return do_WritableTable_Validate_WritableTable_Commit_WritableTable_Rollback(context.userData);
+      rbusError_t ret;
+      ret = do_WritableTable_Validate_WritableTable_Commit_WritableTable_Rollback(context->userData);
+      free(context);
+      return ret;
     }
 
+    free(context);
     return RBUS_ERROR_SUCCESS;
 }
 
 static rbusError_t StaticTable_GetParamBoolValue_rbus(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t* opts)
 {
-    HandlerContext context = GetPropertyContext(property);
-    DmlStaticRecord* record = (DmlStaticRecord*)context.userData;
+    HandlerContext* context = GetPropertyContext(property);
+    DmlStaticRecord* record = (DmlStaticRecord*)context->userData;
     if(!record)
         return RBUS_ERROR_INVALID_INPUT;
 
-    if(strcmp(context.name, "BoolParam") == 0)
+    if(strcmp(context->name, "BoolParam") == 0)
     {
         rbusProperty_SetBoolean(property, record->halData.boolVal);
     }
     else
     {
+        free(context);
         return RBUS_ERROR_INVALID_INPUT;
     }
 
+    free(context);
     return RBUS_ERROR_SUCCESS;
 }
 
 static rbusError_t StaticTable_GetParamIntValue_rbus(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t* opts)
 {
-    HandlerContext context = GetPropertyContext(property);
-    DmlStaticRecord* record = (DmlStaticRecord*)context.userData;
+    HandlerContext* context = GetPropertyContext(property);
+    DmlStaticRecord* record = (DmlStaticRecord*)context->userData;
     if(!record)
         return RBUS_ERROR_INVALID_INPUT;
 
-    if(strcmp(context.name, "IntParam") == 0)
+    if(strcmp(context->name, "IntParam") == 0)
     {
         rbusProperty_SetInt32(property, record->halData.intVal);
     }
     else
     {
+        free(context);
         return RBUS_ERROR_INVALID_INPUT;
     }
 
+    free(context);
     return RBUS_ERROR_SUCCESS;
 }
 
 static rbusError_t StaticTable_GetParamUlongValue_rbus(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t* opts)
 {
-    HandlerContext context = GetPropertyContext(property);
-    DmlStaticRecord* record = (DmlStaticRecord*)context.userData;
+    HandlerContext* context = GetPropertyContext(property);
+    DmlStaticRecord* record = (DmlStaticRecord*)context->userData;
     if(!record)
         return RBUS_ERROR_INVALID_INPUT;
 
-    if(strcmp(context.name, "UlongParam") == 0)
+    if(strcmp(context->name, "UlongParam") == 0)
     {
         rbusProperty_SetUInt32(property, record->halData.ulongVal);
     }
     else
     {
+        free(context);
         return RBUS_ERROR_INVALID_INPUT;
     }
 
+    free(context);
     return RBUS_ERROR_SUCCESS;
 }
 
 static rbusError_t StaticTable_GetParamStringValue_rbus(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t* opts)
 {
-    HandlerContext context = GetPropertyContext(property);
-    DmlStaticRecord* record = (DmlStaticRecord*)context.userData;
+    HandlerContext* context = GetPropertyContext(property);
+    DmlStaticRecord* record = (DmlStaticRecord*)context->userData;
     if(!record)
         return RBUS_ERROR_INVALID_INPUT;
-
-    if(strcmp(context.name, "StringParam") == 0)
+    if(strcmp(context->name, "StringParam") == 0)
     {
         rbusProperty_SetString(property, record->halData.stringVal);
     }
     else
     {
+        free(context);
         return RBUS_ERROR_INVALID_INPUT;
     }
 
+    free(context);
     return RBUS_ERROR_SUCCESS;
 }
 
@@ -782,12 +847,12 @@ rbusError_t do_StaticTable_Validate_StaticTable_Commit_StaticTable_Rollback(void
 
 rbusError_t StaticTable_SetParamBoolValue_rbus(rbusHandle_t handle, rbusProperty_t property, rbusSetHandlerOptions_t* opts)
 {
-    HandlerContext context = GetPropertyContext(property);
-    DmlStaticRecord* record = (DmlStaticRecord*)context.userData;
+    HandlerContext* context = GetPropertyContext(property);
+    DmlStaticRecord* record = (DmlStaticRecord*)context->userData;
     if(!record)
         return RBUS_ERROR_INVALID_INPUT;
 
-    if(strcmp(context.name, "BoolParam") == 0)
+    if(strcmp(context->name, "BoolParam") == 0)
     {
       bool val;
 
@@ -800,25 +865,30 @@ rbusError_t StaticTable_SetParamBoolValue_rbus(rbusHandle_t handle, rbusProperty
     }
     else
     {
+        free(context);
         return RBUS_ERROR_INVALID_INPUT;
     }
     
     if(opts->commit)
     {
-      return do_StaticTable_Validate_StaticTable_Commit_StaticTable_Rollback(context.userData);
+      rbusError_t ret;
+      ret = do_StaticTable_Validate_StaticTable_Commit_StaticTable_Rollback(context->userData);
+      free(context);
+      return ret;
     }
 
+    free(context);
     return RBUS_ERROR_SUCCESS;
 }
 
 rbusError_t StaticTable_SetParamIntValue_rbus(rbusHandle_t handle, rbusProperty_t property, rbusSetHandlerOptions_t* opts)
 {
-    HandlerContext context = GetPropertyContext(property);
-    DmlStaticRecord* record = (DmlStaticRecord*)context.userData;
+    HandlerContext* context = GetPropertyContext(property);
+    DmlStaticRecord* record = (DmlStaticRecord*)context->userData;
     if(!record)
         return RBUS_ERROR_INVALID_INPUT;
 
-    if(strcmp(context.name, "IntParam") == 0)
+    if(strcmp(context->name, "IntParam") == 0)
     {
       int32_t val;
 
@@ -831,25 +901,30 @@ rbusError_t StaticTable_SetParamIntValue_rbus(rbusHandle_t handle, rbusProperty_
     }
     else
     {
+        free(context);
         return RBUS_ERROR_INVALID_INPUT;
     }
     
     if(opts->commit)
     {
-      return do_StaticTable_Validate_StaticTable_Commit_StaticTable_Rollback(context.userData);
+      rbusError_t ret;
+      ret = do_StaticTable_Validate_StaticTable_Commit_StaticTable_Rollback(context->userData);
+      free(context);
+      return ret;
     }
 
+    free(context);
     return RBUS_ERROR_SUCCESS;
 }
 
 rbusError_t StaticTable_SetParamUlongValue_rbus(rbusHandle_t handle, rbusProperty_t property, rbusSetHandlerOptions_t* opts)
 {
-    HandlerContext context = GetPropertyContext(property);
-    DmlStaticRecord* record = (DmlStaticRecord*)context.userData;
+    HandlerContext* context = GetPropertyContext(property);
+    DmlStaticRecord* record = (DmlStaticRecord*)context->userData;
     if(!record)
         return RBUS_ERROR_INVALID_INPUT;
 
-    if(strcmp(context.name, "UlongParam") == 0)
+    if(strcmp(context->name, "UlongParam") == 0)
     {
       uint32_t val;
 
@@ -862,25 +937,30 @@ rbusError_t StaticTable_SetParamUlongValue_rbus(rbusHandle_t handle, rbusPropert
     }
     else
     {
+        free(context);
         return RBUS_ERROR_INVALID_INPUT;
     }
     
     if(opts->commit)
     {
-      return do_StaticTable_Validate_StaticTable_Commit_StaticTable_Rollback(context.userData);
+      rbusError_t ret;
+      ret = do_StaticTable_Validate_StaticTable_Commit_StaticTable_Rollback(context->userData);
+      free(context);
+      return ret;
     }
 
+    free(context);
     return RBUS_ERROR_SUCCESS;
 }
 
 rbusError_t StaticTable_SetParamStringValue_rbus(rbusHandle_t handle, rbusProperty_t property, rbusSetHandlerOptions_t* opts)
 {
-    HandlerContext context = GetPropertyContext(property);
-    DmlStaticRecord* record = (DmlStaticRecord*)context.userData;
+    HandlerContext* context = GetPropertyContext(property);
+    DmlStaticRecord* record = (DmlStaticRecord*)context->userData;
     if(!record)
         return RBUS_ERROR_INVALID_INPUT;
-
-    if(strcmp(context.name, "StringParam") == 0)
+ 
+    if(strcmp(context->name, "StringParam") == 0)
     {
         const char* val;
         int len;
@@ -894,14 +974,19 @@ rbusError_t StaticTable_SetParamStringValue_rbus(rbusHandle_t handle, rbusProper
     }
     else
     {
+        free(context);
         return RBUS_ERROR_INVALID_INPUT;
     }
     
     if(opts->commit)
     {
-      return do_StaticTable_Validate_StaticTable_Commit_StaticTable_Rollback(context.userData);
+      rbusError_t ret;
+      ret = do_StaticTable_Validate_StaticTable_Commit_StaticTable_Rollback(context->userData);
+      free(context);
+      return ret;
     }
 
+    free(context);
     return RBUS_ERROR_SUCCESS;
 }
 
@@ -926,13 +1011,13 @@ rbusError_t DynamicTable_Synchronize(void* ctx)
     return RBUS_ERROR_SUCCESS;
 }
 
-int do_DynamicTable_IsUpdated_DynamicTable_Synchronize(HandlerContext context)
+int do_DynamicTable_IsUpdated_DynamicTable_Synchronize(HandlerContext *context)
 {
-    if(IsTimeToSyncDynamicTable(context.name))
+    if(IsTimeToSyncDynamicTable(context->name))
     {
-        if(DynamicTable_IsUpdated(context.userData))
+        if(DynamicTable_IsUpdated(context->userData))
         {
-            return DynamicTable_Synchronize(context.userData);
+            return DynamicTable_Synchronize(context->userData);
         }
     }
     return 0;
@@ -940,93 +1025,113 @@ int do_DynamicTable_IsUpdated_DynamicTable_Synchronize(HandlerContext context)
 
 static rbusError_t DynamicTable_GetParamBoolValue_rbus(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t* opts)
 {
-    HandlerContext context = GetPropertyContext(property);    
+    HandlerContext* context = GetPropertyContext(property);
     rbusError_t ret;
-    DmlDynamicRecord* record = (DmlDynamicRecord*)context.userData;
+    DmlDynamicRecord* record = (DmlDynamicRecord*)context->userData;
     if(!record)
         return RBUS_ERROR_INVALID_INPUT;
 
     if((ret = do_DynamicTable_IsUpdated_DynamicTable_Synchronize(context)) != RBUS_ERROR_SUCCESS)
+    {
+        free(context);
         return ret;
+    }
 
-    if(strcmp(context.name, "BoolParam") == 0)
+    if(strcmp(context->name, "BoolParam") == 0)
     {
         rbusProperty_SetBoolean(property, record->halData.boolVal);
     }
     else
     {
+        free(context);
         return RBUS_ERROR_INVALID_INPUT;
     }
 
+    free(context);
     return RBUS_ERROR_SUCCESS;
 }
 
 static rbusError_t DynamicTable_GetParamIntValue_rbus(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t* opts)
 {
-    HandlerContext context = GetPropertyContext(property);    
+    HandlerContext* context = GetPropertyContext(property);
     rbusError_t ret;
-    DmlDynamicRecord* record = (DmlDynamicRecord*)context.userData;
+    DmlDynamicRecord* record = (DmlDynamicRecord*)context->userData;
     if(!record)
         return RBUS_ERROR_INVALID_INPUT;
 
     if((ret = do_DynamicTable_IsUpdated_DynamicTable_Synchronize(context)) != RBUS_ERROR_SUCCESS)
+    {
+        free(context);
         return ret;
+    }
 
-    if(strcmp(context.name, "IntParam") == 0)
+    if(strcmp(context->name, "IntParam") == 0)
     {
         rbusProperty_SetInt32(property, record->halData.intVal);
     }
     else
     {
+        free(context);
         return RBUS_ERROR_INVALID_INPUT;
     }
 
+    free(context);
     return RBUS_ERROR_SUCCESS;
 }
 
 static rbusError_t DynamicTable_GetParamUlongValue_rbus(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t* opts)
 {
-    HandlerContext context = GetPropertyContext(property);    
+    HandlerContext* context = GetPropertyContext(property);
     rbusError_t ret;
-    DmlDynamicRecord* record = (DmlDynamicRecord*)context.userData;
+    DmlDynamicRecord* record = (DmlDynamicRecord*)context->userData;
     if(!record)
         return RBUS_ERROR_INVALID_INPUT;
 
     if((ret = do_DynamicTable_IsUpdated_DynamicTable_Synchronize(context)) != RBUS_ERROR_SUCCESS)
+    {
+        free(context);
         return ret;
+    }
 
-    if(strcmp(context.name, "UlongParam") == 0)
+    if(strcmp(context->name, "UlongParam") == 0)
     {
         rbusProperty_SetUInt32(property, record->halData.ulongVal);
     }
     else
     {
+        free(context);
         return RBUS_ERROR_INVALID_INPUT;
     }
 
+    free(context);
     return RBUS_ERROR_SUCCESS;
 }
 
 static rbusError_t DynamicTable_GetParamStringValue_rbus(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t* opts)
 {
-    HandlerContext context = GetPropertyContext(property);    
+    HandlerContext* context = GetPropertyContext(property);
     rbusError_t ret;
-    DmlDynamicRecord* record = (DmlDynamicRecord*)context.userData;
+    DmlDynamicRecord* record = (DmlDynamicRecord*)context->userData;
     if(!record)
         return RBUS_ERROR_INVALID_INPUT;
 
     if((ret = do_DynamicTable_IsUpdated_DynamicTable_Synchronize(context)) != RBUS_ERROR_SUCCESS)
+     {
+        free(context);
         return ret;
+     }
 
-    if(strcmp(context.name, "StringParam") == 0)
+    if(strcmp(context->name, "StringParam") == 0)
     {
         rbusProperty_SetString(property, record->halData.stringVal);
     }
     else
     {
+        free(context);
         return RBUS_ERROR_INVALID_INPUT;
     }
 
+    free(context);
     return RBUS_ERROR_SUCCESS;
 }
 
