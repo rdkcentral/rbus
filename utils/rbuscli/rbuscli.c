@@ -1749,7 +1749,7 @@ void validate_and_execute_subscribe_cmd (int argc, char *argv[], bool add, bool 
 	    strcat(userData, " ");
 	    strcat(userData, argv[3]);
 	}
-	else if (find_filter(argv) >= 0)
+	else if ((relOp = find_filter(argv)) >= 0)
         {
             strcat(userData, " ");
             strcat(userData, argv[3]);
