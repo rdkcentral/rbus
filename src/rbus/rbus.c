@@ -4103,9 +4103,8 @@ static rbusError_t rbusEvent_SubscribeWithRetries(
 
     if(coreerr == RBUSCORE_SUCCESS)
     {
-        int initial_value;
+        int initial_value = 0;
         
-
         rtVector_PushBack(handleInfo->eventSubs, sub);
 
         if(publishOnSubscribe)
