@@ -2167,7 +2167,11 @@ static void _subscribe_callback_handler (rbusHandle_t handle, rbusMessage reques
     rbusMessage payload = NULL;
     int publishOnSubscribe = 0;
     elementNode* el = NULL;
+    rbusEvent_t event = {0};
+    rbusObject_t data = NULL;
     struct _rbusHandle* handleInfo = handle;
+    rbusProperty_t tmpProperties = NULL;
+    rbusError_t err = RBUS_ERROR_SUCCESS;
 
     rbusMessage_Init(response);
 
@@ -2185,42 +2189,82 @@ static void _subscribe_callback_handler (rbusHandle_t handle, rbusMessage reques
             rbusMessage_GetInt32(request, &has_payload);
             if(has_payload)
                 rbusMessage_GetMessage(request, &payload);
-            rbusMessage_GetInt32(request, &publishOnSubscribe);
             int added = strncmp(method, METHOD_SUBSCRIBE, MAX_METHOD_NAME_LENGTH) == 0 ? 1 : 0;
+            if(added)
+                rbusMessage_GetInt32(request, &publishOnSubscribe);
             rbusCoreError_t ret = _event_subscribe_callback_handler(NULL, event_name, sender, added, payload, handle);
             rbusMessage_SetInt32(*response, ret);
+            rbusMessage_SetInt32(*response, 1); /* Based on this value initial value will be published to the consumer in
+                                                   rbusEvent_SubscribeWithRetries() function call */
 
             if(publishOnSubscribe)
             {
                 el = retrieveInstanceElement(handleInfo->elementRoot, event_name);
-                if(ret == RBUSCORE_SUCCESS && el->cbTable.getHandler)
+                if(el->type == RBUS_ELEMENT_TYPE_TABLE)
                 {
-                    rbusError_t err = RBUS_ERROR_SUCCESS;
-                    rbusEvent_t event = {0};
-                    rbusProperty_t tmpProperties;
-                    rbusGetHandlerOptions_t options;
-                    rbusObject_t data;
-                    memset(&options, 0, sizeof(options));
+                    rbusMessage tableRequest = NULL;
+                    rbusMessage tableResponse = NULL;
+                    int tableRet = 0;
+                    int count = 0;
+                    int i = 0;
 
-                    /* Update the Get Handler input options */
-                    rbusMessage_SetInt32(*response, 1);
-
-                    options.requestingComponent = handleInfo->componentName;
-                    rbusProperty_Init(&tmpProperties, event_name, NULL);
-                    err = el->cbTable.getHandler(handle, tmpProperties, &options);
-                    if (err == RBUS_ERROR_SUCCESS)
+                    rbusMessage_Init(&tableRequest);
+                    rbusMessage_SetString(tableRequest, event_name);
+                    rbusMessage_SetInt32(tableRequest, -1);
+                    rbusMessage_SetInt32(tableRequest, 1);
+                    _get_parameter_names_handler(handle, tableRequest, &tableResponse);
+                    rbusMessage_GetInt32(tableResponse, &tableRet);
+                    rbusMessage_GetInt32(tableResponse, &count);
+                    rbusProperty_Init(&tmpProperties, "numberOfEntries", NULL);
+                    if(count != 0)
                     {
-                        rbusObject_Init(&data, NULL);
-                        rbusObject_SetProperty(data, tmpProperties);
+                        for(i = 0; i < count; ++i)
+                        {
+                            int32_t instNum = 0;
+                            char fullName[RBUS_MAX_NAME_LENGTH] = {0};
+                            char row_instance[RBUS_MAX_NAME_LENGTH] = {0};
+                            char const* alias = NULL;
 
-                        event.name = event_name;
-                        event.type = RBUS_EVENT_INITIAL_VALUE;
-                        event.data = data;
-                        rbusEventData_appendToMessage(&event, 0, handleInfo->componentId, *response);
-
-                        rbusObject_Release(data);
-                        rbusProperty_Release(tmpProperties);
+                            rbusMessage_GetInt32(tableResponse, &instNum);
+                            rbusMessage_GetString(tableResponse, &alias);
+                            snprintf(fullName, RBUS_MAX_NAME_LENGTH, "%s%d.", event_name, instNum);
+                            if(i == 0)
+                            {
+                                rbusProperty_SetInt32(tmpProperties, count);
+                            }
+                            snprintf(row_instance, RBUS_MAX_NAME_LENGTH, "path%d", instNum);
+                            rbusProperty_AppendString(tmpProperties, row_instance, fullName);
+                        }
                     }
+                    else
+                    {
+                        rbusProperty_SetInt32(tmpProperties, count);
+                    }
+                }
+                else
+                {
+                    if(ret == RBUSCORE_SUCCESS && el->cbTable.getHandler)
+                    {
+                        rbusGetHandlerOptions_t options;
+                        memset(&options, 0, sizeof(options));
+
+                        options.requestingComponent = handleInfo->componentName;
+                        rbusProperty_Init(&tmpProperties, event_name, NULL);
+                        err = el->cbTable.getHandler(handle, tmpProperties, &options);
+                    }
+                }
+                if (err == RBUS_ERROR_SUCCESS)
+                {
+                    rbusObject_Init(&data, NULL);
+                    rbusObject_SetProperty(data, tmpProperties);
+
+                    event.name = event_name;
+                    event.type = RBUS_EVENT_INITIAL_VALUE;
+                    event.data = data;
+                    rbusEventData_appendToMessage(&event, 0, handleInfo->componentId, *response);
+
+                    rbusObject_Release(data);
+                    rbusProperty_Release(tmpProperties);
                 }
                 else
                 {
