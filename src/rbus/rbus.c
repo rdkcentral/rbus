@@ -107,13 +107,6 @@ static pthread_mutex_t gMutex = PTHREAD_MUTEX_INITIALIZER;
 
 //******************************* INTERNAL FUNCTIONS *****************************//
 
-void rbusRunnableQueue_Init(rbusRunnableQueue_t* q);
-void rbusRunnableQueue_PushBack(rbusRunnableQueue_t* q, rbusRunnable_t r);
-rbusRunnable_t* rbusRunnableQueue_PopFront(rbusRunnableQueue_t* q, int32_t millis);
-int rbusRunnableQueue_GetReadFileDescriptor(rbusRunnableQueue_t* q);
-void rbusRunnableQueue_Dispatch(rbusRunnableQueue_t* q, rbusRunnableQueue_MessageHandler_t h);
-
-
 static rbusError_t rbusCoreError_to_rbusError(rtError e)
 {
   rbusError_t err;
@@ -2240,7 +2233,7 @@ rbusError_t rbus_open(rbusHandle_t* handle, char const* componentName)
 {
   rbusOptions_t opts;
   opts.use_event_loop = false;
-  opts.component_name = componentName;
+  opts.component_name = strdup(componentName);
   return rbusHandle_New(handle, &opts);
 }
 
@@ -2250,19 +2243,18 @@ rbusError_t rbusHandle_New(rbusHandle_t* handle, rbusOptions_t const *opts)
     rbusCoreError_t err = RBUSCORE_SUCCESS;
     rbusHandle_t tmpHandle = NULL;
     static int32_t sLastComponentId = 0;
-    const char *componentName = opts->component_name;
 
-    if(!handle || !componentName)
+    if(!handle || !opts->component_name)
     {
         if(!handle)
-            RBUSLOG_WARN("%s(%s): handle is NULL", __FUNCTION__, componentName);
-        if(!componentName)
+            RBUSLOG_WARN("%s(%s): handle is NULL", __FUNCTION__, opts->component_name);
+        if(!opts->component_name)
             RBUSLOG_WARN("%s: componentName is NULL", __FUNCTION__);
         ret = RBUS_ERROR_INVALID_INPUT;
         goto exit_error0;
     }
 
-    RBUSLOG_INFO("%s(%s)", __FUNCTION__, componentName);
+    RBUSLOG_INFO("%s(%s)", __FUNCTION__, opts->component_name);
 
     LockMutex();
 
@@ -2272,19 +2264,20 @@ rbusError_t rbusHandle_New(rbusHandle_t* handle, rbusOptions_t const *opts)
         Per spec: If a component calls this API more than once, any previous busHandle 
         and all previous data element registrations will be canceled.
     */
-    tmpHandle = rbusHandleList_GetByName(componentName);
+    tmpHandle = rbusHandleList_GetByName(opts->component_name);
 
     if(tmpHandle)
     {
         UnlockMutex();
-        RBUSLOG_WARN("%s(%s): closing previously opened component with the same name", __FUNCTION__, componentName);
+        RBUSLOG_WARN("%s(%s): closing previously opened component with the same name", __FUNCTION__,
+          opts->component_name);
         rbus_close(tmpHandle);
         LockMutex();
     }
 
     if(rbusHandleList_IsFull())
     {
-        RBUSLOG_ERROR("%s(%s): at maximum handle count %d", __FUNCTION__, componentName, RBUS_MAX_HANDLES);
+        RBUSLOG_ERROR("%s(%s): at maximum handle count %d", __FUNCTION__, opts->component_name, RBUS_MAX_HANDLES);
         ret = RBUS_ERROR_OUT_OF_RESOURCES;
         goto exit_error1;
     }
@@ -2295,31 +2288,30 @@ rbusError_t rbusHandle_New(rbusHandle_t* handle, rbusOptions_t const *opts)
     */
     if(!rbus_getConnection())
     {
-        RBUSLOG_DEBUG("%s(%s): opening broker connection", __FUNCTION__, componentName);
+        RBUSLOG_DEBUG("%s(%s): opening broker connection", __FUNCTION__, opts->component_name);
 
-        if((err = rbus_openBrokerConnection(componentName)) != RBUSCORE_SUCCESS)
+        if((err = rbus_openBrokerConnection(opts->component_name)) != RBUSCORE_SUCCESS)
         {
-            RBUSLOG_ERROR("%s(%s): rbus_openBrokerConnection error %d", __FUNCTION__, componentName, err);
+            RBUSLOG_ERROR("%s(%s): rbus_openBrokerConnection error %d", __FUNCTION__, opts->component_name, err);
             goto exit_error1;
         }
     }
 
     tmpHandle = rt_calloc(1, sizeof(struct _rbusHandle));
 
-    if((err = rbus_registerObj(componentName, _callback_handler, tmpHandle)) != RBUSCORE_SUCCESS)
+    if((err = rbus_registerObj(opts->component_name, _callback_handler, tmpHandle)) != RBUSCORE_SUCCESS)
     {
         /*This will fail if the same name was previously registered (by another rbus_open or ccsp msg bus init)*/
-        RBUSLOG_ERROR("%s(%s): rbus_registerObj error %d", __FUNCTION__, componentName, err);
+        RBUSLOG_ERROR("%s(%s): rbus_registerObj error %d", __FUNCTION__, opts->component_name, err);
         goto exit_error2;
     }
 
-    if((err = rbus_registerSubscribeHandler(componentName, _event_subscribe_callback_handler, tmpHandle)) != RBUSCORE_SUCCESS)
+    if((err = rbus_registerSubscribeHandler(opts->component_name, _event_subscribe_callback_handler, tmpHandle)) != RBUSCORE_SUCCESS)
     {
-        RBUSLOG_ERROR("%s(%s): rbus_registerSubscribeHandler error %d", __FUNCTION__, componentName, err);
+        RBUSLOG_ERROR("%s(%s): rbus_registerSubscribeHandler error %d", __FUNCTION__, opts->component_name, err);
         goto exit_error3;
     }
 
-    tmpHandle->componentName = strdup(componentName);
     tmpHandle->componentId = ++sLastComponentId;
     tmpHandle->connection = rbus_getConnection();
     rtVector_Create(&tmpHandle->eventSubs);
@@ -2331,24 +2323,24 @@ rbusError_t rbusHandle_New(rbusHandle_t* handle, rbusOptions_t const *opts)
 
     UnlockMutex();
 
-    RBUSLOG_INFO("%s(%s) success", __FUNCTION__, componentName);
+    RBUSLOG_INFO("%s(%s) success", __FUNCTION__, opts->component_name);
 
     return RBUS_ERROR_SUCCESS;
 
 exit_error3:
 
-    if((err = rbus_unregisterObj(componentName)) != RBUSCORE_SUCCESS)
-        RBUSLOG_ERROR("%s(%s): rbus_unregisterObj error %d", __FUNCTION__, componentName, err);
+    if((err = rbus_unregisterObj(opts->component_name)) != RBUSCORE_SUCCESS)
+        RBUSLOG_ERROR("%s(%s): rbus_unregisterObj error %d", __FUNCTION__, opts->component_name, err);
 
 exit_error2:
 
     if(rbus_getConnection() && rbusHandleList_IsEmpty())
         if((err = rbus_unregisterClientDisconnectHandler()) != RBUSCORE_SUCCESS)
-            RBUSLOG_ERROR("%s(%s): rbus_unregisterClientDisconnectHandler error %d", __FUNCTION__, componentName, err);
+            RBUSLOG_ERROR("%s(%s): rbus_unregisterClientDisconnectHandler error %d", __FUNCTION__, opts->component_name, err);
 
     if(rbus_getConnection() && rbusHandleList_IsEmpty())
         if((err = rbus_closeBrokerConnection()) != RBUSCORE_SUCCESS)
-            RBUSLOG_ERROR("%s(%s): rbus_closeBrokerConnection error %d", __FUNCTION__, componentName, err);
+            RBUSLOG_ERROR("%s(%s): rbus_closeBrokerConnection error %d", __FUNCTION__, opts->component_name, err);
 
 exit_error1:
 

@@ -39,6 +39,8 @@ extern "C" {
     46 additional listeners which can be used by the rbus_message api, other rtConnection clients or for rbus future requirements
 */
 #define RBUS_MAX_HANDLES 16
+#define RT_UNUSED(x) UNUSED_x ## x __attribute__((__unused__))
+#define RTLIB_PRIVATE __attribute__ ((visibility ("hidden")))
 
 
 struct rbusRunnable {
@@ -69,6 +71,13 @@ typedef struct rbusRunnable rbusRunnable_t;
 typedef struct rbusRunnableQueue rbusRunnableQueue_t;
 typedef void (*rbusRunnableQueue_MessageHandler_t)(rbusRunnable_t *r);
 
+RTLIB_PRIVATE void rbusRunnableQueue_Init(rbusRunnableQueue_t *q);
+RTLIB_PRIVATE void rbusRunnableQueue_PushBack(rbusRunnableQueue_t *q, rbusRunnable_t r);
+RTLIB_PRIVATE rbusRunnable_t * rbusRunnableQueue_PopFront(rbusRunnableQueue_t *q, int32_t millis);
+RTLIB_PRIVATE int rbusRunnableQueue_GetReadFileDescriptor(rbusRunnableQueue_t* q);
+RTLIB_PRIVATE void rbusRunnableQueue_Dispatch(rbusRunnableQueue_t* q, rbusRunnableQueue_MessageHandler_t h);
+
+
 struct _rbusHandle
 {
   char*                 componentName;
@@ -86,6 +95,7 @@ struct _rbusHandle
   rtConnection          connection;
 
   rbusRunnableQueue_t   eventQueue;
+  rbusOptions_t         opts;
 };
 
 void rbusHandleList_Add(struct _rbusHandle* handle);
