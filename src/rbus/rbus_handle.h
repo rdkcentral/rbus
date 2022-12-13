@@ -95,7 +95,7 @@ struct _rbusHandle
   rtConnection          connection;
 
   rbusRunnableQueue_t   eventQueue;
-  rbusOptions_t         opts;
+  bool                  useEventLoop;
 };
 
 void rbusHandleList_Add(struct _rbusHandle* handle);

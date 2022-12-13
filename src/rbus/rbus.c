@@ -24,6 +24,7 @@
 #include <assert.h>
 #include <pthread.h>
 #include <unistd.h>
+#include <rtFuture.h>
 #include <rtVector.h>
 #include <rtMemory.h>
 #include <rbuscore.h>
@@ -47,6 +48,9 @@
 #define UNUSED5(a,b,c,d,e)      UNUSED1(a),UNUSED4(b,c,d,e)
 #define UNUSED6(a,b,c,d,e,f)    UNUSED1(a),UNUSED5(b,c,d,e,f)
 #define RBUS_MIN(a,b) ((a)<(b) ? (a) : (b))
+
+#define RTINT_TO_PTR(n) ((void *)(intptr_t) (n))
+#define RTPTR_TO_INT(p) ((int)(intptr_t) (p))
 
 #ifndef FALSE
 #define FALSE                               0
@@ -1634,7 +1638,7 @@ static rbusError_t _get_single_dml_handler (rbusHandle_t handle, char const *par
     }
     else
     {
-        RBUSLOG_WARN("Not able to retrieve element [%s]", parameterName);
+        RBUSLOG_WARN("Not able to retrieve element [%s]. Element doesn't exist.", parameterName);
         result = RBUS_ERROR_ELEMENT_DOES_NOT_EXIST;
     }
     return result;
@@ -2161,42 +2165,103 @@ static int _method_callback_handler(rbusHandle_t handle, rbusMessage request, rb
     }
 }
 
-static int _callback_handler(char const* destination, char const* method, rbusMessage request, void* userData, rbusMessage* response, const rtMessageHeader* hdr)
+struct rbusEventLoopCallContext {
+  rtFuture_t*               future;
+  const char*               destination;
+  const char*               method;
+  rbusMessage               request;
+  void*                     user_data;
+  rbusMessage*              response;
+  const rtMessageHeader*    header;
+};
+
+static int rbusCallbackHandler(
+  rbusHandle_t              rbus,
+  char const*               destination,
+  char const*               method,
+  rbusMessage               request,
+  rbusMessage*              response,
+  const rtMessageHeader*    header);
+
+static void rbusCallbackHandlerAdapter(void *argp) {
+  struct rbusEventLoopCallContext* ctx = (struct rbusEventLoopCallContext *) argp;
+  int ret = rbusCallbackHandler((rbusHandle_t) ctx->user_data, ctx->destination, ctx->method, ctx->request,
+    ctx->response, ctx->header);
+  rtFuture_SetCompleted(ctx->future, RT_OK, RTINT_TO_PTR(ret));
+}
+
+static int _callback_handler(
+  char const*               destination,
+  char const*               method,
+  rbusMessage               request,
+  void*                     userData,
+  rbusMessage*              response,
+  const rtMessageHeader*    header)
 {
-    rbusHandle_t handle = (rbusHandle_t)userData;
+  int ret = 0;
+  rbusHandle_t rbus = (rbusHandle_t) userData;
+  if (rbus->useEventLoop) {
+    struct rbusEventLoopCallContext ctx;
+    ctx.future = rtFuture_Create();
+    ctx.destination = destination;
+    ctx.method = method;
+    ctx.request = request;
+    ctx.user_data = userData;
+    ctx.response = response;
+    ctx.header = header;
 
-    RBUSLOG_DEBUG("Received callback for [%s]", destination);
+    rbusRunnable_t r;
+    r.argp = &ctx;
+    r.exec = &rbusCallbackHandlerAdapter;
+    r.cleanup = NULL;
+    r.next = NULL;
 
-    if(!strcmp(method, METHOD_GETPARAMETERVALUES))
-    {
-        _get_callback_handler (handle, request, response);
+    rbusRunnableQueue_PushBack(&rbus->eventQueue, r);
+
+    // wait for eventloop to actually process the above request
+    // once it's completed, we can resume
+    rtError err = rtFuture_Wait(ctx.future, 10000); // TODO: where does timeout come from?
+    if (err == RT_OK) {
+      ret = RTPTR_TO_INT( rtFuture_GetValue(ctx.future) );
     }
-    else if(!strcmp(method, METHOD_SETPARAMETERVALUES))
-    {
-        _set_callback_handler (handle, request, response);
-    }
-    else if(!strcmp(method, METHOD_GETPARAMETERNAMES))
-    {
-        _get_parameter_names_handler (handle, request, response);
-    }
-    else if(!strcmp(method, METHOD_ADDTBLROW))
-    {
-        _table_add_row_callback_handler (handle, request, response);
-    }
-    else if(!strcmp(method, METHOD_DELETETBLROW))
-    {
-        _table_remove_row_callback_handler (handle, request, response);
-    }
-    else if(!strcmp(method, METHOD_RPC))
-    {
-        return _method_callback_handler (handle, request, response, hdr);
-    }
-    else
-    {
-        RBUSLOG_WARN("unhandled callback for [%s] method!", method);
+    else {
+      RBUSLOG_WARN("error dispatching request to event loop. %s", rtStrError(err));
     }
 
-    return 0;
+    rtFuture_Destroy(ctx.future, NULL);
+    ret = 0;
+  }
+  else {
+    ret = rbusCallbackHandler(rbus, destination, method, request, response, header);
+  }
+
+  return ret;
+}
+
+int rbusCallbackHandler(
+  rbusHandle_t              rbus,
+  char const*     RT_UNUSED(destination),
+  char const*               method,
+  rbusMessage               request,
+  rbusMessage*              response,
+  const rtMessageHeader*    header)
+{
+  if (!strcmp(method, METHOD_GETPARAMETERVALUES))
+    _get_callback_handler(rbus, request, response);
+  else if(!strcmp(method, METHOD_SETPARAMETERVALUES))
+    _set_callback_handler(rbus, request, response);
+  else if(!strcmp(method, METHOD_GETPARAMETERNAMES))
+    _get_parameter_names_handler(rbus, request, response);
+  else if(!strcmp(method, METHOD_ADDTBLROW))
+    _table_add_row_callback_handler(rbus, request, response);
+  else if(!strcmp(method, METHOD_DELETETBLROW))
+    _table_remove_row_callback_handler(rbus, request, response);
+  else if(!strcmp(method, METHOD_RPC))
+    return _method_callback_handler(rbus, request, response, header);
+  else {
+    RBUSLOG_ERROR("unhandled callback for [%s] method!", method);
+  }
+  return 0;
 }
 
 /*
@@ -2314,8 +2379,13 @@ rbusError_t rbusHandle_New(rbusHandle_t* handle, rbusOptions_t const *opts)
 
     tmpHandle->componentId = ++sLastComponentId;
     tmpHandle->connection = rbus_getConnection();
+    tmpHandle->componentName = strdup(opts->component_name);
+    tmpHandle->useEventLoop = opts->use_event_loop;
     rtVector_Create(&tmpHandle->eventSubs);
     rtVector_Create(&tmpHandle->messageCallbacks);
+
+    if (opts->use_event_loop)
+      rbusRunnableQueue_Init(&tmpHandle->eventQueue);
 
     *handle = tmpHandle;
 

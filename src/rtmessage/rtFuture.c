@@ -21,6 +21,7 @@
 # Licensed under the Apache-2.0 license.
 */
 #include "rtFuture.h"
+#include "rtLog.h"
 #include "rtMemory.h"
 
 #include <pthread.h>
@@ -58,7 +59,6 @@ void rtFuture_Destroy(rtFuture_t* f, void (*value_cleanup)(void *))
 rtError rtFuture_Wait(rtFuture_t* f, int millis)
 {
   rtError err = RT_ERROR_TIMEOUT;
-  bool completed = false;
 
   int32_t s = millis / 1000;
   int32_t m = (millis - (s * 1000));
@@ -73,8 +73,10 @@ rtError rtFuture_Wait(rtFuture_t* f, int millis)
   while (!f->completed) {
     pthread_cond_timedwait(&f->cond, &f->mutex, &wait_until);
   }
-  if (completed)
+  if (f->completed) {
     err = f->status;
+    err = RT_OK;
+  }
   pthread_mutex_unlock(&f->mutex);
 
   return err;

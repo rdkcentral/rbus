@@ -28,6 +28,7 @@
 
 #include <ev.h>
 
+#if 0
 static void my_libev_dispatcher(EV_P_ ev_io *w, __attribute__((unused)) int revents)
 {
   rbusHandle_t rbus = (rbusHandle_t) w->data;
@@ -37,6 +38,7 @@ static void my_libev_dispatcher(EV_P_ ev_io *w, __attribute__((unused)) int reve
   // while (rbusHandle_RunOne(rbus, 0) == RBUS_ERROR_SUCCESS)
   //   ;
 }
+#endif
 
 static void set_callback(rbusHandle_t rbus, rbusError_t err, rbusProperty_t prop, void* argp);
 static void get_callback(rbusHandle_t rbus, rbusError_t err, rbusProperty_t value, void* argp);
@@ -49,11 +51,12 @@ int main(int argc, char* argv[])
   (void) argc;
   (void) argv;
 
-  opts.use_event_loop = true;
+  opts.use_event_loop = false;
   opts.component_name = "event-loop-example";
 
   rbusHandle_New(&rbus, &opts);
 
+  #if 0
   struct ev_loop *loop = EV_DEFAULT;
   ev_io rbus_watcher;
   ev_io_init(&rbus_watcher, &my_libev_dispatcher, rbusHandle_GetEventFD(rbus), EV_READ);
@@ -68,6 +71,23 @@ int main(int argc, char* argv[])
 
   while (true)
     ev_run(loop, 0);
+  #endif
+
+  rbusValue_t val;
+  rbusValue_Init(&val);
+
+  while (true) {
+    rbus_get(rbus, "Device.Foo", &val);
+
+    printf("GET:%s == %d\n", "Devce.Foo", rbusValue_GetInt32(val));
+
+    sleep(1);
+
+    rbusValue_SetInt32(val, rbusValue_GetInt32(val) + 1);
+
+    rbusSetOptions_t opts = { false, 0 };
+    rbus_set(rbus, "Device.Foo", val, &opts);
+  }
 
   rbus_close(rbus);
 

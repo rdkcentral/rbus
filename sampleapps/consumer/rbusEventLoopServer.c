@@ -61,7 +61,7 @@ int main(int argc, char* argv[])
         NULL,           // add row
         NULL,           // delete row
         NULL,           // event subscription notification
-        NULL	 	// method handler
+        NULL	 	    // method handler
       }
     }
   };
@@ -93,11 +93,10 @@ rbusError_t get_handler(rbusHandle_t rbus, rbusProperty_t prop, rbusGetHandlerOp
   (void) rbus;
   (void) opts;
 
+  printf("GET: %s == %d\n", rbusProperty_GetName(prop), device_foo);
+
   rbusValue_t val = rbusValue_InitInt32(device_foo);
   rbusProperty_SetValue(prop, val);
-
-  printf("GET: %s == %d\n", rbusProperty_GetName(prop), rbusValue_GetInt32(val));
-
   rbusValue_Release(val);
 
   return RBUS_ERROR_SUCCESS;
@@ -110,9 +109,9 @@ rbusError_t set_handler(rbusHandle_t rbus, rbusProperty_t prop, rbusSetHandlerOp
   (void) prop;
   (void) rbus;
 
-  device_foo = rbusProperty_GetInt32(prop);
-
   printf("SET: %s == %d\n", rbusProperty_GetName(prop), device_foo);
+
+  device_foo = rbusProperty_GetInt32(prop);
    
   return RBUS_ERROR_SUCCESS;
 }
