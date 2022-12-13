@@ -4651,8 +4651,13 @@ rbusError_t rbus_getCurrentSession(rbusHandle_t handle, uint32_t *pSessionId)
     rbusCoreError_t err = RBUSCORE_SUCCESS;
     rbusMessage response = NULL;
 
-    if (pSessionId && handle)
+    if (handle)
     {
+	if(pSessionId == 0)
+        {
+            RBUSLOG_WARN("Passing default session ID which is 0");
+            return RBUS_ERROR_SUCCESS;
+        }
         *pSessionId = 0;
         if((err = rbus_invokeRemoteMethod(RBUS_SMGR_DESTINATION_NAME, RBUS_SMGR_METHOD_GET_CURRENT_SESSION_ID, NULL, rbusConfig_ReadGetTimeout(), &response)) == RBUSCORE_SUCCESS)
         {
