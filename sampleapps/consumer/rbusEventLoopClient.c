@@ -28,7 +28,8 @@
 
 #include <ev.h>
 
-#if 0
+static pthread_t main_thread_id;
+
 static void my_libev_dispatcher(EV_P_ ev_io *w, __attribute__((unused)) int revents)
 {
   rbusHandle_t rbus = (rbusHandle_t) w->data;
@@ -38,10 +39,10 @@ static void my_libev_dispatcher(EV_P_ ev_io *w, __attribute__((unused)) int reve
   // while (rbusHandle_RunOne(rbus, 0) == RBUS_ERROR_SUCCESS)
   //   ;
 }
-#endif
 
-static void set_callback(rbusHandle_t rbus, rbusError_t err, rbusProperty_t prop, void* argp);
-static void get_callback(rbusHandle_t rbus, rbusError_t err, rbusProperty_t value, void* argp);
+void set_callback(rbusHandle_t rbus, rbusError_t err, rbusProperty_t prop, void* argp);
+void get_callback(rbusHandle_t rbus, rbusError_t err, rbusProperty_t value, void* argp);
+void on_value_changed(rbusHandle_t rbus, const rbusEvent_t* e, rbusEventSubscription_t* sub);
 
 int main(int argc, char* argv[])
 {
@@ -51,43 +52,23 @@ int main(int argc, char* argv[])
   (void) argc;
   (void) argv;
 
+  main_thread_id = pthread_self();
+
   opts.use_event_loop = false;
   opts.component_name = "event-loop-example";
 
   rbusHandle_New(&rbus, &opts);
 
-  #if 0
   struct ev_loop *loop = EV_DEFAULT;
   ev_io rbus_watcher;
   ev_io_init(&rbus_watcher, &my_libev_dispatcher, rbusHandle_GetEventFD(rbus), EV_READ);
   rbus_watcher.data = rbus;
   ev_io_start(loop, &rbus_watcher);
 
-  // send get request to kick-start
-
-  rbusProperty_t prop = rbusProperty_InitInt32("Device.Foo", 0);
-  rbusProperty_GetAsync(rbus, prop, -1, &get_callback, NULL);
-  rbusProperty_Release(prop);
+  rbusEvent_Subscribe(rbus, "Device.Provider1.Param1", on_value_changed, NULL, 0);
 
   while (true)
     ev_run(loop, 0);
-  #endif
-
-  rbusValue_t val;
-  rbusValue_Init(&val);
-
-  while (true) {
-    rbus_get(rbus, "Device.Provider1.Param1", &val);
-
-    printf("GET:%s == %d\n", "Device.Provider1.Param1", rbusValue_GetInt32(val));
-
-    sleep(1);
-
-    rbusValue_SetInt32(val, rbusValue_GetInt32(val) + 1);
-
-    rbusSetOptions_t opts = { false, 0 };
-    rbus_set(rbus, "Device.Provider1.Param1", val, &opts);
-  }
 
   rbus_close(rbus);
 
@@ -98,6 +79,8 @@ int main(int argc, char* argv[])
 void get_callback(rbusHandle_t rbus, rbusError_t err, rbusProperty_t prop, void* argp)
 {
   (void) argp;
+
+  main_thread_id = pthread_self();
 
   printf("GET[%s] %s == %d\n", rbusError_ToString(err), rbusProperty_GetName(prop),
     rbusProperty_GetInt32(prop));
@@ -114,8 +97,23 @@ void set_callback(rbusHandle_t rbus, rbusError_t err, rbusProperty_t prop, void*
 {
   (void) argp;
 
+  main_thread_id = pthread_self();
+
   printf("SET[%s] %s == %d\n", rbusError_ToString(err), rbusProperty_GetName(prop),
     rbusProperty_GetInt32(prop));
 
   rbusProperty_GetAsync(rbus, prop, -1, &get_callback, NULL);
+}
+
+void on_value_changed(rbusHandle_t rbus, const rbusEvent_t* e, rbusEventSubscription_t* sub)
+{
+  (void) rbus;
+  (void) sub;
+
+  main_thread_id = pthread_self();
+
+  printf("EVENT:%s\n", e->name);
+  rbusObject_fwrite(e->data, 2, stdout);
+  printf("\n");
+  printf("\n");
 }

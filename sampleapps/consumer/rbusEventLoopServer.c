@@ -78,6 +78,8 @@ int main(int argc, char* argv[])
     }
   };
 
+  main_thread_id = pthread_self();
+
   rbusOptions_t opts;
   opts.use_event_loop = true;
   opts.component_name = "event-loop-example";
@@ -91,9 +93,6 @@ int main(int argc, char* argv[])
   ev_io_init(&rbus_watcher, &my_libev_dispatcher, rbusHandle_GetEventFD(rbus), EV_READ);
   rbus_watcher.data = rbus;
   ev_io_start(loop, &rbus_watcher);
-
-  // capture main thread
-  main_thread_id = pthread_self();
 
 
   while (true)
@@ -116,9 +115,7 @@ rbusError_t get_handler(rbusHandle_t rbus, rbusProperty_t prop, rbusGetHandlerOp
   // update by 2 everytime someone calls get. This triggers any change-notify callbacks
   device_foo += 2;
 
-  rbusValue_t val = rbusValue_InitInt32(device_foo);
-  rbusProperty_SetValue(prop, val);
-  rbusValue_Release(val);
+  rbusProperty_SetInt32(prop, device_foo);
 
   return RBUS_ERROR_SUCCESS;
 }

@@ -16,10 +16,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
 */
-
 #include "rbus_subscriptions.h"
 #include "rbus_buffer.h"
 #include "rbus_handle.h"
+#include <rtFuture.h>
 #include <rtMemory.h>
 #include <string.h>
 #include <assert.h>
@@ -736,12 +736,53 @@ void rbusSubscriptions_resubscribeCache(rbusHandle_t handle, rbusSubscriptions_t
     }
 }
 
-void rbusSubscriptions_handleClientDisconnect(rbusHandle_t handle, rbusSubscriptions_t subscriptions, char const* listener)
+struct rbusClientDisconnectCallbackContext {
+  rtFuture_t*                   future;
+  rbusHandle_t                  rbus;
+  rbusSubscriptions_t           subs;
+  const char*                   listener;
+};
+
+static void rbusClientDisconnectCallback(rbusHandle_t rbus, rbusSubscriptions_t subs, const char* listener);
+
+static void rbusClientDisconnectCallbackAdapter(void *argp) {
+  struct rbusClientDisconnectCallbackContext* ctx = (struct rbusClientDisconnectCallbackContext *) argp;
+  rbusClientDisconnectCallback(ctx->rbus, ctx->subs, ctx->listener);
+  rtFuture_SetCompleted(ctx->future, RT_OK, NULL);
+}
+
+void rbusSubscriptions_handleClientDisconnect(rbusHandle_t rbus, rbusSubscriptions_t subs, char const* listener)
+{
+  if (rbus->useEventLoop) {
+    struct rbusClientDisconnectCallbackContext ctx;
+    ctx.future = rtFuture_Create();
+    ctx.rbus = rbus;
+    ctx.subs = subs;
+    ctx.listener = listener;
+
+    rbusRunnable_t r;
+    r.argp = &ctx;
+    r.exec = &rbusClientDisconnectCallbackAdapter;
+    r.cleanup = NULL;
+    r.next = NULL;
+
+    rbusRunnableQueue_PushBack(&rbus->eventQueue, r);
+
+    rtError err = rtFuture_Wait(ctx.future, 10000);
+    if (err != RT_OK) {
+      RBUSLOG_INFO("error dispatching client disconnect callback. %s", rtStrError(err));
+    }
+  }
+  else {
+    rbusClientDisconnectCallback(rbus, subs, listener);
+  }
+}
+
+void rbusClientDisconnectCallback(rbusHandle_t rbus, rbusSubscriptions_t subscriptions, const char* listener)
 {
     rtListItem item;
     rbusSubscription_t* sub;
     elementNode* el = NULL;
-    struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
 
     VERIFY_NULL(subscriptions);
     RBUSLOG_DEBUG("%s: %s", __FUNCTION__, listener);
@@ -755,10 +796,10 @@ void rbusSubscriptions_handleClientDisconnect(rbusHandle_t handle, rbusSubscript
         if(strcmp(sub->listener, listener) == 0)
         {
             /* RDKB-38389 : Checking for elementnode existence for which the eventname is subscribed */
-            el = retrieveInstanceElement(handleInfo->elementRoot, sub->eventName);
+            el = retrieveInstanceElement(rbus->elementRoot, sub->eventName);
             if(el)
             {
-                subscribeHandlerImpl(handle, false, sub->element, sub->eventName, sub->listener, sub->componentId, 0, 0, 0);
+                subscribeHandlerImpl(rbus, false, sub->element, sub->eventName, sub->listener, sub->componentId, 0, 0, 0);
             }
             else
             {
