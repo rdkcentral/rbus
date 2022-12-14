@@ -36,6 +36,8 @@ rbusError_t get_handler(rbusHandle_t rbus, rbusProperty_t prop, rbusGetHandlerOp
 rbusError_t set_handler(rbusHandle_t rbus, rbusProperty_t prop, rbusSetHandlerOptions_t* opts);
 rbusError_t method_handler(rbusHandle_t rbus, char const* methodName, rbusObject_t inParams,
   rbusObject_t outParams, rbusMethodAsyncHandle_t asyncHandle);
+rbusError_t event_sub_handler(rbusHandle_t rbus, rbusEventSubAction_t action, const char* event_name, 
+  rbusFilter_t filter, int32_t interval, bool* auto_publish);
 
 static void my_libev_dispatcher(EV_P_ ev_io *w, __attribute__((unused)) int revents)
 {
@@ -54,15 +56,24 @@ int main(int argc, char* argv[])
   (void) argv;
 
   rbusHandle_t rbus;
-  rbusDataElement_t dataElements[1] = {
+  rbusDataElement_t dataElements[2] = {
     {
       "Device.Provider1.Param1", RBUS_ELEMENT_TYPE_PROPERTY, {
-        get_handler,    // get handler
-        set_handler,    // set handler
-        NULL,           // add row
-        NULL,           // delete row
-        NULL,           // event subscription notification
-        NULL	 	    // method handler
+        get_handler,        // get handler
+        set_handler,        // set handler
+        NULL,               // add row
+        NULL,               // delete row
+        event_sub_handler,  // event subscription notification
+        NULL                // method handler
+      }
+    }, {
+      "Device.Methods.SimpleMethod()", RBUS_ELEMENT_TYPE_METHOD, {
+        NULL,
+        NULL,
+        NULL,
+        NULL,
+        NULL,
+        method_handler
       }
     }
   };
@@ -72,7 +83,7 @@ int main(int argc, char* argv[])
   opts.component_name = "event-loop-example";
 
   rbusHandle_New(&rbus, &opts);
-  rbus_regDataElements(rbus, 1, dataElements);
+  rbus_regDataElements(rbus, 2, dataElements);
   
   struct ev_loop *loop = EV_DEFAULT; 
    
@@ -102,6 +113,9 @@ rbusError_t get_handler(rbusHandle_t rbus, rbusProperty_t prop, rbusGetHandlerOp
 
   printf("GET: %s == %d\n", rbusProperty_GetName(prop), device_foo);
 
+  // update by 2 everytime someone calls get. This triggers any change-notify callbacks
+  device_foo += 2;
+
   rbusValue_t val = rbusValue_InitInt32(device_foo);
   rbusProperty_SetValue(prop, val);
   rbusValue_Release(val);
@@ -121,34 +135,44 @@ rbusError_t set_handler(rbusHandle_t rbus, rbusProperty_t prop, rbusSetHandlerOp
   printf("SET: %s == %d\n", rbusProperty_GetName(prop), device_foo);
 
   device_foo = rbusProperty_GetInt32(prop);
-   
+
   return RBUS_ERROR_SUCCESS;
 }
 
-#if 0
-rbusError_t method_handler(rbusHandle_t rbus, char const* methodName, rbusObject_t inParams,
-  rbusObject_t outParams, rbusMethodAsyncHandle_t asyncHandle)
+rbusError_t method_handler(rbusHandle_t rbus, char const* method_name, rbusObject_t argv,
+  rbusObject_t args_out, rbusMethodAsyncHandle_t finished)
 {
-  char traceParent[512];
-  char traceState[512];
+  (void) rbus;
+  (void) method_name;
+  (void) argv;
+  (void) finished;
 
-  (void) methodName;
-  (void) inParams;
-  (void) asyncHandle;
+  assert( pthread_self() == main_thread_id );
 
-  rbusHandle_GetTraceContextAsString(rbus, traceParent, sizeof(traceParent),
-    traceState, sizeof(traceState));
-
-  printf("INVOKE\n");
-  printf("  traceParent : %s\n", traceParent);
-  printf("  traceState  : %s\n", traceState);
+  printf("INVOKE: %s\n", method_name);
 
   rbusValue_t v;
   rbusValue_Init(&v);
   rbusValue_SetString(v, "Hello World");
-  rbusObject_SetValue(outParams, "value", v);
+  rbusObject_SetValue(args_out, "value", v);
   rbusValue_Release(v);
 
   return RBUS_ERROR_SUCCESS;
 }
-#endif
+
+rbusError_t event_sub_handler(rbusHandle_t rbus, rbusEventSubAction_t action, const char* event_name, 
+  rbusFilter_t filter, int32_t interval, bool* auto_publish)
+{
+  (void) rbus;
+  (void) action;
+  (void) filter;
+  (void) interval;
+
+  assert( pthread_self() == main_thread_id );
+
+  printf("EVENT_SUB:%s\n", event_name);
+
+  *auto_publish = true;
+
+  return RBUS_ERROR_SUCCESS;
+}
