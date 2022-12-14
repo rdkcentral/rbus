@@ -2166,12 +2166,7 @@ static void _subscribe_callback_handler (rbusHandle_t handle, rbusMessage reques
     int has_payload = 0;
     rbusMessage payload = NULL;
     int publishOnSubscribe = 0;
-    elementNode* el = NULL;
-    rbusEvent_t event = {0};
-    rbusObject_t data = NULL;
     struct _rbusHandle* handleInfo = handle;
-    rbusProperty_t tmpProperties = NULL;
-    rbusError_t err = RBUS_ERROR_SUCCESS;
 
     rbusMessage_Init(response);
 
@@ -2199,6 +2194,13 @@ static void _subscribe_callback_handler (rbusHandle_t handle, rbusMessage reques
 
             if(publishOnSubscribe)
             {
+                elementNode* el = NULL;
+                rbusEvent_t event = {0};
+                rbusObject_t data = NULL;
+                rbusProperty_t tmpProperties = NULL;
+                rbusError_t err = RBUS_ERROR_SUCCESS;
+
+                rbusObject_Init(&data, NULL);
                 el = retrieveInstanceElement(handleInfo->elementRoot, event_name);
                 if(el->type == RBUS_ELEMENT_TYPE_TABLE)
                 {
@@ -2240,31 +2242,33 @@ static void _subscribe_callback_handler (rbusHandle_t handle, rbusMessage reques
                     {
                         rbusProperty_SetInt32(tmpProperties, count);
                     }
+                    rbusObject_SetProperty(data, tmpProperties);
                 }
                 else
                 {
                     if(ret == RBUSCORE_SUCCESS && el->cbTable.getHandler)
                     {
+                        rbusValue_t val = NULL;
                         rbusGetHandlerOptions_t options;
                         memset(&options, 0, sizeof(options));
 
                         options.requestingComponent = handleInfo->componentName;
                         rbusProperty_Init(&tmpProperties, event_name, NULL);
                         err = el->cbTable.getHandler(handle, tmpProperties, &options);
+                        val = rbusProperty_GetValue(tmpProperties);
+                        rbusObject_SetValue(data, "initialValue", val);
                     }
                 }
                 if (err == RBUS_ERROR_SUCCESS)
                 {
-                    rbusObject_Init(&data, NULL);
-                    rbusObject_SetProperty(data, tmpProperties);
 
                     event.name = event_name;
                     event.type = RBUS_EVENT_INITIAL_VALUE;
                     event.data = data;
                     rbusEventData_appendToMessage(&event, 0, handleInfo->componentId, *response);
 
-                    rbusObject_Release(data);
                     rbusProperty_Release(tmpProperties);
+                    rbusObject_Release(data);
                 }
                 else
                 {
