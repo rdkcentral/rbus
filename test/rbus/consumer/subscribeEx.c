@@ -69,8 +69,8 @@ void testSubscribeEx(rbusHandle_t handle, int* countPass, int* countFail)
     char* data[2] = { "My Data 1", "My Data2" };
 
     rbusEventSubscription_t subscriptions[2] = {
-        {"Device.TestProvider.Event1!", NULL, 0, 0, handler1, data[0], NULL, NULL},
-        {"Device.TestProvider.Event2!", NULL, 0, 0, handler2, data[1], NULL, NULL}
+        {"Device.TestProvider.Event1!", NULL, 0, 0, handler1, data[0], NULL, NULL, false},
+        {"Device.TestProvider.Event2!", NULL, 0, 0, handler2, data[1], NULL, NULL, false}
     };
 
     rc = rbusEvent_SubscribeEx(handle, subscriptions, 2, 0);
