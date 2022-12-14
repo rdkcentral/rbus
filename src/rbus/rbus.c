@@ -1075,18 +1075,94 @@ static void unregisterTableRow (rbusHandle_t handle, elementNode* rowInstElem)
         }
     }
 }
+
 //******************************* CALLBACKS *************************************//
-static int _event_subscribe_callback_handler(char const* object,  char const* eventName, char const* listener, int added, const rbusMessage payload, void* userData)
+
+struct rbusEventLoopEventSubscribeContext {
+  rtFuture_t*               future;
+  const char*               object;
+  const char*               event_name;
+  const char*               listener;
+  int                       added;
+  rbusMessage               payload;
+  void*                     user_data;
+};
+
+static int rbusEventSubscribeCallbackHandler(
+  const char*               object,
+  const char*               event_name,
+  const char*               listener,
+  int                       added,
+  rbusMessage               payload,
+  void*                     user_data);
+
+static void rbusEventSubscribeCallbackHandlerAdapter(void* argp) {
+  struct rbusEventLoopEventSubscribeContext* ctx = (struct rbusEventLoopEventSubscribeContext *) argp;
+  int ret = rbusEventSubscribeCallbackHandler(ctx->object, ctx->event_name, ctx->listener,
+    ctx->added, ctx->payload, ctx->user_data);
+  rtFuture_SetCompleted(ctx->future, RT_OK, RTINT_TO_PTR(ret));
+}
+
+
+static int _event_subscribe_callback_handler(
+  char const*               object,
+  char const*               eventName,
+  char const*               listener,
+  int                       added,
+  const rbusMessage         payload,
+  void*                     userData)
 {
-    rbusHandle_t handle = (rbusHandle_t)userData;
-    struct _rbusHandle* handleInfo = (struct _rbusHandle*)userData;
+  int ret;
+  rbusHandle_t rbus = (rbusHandle_t) userData;
+
+  if (rbus->useEventLoop) {
+    struct rbusEventLoopEventSubscribeContext ctx;
+    ctx.future = rtFuture_Create();
+    ctx.object = object;
+    ctx.event_name = eventName;
+    ctx.listener = listener;
+    ctx.added = added;
+    ctx.payload = payload;
+    ctx.user_data = userData;
+
+    rbusRunnable_t r;
+    r.argp = &ctx;
+    r.exec = &rbusEventSubscribeCallbackHandlerAdapter;
+    r.cleanup = NULL;
+    r.next = NULL;
+
+    rbusRunnableQueue_PushBack(&rbus->eventQueue, r);
+
+    rtError err = rtFuture_Wait(ctx.future, 10000);
+    if (err == RT_OK) {
+      ret = RTPTR_TO_INT( rtFuture_GetValue(ctx.future) );
+    }
+    else {
+      RBUSLOG_WARN("error dispatching event subscription notification. %s", rtStrError(err));
+    }
+  }
+  else {
+    ret = rbusEventSubscribeCallbackHandler(object, eventName, listener, added, payload, userData);
+  }
+
+  return ret;
+}
+
+int rbusEventSubscribeCallbackHandler(
+  const char*     RT_UNUSED(object),
+  const char*               event_name,
+  const char*               listener,
+  int                       added,
+  rbusMessage               payload,
+  void*                     user_data)
+{
+    rbusHandle_t rbus = (rbusHandle_t) user_data;
+
     rbusCoreError_t err = RBUSCORE_SUCCESS;
 
-    UNUSED1(object);
+    RBUSLOG_DEBUG("%s: event subscribe callback for [%s] event!", __FUNCTION__, event_name);
 
-    RBUSLOG_DEBUG("%s: event subscribe callback for [%s] event!", __FUNCTION__, eventName);
-
-    elementNode* el = retrieveInstanceElement(handleInfo->elementRoot, eventName);
+    elementNode* el = retrieveInstanceElement(rbus->elementRoot, event_name);
 
     if(el)
     {
@@ -1096,7 +1172,7 @@ static int _event_subscribe_callback_handler(char const* object,  char const* ev
         rbusFilter_t filter = NULL;
 
         /* copy the optional filter */
-        if(payload)
+        if (payload)
         {
             int hasFilter;
             rbusMessage_GetInt32(payload, &componentId);
@@ -1110,12 +1186,14 @@ static int _event_subscribe_callback_handler(char const* object,  char const* ev
         }
         else
         {
-            RBUSLOG_ERROR("%s: payload missing in subscribe request for event %s from listener %s", __FUNCTION__, eventName, listener);
+            RBUSLOG_ERROR("%s: payload missing in subscribe request for event %s from listener %s", __FUNCTION__,
+              event_name, listener);
         }
 
         RBUSLOG_DEBUG("%s: found element of type %d", __FUNCTION__, el->type);
 
-        err = subscribeHandlerImpl(handle, added, el, eventName, listener, componentId, interval, duration, filter);
+        err = subscribeHandlerImpl(rbus, added, el, event_name, listener, componentId, interval,
+          duration, filter);
 
         if(filter)
         {
@@ -2383,6 +2461,7 @@ rbusError_t rbusHandle_New(rbusHandle_t* handle, rbusOptions_t const *opts)
     tmpHandle->useEventLoop = opts->use_event_loop;
     rtVector_Create(&tmpHandle->eventSubs);
     rtVector_Create(&tmpHandle->messageCallbacks);
+    rbusValueChange_Init(&tmpHandle->valueChangeDetector);
 
     if (opts->use_event_loop)
       rbusRunnableQueue_Init(&tmpHandle->eventQueue);
@@ -2476,7 +2555,7 @@ rbusError_t rbus_close(rbusHandle_t handle)
         handleInfo->subscriptions = NULL;
     }
 
-    rbusValueChange_CloseHandle(handle);//called before freeElementNode below
+    rbusValueChange_Destroy(&handle->valueChangeDetector);
 
     rbusAsyncSubscribe_CloseHandle(handle);
 

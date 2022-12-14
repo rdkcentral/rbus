@@ -55,51 +55,32 @@
   } \
 }
 #define VERIFY_NULL(T)      if(NULL == T){ return; }
-#define LOCK() ERROR_CHECK(pthread_mutex_lock(&gVC->mutex))
-#define UNLOCK() ERROR_CHECK(pthread_mutex_unlock(&gVC->mutex))
-
-typedef struct ValueChangeDetector_t
-{
-    int              running;
-    rtVector         params;
-    pthread_mutex_t  mutex;
-    pthread_t        thread;
-    pthread_cond_t   cond;
-} ValueChangeDetector_t;
 
 typedef struct ValueChangeRecord
 {
-    rbusHandle_t handle;    //needed when calling rbus_getHandler and rbusEvent_Publish
-    elementNode const* node;    //used to call the rbus_getHandler is contains
-    rbusProperty_t property;    //the parameter with value that gets cached
+    elementNode const* node;  // used to call the rbus_getHandler is contains
+    rbusProperty_t property;  // the parameter with value that gets cached
 } ValueChangeRecord;
 
-ValueChangeDetector_t* gVC = NULL;
-
-static void rbusValueChange_Init()
+void rbusValueChange_Init(rbusValueChangeDetector_t* d)
 {
     pthread_mutexattr_t attrib;
     pthread_condattr_t cattrib;
 
     RBUSLOG_DEBUG("%s", __FUNCTION__);
 
-    if(gVC)
-        return;
+    d->running = false;
+    d->params = NULL;
 
-    gVC = rt_malloc(sizeof(struct ValueChangeDetector_t));
-
-    gVC->running = 0;
-    gVC->params = NULL;
-
-    rtVector_Create(&gVC->params);
+    rtVector_Create(&d->params);
 
     ERROR_CHECK(pthread_mutexattr_init(&attrib));
     ERROR_CHECK(pthread_mutexattr_settype(&attrib, PTHREAD_MUTEX_ERRORCHECK));
-    ERROR_CHECK(pthread_mutex_init(&gVC->mutex, &attrib));
+    ERROR_CHECK(pthread_mutex_init(&d->mutex, &attrib));
 
     ERROR_CHECK(pthread_condattr_init(&cattrib));
     ERROR_CHECK(pthread_condattr_setclock(&cattrib, CLOCK_MONOTONIC));
-    ERROR_CHECK(pthread_cond_init(&gVC->cond, &cattrib));
+    ERROR_CHECK(pthread_cond_init(&d->cond, &cattrib));
     ERROR_CHECK(pthread_condattr_destroy(&cattrib));
 }
 
@@ -112,144 +93,167 @@ static void vcParams_Free(void* p)
     }
 }
 
-static ValueChangeRecord* vcParams_Find(const elementNode* paramNode)
+static ValueChangeRecord* vcParams_Find(rbusValueChangeDetector_t *d, const elementNode* paramNode)
 {
     size_t i;
-    for(i=0; i < rtVector_Size(gVC->params); ++i)
+    for (i = 0; i < rtVector_Size(d->params); ++i)
     {
-        ValueChangeRecord* rec = (ValueChangeRecord*)rtVector_At(gVC->params, i);
+        ValueChangeRecord* rec = (ValueChangeRecord*)rtVector_At(d->params, i);
         if(rec && rec->node == paramNode)
             return rec;
     }
     return NULL;
 }
 
+static void rbusValueChange_Run(void* argp);
+
 static void* rbusValueChange_pollingThreadFunc(void *userData)
 {
-    (void)(userData);
-    RBUSLOG_DEBUG("%s: start", __FUNCTION__);
-    LOCK();
-    while(gVC->running)
+    rbusHandle_t rbus = (rbusHandle_t) userData;
+    rbusValueChangeDetector_t* d = &rbus->valueChangeDetector;
+
+    ERROR_CHECK( pthread_mutex_lock(&d->mutex) );
+
+    while (d->running)
     {
-        size_t i;
         int err;
         rtTime_t timeout;
         rtTimespec_t ts;
 
         rtTime_Later(NULL, rbusConfig_Get()->valueChangePeriod, &timeout);
         
-        err = pthread_cond_timedwait(&gVC->cond, 
-                                    &gVC->mutex, 
-                                    rtTime_ToTimespec(&timeout, &ts));
+        err = pthread_cond_timedwait(&d->cond, &d->mutex, rtTime_ToTimespec(&timeout, &ts));
 
         if(err != 0 && err != ETIMEDOUT)
         {
             RBUSLOG_ERROR("Error %d:%s running command pthread_cond_timedwait", err, strerror(err));
         }
         
-        if(!gVC->running)
+        if (!d->running)
         {
             break;
         }
 
-        for(i=0; i < rtVector_Size(gVC->params); ++i)
+        if (rbus->useEventLoop)
         {
-            rbusProperty_t property;
-            rbusValue_t newVal, oldVal;
+          rbusRunnable_t r;
+          r.argp = rbus;
+          r.exec = &rbusValueChange_Run;
+          r.cleanup = NULL;
+          r.next = NULL;
 
-            ValueChangeRecord* rec = (ValueChangeRecord*)rtVector_At(gVC->params, i);
-            if(!rec)
-                continue;
-
-            rbusProperty_Init(&property,rbusProperty_GetName(rec->property), NULL);
-
-            rbusGetHandlerOptions_t opts;
-            memset(&opts, 0, sizeof(rbusGetHandlerOptions_t));
-            opts.requestingComponent = "valueChangePollThread";
-
-            int result = rec->node->cbTable.getHandler(rec->handle, property, &opts);
-
-            if(result != RBUS_ERROR_SUCCESS)
-            {
-                RBUSLOG_WARN("%s: failed to get current value of %s", __FUNCTION__, rbusProperty_GetName(property));
-                continue;
-            }
-
-            char* sValue = rbusValue_ToString(rbusProperty_GetValue(property), NULL, 0);
-            RBUSLOG_DEBUG("%s: %s=%s", __FUNCTION__, rbusProperty_GetName(property), sValue);
-            free(sValue);
-
-            newVal = rbusProperty_GetValue(property);
-            oldVal = rbusProperty_GetValue(rec->property);
-
-            if(rbusValue_Compare(newVal, oldVal))
-            {
-                rbusEvent_t event = {0};
-                rbusObject_t data;
-                rbusValue_t byVal = NULL;
-
-                RBUSLOG_INFO("%s: value change detected for %s", __FUNCTION__, rbusProperty_GetName(rec->property));
-
-                /* The "by" field is set to the component's name which made the last value change.
-                   The source of a value-change could be an external component calling rbus_set or the provider internally updating
-                   the value.  changeComp/changeTime are updated through the rbus_set path, but not through the provider internal path.
-                   We must deduce if the provider has updated the value and reflect that change to the changeComp/changeTime, right here.
-                   If we don't have a changeComp or we do but the changeTime is older then the current polling period,
-                   then we know it was the provider who updated the value we are now detecting.
-                */
-                if(rec->node->changeComp == NULL || 
-                   (rtTime_Elapsed(&rec->node->changeTime, NULL) >= rbusConfig_Get()->valueChangePeriod &&
-                   strcmp(rec->handle->componentName, rec->node->changeComp) == 0))
-                {
-                    printf("VC detected provider-side value-change oldcomp=%s elapsed=%d period=%d\n", rec->node->changeComp, rtTime_Elapsed(&rec->node->changeTime, NULL), rbusConfig_Get()->valueChangePeriod);
-                    setPropertyChangeComponent((elementNode*)rec->node, rec->handle->componentName);
-                }
-
-                rbusObject_Init(&data, NULL);
-                rbusObject_SetValue(data, "value", newVal);
-                rbusObject_SetValue(data, "oldValue", oldVal);
-
-                rbusValue_Init(&byVal);
-                rbusValue_SetString(byVal, rec->node->changeComp);
-                rbusObject_SetValue(data, "by", byVal);
-                rbusValue_Release(byVal);
-
-                event.name = rbusProperty_GetName(rec->property);
-                event.data = data;
-                event.type = RBUS_EVENT_VALUE_CHANGED;
-                result = rbusEvent_Publish(rec->handle, &event);
-
-                rbusObject_Release(data);
-
-                if(result != RBUS_ERROR_SUCCESS)
-                {
-                    RBUSLOG_WARN("%s: rbusEvent_Publish failed with result=%d", __FUNCTION__, result);
-                }
-
-                /*update the record's property with new value*/
-                rbusProperty_SetValue(rec->property, rbusProperty_GetValue(property));
-                rbusProperty_Release(property);
-            }
-            else
-            {
-                RBUSLOG_DEBUG("%s: value change not detected for %s", __FUNCTION__, rbusProperty_GetName(rec->property));
-                rbusProperty_Release(property);
-            }
+          RBUSLOG_INFO("rbusValueChange_pollingThreadFunc queueing get");
+          rbusRunnableQueue_PushBack(&rbus->eventQueue, r);
+        }
+        else
+        {
+          RBUSLOG_INFO("rbusValueChange_pollingThreadFunc direct get");
+          rbusValueChange_Run(rbus);
         }
     }
-    UNLOCK();
-    RBUSLOG_DEBUG("%s: stop", __FUNCTION__);
+
+    ERROR_CHECK( pthread_mutex_unlock(&d->mutex) );
+
     return NULL;
+}
+
+void rbusValueChange_Run(void* argp)
+{
+  size_t i;
+
+  rbusHandle_t rbus = (rbusHandle_t) argp;
+  rbusValueChangeDetector_t* d = &rbus->valueChangeDetector;
+
+  for (i = 0; i < rtVector_Size(d->params); ++i)
+  {
+    rbusProperty_t property;
+    rbusValue_t newVal, oldVal;
+
+    ValueChangeRecord* rec = (ValueChangeRecord *) rtVector_At(d->params, i);
+    if (!rec)
+      continue;
+
+    rbusProperty_Init(&property,rbusProperty_GetName(rec->property), NULL);
+
+    rbusGetHandlerOptions_t opts;
+    memset(&opts, 0, sizeof(rbusGetHandlerOptions_t));
+    opts.requestingComponent = "valueChangePollThread";
+
+    int result = rec->node->cbTable.getHandler(rbus, property, &opts);
+
+    if(result != RBUS_ERROR_SUCCESS)
+    {
+      RBUSLOG_WARN("%s: failed to get current value of %s", __FUNCTION__, rbusProperty_GetName(property));
+      continue;
+    }
+
+    char* sValue = rbusValue_ToString(rbusProperty_GetValue(property), NULL, 0);
+    RBUSLOG_DEBUG("%s: %s=%s", __FUNCTION__, rbusProperty_GetName(property), sValue);
+    free(sValue);
+
+    newVal = rbusProperty_GetValue(property);
+    oldVal = rbusProperty_GetValue(rec->property);
+
+    if(rbusValue_Compare(newVal, oldVal))
+    {
+      rbusEvent_t event = {0};
+      rbusObject_t data;
+      rbusValue_t byVal = NULL;
+
+      RBUSLOG_INFO("%s: value change detected for %s", __FUNCTION__, rbusProperty_GetName(rec->property));
+
+      /* The "by" field is set to the component's name which made the last value change.
+         The source of a value-change could be an external component calling rbus_set or the provider internally updating
+         the value.  changeComp/changeTime are updated through the rbus_set path, but not through the provider internal path.
+         We must deduce if the provider has updated the value and reflect that change to the changeComp/changeTime, right here.
+         If we don't have a changeComp or we do but the changeTime is older then the current polling period,
+         then we know it was the provider who updated the value we are now detecting.
+       */
+      if(rec->node->changeComp == NULL || 
+        (rtTime_Elapsed(&rec->node->changeTime, NULL) >= rbusConfig_Get()->valueChangePeriod &&
+         strcmp(rbus->componentName, rec->node->changeComp) == 0))
+      {
+        RBUSLOG_INFO("VC detected provider-side value-change oldcomp=%s elapsed=%d period=%d\n", rec->node->changeComp,
+          rtTime_Elapsed(&rec->node->changeTime, NULL), rbusConfig_Get()->valueChangePeriod);
+          setPropertyChangeComponent((elementNode*)rec->node, rbus->componentName);
+      }
+
+      rbusObject_Init(&data, NULL);
+      rbusObject_SetValue(data, "value", newVal);
+      rbusObject_SetValue(data, "oldValue", oldVal);
+
+      rbusValue_Init(&byVal);
+      rbusValue_SetString(byVal, rec->node->changeComp);
+      rbusObject_SetValue(data, "by", byVal);
+      rbusValue_Release(byVal);
+
+      event.name = rbusProperty_GetName(rec->property);
+      event.data = data;
+      event.type = RBUS_EVENT_VALUE_CHANGED;
+      result = rbusEvent_Publish(rbus, &event);
+
+      rbusObject_Release(data);
+
+      if(result != RBUS_ERROR_SUCCESS)
+      {
+        RBUSLOG_WARN("%s: rbusEvent_Publish failed with result=%d", __FUNCTION__, result);
+      }
+
+      /*update the record's property with new value*/
+      rbusProperty_SetValue(rec->property, rbusProperty_GetValue(property));
+      rbusProperty_Release(property);
+    }
+    else
+    {
+      RBUSLOG_DEBUG("%s: value change not detected for %s", __FUNCTION__, rbusProperty_GetName(rec->property));
+      rbusProperty_Release(property);
+    }
+  }
 }
 
 void rbusValueChange_AddPropertyNode(rbusHandle_t handle, elementNode* propNode)
 {
     ValueChangeRecord* rec;
-
-    if(!gVC)
-    {
-        rbusValueChange_Init();
-    }
 
     /* basic sanity tests */    
     assert(propNode);
@@ -274,16 +278,15 @@ void rbusValueChange_AddPropertyNode(rbusHandle_t handle, elementNode* propNode)
 
     /* only add the property if its not already in the list */
 
-    LOCK();//############ LOCK ############
+    ERROR_CHECK( pthread_mutex_lock(&handle->valueChangeDetector.mutex) );
 
-    rec = vcParams_Find(propNode);
+    rec = vcParams_Find(&handle->valueChangeDetector, propNode);
 
-    UNLOCK();//############ UNLOCK ############
+    ERROR_CHECK( pthread_mutex_unlock(&handle->valueChangeDetector.mutex) );
 
     if(!rec)
     {
         rec = (ValueChangeRecord*)rt_malloc(sizeof(ValueChangeRecord));
-        rec->handle = handle;
         rec->node = propNode;
 
         rbusProperty_Init(&rec->property, propNode->fullName, NULL);
@@ -307,19 +310,19 @@ void rbusValueChange_AddPropertyNode(rbusHandle_t handle, elementNode* propNode)
         RBUSLOG_DEBUG("%s: %s=%s", __FUNCTION__, propNode->fullName, (sValue = rbusValue_ToString(rbusProperty_GetValue(rec->property), NULL, 0)));
         free(sValue);
 
-        LOCK();//############ LOCK ############
+        ERROR_CHECK( pthread_mutex_lock(&handle->valueChangeDetector.mutex) );
 
-        rtVector_PushBack(gVC->params, rec);
+        rtVector_PushBack(handle->valueChangeDetector.params, rec);
 
         /* start polling thread if needed */
 
-        if(!gVC->running)
+        if (!handle->valueChangeDetector.running)
         {
-            gVC->running = 1;
-            pthread_create(&gVC->thread, NULL, rbusValueChange_pollingThreadFunc, NULL);
+            handle->valueChangeDetector.running = true;
+            pthread_create(&handle->valueChangeDetector.thread, NULL, rbusValueChange_pollingThreadFunc, handle);
         }
 
-        UNLOCK();//############ UNLOCK ############
+        ERROR_CHECK( pthread_mutex_unlock(&handle->valueChangeDetector.mutex) );
     }
 }
 
@@ -328,25 +331,20 @@ void rbusValueChange_RemovePropertyNode(rbusHandle_t handle, elementNode* propNo
     ValueChangeRecord* rec;
     bool stopThread = false;
 
-    (void)(handle);
     VERIFY_NULL(propNode);
     RBUSLOG_DEBUG("%s: %s", __FUNCTION__, propNode->fullName);
 
-    if(!gVC)
-    {
-        return;
-    }
+    ERROR_CHECK( pthread_mutex_lock(&handle->valueChangeDetector.mutex) );
 
-    LOCK();//############ LOCK ############
-    rec = vcParams_Find(propNode);
+    rec = vcParams_Find(&handle->valueChangeDetector, propNode);
     if(rec)
     {
-        rtVector_RemoveItem(gVC->params, rec, vcParams_Free);
+        rtVector_RemoveItem(handle->valueChangeDetector.params, rec, vcParams_Free);
         /* if there's nothing left to poll then shutdown the polling thread */
-        if(gVC->running && rtVector_Size(gVC->params) == 0)
+        if (handle->valueChangeDetector.running && rtVector_Size(handle->valueChangeDetector.params) == 0)
         {
             stopThread = true;
-            gVC->running = 0;
+            handle->valueChangeDetector.running = false;
         }
         else 
         {
@@ -357,65 +355,53 @@ void rbusValueChange_RemovePropertyNode(rbusHandle_t handle, elementNode* propNo
     {
         RBUSLOG_WARN("%s: value change param not found: %s", __FUNCTION__, propNode->fullName);
     }
-    UNLOCK();//############ UNLOCK ############
+
+    ERROR_CHECK( pthread_mutex_unlock(&handle->valueChangeDetector.mutex) );
+
+
     if(stopThread)
     {
-        ERROR_CHECK(pthread_cond_signal(&gVC->cond));
-        ERROR_CHECK(pthread_join(gVC->thread, NULL));
+        ERROR_CHECK( pthread_cond_signal(&handle->valueChangeDetector.cond) );
+        ERROR_CHECK( pthread_join(handle->valueChangeDetector.thread, NULL) );
     }
 }
 
-void rbusValueChange_CloseHandle(rbusHandle_t handle)
+void rbusValueChange_Destroy(rbusValueChangeDetector_t *d)
 {
     RBUSLOG_DEBUG("%s", __FUNCTION__);
 
-    if(!gVC)
-    {
-        return;
-    }
-
     //remove all params for this bus handle
-    LOCK();//############ LOCK ############
+    ERROR_CHECK( pthread_mutex_lock(&d->mutex) );
+
     size_t i = 0;
-    while(i < rtVector_Size(gVC->params))
+    for (i = 0; i < rtVector_Size(d->params); ++i)
     {
-        ValueChangeRecord* rec = (ValueChangeRecord*)rtVector_At(gVC->params, i);
-        if(rec && rec->handle == handle)
-        {
-            rtVector_RemoveItem(gVC->params, rec, vcParams_Free);
-        }
-        else
-        {
-            //only i++ here because rtVector_RemoveItem does a right shift on all the elements after remove index
-            i++; 
-        }
+        ValueChangeRecord* rec = (ValueChangeRecord *) rtVector_At(d->params, i);
+        rtVector_RemoveItem(d->params, rec, vcParams_Free);
     }
 
     //clean up everything once all params are removed
     //but check the size to ensure we do not clean up if params for other rbus handles exist
-    if(rtVector_Size(gVC->params) == 0)
+    if (rtVector_Size(d->params) == 0)
     {
-        if(gVC->running)
+        if (d->running)
         {
-            gVC->running = 0;
-            UNLOCK();//############ UNLOCK ############
-            ERROR_CHECK(pthread_cond_signal(&gVC->cond));
-            ERROR_CHECK(pthread_join(gVC->thread, NULL));
+            d->running = false;
+            ERROR_CHECK( pthread_mutex_unlock(&d->mutex) );
+            ERROR_CHECK( pthread_cond_signal(&d->cond) );
+            ERROR_CHECK( pthread_join(d->thread, NULL) );
         }
         else
         {
-            UNLOCK();//############ UNLOCK ############
+            ERROR_CHECK( pthread_mutex_unlock(&d->mutex) );
         }
-        ERROR_CHECK(pthread_mutex_destroy(&gVC->mutex));
-        ERROR_CHECK(pthread_cond_destroy(&gVC->cond));
-        rtVector_Destroy(gVC->params, NULL);
-        gVC->params = NULL;
-        free(gVC);
-        gVC = NULL;
+        ERROR_CHECK( pthread_mutex_destroy(&d->mutex) );
+        ERROR_CHECK( pthread_cond_destroy(&d->cond) );
+        rtVector_Destroy(d->params, NULL);
+        d->params = NULL;
     }
     else
     {
-        UNLOCK();//############ UNLOCK ############
+        ERROR_CHECK( pthread_mutex_unlock(&d->mutex) );
     }
 }
-

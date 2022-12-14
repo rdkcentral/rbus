@@ -77,16 +77,16 @@ int main(int argc, char* argv[])
   rbusValue_Init(&val);
 
   while (true) {
-    rbus_get(rbus, "Device.Foo", &val);
+    rbus_get(rbus, "Device.Provider1.Param1", &val);
 
-    printf("GET:%s == %d\n", "Devce.Foo", rbusValue_GetInt32(val));
+    printf("GET:%s == %d\n", "Device.Provider1.Param1", rbusValue_GetInt32(val));
 
     sleep(1);
 
     rbusValue_SetInt32(val, rbusValue_GetInt32(val) + 1);
 
     rbusSetOptions_t opts = { false, 0 };
-    rbus_set(rbus, "Device.Foo", val, &opts);
+    rbus_set(rbus, "Device.Provider1.Param1", val, &opts);
   }
 
   rbus_close(rbus);

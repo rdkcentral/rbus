@@ -21,6 +21,8 @@
 
 #include "rbus_element.h"
 #include "rbus_subscriptions.h"
+#include "rbus_valuechange.h"
+
 #include <rtConnection.h>
 #include <rtVector.h>
 
@@ -39,8 +41,6 @@ extern "C" {
     46 additional listeners which can be used by the rbus_message api, other rtConnection clients or for rbus future requirements
 */
 #define RBUS_MAX_HANDLES 16
-#define RT_UNUSED(x) UNUSED_x ## x __attribute__((__unused__))
-#define RTLIB_PRIVATE __attribute__ ((visibility ("hidden")))
 
 
 struct rbusRunnable {
@@ -96,6 +96,8 @@ struct _rbusHandle
 
   rbusRunnableQueue_t   eventQueue;
   bool                  useEventLoop;
+
+  rbusValueChangeDetector_t valueChangeDetector;
 };
 
 void rbusHandleList_Add(struct _rbusHandle* handle);

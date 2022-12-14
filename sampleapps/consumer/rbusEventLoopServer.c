@@ -17,6 +17,7 @@
  * limitations under the License.
 */
 
+#include <assert.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <stdlib.h>
@@ -29,7 +30,7 @@
 #include <ev.h>
 
 static int32_t device_foo = 0;
-
+static pthread_t main_thread_id;
 
 rbusError_t get_handler(rbusHandle_t rbus, rbusProperty_t prop, rbusGetHandlerOptions_t* opts);
 rbusError_t set_handler(rbusHandle_t rbus, rbusProperty_t prop, rbusSetHandlerOptions_t* opts);
@@ -55,7 +56,7 @@ int main(int argc, char* argv[])
   rbusHandle_t rbus;
   rbusDataElement_t dataElements[1] = {
     {
-      "Device.Foo", RBUS_ELEMENT_TYPE_PROPERTY, {
+      "Device.Provider1.Param1", RBUS_ELEMENT_TYPE_PROPERTY, {
         get_handler,    // get handler
         set_handler,    // set handler
         NULL,           // add row
@@ -80,6 +81,10 @@ int main(int argc, char* argv[])
   rbus_watcher.data = rbus;
   ev_io_start(loop, &rbus_watcher);
 
+  // capture main thread
+  main_thread_id = pthread_self();
+
+
   while (true)
     ev_run(loop, 0);
 
@@ -92,6 +97,8 @@ rbusError_t get_handler(rbusHandle_t rbus, rbusProperty_t prop, rbusGetHandlerOp
 {
   (void) rbus;
   (void) opts;
+
+  assert( pthread_self() == main_thread_id );
 
   printf("GET: %s == %d\n", rbusProperty_GetName(prop), device_foo);
 
@@ -108,6 +115,8 @@ rbusError_t set_handler(rbusHandle_t rbus, rbusProperty_t prop, rbusSetHandlerOp
   (void) opts;
   (void) prop;
   (void) rbus;
+
+  assert( pthread_self() == main_thread_id );
 
   printf("SET: %s == %d\n", rbusProperty_GetName(prop), device_foo);
 
