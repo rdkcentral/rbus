@@ -1013,7 +1013,16 @@ static void registerTableRow (rbusHandle_t handle, elementNode* tableInstElem, c
         {
             RBUSLOG_WARN("failed to publish ObjectCreated event err:%d", respub);
         }
-
+        if(rowElem)
+        {
+            elementNode* child = rowElem->child;
+            while(child)
+            {
+                const char* eventName = child->fullName;
+                rbusSubscriptions_resubscribeCache(handle, handleInfo->subscriptions, eventName, child);
+                child = child->nextSibling;
+            }
+        }
         rbusValue_Release(rowNameVal);
         rbusValue_Release(instNumVal);
         rbusValue_Release(aliasVal);
