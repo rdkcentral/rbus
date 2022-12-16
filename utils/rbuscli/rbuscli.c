@@ -770,8 +770,6 @@ void event_receive_handler(rbusHandle_t handle, rbusEvent_t const* event, rbusEv
             case RBUS_EVENT_OBJECT_DELETED: stype = "RBUS_EVENT_OBJECT_DELETED";    break;
             case RBUS_EVENT_VALUE_CHANGED:  stype = "RBUS_EVENT_VALUE_CHANGED";     break;
             case RBUS_EVENT_GENERAL:        stype = "RBUS_EVENT_GENERAL";           break;
-            case RBUS_EVENT_INITIAL_VALUE:  stype = "RBUS_EVENT_INITIAL_VALUE";     break;
-            case RBUS_EVENT_INTERVAL:       stype = "RBUS_EVENT_INTERVAL";          break;
         }
 
         printf("Event received %s of type %s\n\r", event->name, stype);
@@ -1773,7 +1771,7 @@ void validate_and_execute_subscribe_cmd (int argc, char *argv[], bool add, bool 
     }
 
     runSteps = __LINE__;
-    rbusEventSubscription_t subscription = {argv[2], filter, interval, duration, event_receive_handler, userData, NULL, NULL, false};
+    rbusEventSubscription_t subscription = {argv[2], filter, interval, duration, event_receive_handler, userData, NULL, NULL};
 
     /* Async will be TRUE only when add is TRUE */
     if (isAsync && add)
