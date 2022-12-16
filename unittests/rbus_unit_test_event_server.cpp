@@ -317,19 +317,19 @@ TEST_F(EventServerAPIs, rbus_subscribeToEventTimeout_test1)
     char event_name[130] ="0";
     rbusCoreError_t err = RBUSCORE_SUCCESS;
     //Neg test subscribe before establishing connection
-    err = rbus_subscribeToEventTimeout("obj_name", "event_1",&event_callback, NULL, NULL, NULL, 1000);
+    err = rbus_subscribeToEventTimeout("obj_name", "event_1",&event_callback, NULL, NULL, NULL, 1000, false, NULL);
     EXPECT_EQ(err,RBUSCORE_ERROR_INVALID_STATE) << "rbus_subscribeToEventTimeout failed";
     RBUS_OPEN_BROKER_CONNECTION(client_name,RBUSCORE_SUCCESS);
     //Neg Test with more than MAX_OBJECT_NAME_LENGTH
     memset(obj_name, 't', (sizeof(obj_name)- 1));
-    err = rbus_subscribeToEventTimeout(obj_name, "event_1",&event_callback, NULL, NULL, NULL, 1000);
+    err = rbus_subscribeToEventTimeout(obj_name, "event_1",&event_callback, NULL, NULL, NULL, 1000, false, NULL);
     EXPECT_EQ(err,RBUSCORE_ERROR_INVALID_PARAM) << "rbus_subscribeToEventTimeout failed";
     //Neg Test with more than MAX_EVENT_NAME_LENGTH
     memset(event_name, 't', (sizeof(obj_name)- 1));
-    err = rbus_subscribeToEventTimeout("object_1", event_name, &event_callback, NULL, NULL, NULL, 1000);
+    err = rbus_subscribeToEventTimeout("object_1", event_name, &event_callback, NULL, NULL, NULL, 1000, false, NULL);
     EXPECT_EQ(err,RBUSCORE_ERROR_INVALID_PARAM) << "rbus_subscribeToEventTimeout failed";
     //Neg test passing object name and callback as NULL
-    err = rbus_subscribeToEventTimeout(NULL, "event_1",NULL, NULL, NULL, NULL, 1000);
+    err = rbus_subscribeToEventTimeout(NULL, "event_1",NULL, NULL, NULL, NULL, 1000, false, NULL);
     EXPECT_EQ(err,RBUSCORE_ERROR_INVALID_PARAM) << "rbus_subscribeToEventTimeout failed";
     RBUS_CLOSE_BROKER_CONNECTION(RBUSCORE_SUCCESS);
 }
