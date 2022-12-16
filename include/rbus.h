@@ -226,10 +226,7 @@ typedef enum
                                     was deleted in table. */
     RBUS_EVENT_VALUE_CHANGED,  /**< Notification that a property value
                                     was changed. */
-    RBUS_EVENT_GENERAL,        /**< Provider defined event.*/
-    RBUS_EVENT_INITIAL_VALUE,  /**< Notification of initial value immediately
-                                    after subscription*/
-    RBUS_EVENT_INTERVAL,       /**< For event with interval*/
+    RBUS_EVENT_GENERAL         /**< Provider defined event.*/
 } rbusEventType_t;
 
 /**
@@ -304,7 +301,6 @@ typedef struct _rbusEventSubscription
     void*               userData;   /** The userData set when subscribing to the event. */
     rbusHandle_t        handle;     /** Private use only: The rbus handle associated with this subscription */
     rbusSubscribeAsyncRespHandler_t asyncHandler;/** Private use only: The async handler being used for any background subscription retries */
-    bool                publishOnSubscribe;
 } rbusEventSubscription_t;
 
 /** @} */

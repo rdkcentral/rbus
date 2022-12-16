@@ -192,9 +192,9 @@ TEST_F(EventClientAPIs, rbus_subscribeToEventTimeout_test1)
     printf("*********************  CREATING CLIENT : %s \n", client_name);
     conn_status = CALL_RBUS_OPEN_BROKER_CONNECTION(client_name);
     ASSERT_EQ(conn_status, true) << "RBUS_OPEN_BROKER_CONNECTION failed";
-    err = rbus_subscribeToEventTimeout(obj_name, "event_1",&event_callback, NULL, NULL, NULL, 1000, false, NULL);
+    err = rbus_subscribeToEventTimeout(obj_name, "event_1",&event_callback, NULL, NULL, NULL, 1000);
     ASSERT_EQ(err,RBUSCORE_SUCCESS) << "rbus_subscribeToEventTimeout failed";
-    err = rbus_subscribeToEventTimeout(obj_name, "event_1",&event_callback, NULL, NULL, NULL, 1000, false, NULL);
+    err = rbus_subscribeToEventTimeout(obj_name, "event_1",&event_callback, NULL, NULL, NULL, 1000);
     ASSERT_EQ(err,RBUSCORE_SUCCESS) << "rbus_subscribeToEventTimeout failed";
     printf("********************Subscribed Events with Event name: event_1 in 1000 ms \n");
     conn_status = CALL_RBUS_CLOSE_BROKER_CONNECTION();
@@ -211,20 +211,20 @@ TEST_F(EventClientAPIs, rbus_subscribeToEventTimeout_test2)
     conn_status = CALL_RBUS_OPEN_BROKER_CONNECTION(client_name);
     ASSERT_EQ(conn_status, true) << "RBUS_OPEN_BROKER_CONNECTION failed";
     //Test with invalid objname passed
-    err = rbus_subscribeToEventTimeout(NULL, "event_1", &event_callback, NULL, NULL, NULL, 1000, false, NULL);
+    err = rbus_subscribeToEventTimeout(NULL, "event_1", &event_callback, NULL, NULL, NULL, 1000);
     ASSERT_EQ(err,RBUSCORE_ERROR_DESTINATION_UNREACHABLE) << "rbus_subscribeToEventTimeout failed";
     //Test with the event name  to be NULL
-    err = rbus_subscribeToEventTimeout(obj_name, "NULL", &event_callback, NULL, NULL, NULL, 1000, false, NULL);
+    err = rbus_subscribeToEventTimeout(obj_name, "NULL", &event_callback, NULL, NULL, NULL, 1000);
     ASSERT_EQ(err,RBUSCORE_ERROR_GENERAL) << "rbus_subscribeToEventTimeout failed";
     //Test with the callback to be NULL
-    err = rbus_subscribeToEventTimeout(obj_name, "event_1",NULL, NULL, NULL, NULL, 1000, false, NULL);
+    err = rbus_subscribeToEventTimeout(obj_name, "event_1",NULL, NULL, NULL, NULL, 1000);
     ASSERT_EQ(err,RBUSCORE_ERROR_INVALID_PARAM) << "rbus_subscribeToEventTimeout failed";
     //Test with the valid Event name, objname, Callback
-    err = rbus_subscribeToEventTimeout(obj_name, "event_1",&event_callback, NULL, NULL, NULL, 1000, false, NULL);
+    err = rbus_subscribeToEventTimeout(obj_name, "event_1",&event_callback, NULL, NULL, NULL, 1000);
     ASSERT_EQ(err,RBUSCORE_SUCCESS) << "rbus_subscribeToEventTimeout failed";
     printf("Subscribed Events with Event name: event_1 \n");
     //Test with the already subscribed Event
-    err = rbus_subscribeToEventTimeout(obj_name, "event_1",&event_callback, NULL, NULL, NULL, 1000, false, NULL);
+    err = rbus_subscribeToEventTimeout(obj_name, "event_1",&event_callback, NULL, NULL, NULL, 1000);
     ASSERT_EQ(err,RBUSCORE_SUCCESS) << "rbus_subscribeToEventTimeout failed";
     conn_status = CALL_RBUS_CLOSE_BROKER_CONNECTION();
     ASSERT_EQ(conn_status, true) << "RBUS_CLOSE_BROKER_CONNECTION failed";
@@ -241,7 +241,7 @@ TEST_F(EventClientAPIs, rbus_subscribeToEventTimeout_test3)
     ASSERT_EQ(conn_status, true) << "RBUS_OPEN_BROKER_CONNECTION failed";
     //Boundary Test with MAX_OBJECT_NAME_LENGTH
     memset(obj_name, 't', (sizeof(obj_name)- 1));
-    err = rbus_subscribeToEventTimeout(obj_name, "event_1",&event_callback, NULL, NULL, NULL, 1000, false, NULL);
+    err = rbus_subscribeToEventTimeout(obj_name, "event_1",&event_callback, NULL, NULL, NULL, 1000);
     ASSERT_EQ(err,RBUSCORE_ERROR_INVALID_PARAM) << "rbus_subscribeToEventTimeout failed";
     conn_status = CALL_RBUS_CLOSE_BROKER_CONNECTION();
     ASSERT_EQ(conn_status, true) << "RBUS_CLOSE_BROKER_CONNECTION failed";

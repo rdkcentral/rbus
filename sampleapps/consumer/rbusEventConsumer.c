@@ -147,8 +147,8 @@ int main(int argc, char *argv[])
     rbusHandle_t handle;
     char* data[2] = { "My Data 1", "My Data2" };
     rbusEventSubscription_t subscriptions[2] = {
-        {"Device.Provider1.Event1!", NULL, 0, 0, generalEvent1Handler, data[0], NULL, NULL, true},
-        {"Device.Provider1.Event2!", NULL, 0, 0, generalEvent2Handler, data[1], NULL, NULL, true}
+        {"Device.Provider1.Event1!", NULL, 0, 0, generalEvent1Handler, data[0], NULL, NULL},
+        {"Device.Provider1.Event2!", NULL, 0, 0, generalEvent2Handler, data[1], NULL, NULL}
     };
 
     printf("constumer: start\n");
