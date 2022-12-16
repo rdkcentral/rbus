@@ -354,18 +354,18 @@ void testTypesValueChange(rbusHandle_t handle)
     rbusFilter_InitRelation(&filter[11], RBUS_FILTER_OPERATOR_NOT_EQUAL, strVal);
 
     rbusEventSubscription_t subscription[12] = {
-        {"Device.TestProvider.VCParamInt0", filter[0], 0, 0, intVCHandler, NULL, NULL, NULL},
-        {"Device.TestProvider.VCParamInt1", filter[1], 0, 0, intVCHandler, NULL, NULL, NULL},
-        {"Device.TestProvider.VCParamInt2", filter[2], 0, 0, intVCHandler, NULL, NULL, NULL},
-        {"Device.TestProvider.VCParamInt3", filter[3], 0, 0, intVCHandler, NULL, NULL, NULL},
-        {"Device.TestProvider.VCParamInt4", filter[4], 0, 0, intVCHandler, NULL, NULL, NULL},
-        {"Device.TestProvider.VCParamInt5", filter[5], 0, 0, intVCHandler, NULL, NULL, NULL},
-        {"Device.TestProvider.VCParamStr0", filter[6], 0, 0, stringVCHandler, NULL, NULL, NULL},
-        {"Device.TestProvider.VCParamStr1", filter[7], 0, 0, stringVCHandler, NULL, NULL, NULL},
-        {"Device.TestProvider.VCParamStr2", filter[8], 0, 0, stringVCHandler, NULL, NULL, NULL},
-        {"Device.TestProvider.VCParamStr3", filter[9], 0, 0, stringVCHandler, NULL, NULL, NULL},
-        {"Device.TestProvider.VCParamStr4", filter[10], 0, 0, stringVCHandler, NULL, NULL, NULL},
-        {"Device.TestProvider.VCParamStr5", filter[11], 0, 0, stringVCHandler, NULL, NULL, NULL}
+        {"Device.TestProvider.VCParamInt0", filter[0], 0, 0, intVCHandler, NULL, NULL, NULL, false},
+        {"Device.TestProvider.VCParamInt1", filter[1], 0, 0, intVCHandler, NULL, NULL, NULL, false},
+        {"Device.TestProvider.VCParamInt2", filter[2], 0, 0, intVCHandler, NULL, NULL, NULL, false},
+        {"Device.TestProvider.VCParamInt3", filter[3], 0, 0, intVCHandler, NULL, NULL, NULL, false},
+        {"Device.TestProvider.VCParamInt4", filter[4], 0, 0, intVCHandler, NULL, NULL, NULL, false},
+        {"Device.TestProvider.VCParamInt5", filter[5], 0, 0, intVCHandler, NULL, NULL, NULL, false},
+        {"Device.TestProvider.VCParamStr0", filter[6], 0, 0, stringVCHandler, NULL, NULL, NULL, false},
+        {"Device.TestProvider.VCParamStr1", filter[7], 0, 0, stringVCHandler, NULL, NULL, NULL, false},
+        {"Device.TestProvider.VCParamStr2", filter[8], 0, 0, stringVCHandler, NULL, NULL, NULL, false},
+        {"Device.TestProvider.VCParamStr3", filter[9], 0, 0, stringVCHandler, NULL, NULL, NULL, false},
+        {"Device.TestProvider.VCParamStr4", filter[10], 0, 0, stringVCHandler, NULL, NULL, NULL, false},
+        {"Device.TestProvider.VCParamStr5", filter[11], 0, 0, stringVCHandler, NULL, NULL, NULL, false}
     };
 
     rc = rbusEvent_SubscribeEx(handle, subscription, 12, 0);
@@ -528,8 +528,8 @@ void testNoAutoPubValueChange(rbusHandle_t handle)
     rbusFilter_InitRelation(&filter[1], RBUS_FILTER_OPERATOR_GREATER_THAN, intVal);
 
     rbusEventSubscription_t subscription[2] = {
-        {"Device.TestProvider.NoAutoPubInt", filter[0], 0, 0, noAutoPub1Handler, NULL, NULL, NULL},
-        {"Device.TestProvider.NoAutoPubInt", filter[1], 0, 0, noAutoPub2Handler, NULL, NULL, NULL}
+        {"Device.TestProvider.NoAutoPubInt", filter[0], 0, 0, noAutoPub1Handler, NULL, NULL, NULL, false},
+        {"Device.TestProvider.NoAutoPubInt", filter[1], 0, 0, noAutoPub2Handler, NULL, NULL, NULL, false}
     };
 
     rc = rbusEvent_SubscribeEx(handle, subscription, 2, 0);
