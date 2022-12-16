@@ -250,6 +250,16 @@ _rtConnection_ReadAndDropBytes(int fd, unsigned int bytes_to_read);
 void
 _rtConnection_TaintMessages(int i);
 
+rtError
+rtConnection_SendRequestAsync(
+  rtConnection          con,
+  const void*           req,
+  uint32_t              n,
+  const char*           topic,
+  rtMessageCallback     callback,
+  void*                 user_data,
+  int32_t               timeout);
+
 #ifdef __cplusplus
 }
 #endif

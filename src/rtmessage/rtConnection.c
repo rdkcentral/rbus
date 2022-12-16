@@ -146,6 +146,8 @@ typedef struct
   uint32_t sequence_number;
   rtSemaphore sem;
   rtMessageInfo* response;
+  rtMessageCallback callback;
+  void* user_data;
 }pending_request;
 
 typedef struct _rtCallbackMessage
@@ -158,6 +160,26 @@ static int g_taint_packets = 0;
 static int rtConnection_StartThreads(rtConnection con);
 static int rtConnection_StopThreads(rtConnection con);
 static rtError rtConnection_Read(rtConnection con, int32_t timeout);
+
+static void rtPendingRequest_Free(void *argp)
+{
+  pending_request* req = (pending_request *) argp;
+  rtSemaphore_Destroy(req->sem);
+  rt_free(req);
+}
+
+#if 0
+void rtConnection_DumpPendingRequests(const char* prefix, rtConnection con)
+{
+  rtListItem item = NULL;
+  for (rtList_GetFront(con->pending_requests_list, &item); item != NULL; rtListItem_GetNext(item, &item))
+  {
+    pending_request* r = NULL;
+    rtListItem_GetData(item, (void **) &r);
+    printf("[%s] seqno:%u\n", prefix, r->sequence_number);
+  }
+}
+#endif
 
 static inline bool rtConnection_IsSecure(rtConnection con)
 {
@@ -238,7 +260,9 @@ rtConnection_SendRequestInternal(
   char const* topic,
   rtMessageInfo** resMsg, 
   int32_t timeout, 
-  int flags);
+  int flags,
+  rtMessageCallback callback,
+  void* user_data);
 
 static uint32_t
 rtConnection_GetNextSubscriptionId()
@@ -838,6 +862,22 @@ rtConnection_SendMessageDirect(rtConnection con, rtMessage msg, char const* topi
 }
 
 rtError
+rtConnection_SendRequestAsync(
+  rtConnection          con,
+  const void*           req,
+  uint32_t              n,
+  const char*           topic,
+  rtMessageCallback     callback,
+  void*                 user_data,
+  int32_t               timeout)
+
+{
+  if (!con || !req || !topic || !callback)
+    return rtErrorFromErrno(EINVAL);
+  return rtConnection_SendRequestInternal(con, (const uint8_t *)req, n, topic, NULL, timeout, 0, callback, user_data);
+}
+
+rtError
 rtConnection_SendRequest(rtConnection con, rtMessage const req, char const* topic,
   rtMessage* res, int32_t timeout)
 {
@@ -850,7 +890,7 @@ rtConnection_SendRequest(rtConnection con, rtMessage const req, char const* topi
     return rtErrorFromErrno(EINVAL);
 
   rtMessage_ToByteArrayWithSize(req, &p, DEFAULT_SEND_BUFFER_SIZE, &n);
-  err = rtConnection_SendRequestInternal(con, p, n, topic, &resMsg, timeout, 0);
+  err = rtConnection_SendRequestInternal(con, p, n, topic, &resMsg, timeout, 0, NULL, NULL);
   rtMessage_FreeByteArray(p);
   if(err == RT_OK)
   {
@@ -949,7 +989,8 @@ rtConnection_SendBinaryRequest(rtConnection con, uint8_t const* pReq, uint32_t n
   if (!con)
     return rtErrorFromErrno(EINVAL);
 
-  err = rtConnection_SendRequestInternal(con, pReq, nReq, topic, &mi, timeout, rtMessageFlags_RawBinary);
+  err = rtConnection_SendRequestInternal(con, pReq, nReq, topic, &mi, timeout, rtMessageFlags_RawBinary,
+    NULL, NULL);
   if(err == RT_OK)
   {
     if(mi->data)
@@ -1000,7 +1041,7 @@ rtConnection_SendBinaryResponse(rtConnection con, rtMessageHeader const* request
 
 rtError
 rtConnection_SendRequestInternal(rtConnection con, uint8_t const* pReq, uint32_t nReq, char const* topic,
-  rtMessageInfo** res, int32_t timeout, int flags)
+  rtMessageInfo** res, int32_t timeout, int flags, rtMessageCallback callback, void* user_data)
 {
   if (!con)
     return rtErrorFromErrno(EINVAL);
@@ -1023,26 +1064,36 @@ rtConnection_SendRequestInternal(rtConnection con, uint8_t const* pReq, uint32_t
 #else
     sequence_number = __sync_fetch_and_add(&con->sequence_number, 1);
 #endif
-    /*Populate the pending request and enqueue it.*/
-    pending_request queue_entry;
-    queue_entry.sequence_number = sequence_number;
-    rtSemaphore_Create(&queue_entry.sem);
-    queue_entry.response = NULL;
+    /* Populate the pending request and enqueue it. */
+    pending_request* queue_entry = rt_malloc(sizeof(pending_request));
+    queue_entry->sequence_number = sequence_number;
+    queue_entry->callback = callback;
+    queue_entry->user_data = user_data;
+    rtSemaphore_Create(&queue_entry->sem);
+    queue_entry->response = NULL;
 
-    rtList_PushFront(con->pending_requests_list, (void*)&queue_entry, &listItem);
+    rtList_PushFront(con->pending_requests_list, queue_entry, &listItem);
+
     err = rtConnection_SendInternal(con, p, n, topic, con->inbox_name, rtMessageFlags_Request | flags, sequence_number, 0, 0, 0);
     if (err != RT_OK)
     {
       ret = err;
       goto dequeue_and_continue;
     }
+
     pthread_mutex_unlock(&con->mutex);
+
+    if (queue_entry->callback)
+    {
+      ret = RT_OK;
+      goto dequeue_and_continue;
+    }
 
     if(tid != con->read_tid)
     {
       rtTime_t timeout_time;
       rtTime_Later(NULL, timeout, &timeout_time);
-      ret = rtSemaphore_TimedWait(queue_entry.sem, &timeout_time); //TODO: handle wake triggered by signals
+      ret = rtSemaphore_TimedWait(queue_entry->sem, &timeout_time); //TODO: handle wake triggered by signals
     }
     else
     {
@@ -1054,7 +1105,7 @@ rtConnection_SendRequestInternal(rtConnection con, uint8_t const* pReq, uint32_t
         if((err = rtConnection_Read(con, timeout)) == RT_OK)
         {
           int sem_value = 0;
-          rtSemaphore_GetValue(queue_entry.sem, &sem_value);
+          rtSemaphore_GetValue(queue_entry->sem, &sem_value);
           if(0 < sem_value)
           {
             ret = RT_OK;
@@ -1089,16 +1140,17 @@ rtConnection_SendRequestInternal(rtConnection con, uint8_t const* pReq, uint32_t
         }
       } while(RT_OK == err);
     }
+
     if(RT_OK == ret)
     {
       /*Sem posted*/
       pthread_mutex_lock(&con->mutex);
 
-      if(queue_entry.response)
+      if(queue_entry->response)
       {
-        if(queue_entry.response->header.flags & rtMessageFlags_Undeliverable)
+        if(queue_entry->response->header.flags & rtMessageFlags_Undeliverable)
         {
-          rtMessageInfo_Release(queue_entry.response);
+          rtMessageInfo_Release(queue_entry->response);
 
           ret = RT_OBJECT_NO_LONGER_AVAILABLE;
         }
@@ -1106,7 +1158,7 @@ rtConnection_SendRequestInternal(rtConnection con, uint8_t const* pReq, uint32_t
         {
           /*caller must call rtMessageInfo_Release on the response*/
 
-          *res = queue_entry.response; 
+          *res = queue_entry->response;
         }
       }
       else
@@ -1117,9 +1169,14 @@ rtConnection_SendRequestInternal(rtConnection con, uint8_t const* pReq, uint32_t
     }
 
 dequeue_and_continue:
-    rtList_RemoveItem(con->pending_requests_list, listItem, NULL);
-    pthread_mutex_unlock(&con->mutex);
-    rtSemaphore_Destroy(queue_entry.sem);
+    // Only remove and destroy item if response is sent in current context. If this is an
+    // ansynchronous call (queue_entry.callback != NULL), then we need the listItem to
+    // remain in place
+    if (queue_entry->callback == NULL)
+    {
+      rtList_RemoveItem(con->pending_requests_list, listItem, rtPendingRequest_Free);
+      pthread_mutex_unlock(&con->mutex);
+    }
 
     if(ret == RT_NO_CONNECTION)
     {
@@ -1597,18 +1654,27 @@ rtConnection_Read(rtConnection con, int32_t timeout)
         because this can lead to lock ups such as RDKB-26837
       */
       pthread_mutex_lock(&con->mutex);
-      rtListItem listItem;
+      rtListItem listItem = NULL;
       for(rtList_GetFront(con->pending_requests_list, &listItem); 
           listItem != NULL; 
           rtListItem_GetNext(listItem, &listItem))
       {
-        pending_request *entry;
+        pending_request *entry = NULL;
         rtListItem_GetData(listItem, (void**)&entry);
+
         if(entry->sequence_number == msginfo->header.sequence_number)
         {
-          entry->response = msginfo;
-          msginfo = NULL; /*rtConnection_SendRequest thread will release it*/
-          rtSemaphore_Post(entry->sem);
+          if (entry->callback)
+          {
+            entry->callback(&msginfo->header, msginfo->data, msginfo->dataLength, entry->user_data);
+            rtList_RemoveItem(con->pending_requests_list, listItem, rtPendingRequest_Free);
+          }
+          else
+          {
+            entry->response = msginfo;
+            msginfo = NULL; /*rtConnection_SendRequest thread will release it*/
+            rtSemaphore_Post(entry->sem);
+          }
           break;
         }
       }
@@ -1660,7 +1726,7 @@ rtConnection_Read(rtConnection con, int32_t timeout)
   }
 
   /*if the message wasn't sent off to another thread then release it*/
-  if(msginfo)
+  if (msginfo)
   {
     rtMessageInfo_Release(msginfo);
   }
