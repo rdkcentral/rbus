@@ -2083,6 +2083,7 @@ static int _method_callback_handler(rbusHandle_t handle, rbusMessage request, rb
     char const* methodName;
     rbusObject_t inParams, outParams;
     rbusValue_t value1, value2;
+    rbusValue_t outParamsVal = NULL;
 
     rbusValue_Init(&value1);
     rbusValue_Init(&value2);
@@ -2116,6 +2117,17 @@ static int _method_callback_handler(rbusHandle_t handle, rbusMessage request, rb
             }
             else
             {
+                if (result != RBUS_ERROR_SUCCESS)
+                {
+                    outParamsVal = rbusObject_GetValue(outParams, "error_code");
+                    if(!outParamsVal)
+                    {
+                        rbusValue_SetInt32(value1, result);
+                        rbusValue_SetString(value2, rbusError_ToString(result));
+                        rbusObject_SetValue(outParams, "error_code", value1);
+                        rbusObject_SetValue(outParams, "error_string", value2);
+                    }
+                }
                 free(asyncHandle);
             }
 
@@ -4581,6 +4593,7 @@ rbusError_t rbusMethod_InvokeInternal(
     int returnCode = RBUS_ERROR_INVALID_INPUT;
     rbusMessage request, response;
     rbusLegacyReturn_t legacyRetCode = RBUS_LEGACY_ERR_FAILURE;
+    rbusValue_t value1 = NULL, value2 = NULL;
 
     VERIFY_NULL(handle);
     VERIFY_NULL(methodName);
@@ -4602,6 +4615,17 @@ rbusError_t rbusMethod_InvokeInternal(
         &response)) != RBUSCORE_SUCCESS)
     {
         RBUSLOG_ERROR("%s by %s failed; Received error %d from RBUS Daemon for the object %s", __FUNCTION__, handle->componentName, err, methodName);
+        /* Updating the outParmas as RBUS core is returning failure */
+        rbusObject_Init(outParams, NULL);
+        rbusValue_Init(&value1);
+        rbusValue_Init(&value2);
+
+        rbusValue_SetInt32(value1, rbusCoreError_to_rbusError(err));
+        rbusValue_SetString(value2, rbusError_ToString(rbusCoreError_to_rbusError(err)));
+        rbusObject_SetValue(*outParams, "error_code", value1);
+        rbusObject_SetValue(*outParams, "error_string", value2);
+        rbusValue_Release(value1);
+        rbusValue_Release(value2);
         return rbusCoreError_to_rbusError(err);
     }
 
