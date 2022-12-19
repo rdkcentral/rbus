@@ -73,7 +73,7 @@ typedef void (*rbusRunnableQueue_MessageHandler_t)(rbusRunnable_t *r);
 
 RTLIB_PRIVATE void rbusRunnableQueue_Init(rbusRunnableQueue_t *q);
 RTLIB_PRIVATE void rbusRunnableQueue_PushBack(rbusRunnableQueue_t *q, rbusRunnable_t r);
-RTLIB_PRIVATE rbusRunnable_t * rbusRunnableQueue_PopFront(rbusRunnableQueue_t *q, int32_t millis);
+RTLIB_PRIVATE rbusRunnable_t * rbusRunnableQueue_PopFront(rbusRunnableQueue_t *q);
 RTLIB_PRIVATE int rbusRunnableQueue_GetReadFileDescriptor(rbusRunnableQueue_t* q);
 RTLIB_PRIVATE void rbusRunnableQueue_Dispatch(rbusRunnableQueue_t* q, rbusRunnableQueue_MessageHandler_t h);
 

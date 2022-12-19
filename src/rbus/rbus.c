@@ -5052,30 +5052,11 @@ void rbusRunnableQueue_PushBack(rbusRunnableQueue_t *q, rbusRunnable_t r)
 }
 
 rbusRunnable_t *
-rbusRunnableQueue_PopFront(rbusRunnableQueue_t *q, int32_t millis)
+rbusRunnableQueue_PopFront(rbusRunnableQueue_t *q)
 {
     rbusRunnable_t *r = NULL;
-    struct timespec waitUntil = {0, 0};
-
-    if (millis > 0)
-    {
-        int32_t s = millis / 1000;
-        int32_t m = (millis - (s * 1000));
-
-        // timing is not perfect. the pthread_cond_timedait can wake up on signal
-        // and sleep will waitUntil another full 'millis' of time. It should
-        // take this into account at some point
-        clock_gettime(CLOCK_REALTIME, &waitUntil);
-
-        waitUntil.tv_sec += s;
-        waitUntil.tv_nsec += (m * 1000 * 1000);
-    }
 
     pthread_mutex_lock(&q->mutex);
-    while (millis > 0 && !q->head)
-    {
-        pthread_cond_timedwait(&q->cond, &q->mutex, &waitUntil);
-    }
     if (q->head)
     {
         r = q->head;
@@ -5099,9 +5080,9 @@ rbusHandle_GetEventFD(rbusHandle_t rbus)
 }
 
 rbusError_t
-rbusHandle_RunOne(rbusHandle_t rbus, int32_t millis)
+rbusHandle_RunOne(rbusHandle_t rbus)
 {
-    rbusRunnable_t* r = rbusRunnableQueue_PopFront(&rbus->eventQueue, millis);
+    rbusRunnable_t* r = rbusRunnableQueue_PopFront(&rbus->eventQueue);
     if (r)
     {
         if (r->exec)

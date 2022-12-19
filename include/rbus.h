@@ -719,7 +719,7 @@ typedef struct _rbusOptions {
 } rbusOptions_t;
 
 rbusError_t rbusHandle_New(rbusHandle_t* rbus, rbusOptions_t const *opts);
-rbusError_t rbusHandle_RunOne(rbusHandle_t rbus, int32_t millis);
+rbusError_t rbusHandle_RunOne(rbusHandle_t rbus);
 
 /**
  * @brief Allows a caller to propogate an OpenTelemetry context from client
@@ -1732,7 +1732,6 @@ rbusError_t rbus_setLogLevel(rbusLogLevel_t level);
 
 
 int rbusHandle_GetEventFD(rbusHandle_t rbus);
-rbusError_t rbusHandle_RunOne(rbusHandle_t rbus, int32_t millis);
 
 typedef void (*rbusSetPropertyAsyncHandler_t)(
     rbusHandle_t rbus,

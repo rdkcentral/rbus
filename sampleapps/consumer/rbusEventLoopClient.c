@@ -33,10 +33,10 @@ static pthread_t main_thread_id;
 static void my_libev_dispatcher(EV_P_ ev_io *w, __attribute__((unused)) int revents)
 {
   rbusHandle_t rbus = (rbusHandle_t) w->data;
-  rbusHandle_RunOne(rbus, 0);
+  rbusHandle_RunOne(rbus);
 
   // or you want to drain queue
-  // while (rbusHandle_RunOne(rbus, 0) == RBUS_ERROR_SUCCESS)
+  // while (rbusHandle_RunOne(rbus) == RBUS_ERROR_SUCCESS)
   //   ;
 }
 
