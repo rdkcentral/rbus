@@ -41,12 +41,6 @@
 #include "rbus_message.h"
 
 //******************************* MACROS *****************************************//
-#define UNUSED1(a)              (void)(a)
-#define UNUSED2(a,b)            UNUSED1(a),UNUSED1(b)
-#define UNUSED3(a,b,c)          UNUSED1(a),UNUSED2(b,c)
-#define UNUSED4(a,b,c,d)        UNUSED1(a),UNUSED3(b,c,d)
-#define UNUSED5(a,b,c,d,e)      UNUSED1(a),UNUSED4(b,c,d,e)
-#define UNUSED6(a,b,c,d,e,f)    UNUSED1(a),UNUSED5(b,c,d,e,f)
 #define RBUS_MIN(a,b) ((a)<(b) ? (a) : (b))
 
 #define RTINT_TO_PTR(n) ((void *)(intptr_t) (n))
@@ -1260,14 +1254,14 @@ int _event_callback_handler (char const* objectName, char const* eventName, rbus
     return 0;
 }
 
-static int _master_event_callback_handler(char const* sender, char const* eventName, rbusMessage message, void* userData)
+static int _master_event_callback_handler(char const* sender, char const* eventName, rbusMessage message,
+  void* RT_UNUSED(userData))
 {
     rbusEvent_t event = {0};
     rbusFilter_t filter = NULL;
     int32_t componentId = -1;
     rbusEventSubscription_t* subscription = NULL;
     struct _rbusHandle* handleInfo = NULL;
-    UNUSED1(userData);
 
     rbusEventData_updateFromMessage(&event, &filter, &componentId, message);
 
@@ -2755,14 +2749,13 @@ rbusError_t rbus_discoverComponentName (rbusHandle_t handle,
 }
 
 rbusError_t rbus_discoverComponentDataElements (rbusHandle_t handle,
-                            char const* name, bool nextLevel,
+                            char const* name, bool RT_UNUSED(nextLevel),
                             int *numElements, char*** elementNames)
 {
     rbusCoreError_t ret;
 
     *numElements = 0;
     *elementNames = 0;
-    UNUSED1(nextLevel);
     VERIFY_NULL(handle);
     VERIFY_NULL(name);
 
@@ -5125,21 +5118,103 @@ rbusHandle_RunOne(rbusHandle_t rbus, int32_t millis)
     return RBUS_ERROR_TIMEOUT;
 }
 
-rbusError_t
-rbusProperty_GetAsync(
+struct rbusGetAsyncContext {
+  void*                           user_data;
+  rbusGetPropertyAsyncHandler_t   user_callback;
+  rbusHandle_t                    rbus;
+};
+
+static void rbusMessage_GetStatusCodes(rbusMessage m, rbusError_t* rbus_status, rbusLegacyReturn_t* legacy_status)
+{
+  int32_t n = -1;
+  if (m) {
+    rbusMessage_GetInt32(m, &n);
+    if (rbus_status)
+      *rbus_status = (rbusError_t) n;
+    if (legacy_status)
+      *legacy_status = (rbusLegacyReturn_t) n;
+  }
+  else {
+    if (rbus_status)
+      *rbus_status = RBUS_ERROR_BUS_ERROR;
+    if (legacy_status)
+      *legacy_status = RBUS_LEGACY_ERR_FAILURE;
+  }
+}
+
+int rbusGetCompletionHandler(rbusMessage res, rbusCoreError_t status, void* user_data)
+{
+  rbusProperty_t props = NULL;
+  rbusError_t rbus_status = RBUS_ERROR_SUCCESS;
+
+  if (res) {
+    if (status == RBUSCORE_SUCCESS) {
+      rbusLegacyReturn_t legacy_status = 0;
+      rbusMessage_GetStatusCodes(res, &rbus_status, &legacy_status);
+      if ((rbus_status == RBUS_ERROR_SUCCESS) || (legacy_status == RBUS_LEGACY_ERR_SUCCESS)) {
+        rbus_status = RBUS_ERROR_SUCCESS;
+
+        const char* name = NULL;
+        int32_t name_length = 0;
+        rbusValue_t val = NULL;
+
+        rbusMessage_GetInt32(res, &name_length);
+        rbusMessage_GetString(res, &name);
+        rbusValue_initFromMessage(&val, res);
+        rbusProperty_Init(&props, name, val);
+        rbusValue_Release(val);
+      }
+      else {
+        // TODO: When is this non-zero? Is this the internal middleware status or is this
+        // the application-layer error code?
+        if (legacy_status > RBUS_LEGACY_ERR_SUCCESS)
+          rbus_status = CCSPError_to_rbusError(legacy_status);
+      }
+    }
+    else {
+      rbus_status = rbusCoreError_to_rbusError(status);
+      props = NULL;
+    }
+  }
+  else {
+    RBUSLOG_WARN("got a null message on asynchronous completion handler");
+    rbus_status = RBUS_ERROR_BUS_ERROR;
+    props = NULL;
+  }
+
+  struct rbusGetAsyncContext* ctx = (struct rbusGetAsyncContext *) user_data;
+  ctx->user_callback(ctx->rbus, rbus_status, props, ctx->user_data);
+
+  return 0;
+}
+
+rbusError_t rbusProperty_GetAsync(
   rbusHandle_t rbus,
   rbusProperty_t props,
   int timeout,
   rbusGetPropertyAsyncHandler_t callback,
   void* argp)
 {
-  (void) rbus;
-  (void) props;
-  (void) timeout;
-  (void) callback;
-  (void) argp;
+  rbusMessage req;
+  rbusMessage_Init(&req);
+  rbusMessage_SetString(req, rbus->componentName);
+  rbusMessage_SetInt32(req, (int32_t) 1);
+  rbusMessage_SetString(req, rbusProperty_GetName(props));
 
-  return RBUS_ERROR_SUCCESS;
+  struct rbusGetAsyncContext* ctx = rt_malloc(sizeof(struct rbusGetAsyncContext));
+  ctx->user_callback = callback;
+  ctx->user_data = argp;
+  ctx->rbus = rbus;
+
+  rbusCoreError_t err = rbus_invokeRemoteMethodAsync(
+    rbusProperty_GetName(props),
+    METHOD_GETPARAMETERVALUES,
+    req,
+    timeout,
+    &rbusGetCompletionHandler,
+    ctx);
+
+  return rbusCoreError_to_rbusError(err);
 }
 
 rbusError_t

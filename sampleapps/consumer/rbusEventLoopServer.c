@@ -58,7 +58,7 @@ int main(int argc, char* argv[])
   rbusHandle_t rbus;
   rbusDataElement_t dataElements[2] = {
     {
-      "Device.Provider1.Param1", RBUS_ELEMENT_TYPE_PROPERTY, {
+      "Examples.Property1", RBUS_ELEMENT_TYPE_PROPERTY, {
         get_handler,        // get handler
         set_handler,        // set handler
         NULL,               // add row
@@ -110,12 +110,11 @@ rbusError_t get_handler(rbusHandle_t rbus, rbusProperty_t prop, rbusGetHandlerOp
 
   assert( pthread_self() == main_thread_id );
 
-  printf("GET: %s == %d\n", rbusProperty_GetName(prop), device_foo);
-
   // update by 2 everytime someone calls get. This triggers any change-notify callbacks
   device_foo += 2;
-
   rbusProperty_SetInt32(prop, device_foo);
+
+  printf("GET: %s == %d\n", rbusProperty_GetName(prop), device_foo);
 
   return RBUS_ERROR_SUCCESS;
 }

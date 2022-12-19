@@ -44,6 +44,16 @@ void set_callback(rbusHandle_t rbus, rbusError_t err, rbusProperty_t prop, void*
 void get_callback(rbusHandle_t rbus, rbusError_t err, rbusProperty_t value, void* argp);
 void on_value_changed(rbusHandle_t rbus, const rbusEvent_t* e, rbusEventSubscription_t* sub);
 
+static void on_timeout(EV_P_ ev_timer* w, __attribute__((unused)) int revents)
+{
+  rbusHandle_t rbus = (rbusHandle_t) w->data;
+  rbusProperty_t prop = rbusProperty_InitInt32("Examples.Property1", 1);
+  rbusError_t err = rbusProperty_GetAsync(rbus, prop, -1, get_callback,  NULL);
+  if (err)
+    abort();
+  rbusProperty_Release(prop);
+}
+
 int main(int argc, char* argv[])
 {
   rbusOptions_t opts;
@@ -60,12 +70,19 @@ int main(int argc, char* argv[])
   rbusHandle_New(&rbus, &opts);
 
   struct ev_loop *loop = EV_DEFAULT;
+
   ev_io rbus_watcher;
   ev_io_init(&rbus_watcher, &my_libev_dispatcher, rbusHandle_GetEventFD(rbus), EV_READ);
   rbus_watcher.data = rbus;
   ev_io_start(loop, &rbus_watcher);
 
-  rbusEvent_Subscribe(rbus, "Device.Provider1.Param1", on_value_changed, NULL, 0);
+  ev_timer timeout_watcher;
+  ev_timer_init(&timeout_watcher, on_timeout, 1.0, 1.0);
+  timeout_watcher.data = rbus;
+  ev_timer_start(loop, &timeout_watcher);
+
+  // rbusEvent_Subscribe(rbus, "Device.Provider1.Param1", on_value_changed, NULL, 0);
+  // rbusProperty_SetAsync(rbus, prop, NULL, -1, set_callback, NULL);
 
   while (true)
     ev_run(loop, 0);
@@ -82,10 +99,14 @@ void get_callback(rbusHandle_t rbus, rbusError_t err, rbusProperty_t prop, void*
 
   main_thread_id = pthread_self();
 
-  printf("GET[%s] %s == %d\n", rbusError_ToString(err), rbusProperty_GetName(prop),
-    rbusProperty_GetInt32(prop));
-
-  prop = rbusProperty_InitInt32( rbusProperty_GetName(prop), rbusProperty_GetInt32(prop) + 1 );
+  if (err == RBUS_ERROR_SUCCESS) {
+    printf("GET[%s] %s == %d\n", rbusError_ToString(err), rbusProperty_GetName(prop),
+      rbusProperty_GetInt32(prop));
+    prop = rbusProperty_InitInt32( rbusProperty_GetName(prop), rbusProperty_GetInt32(prop) + 1 );
+  }
+  else {
+    printf("GET[%s]\n", rbusError_ToString(err));
+  }
 
   rbusSetOptions_t set_opts = { false, 0 };
   rbusProperty_SetAsync(rbus, prop, &set_opts, -1, &set_callback, NULL);
