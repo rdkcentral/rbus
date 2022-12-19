@@ -29,6 +29,7 @@
 #include <ev.h>
 
 static pthread_t main_thread_id;
+static uint32_t property1_value = 100;
 
 static void my_libev_dispatcher(EV_P_ ev_io *w, __attribute__((unused)) int revents)
 {
@@ -44,11 +45,24 @@ void set_callback(rbusHandle_t rbus, rbusError_t err, rbusProperty_t prop, void*
 void get_callback(rbusHandle_t rbus, rbusError_t err, rbusProperty_t value, void* argp);
 void on_value_changed(rbusHandle_t rbus, const rbusEvent_t* e, rbusEventSubscription_t* sub);
 
-static void on_timeout(EV_P_ ev_timer* w, __attribute__((unused)) int revents)
+static void on_timeout_get(EV_P_ ev_timer* w, __attribute__((unused)) int revents)
 {
   rbusHandle_t rbus = (rbusHandle_t) w->data;
-  rbusProperty_t prop = rbusProperty_InitInt32("Examples.Property1", 1);
+  rbusProperty_t prop = rbusProperty_InitInt32("Examples.Property1", 0);
   rbusError_t err = rbusProperty_GetAsync(rbus, prop, -1, get_callback,  NULL);
+  if (err)
+    abort();
+  rbusProperty_Release(prop);
+}
+
+static void on_timeout_set(EV_P_ ev_timer* w, __attribute__((unused)) int revents)
+{
+  property1_value += 10;
+
+  rbusHandle_t rbus = (rbusHandle_t) w->data;
+  rbusProperty_t prop = rbusProperty_InitInt32("Examples.Property1", property1_value);
+  rbusSetOptions_t opts = { false, 0 };
+  rbusError_t err = rbusProperty_SetAsync(rbus, prop, &opts, -1, set_callback,  NULL);
   if (err)
     abort();
   rbusProperty_Release(prop);
@@ -76,13 +90,15 @@ int main(int argc, char* argv[])
   rbus_watcher.data = rbus;
   ev_io_start(loop, &rbus_watcher);
 
-  ev_timer timeout_watcher;
-  ev_timer_init(&timeout_watcher, on_timeout, 1.0, 1.0);
-  timeout_watcher.data = rbus;
-  ev_timer_start(loop, &timeout_watcher);
+  ev_timer timeout_get;
+  ev_timer_init(&timeout_get, on_timeout_get, 1.0, 1.0);
+  timeout_get.data = rbus;
+  ev_timer_start(loop, &timeout_get);
 
-  // rbusEvent_Subscribe(rbus, "Device.Provider1.Param1", on_value_changed, NULL, 0);
-  // rbusProperty_SetAsync(rbus, prop, NULL, -1, set_callback, NULL);
+  ev_timer timeout_set;
+  ev_timer_init(&timeout_set, on_timeout_set, .25, .25);
+  timeout_set.data = rbus;
+  ev_timer_start(loop, &timeout_set);
 
   while (true)
     ev_run(loop, 0);
@@ -96,6 +112,7 @@ int main(int argc, char* argv[])
 void get_callback(rbusHandle_t rbus, rbusError_t err, rbusProperty_t prop, void* argp)
 {
   (void) argp;
+  (void) rbus;
 
   main_thread_id = pthread_self();
 
@@ -107,23 +124,24 @@ void get_callback(rbusHandle_t rbus, rbusError_t err, rbusProperty_t prop, void*
   else {
     printf("GET[%s]\n", rbusError_ToString(err));
   }
-
-  rbusSetOptions_t set_opts = { false, 0 };
-  rbusProperty_SetAsync(rbus, prop, &set_opts, -1, &set_callback, NULL);
-  rbusProperty_Release(prop);
 }
 
 
 void set_callback(rbusHandle_t rbus, rbusError_t err, rbusProperty_t prop, void* argp)
 {
   (void) argp;
+  (void) rbus;
+  (void) prop;
 
   main_thread_id = pthread_self();
 
-  printf("SET[%s] %s == %d\n", rbusError_ToString(err), rbusProperty_GetName(prop),
-    rbusProperty_GetInt32(prop));
-
-  rbusProperty_GetAsync(rbus, prop, -1, &get_callback, NULL);
+  if (err == RBUS_ERROR_SUCCESS) {
+    printf("SET[%s] %s == %d\n", rbusError_ToString(err), rbusProperty_GetName(prop),
+      rbusProperty_GetInt32(prop));
+  }
+  else {
+    printf("SET[%s]\n", rbusError_ToString(err));
+  }
 }
 
 void on_value_changed(rbusHandle_t rbus, const rbusEvent_t* e, rbusEventSubscription_t* sub)

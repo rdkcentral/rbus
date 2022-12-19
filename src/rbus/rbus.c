@@ -5123,6 +5123,24 @@ static void rbusMessage_GetStatusCodes(rbusMessage m, rbusError_t* rbus_status, 
   }
 }
 
+static rbusError_t rbusCoreTranslateStatusFromResponse(rbusMessage m)
+{
+  rbusError_t rbus_status = RBUS_ERROR_BUS_ERROR;
+  rbusLegacyReturn_t legacy_status = RBUS_LEGACY_ERR_FAILURE;
+
+  rbusMessage_GetStatusCodes(m, &rbus_status, &legacy_status);
+
+  if ((rbus_status == RBUS_ERROR_SUCCESS) || (legacy_status == RBUS_LEGACY_ERR_SUCCESS)) {
+    rbus_status = RBUS_ERROR_SUCCESS;
+  }
+  else {
+    if (legacy_status > RBUS_LEGACY_ERR_SUCCESS)
+      rbus_status = rbusCoreError_to_rbusError(legacy_status);
+  }
+
+  return rbus_status;
+}
+
 int rbusGetCompletionHandler(rbusMessage res, rbusCoreError_t status, void* user_data)
 {
   rbusProperty_t props = NULL;
@@ -5130,6 +5148,7 @@ int rbusGetCompletionHandler(rbusMessage res, rbusCoreError_t status, void* user
 
   if (res) {
     if (status == RBUSCORE_SUCCESS) {
+      // TODO: "legacy" stuff should be encapsulated withing rbus_core
       rbusLegacyReturn_t legacy_status = 0;
       rbusMessage_GetStatusCodes(res, &rbus_status, &legacy_status);
       if ((rbus_status == RBUS_ERROR_SUCCESS) || (legacy_status == RBUS_LEGACY_ERR_SUCCESS)) {
@@ -5198,6 +5217,35 @@ rbusError_t rbusProperty_GetAsync(
   return rbusCoreError_to_rbusError(err);
 }
 
+struct rbusSetAsyncContext {
+  void*                         user_data;
+  rbusSetPropertyAsyncHandler_t user_callback;
+  rbusHandle_t                  rbus;
+  rbusProperty_t                prop;
+};
+
+int rbusSetCompletionHandler(rbusMessage res, rbusCoreError_t status, void* user_data)
+{
+  rbusError_t rbus_status = RBUS_ERROR_BUS_ERROR;
+
+  if (status == RBUSCORE_SUCCESS)
+    rbus_status = rbusCoreTranslateStatusFromResponse(res);
+
+  if (rbus_status != RBUS_ERROR_SUCCESS) {
+    const char* error_message = NULL;
+    rbusMessage_GetString(res, &error_message);
+    RBUSLOG_WARN("set failed. %s", error_message);
+  }
+
+  struct rbusSetAsyncContext* ctx = (struct rbusSetAsyncContext *) user_data;
+  ctx->user_callback(ctx->rbus, rbus_status, ctx->prop, ctx->user_data);
+
+  rbusProperty_Release(ctx->prop);
+  free(ctx);
+
+  return 0;
+}
+
 rbusError_t
 rbusProperty_SetAsync(
   rbusHandle_t rbus,
@@ -5207,14 +5255,30 @@ rbusProperty_SetAsync(
   rbusSetPropertyAsyncHandler_t callback,
   void* argp)
 {
-  (void) rbus;
-  (void) props;
-  (void) opts;
-  (void) timeout;
-  (void) callback;
-  (void) argp;
+  rbusMessage req;
+  rbusMessage_Init(&req);
+  rbusMessage_SetInt32(req, opts ? opts->sessionId : 0); // session id
+  rbusMessage_SetString(req, rbus->componentName);
+  rbusMessage_SetInt32(req, 1); // number of params
+  rbusValue_appendToMessage(rbusProperty_GetName(props), rbusProperty_GetValue(props), req);
+  rbusMessage_SetString(req, (!opts || opts->commit) ? "TRUE" : "FALSE");
 
-  return RBUS_ERROR_SUCCESS;
+  struct rbusSetAsyncContext* ctx = rt_malloc(sizeof(struct rbusSetAsyncContext));
+  ctx->user_callback = callback;
+  ctx->user_data = argp;
+  ctx->rbus = rbus;
+  ctx->prop = props;
+  rbusProperty_Retain(ctx->prop);
+
+  rbusCoreError_t err = rbus_invokeRemoteMethodAsync(
+    rbusProperty_GetName(props),
+    METHOD_SETPARAMETERVALUES,
+    req,
+    timeout,
+    &rbusSetCompletionHandler,
+    ctx);
+
+  return rbusCoreError_to_rbusError(err);
 }
 
 

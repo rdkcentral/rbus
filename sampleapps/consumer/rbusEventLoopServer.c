@@ -110,10 +110,7 @@ rbusError_t get_handler(rbusHandle_t rbus, rbusProperty_t prop, rbusGetHandlerOp
 
   assert( pthread_self() == main_thread_id );
 
-  // update by 2 everytime someone calls get. This triggers any change-notify callbacks
-  device_foo += 2;
   rbusProperty_SetInt32(prop, device_foo);
-
   printf("GET: %s == %d\n", rbusProperty_GetName(prop), device_foo);
 
   return RBUS_ERROR_SUCCESS;
