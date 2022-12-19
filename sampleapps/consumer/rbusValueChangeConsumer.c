@@ -69,7 +69,7 @@ int main(int argc, char *argv[])
     rbusHandle_t handle;
     rbusFilter_t filter;
     rbusValue_t filterValue;
-    rbusEventSubscription_t subscription = {"Device.Provider1.Param1", NULL, 0, 0, eventReceiveHandler, NULL, NULL, NULL};
+    rbusEventSubscription_t subscription = {"Device.Provider1.Param1", NULL, 0, 0, eventReceiveHandler, NULL, NULL, NULL, false};
 
     rc = rbus_open(&handle, "EventConsumer");
     if(rc != RBUS_ERROR_SUCCESS)
