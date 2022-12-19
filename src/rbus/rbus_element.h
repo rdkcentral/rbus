@@ -64,6 +64,7 @@ void fprintRegisteredElements(FILE* f, elementNode* root, int level);
 void addElementSubscription(elementNode* node, rbusSubscription_t* sub, bool checkIfExists);
 void removeElementSubscription(elementNode* node, rbusSubscription_t* sub);
 bool elementHasAutoPubSubscriptions(elementNode* node, rbusSubscription_t* excluding);
+bool elementHasIntervalSubscriptions(elementNode* node, rbusSubscription_t* including);
 void addInstanceToElement(elementNode* node, uint32_t instNum, char const* alias);
 elementNode* instantiateTableRow(elementNode* tableNode, uint32_t instNum, char const* alias);
 void deleteTableRow(elementNode* rowNode);
