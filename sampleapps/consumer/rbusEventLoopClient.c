@@ -41,18 +41,20 @@ static void my_libev_dispatcher(EV_P_ ev_io *w, __attribute__((unused)) int reve
   //   ;
 }
 
-void set_callback(rbusHandle_t rbus, rbusError_t err, rbusProperty_t prop, void* argp);
-void get_callback(rbusHandle_t rbus, rbusError_t err, rbusProperty_t value, void* argp);
+void set_callback(rbusHandle_t rbus, rbusAsyncResponse_t res);
+void get_callback(rbusHandle_t rbus, rbusAsyncResponse_t res);
 void on_value_changed(rbusHandle_t rbus, const rbusEvent_t* e, rbusEventSubscription_t* sub);
 
 static void on_timeout_get(EV_P_ ev_timer* w, __attribute__((unused)) int revents)
 {
   rbusHandle_t rbus = (rbusHandle_t) w->data;
-  rbusProperty_t prop = rbusProperty_InitInt32("Examples.Property1", 0);
-  rbusError_t err = rbusProperty_GetAsync(rbus, prop, -1, get_callback,  NULL);
+  rbusAsyncRequest_t req = rbusAsyncRequest_New();
+  rbusAsyncRequest_AddProperty(req, rbusProperty_InitInt32("Examples.Property1", 0));
+  rbusAsyncRequest_SetCompletionHandler(req, get_callback);
+
+  rbusError_t err = rbusProperty_GetAsync(rbus, req);
   if (err)
     abort();
-  rbusProperty_Release(prop);
 }
 
 static void on_timeout_set(EV_P_ ev_timer* w, __attribute__((unused)) int revents)
@@ -60,12 +62,13 @@ static void on_timeout_set(EV_P_ ev_timer* w, __attribute__((unused)) int revent
   property1_value += 10;
 
   rbusHandle_t rbus = (rbusHandle_t) w->data;
-  rbusProperty_t prop = rbusProperty_InitInt32("Examples.Property1", property1_value);
-  rbusSetOptions_t opts = { false, 0 };
-  rbusError_t err = rbusProperty_SetAsync(rbus, prop, &opts, -1, set_callback,  NULL);
+  rbusAsyncRequest_t req = rbusAsyncRequest_New();
+  rbusAsyncRequest_AddProperty(req, rbusProperty_InitInt32("Examples.Property1", property1_value));
+  rbusAsyncRequest_SetCompletionHandler(req, set_callback);
+
+  rbusError_t err = rbusProperty_SetAsync(rbus, req);
   if (err)
     abort();
-  rbusProperty_Release(prop);
 }
 
 int main(int argc, char* argv[])
@@ -108,15 +111,15 @@ int main(int argc, char* argv[])
   return 0;
 }
 
-
-void get_callback(rbusHandle_t rbus, rbusError_t err, rbusProperty_t prop, void* argp)
+void get_callback(rbusHandle_t rbus, rbusAsyncResponse_t res)
 {
-  (void) argp;
   (void) rbus;
 
   main_thread_id = pthread_self();
 
+  rbusError_t err = rbusAsyncResponse_GetStatus(res);
   if (err == RBUS_ERROR_SUCCESS) {
+    rbusProperty_t prop = rbusAsyncResponse_GetProperty(res);
     printf("GET[%s] %s == %d\n", rbusError_ToString(err), rbusProperty_GetName(prop),
       rbusProperty_GetInt32(prop));
     prop = rbusProperty_InitInt32( rbusProperty_GetName(prop), rbusProperty_GetInt32(prop) + 1 );
@@ -127,15 +130,15 @@ void get_callback(rbusHandle_t rbus, rbusError_t err, rbusProperty_t prop, void*
 }
 
 
-void set_callback(rbusHandle_t rbus, rbusError_t err, rbusProperty_t prop, void* argp)
+void set_callback(rbusHandle_t rbus, rbusAsyncResponse_t res)
 {
-  (void) argp;
   (void) rbus;
-  (void) prop;
 
   main_thread_id = pthread_self();
 
+  rbusError_t err = rbusAsyncResponse_GetStatus(res);
   if (err == RBUS_ERROR_SUCCESS) {
+    rbusProperty_t prop = rbusAsyncResponse_GetProperty(res);
     printf("SET[%s] %s == %d\n", rbusError_ToString(err), rbusProperty_GetName(prop),
       rbusProperty_GetInt32(prop));
   }

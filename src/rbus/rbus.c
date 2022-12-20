@@ -25,6 +25,7 @@
 #include <pthread.h>
 #include <unistd.h>
 #include <rtFuture.h>
+#include <rtRetainable.h>
 #include <rtVector.h>
 #include <rtMemory.h>
 #include <rbuscore.h>
@@ -63,6 +64,22 @@
 struct _rbusMethodAsyncHandle
 {
     rtMessageHeader hdr;
+};
+
+struct rbusAsyncRequest {
+  rtRetainable                  retainable;
+  int32_t                       timeout_millis;
+  rbusAsyncResponseHandler_t    completion_handler;
+  void*                         user_data;
+  rbusProperty_t                props;
+  rbusHandle_t                  rbus;
+};
+
+struct rbusAsyncResponse {
+  rbusProperty_t                props;
+  rbusError_t                   status;
+  void*                         user_data;
+  const char*                   error_message;
 };
 
 typedef enum _rbus_legacy_support
@@ -5099,12 +5116,6 @@ rbusHandle_RunOne(rbusHandle_t rbus)
     return RBUS_ERROR_TIMEOUT;
 }
 
-struct rbusGetAsyncContext {
-  void*                           user_data;
-  rbusGetPropertyAsyncHandler_t   user_callback;
-  rbusHandle_t                    rbus;
-};
-
 static void rbusMessage_GetStatusCodes(rbusMessage m, rbusError_t* rbus_status, rbusLegacyReturn_t* legacy_status)
 {
   int32_t n = -1;
@@ -5182,47 +5193,39 @@ int rbusGetCompletionHandler(rbusMessage res, rbusCoreError_t status, void* user
     props = NULL;
   }
 
-  struct rbusGetAsyncContext* ctx = (struct rbusGetAsyncContext *) user_data;
-  ctx->user_callback(ctx->rbus, rbus_status, props, ctx->user_data);
+  struct rbusAsyncRequest* req = (struct rbusAsyncRequest *) user_data;
+  struct rbusAsyncResponse rbus_res;
+  rbus_res.status = rbus_status;
+  rbus_res.props = props;
+  rbus_res.user_data = req->user_data;
+  if (req->completion_handler)
+    req->completion_handler(req->rbus, &rbus_res);
+  rbusAsyncRequest_Release(req);
+  rbusProperty_Release(rbus_res.props);
 
   return 0;
 }
 
-rbusError_t rbusProperty_GetAsync(
-  rbusHandle_t rbus,
-  rbusProperty_t props,
-  int timeout,
-  rbusGetPropertyAsyncHandler_t callback,
-  void* argp)
+rbusError_t rbusProperty_GetAsync(rbusHandle_t rbus, rbusAsyncRequest_t req)
 {
-  rbusMessage req;
-  rbusMessage_Init(&req);
-  rbusMessage_SetString(req, rbus->componentName);
-  rbusMessage_SetInt32(req, (int32_t) 1);
-  rbusMessage_SetString(req, rbusProperty_GetName(props));
+  rbusMessage rbus_req;
+  rbusMessage_Init(&rbus_req);
+  rbusMessage_SetString(rbus_req, rbus->componentName);
+  rbusMessage_SetInt32(rbus_req, (int32_t) 1);
+  rbusMessage_SetString(rbus_req, rbusProperty_GetName(req->props));
 
-  struct rbusGetAsyncContext* ctx = rt_malloc(sizeof(struct rbusGetAsyncContext));
-  ctx->user_callback = callback;
-  ctx->user_data = argp;
-  ctx->rbus = rbus;
+  rbusAsyncRequest_Retain(req);
 
   rbusCoreError_t err = rbus_invokeRemoteMethodAsync(
-    rbusProperty_GetName(props),
+    rbusProperty_GetName(req->props),
     METHOD_GETPARAMETERVALUES,
-    req,
-    timeout,
+    rbus_req,
+    req->timeout_millis,
     &rbusGetCompletionHandler,
-    ctx);
+    req);
 
   return rbusCoreError_to_rbusError(err);
 }
-
-struct rbusSetAsyncContext {
-  void*                         user_data;
-  rbusSetPropertyAsyncHandler_t user_callback;
-  rbusHandle_t                  rbus;
-  rbusProperty_t                prop;
-};
 
 int rbusSetCompletionHandler(rbusMessage res, rbusCoreError_t status, void* user_data)
 {
@@ -5231,55 +5234,112 @@ int rbusSetCompletionHandler(rbusMessage res, rbusCoreError_t status, void* user
   if (status == RBUSCORE_SUCCESS)
     rbus_status = rbusCoreTranslateStatusFromResponse(res);
 
-  if (rbus_status != RBUS_ERROR_SUCCESS) {
-    const char* error_message = NULL;
-    rbusMessage_GetString(res, &error_message);
-    RBUSLOG_WARN("set failed. %s", error_message);
-  }
-
-  struct rbusSetAsyncContext* ctx = (struct rbusSetAsyncContext *) user_data;
-  ctx->user_callback(ctx->rbus, rbus_status, ctx->prop, ctx->user_data);
-
-  rbusProperty_Release(ctx->prop);
-  free(ctx);
+  struct rbusAsyncRequest* req = (struct rbusAsyncRequest *) user_data;
+  struct rbusAsyncResponse rbus_res;
+  rbus_res.props = req->props;
+  rbus_res.status = rbus_status;
+  if (rbus_res.status != RBUS_ERROR_SUCCESS)
+    rbusMessage_GetString(res, &rbus_res.error_message);
+  rbus_res.user_data = req->user_data;
+  if (req->completion_handler)
+    req->completion_handler(req->rbus, &rbus_res);
+  rbusAsyncRequest_Release(req);
 
   return 0;
 }
 
 rbusError_t
-rbusProperty_SetAsync(
-  rbusHandle_t rbus,
-  rbusProperty_t props,
-  rbusSetOptions_t* opts,
-  int timeout,
-  rbusSetPropertyAsyncHandler_t callback,
-  void* argp)
+rbusProperty_SetAsync(rbusHandle_t rbus, rbusAsyncRequest_t req)
 {
-  rbusMessage req;
-  rbusMessage_Init(&req);
-  rbusMessage_SetInt32(req, opts ? opts->sessionId : 0); // session id
-  rbusMessage_SetString(req, rbus->componentName);
-  rbusMessage_SetInt32(req, 1); // number of params
-  rbusValue_appendToMessage(rbusProperty_GetName(props), rbusProperty_GetValue(props), req);
-  rbusMessage_SetString(req, (!opts || opts->commit) ? "TRUE" : "FALSE");
+  rbusMessage rbus_req;
+  rbusMessage_Init(&rbus_req);
+  rbusMessage_SetInt32(rbus_req, 0); // session id
+  rbusMessage_SetString(rbus_req, rbus->componentName);
+  rbusMessage_SetInt32(rbus_req, 1); // number of params
+  rbusValue_appendToMessage(rbusProperty_GetName(req->props), rbusProperty_GetValue(req->props), rbus_req);
+  rbusMessage_SetString(rbus_req, "TRUE");
 
-  struct rbusSetAsyncContext* ctx = rt_malloc(sizeof(struct rbusSetAsyncContext));
-  ctx->user_callback = callback;
-  ctx->user_data = argp;
-  ctx->rbus = rbus;
-  ctx->prop = props;
-  rbusProperty_Retain(ctx->prop);
+  rbusAsyncRequest_Retain(req);
 
   rbusCoreError_t err = rbus_invokeRemoteMethodAsync(
-    rbusProperty_GetName(props),
+    rbusProperty_GetName(req->props),
     METHOD_SETPARAMETERVALUES,
-    req,
-    timeout,
+    rbus_req,
+    req->timeout_millis,
     &rbusSetCompletionHandler,
-    ctx);
+    req);
 
   return rbusCoreError_to_rbusError(err);
 }
 
+rbusAsyncRequest_t rbusAsyncRequest_New()
+{
+  struct rbusAsyncRequest* req = rt_malloc(sizeof(struct rbusAsyncRequest));
+  req->retainable.refCount = 1;
+  req->timeout_millis = -1;
+  req->completion_handler = NULL;
+  req->user_data = NULL;
+  req->props = NULL;
+  req->rbus = NULL;
+  return req;
+}
+
+void rbusGetRequest_SetTimeout(rbusAsyncRequest_t req, int timeout_millis)
+{
+  req->timeout_millis = timeout_millis;
+}
+
+void rbusAsyncRequest_Destroy(rtRetainable* r)
+{
+  struct rbusAsyncRequest* req = (struct rbusAsyncRequest *) r;
+  rbusProperty_Release(req->props);
+  rt_free(req);
+}
+
+void rbusAsyncRequest_Retain(rbusAsyncRequest_t req)
+{
+  rtRetainable_retain(req);
+}
+
+void rbusAsyncRequest_Release(rbusAsyncRequest_t req)
+{
+  rtRetainable_release(req, rbusAsyncRequest_Destroy);
+}
+
+void rbusAsyncRequest_SetCompletionHandler(rbusAsyncRequest_t req, rbusAsyncResponseHandler_t callback)
+{
+  req->completion_handler = callback;
+}
+
+void rbusAsyncRequest_SetUserData(rbusAsyncRequest_t req, void* user_data)
+{
+  req->user_data = user_data;
+}
+
+void rbusAsyncRequest_Cancel(rbusAsyncRequest_t req)
+{
+  (void) req;
+  // TODO
+}
+
+rbusError_t rbusAsyncResponse_GetStatus(rbusAsyncResponse_t res)
+{
+  return res->status;
+}
+
+rbusProperty_t rbusAsyncResponse_GetProperty(rbusAsyncResponse_t res)
+{
+  return res->props;
+}
+
+void rbusAsyncRequest_AddProperty(rbusAsyncRequest_t req, rbusProperty_t prop)
+{
+  req->props = prop;
+}
+
+void* rbusAsyncResponse_GetUserData(rbusAsyncResponse_t res)
+{
+  return res->user_data;
+}
 
 /* End of File */

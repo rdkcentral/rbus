@@ -1733,32 +1733,29 @@ rbusError_t rbus_setLogLevel(rbusLogLevel_t level);
 
 int rbusHandle_GetEventFD(rbusHandle_t rbus);
 
-typedef void (*rbusSetPropertyAsyncHandler_t)(
-    rbusHandle_t rbus,
-    rbusError_t error,
-    rbusProperty_t props,
-    void* argp);
+struct rbusAsyncRequest;
+typedef struct rbusAsyncRequest* rbusAsyncRequest_t;
 
-typedef void (*rbusGetPropertyAsyncHandler_t)(
-    rbusHandle_t rbus,
-    rbusError_t error,
-    rbusProperty_t props,
-    void* argp);
+struct rbusAsyncResponse;
+typedef struct rbusAsyncResponse* rbusAsyncResponse_t;
 
-rbusError_t rbusProperty_GetAsync(
-  rbusHandle_t rbus,
-  rbusProperty_t props,
-  int timeout,
-  rbusGetPropertyAsyncHandler_t callback,
-  void* argp);
+typedef void (*rbusAsyncResponseHandler_t)(rbusHandle_t rbus, rbusAsyncResponse_t res);
 
-rbusError_t rbusProperty_SetAsync(
-  rbusHandle_t rbus,
-  rbusProperty_t props,
-  rbusSetOptions_t* opts,
-  int timeout,
-  rbusSetPropertyAsyncHandler_t callback,
-  void* argp);
+rbusAsyncRequest_t  rbusAsyncRequest_New();
+void rbusAsyncRequest_Release(rbusAsyncRequest_t req);
+void rbusAsyncRequest_Retain(rbusAsyncRequest_t req);
+void rbusAsyncRequest_SetTimeout(rbusAsyncRequest_t req, int timeout_millis);
+void rbusAsyncRequest_SetCompletionHandler(rbusAsyncRequest_t req, rbusAsyncResponseHandler_t callback);
+void rbusAsyncRequest_SetUserData(rbusAsyncRequest_t req, void* user_data);
+void rbusAsyncRequest_Cancel(rbusAsyncRequest_t req);
+void rbusAsyncRequest_AddProperty(rbusAsyncRequest_t req, rbusProperty_t prop);
+
+void* rbusAsyncResponse_GetUserData(rbusAsyncResponse_t res);
+rbusProperty_t rbusAsyncResponse_GetProperty(rbusAsyncResponse_t res);
+rbusError_t rbusAsyncResponse_GetStatus(rbusAsyncResponse_t res);
+
+rbusError_t rbusProperty_GetAsync(rbusHandle_t rbus, rbusAsyncRequest_t req);
+rbusError_t rbusProperty_SetAsync(rbusHandle_t rbus, rbusAsyncRequest_t req);
 
 /** @} */
 
