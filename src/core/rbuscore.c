@@ -673,6 +673,8 @@ static rbusCoreError_t send_subscription_request(const char * object_name, const
         rbusMessage_SetMessage(request, payload);
     if(publishOnSubscribe)
         rbusMessage_SetInt32(request, 1); /*for publishOnSubscribe */
+    else
+        rbusMessage_SetInt32(request, 0);
 
     if(timeout_ms <= 0)
         timeout_ms = TIMEOUT_VALUE_FIRE_AND_FORGET;
