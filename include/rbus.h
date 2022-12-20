@@ -294,7 +294,7 @@ typedef struct _rbusEventSubscription
                                          the event needs to be fired. Should
                                          be in multiples of minInterval
                                       */
-    int32_t            duration;   /** Optional maximum duration in seconds until which
+    uint32_t            duration;   /** Optional maximum duration in seconds until which
                                         the subscription should be in effect. Beyond this 
                                         duration, the event would be unsubscribed automatically. 
                                         Pass "0" for indefinite event subscription which requires 
