@@ -553,7 +553,7 @@ rtRouted_SendMessage(rtMessageHeader * request_hdr, rtMessage message, rtConnect
 
   /*Find the route to populate control_id field.*/
   rtRouteEntry *route = NULL;
-  rtRoutingTree_GetTopicRoutes(routingTree, request_hdr->topic, &list, 0);
+  rtRoutingTree_GetTopicRoutes(routingTree, request_hdr->topic, &list);
   if(list)
   {
     rtList_GetFront(list, &item);
@@ -1150,7 +1150,7 @@ rtRouted_OnMessageDiscoverElementObjects(rtConnectedClient* sender, rtMessageHea
           rtList routes;
           rtListItem item;
           int set = 0;
-          rtRoutingTree_GetTopicRoutes(routingTree, expression, &routes, 1);
+          rtRoutingTree_GetTopicRoutes(routingTree, expression, &routes);
           if(routes)
           {
             size_t count;
@@ -1460,7 +1460,7 @@ rtRouter_DispatchMessageFromClient(rtConnectedClient* clnt)
   START_TRACKING();
 dispatch:
 
-  rtRoutingTree_GetTopicRoutes(routingTree, clnt->header.topic, &list, 0);
+  rtRoutingTree_GetTopicRoutes(routingTree, clnt->header.topic, &list);
   if(list)
   {
     rtList_GetFront(list, &item);
