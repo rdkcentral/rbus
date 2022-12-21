@@ -2184,6 +2184,7 @@ static int _method_callback_handler(rbusHandle_t handle, rbusMessage request, rb
     struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
     rbusError_t result = RBUS_ERROR_BUS_ERROR;
     int sessionId;
+    int hasInputParameters = 0;
     char const* methodName;
     rbusObject_t inParams, outParams;
     rbusValue_t value1, value2;
@@ -2193,7 +2194,13 @@ static int _method_callback_handler(rbusHandle_t handle, rbusMessage request, rb
 
     rbusMessage_GetInt32(request, &sessionId);
     rbusMessage_GetString(request, &methodName);
-    rbusObject_initFromMessage(&inParams, request);
+
+    // next flag indicates whether the method has any arguments
+    rbusMessage_GetInt32(request, &hasInputParameters);
+    if (hasInputParameters)
+      rbusObject_initFromMessage(&inParams, request);
+    else
+      inParams = NULL;
 
     RBUSLOG_INFO("%s method [%s]", __FUNCTION__, methodName);
 
@@ -4738,8 +4745,12 @@ rbusError_t rbusMethod_InvokeAsyncEx(rbusHandle_t RT_UNUSED(rbus), rbusAsyncRequ
   rbusMessage_Init(&rbus_req);
   rbusMessage_SetInt32(rbus_req, 0);
   rbusMessage_SetString(rbus_req, req->method_name);
-  if (req->method_params)
+  if (req->method_params) {
+    rbusMessage_SetInt32(rbus_req, 1);
     rbusObject_appendToMessage(req->method_params, rbus_req);
+  }
+  else
+    rbusMessage_SetInt32(rbus_req, 0);
 
   rbusAsyncRequest_Retain(req);
 
