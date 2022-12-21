@@ -1013,6 +1013,8 @@ static void registerTableRow (rbusHandle_t handle, elementNode* tableInstElem, c
         {
             RBUSLOG_WARN("failed to publish ObjectCreated event err:%d", respub);
         }
+        if(handleInfo->subscriptions)
+            rbusSubscriptions_getSubscriptionList(handle, handleInfo->subscriptions, rowElem);
 
         rbusValue_Release(rowNameVal);
         rbusValue_Release(instNumVal);

@@ -151,6 +151,39 @@ rbusSubscription_t* rbusSubscriptions_addSubscription(rbusSubscriptions_t subscr
 
     return sub;
 }
+void rbusSubscriptions_getSubscriptionList(rbusHandle_t handle, rbusSubscriptions_t subscriptions, elementNode* node)
+{
+    rtListItem item, next;
+    rbusError_t err;
+    size_t size;
+    unsigned int count = 1;
+    rbusSubscription_t* sub;
+    struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
+
+    if(subscriptions)
+    {
+        rtList_GetFront(subscriptions->subList, &item);
+        rtList_GetSize(subscriptions->subList, &size);
+    }
+    while(item && (count <= size))
+    {
+        rtListItem_GetData(item, (void**)&sub);
+        if(sub)
+        {
+            elementNode* el = retrieveInstanceElement(handleInfo->elementRoot, sub->eventName);
+            if(el && (strncmp(el->fullName, node->fullName, strlen(node->fullName)) == 0))
+            {
+                rtListItem_GetNext(item, &next);
+                rtList_RemoveItem(subscriptions->subList, item, NULL);
+                err = subscribeHandlerImpl(handle, true, el, sub->eventName, sub->listener, sub->componentId, sub->interval, sub->duration, sub->filter);
+            (void)err;
+            subscriptionFree(sub);
+            }
+        }
+        item = next;
+        count++;
+    }
+}
 
 /*get an existing subscription by searching for its unique key [eventName, listener, filter]*/
 rbusSubscription_t* rbusSubscriptions_getSubscription(rbusSubscriptions_t subscriptions, char const* listener, char const* eventName, int32_t componentId, rbusFilter_t filter)
