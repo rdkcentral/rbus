@@ -1749,6 +1749,8 @@ void rbusAsyncRequest_SetCompletionHandler(rbusAsyncRequest_t req, rbusAsyncResp
 void rbusAsyncRequest_SetUserData(rbusAsyncRequest_t req, void* user_data);
 void rbusAsyncRequest_Cancel(rbusAsyncRequest_t req);
 void rbusAsyncRequest_AddProperty(rbusAsyncRequest_t req, rbusProperty_t prop);
+void rbusAsyncRequest_SetMethodName(rbusAsyncRequest_t req, const char* method_name);
+void rbusAsyncRequest_SetMethodParameters(rbusAsyncRequest_t req, rbusProperty_t argv);
 
 void* rbusAsyncResponse_GetUserData(rbusAsyncResponse_t res);
 rbusProperty_t rbusAsyncResponse_GetProperty(rbusAsyncResponse_t res);
@@ -1756,6 +1758,7 @@ rbusError_t rbusAsyncResponse_GetStatus(rbusAsyncResponse_t res);
 
 rbusError_t rbusProperty_GetAsync(rbusHandle_t rbus, rbusAsyncRequest_t req);
 rbusError_t rbusProperty_SetAsync(rbusHandle_t rbus, rbusAsyncRequest_t req);
+rbusError_t rbusMethod_InvokeAsyncEx(rbusHandle_t rbus, rbusAsyncRequest_t req);
 
 /** @} */
 

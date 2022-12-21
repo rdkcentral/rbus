@@ -67,7 +67,7 @@ int main(int argc, char* argv[])
         NULL                // method handler
       }
     }, {
-      "Device.Methods.SimpleMethod()", RBUS_ELEMENT_TYPE_METHOD, {
+      "org.rdk.Calculator.Sum()", RBUS_ELEMENT_TYPE_METHOD, {
         NULL,
         NULL,
         NULL,
@@ -119,9 +119,9 @@ rbusError_t get_handler(rbusHandle_t rbus, rbusProperty_t prop, rbusGetHandlerOp
 
 rbusError_t set_handler(rbusHandle_t rbus, rbusProperty_t prop, rbusSetHandlerOptions_t* opts)
 {
-  (void) opts;
-  (void) prop;
   (void) rbus;
+  (void) prop;
+  (void) opts;
 
   assert( pthread_self() == main_thread_id );
 
@@ -137,18 +137,19 @@ rbusError_t method_handler(rbusHandle_t rbus, char const* method_name, rbusObjec
 {
   (void) rbus;
   (void) method_name;
-  (void) argv;
   (void) finished;
 
   assert( pthread_self() == main_thread_id );
 
   printf("INVOKE: %s\n", method_name);
 
-  rbusValue_t v;
-  rbusValue_Init(&v);
-  rbusValue_SetString(v, "Hello World");
-  rbusObject_SetValue(args_out, "value", v);
-  rbusValue_Release(v);
+  int32_t sum = 0;
+
+  rbusProperty_t arg = NULL;
+  for (arg = rbusObject_GetProperties(argv); arg != NULL; arg = rbusProperty_GetNext(arg))
+    sum += rbusProperty_GetInt32(arg);
+
+  rbusObject_SetPropertyInt32(args_out, "sum", sum);
 
   return RBUS_ERROR_SUCCESS;
 }
