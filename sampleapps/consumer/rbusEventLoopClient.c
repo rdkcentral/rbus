@@ -45,7 +45,7 @@ void on_value_changed(rbusHandle_t rbus, const rbusEvent_t* e, rbusEventSubscrip
 void on_timeout_get(EV_P_ ev_timer* w, __attribute__((unused)) int revents)
 {
   rbusHandle_t rbus = (rbusHandle_t) w->data;
-  rbusAsyncRequest_t req = rbusAsyncRequest_New();
+  rbusAutoPtr(rbusAsyncRequest) req = rbusAsyncRequest_New();
   rbusAsyncRequest_AddProperty(req, rbusProperty_InitInt32("Examples.Property1", 0));
   rbusAsyncRequest_SetCompletionHandler(req, get_callback);
 
@@ -59,14 +59,13 @@ void on_timeout_set(EV_P_ ev_timer* w, __attribute__((unused)) int revents)
   property1_value += 10;
 
   rbusHandle_t rbus = (rbusHandle_t) w->data;
-  rbusAsyncRequest_t req = rbusAsyncRequest_New();
+  rbusAutoPtr(rbusAsyncRequest) req = rbusAsyncRequest_New();
   rbusAsyncRequest_AddProperty(req, rbusProperty_InitInt32("Examples.Property1", property1_value));
   rbusAsyncRequest_SetCompletionHandler(req, set_callback);
 
   rbusError_t err = rbusProperty_SetAsync(rbus, req);
   if (err)
     abort();
-
 }
 
 void on_timeout_invoke(EV_P_ ev_timer* w, __attribute__((unused)) int revents)
@@ -74,11 +73,11 @@ void on_timeout_invoke(EV_P_ ev_timer* w, __attribute__((unused)) int revents)
   int i;
 
   rbusHandle_t rbus = (rbusHandle_t) w->data;
-  rbusAsyncRequest_t req = rbusAsyncRequest_New();
+  rbusAutoPtr(rbusAsyncRequest) req = rbusAsyncRequest_New();
   rbusAsyncRequest_SetCompletionHandler(req, method_callback);
   rbusAsyncRequest_SetMethodName(req, "org.rdk.Calculator.Sum()");
 
-  rbusProperty_t argv = rbusProperty_InitInt32("argv-000", 0);
+  rbusAutoPtr(rbusProperty) argv = rbusProperty_InitInt32("argv-000", 0);
   for (i = 1; i < 10; ++i) {
     char prop_name[64];
     snprintf(prop_name, sizeof(prop_name), "argv-%03d", i);
@@ -89,8 +88,6 @@ void on_timeout_invoke(EV_P_ ev_timer* w, __attribute__((unused)) int revents)
   rbusError_t err = rbusMethod_InvokeAsyncEx(rbus, req);
   if (err)
     abort();
-
-  rbusProperty_Release(argv);
 }
 
 
@@ -98,7 +95,7 @@ int main(int argc, char* argv[])
 {
   rbusOptions_t opts;
   rbusHandle_t  rbus;
-  
+
   (void) argc;
   (void) argv;
 
@@ -116,22 +113,26 @@ int main(int argc, char* argv[])
   rbus_watcher.data = rbus;
   ev_io_start(loop, &rbus_watcher);
 
-  #if 0
+  #if 1
   ev_timer timeout_get;
   ev_timer_init(&timeout_get, on_timeout_get, 1.0, 0);
   timeout_get.data = rbus;
   ev_timer_start(loop, &timeout_get);
+  #endif
 
+  #if 1
   ev_timer timeout_set;
   ev_timer_init(&timeout_set, on_timeout_set, .25, .25);
   timeout_set.data = rbus;
   ev_timer_start(loop, &timeout_set);
   #endif
 
+  #if 1
   ev_timer timeout_invoke;
   ev_timer_init(&timeout_invoke, on_timeout_invoke, 1.0, 1.0);
   timeout_invoke.data = rbus;
   ev_timer_start(loop, &timeout_invoke);
+  #endif
 
   ev_run(loop, 0);
   rbus_close(rbus);
@@ -150,7 +151,6 @@ void get_callback(rbusHandle_t rbus, rbusAsyncResponse_t res)
     rbusProperty_t prop = rbusAsyncResponse_GetProperty(res);
     printf("GET[%s] %s == %d\n", rbusError_ToString(err), rbusProperty_GetName(prop),
       rbusProperty_GetInt32(prop));
-    prop = rbusProperty_InitInt32( rbusProperty_GetName(prop), rbusProperty_GetInt32(prop) + 1 );
   }
   else {
     printf("GET[%s]\n", rbusError_ToString(err));
@@ -175,6 +175,8 @@ void set_callback(rbusHandle_t rbus, rbusAsyncResponse_t res)
   else {
     printf("SET[%s]\n", rbusError_ToString(err));
   }
+
+  // ev_break(EV_DEFAULT, EVBREAK_ONE);
 }
 
 void method_callback(rbusHandle_t rbus, rbusAsyncResponse_t res)
@@ -190,6 +192,8 @@ void method_callback(rbusHandle_t rbus, rbusAsyncResponse_t res)
   else {
     printf("INVOKE[%s]\n", rbusError_ToString(err));
   }
+
+  // ev_break(EV_DEFAULT, EVBREAK_ONE);
 }
 
 void on_value_changed(rbusHandle_t rbus, const rbusEvent_t* e, rbusEventSubscription_t* sub)

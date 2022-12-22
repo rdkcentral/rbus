@@ -80,6 +80,12 @@ void rbusProperty_Release(rbusProperty_t property)
     rtRetainable_release(property, rbusProperty_Destroy);
 }
 
+void rbusProperty_ReleaseAuto(rbusProperty_t* p)
+{
+  if (p && *p)
+    rtRetainable_release(*p, rbusProperty_Destroy);
+}
+
 void rbusProperty_Releases(int count, ...)
 {
     int i;

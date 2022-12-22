@@ -1743,6 +1743,7 @@ typedef void (*rbusAsyncResponseHandler_t)(rbusHandle_t rbus, rbusAsyncResponse_
 
 rbusAsyncRequest_t  rbusAsyncRequest_New();
 void rbusAsyncRequest_Release(rbusAsyncRequest_t req);
+void rbusAsyncRequest_ReleaseAuto(rbusAsyncRequest_t* ret);
 void rbusAsyncRequest_Retain(rbusAsyncRequest_t req);
 void rbusAsyncRequest_SetTimeout(rbusAsyncRequest_t req, int timeout_millis);
 void rbusAsyncRequest_SetCompletionHandler(rbusAsyncRequest_t req, rbusAsyncResponseHandler_t callback);

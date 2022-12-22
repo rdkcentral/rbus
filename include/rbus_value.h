@@ -43,6 +43,11 @@
 #include <sys/time.h>
 #include <time.h>
 
+#define _RBUS_AUTOPTR_FUNC_NAME(TypeName) TypeName##_ReleaseAuto
+#define _RBUS_CLEANUP(func) __attribute__((cleanup(func)))
+#define _RBUS_AUTOPTR_TYPENAME(TypeName) TypeName##_t
+#define rbusAutoPtr(TypeName) _RBUS_CLEANUP(_RBUS_AUTOPTR_FUNC_NAME(TypeName)) _RBUS_AUTOPTR_TYPENAME(TypeName)
+
 #ifdef __cplusplus
 extern "C" {
 #endif

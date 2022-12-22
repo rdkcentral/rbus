@@ -4794,6 +4794,8 @@ rbusError_t rbusMethod_InvokeAsyncEx(rbusHandle_t rbus, rbusAsyncRequest_t req)
     &rbusMethodCompletionHandler,
     req);
 
+  rbusMessage_Release(rbus_req);
+
   return rbusCoreError_to_rbusError(err);
 }
 
@@ -5322,6 +5324,8 @@ rbusError_t rbusProperty_GetAsync(rbusHandle_t rbus, rbusAsyncRequest_t req)
     &rbusGetCompletionHandler,
     req);
 
+  rbusMessage_Release(rbus_req);
+
   return rbusCoreError_to_rbusError(err);
 }
 
@@ -5381,6 +5385,8 @@ rbusProperty_SetAsync(rbusHandle_t rbus, rbusAsyncRequest_t req)
     &rbusSetCompletionHandler,
     req);
 
+  rbusMessage_Release(rbus_req);
+
   return rbusCoreError_to_rbusError(err);
 }
 
@@ -5424,6 +5430,12 @@ void rbusAsyncRequest_Retain(rbusAsyncRequest_t req)
 void rbusAsyncRequest_Release(rbusAsyncRequest_t req)
 {
   rtRetainable_release(req, rbusAsyncRequest_Destroy);
+}
+
+void rbusAsyncRequest_ReleaseAuto(rbusAsyncRequest_t* req)
+{
+  if (req && *req)
+    rtRetainable_release(*req, rbusAsyncRequest_Destroy);
 }
 
 void rbusAsyncRequest_SetCompletionHandler(rbusAsyncRequest_t req, rbusAsyncResponseHandler_t callback)
