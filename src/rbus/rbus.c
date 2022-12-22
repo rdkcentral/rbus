@@ -56,7 +56,8 @@
 #define VERIFY_NULL(T)          if(NULL == T){ RBUSLOG_WARN(#T" is NULL"); return RBUS_ERROR_INVALID_INPUT; }
 #define VERIFY_ZERO(T)          if(0 == T){ RBUSLOG_WARN(#T" is 0"); return RBUS_ERROR_INVALID_INPUT; }
 
-#define rbusNotNull(T)          if(NULL == T){ RBUSLOG_WARN(#T" is NULL"); return RBUS_ERROR_INVALID_INPUT; }
+#define rbusCheckNotNull(T)          if(NULL == T){ RBUSLOG_WARN(#T" is NULL"); return RBUS_ERROR_INVALID_INPUT; }
+#define rbusCheckAsyncInvalid(H)   assert(H->useEventLoop == false);
 
 #define LockMutex() pthread_mutex_lock(&gMutex)
 #define UnlockMutex() pthread_mutex_unlock(&gMutex)
@@ -2824,6 +2825,8 @@ rbusError_t rbus_get(rbusHandle_t handle, char const* name, rbusValue_t* value)
     int ret = -1;
     struct _rbusHandle* handleInfo = (struct _rbusHandle*) handle;
 
+    rbusCheckAsyncInvalid(handle);
+
     VERIFY_NULL(handleInfo);
 
     /* Is it a valid Query */
@@ -3272,11 +3275,13 @@ rbusError_t rbus_set(rbusHandle_t handle, char const* name,rbusValue_t value, rb
     rbusError_t errorcode = RBUS_ERROR_INVALID_INPUT;
     rbusCoreError_t err = RBUSCORE_SUCCESS;
     rbusMessage setRequest, setResponse;
+
     struct _rbusHandle* handleInfo = (struct _rbusHandle*) handle;
 
     VERIFY_NULL(handle);
     VERIFY_NULL(name);
     VERIFY_NULL(value);
+    rbusCheckAsyncInvalid(handle);
 
     if (RBUS_NONE == rbusValue_GetType(value))
     {
@@ -4698,6 +4703,7 @@ rbusError_t rbusMethod_Invoke(
 {
     VERIFY_NULL(handle);
     VERIFY_NULL(methodName);
+    rbusCheckAsyncInvalid(handle);
     return rbusMethod_InvokeInternal(handle, methodName, inParams, outParams, rbusConfig_ReadSetTimeout());
 }
 
@@ -4755,9 +4761,9 @@ rbusError_t rbusMethod_InvokeAsync(
 {
   rbusError_t err;
 
-  rbusNotNull(rbus);
-  rbusNotNull(method_name);
-  rbusNotNull(method_handler);
+  rbusCheckNotNull(rbus);
+  rbusCheckNotNull(method_name);
+  rbusCheckNotNull(method_handler);
 
   rbusAsyncRequest_t req = rbusAsyncRequest_New();
   req->rbus = rbus;
