@@ -16,7 +16,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
 */
-
+#include <assert.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <stdlib.h>
@@ -66,6 +66,7 @@ void on_timeout_set(EV_P_ ev_timer* w, __attribute__((unused)) int revents)
   rbusError_t err = rbusProperty_SetAsync(rbus, req);
   if (err)
     abort();
+
 }
 
 void on_timeout_invoke(EV_P_ ev_timer* w, __attribute__((unused)) int revents)
@@ -103,7 +104,7 @@ int main(int argc, char* argv[])
 
   main_thread_id = pthread_self();
 
-  opts.use_event_loop = false;
+  opts.use_event_loop = true;
   opts.component_name = "event-loop-example";
 
   rbusHandle_New(&rbus, &opts);
@@ -117,7 +118,7 @@ int main(int argc, char* argv[])
 
   #if 0
   ev_timer timeout_get;
-  ev_timer_init(&timeout_get, on_timeout_get, 1.0, 1.0);
+  ev_timer_init(&timeout_get, on_timeout_get, 1.0, 0);
   timeout_get.data = rbus;
   ev_timer_start(loop, &timeout_get);
 
@@ -132,9 +133,7 @@ int main(int argc, char* argv[])
   timeout_invoke.data = rbus;
   ev_timer_start(loop, &timeout_invoke);
 
-  while (true)
-    ev_run(loop, 0);
-
+  ev_run(loop, 0);
   rbus_close(rbus);
 
   return 0;
@@ -144,7 +143,7 @@ void get_callback(rbusHandle_t rbus, rbusAsyncResponse_t res)
 {
   (void) rbus;
 
-  main_thread_id = pthread_self();
+  assert(main_thread_id == pthread_self());
 
   rbusError_t err = rbusAsyncResponse_GetStatus(res);
   if (err == RBUS_ERROR_SUCCESS) {
@@ -156,6 +155,8 @@ void get_callback(rbusHandle_t rbus, rbusAsyncResponse_t res)
   else {
     printf("GET[%s]\n", rbusError_ToString(err));
   }
+
+  // ev_break(EV_DEFAULT, EVBREAK_ONE);
 }
 
 
@@ -163,7 +164,7 @@ void set_callback(rbusHandle_t rbus, rbusAsyncResponse_t res)
 {
   (void) rbus;
 
-  main_thread_id = pthread_self();
+  assert(main_thread_id == pthread_self());
 
   rbusError_t err = rbusAsyncResponse_GetStatus(res);
   if (err == RBUS_ERROR_SUCCESS) {
@@ -196,7 +197,7 @@ void on_value_changed(rbusHandle_t rbus, const rbusEvent_t* e, rbusEventSubscrip
   (void) rbus;
   (void) sub;
 
-  main_thread_id = pthread_self();
+  assert(main_thread_id == pthread_self());
 
   printf("EVENT:%s\n", e->name);
   rbusObject_fwrite(e->data, 2, stdout);

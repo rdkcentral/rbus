@@ -89,6 +89,19 @@ struct rbusAsyncResponse {
   const char*                   error_message;
 };
 
+struct rbusEventLoopCallbackContext {
+  rbusMessage                 res;
+  rbusCoreError_t             status;
+  struct rbusAsyncRequest*    req;
+};
+
+static void rbusEventLoop_EnqueueResponse(
+  rbusHandle_t                rbus,
+  rbusMessage                 res,
+  rbusCoreError_t             status,
+  struct rbusAsyncRequest*    req,
+  void                      (*exec)(void *));
+
 typedef enum _rbus_legacy_support
 {
     RBUS_LEGACY_STRING = 0,    /**< Null terminated string                                           */
@@ -4688,7 +4701,24 @@ rbusError_t rbusMethod_Invoke(
     return rbusMethod_InvokeInternal(handle, methodName, inParams, outParams, rbusConfig_ReadSetTimeout());
 }
 
-static int rbusMethodCompletionHandler(rbusMessage res, rbusCoreError_t core_status, void* user_data)
+static void rbusMethodCompletionHandlerImpl(rbusMessage res, rbusCoreError_t status, void* user_data);
+static void rbusMethodCompletionHandlerAdapter(void* user_data) {
+  struct rbusEventLoopCallbackContext* ctx = (struct rbusEventLoopCallbackContext *) user_data;
+  rbusMethodCompletionHandlerImpl(ctx->res, ctx->status, ctx->req);
+  rbusMessage_Release(ctx->res);
+  rt_free(ctx);
+}
+static int rbusMethodCompletionHandler(rbusMessage res, rbusCoreError_t status, void* user_data)
+{
+  struct rbusAsyncRequest* req = (struct rbusAsyncRequest *) user_data;
+  if (req->rbus->useEventLoop)
+    rbusEventLoop_EnqueueResponse(req->rbus, res, status, req, &rbusMethodCompletionHandlerAdapter);
+  else
+    rbusMethodCompletionHandlerImpl(res, status, user_data);
+  return 0;
+}
+
+void rbusMethodCompletionHandlerImpl(rbusMessage res, rbusCoreError_t core_status, void* user_data)
 {
   rbusError_t rbus_status = rbusCoreTranslateStatusFromResponse(res, core_status);
   struct rbusAsyncRequest* req = (struct rbusAsyncRequest *) user_data;
@@ -4700,8 +4730,10 @@ static int rbusMethodCompletionHandler(rbusMessage res, rbusCoreError_t core_sta
     req->method_handler(req->rbus, req->method_name, rbus_status, NULL);
   else {
     struct rbusAsyncResponse rbus_res;
-    if (out_params)
+    if (out_params) {
       rbus_res.props = rbusObject_GetProperties(out_params);
+      rbusProperty_Retain(rbus_res.props);
+    }
     else
       rbus_res.props = NULL;
     rbus_res.status = rbus_status;
@@ -4712,9 +4744,8 @@ static int rbusMethodCompletionHandler(rbusMessage res, rbusCoreError_t core_sta
   }
   rbusAsyncRequest_Release(req);
   rbusObject_Release(out_params);
-
-  return 0;
 }
+
 rbusError_t rbusMethod_InvokeAsync(
     rbusHandle_t                      rbus,
     char const*                       method_name,
@@ -4739,7 +4770,7 @@ rbusError_t rbusMethod_InvokeAsync(
   return err;
 }
 
-rbusError_t rbusMethod_InvokeAsyncEx(rbusHandle_t RT_UNUSED(rbus), rbusAsyncRequest_t req)
+rbusError_t rbusMethod_InvokeAsyncEx(rbusHandle_t rbus, rbusAsyncRequest_t req)
 {
   rbusMessage rbus_req;
   rbusMessage_Init(&rbus_req);
@@ -4753,6 +4784,7 @@ rbusError_t rbusMethod_InvokeAsyncEx(rbusHandle_t RT_UNUSED(rbus), rbusAsyncRequ
     rbusMessage_SetInt32(rbus_req, 0);
 
   rbusAsyncRequest_Retain(req);
+  req->rbus = rbus;
 
   rbusCoreError_t err = rbus_invokeRemoteMethodAsync(
     req->method_name,
@@ -5178,7 +5210,48 @@ rbusError_t rbusCoreTranslateStatusFromResponse(rbusMessage m, rbusCoreError_t c
   return rbus_status;
 }
 
+static void rbusEventLoop_EnqueueResponse(
+  rbusHandle_t                rbus,
+  rbusMessage                 res,
+  rbusCoreError_t             status,
+  struct rbusAsyncRequest*    req,
+  void                      (*exec)(void *))
+{
+  struct rbusEventLoopCallbackContext* ctx = rt_malloc(sizeof(struct rbusEventLoopCallbackContext));
+  ctx->res = res;
+  ctx->status = status;
+  ctx->req = req;
+
+  rbusMessage_Retain(ctx->res);
+
+  rbusRunnable_t r;
+  r.argp = ctx;
+  r.exec = exec;
+  r.cleanup = NULL;
+  r.next = NULL;
+
+  rbusRunnableQueue_PushBack(&rbus->eventQueue, r);
+}
+
+static void rbusGetCompletionHandlerImpl(rbusMessage res, rbusCoreError_t status, void* user_data);
+static void rbusGetCompletionHandlerAdapter(void* user_data) {
+  struct rbusEventLoopCallbackContext* ctx = (struct rbusEventLoopCallbackContext *) user_data;
+  rbusGetCompletionHandlerImpl(ctx->res, ctx->status, ctx->req);
+  rbusMessage_Release(ctx->res);
+  rt_free(ctx);
+}
+
 static int rbusGetCompletionHandler(rbusMessage res, rbusCoreError_t status, void* user_data)
+{
+  struct rbusAsyncRequest* req = (struct rbusAsyncRequest *) user_data;
+  if (req->rbus->useEventLoop)
+    rbusEventLoop_EnqueueResponse(req->rbus, res, status, req, &rbusGetCompletionHandlerAdapter);
+  else
+    rbusGetCompletionHandlerImpl(res, status, user_data);
+  return 0;
+}
+
+void rbusGetCompletionHandlerImpl(rbusMessage res, rbusCoreError_t status, void* user_data)
 {
   rbusProperty_t props = NULL;
   rbusError_t rbus_status = RBUS_ERROR_SUCCESS;
@@ -5228,8 +5301,6 @@ static int rbusGetCompletionHandler(rbusMessage res, rbusCoreError_t status, voi
     req->completion_handler(req->rbus, &rbus_res);
   rbusAsyncRequest_Release(req);
   rbusProperty_Release(rbus_res.props);
-
-  return 0;
 }
 
 rbusError_t rbusProperty_GetAsync(rbusHandle_t rbus, rbusAsyncRequest_t req)
@@ -5241,6 +5312,7 @@ rbusError_t rbusProperty_GetAsync(rbusHandle_t rbus, rbusAsyncRequest_t req)
   rbusMessage_SetString(rbus_req, rbusProperty_GetName(req->props));
 
   rbusAsyncRequest_Retain(req);
+  req->rbus = rbus;
 
   rbusCoreError_t err = rbus_invokeRemoteMethodAsync(
     rbusProperty_GetName(req->props),
@@ -5253,7 +5325,25 @@ rbusError_t rbusProperty_GetAsync(rbusHandle_t rbus, rbusAsyncRequest_t req)
   return rbusCoreError_to_rbusError(err);
 }
 
+static void rbusSetCompletionHandlerImpl(rbusMessage res, rbusCoreError_t status, void* user_data);
+static void rbusSetCompletionHandlerAdapter(void* user_data) {
+  struct rbusEventLoopCallbackContext* ctx = (struct rbusEventLoopCallbackContext *) user_data;
+  rbusSetCompletionHandlerImpl(ctx->res, ctx->status, ctx->req);
+  rbusMessage_Release(ctx->res);
+  rt_free(ctx);
+}
+
 static int rbusSetCompletionHandler(rbusMessage res, rbusCoreError_t status, void* user_data)
+{
+  struct rbusAsyncRequest* req = (struct rbusAsyncRequest *) user_data;
+  if (req->rbus->useEventLoop)
+    rbusEventLoop_EnqueueResponse(req->rbus, res, status, req, &rbusSetCompletionHandlerAdapter);
+  else
+    rbusSetCompletionHandlerImpl(res, status, user_data);
+  return 0;
+}
+
+void rbusSetCompletionHandlerImpl(rbusMessage res, rbusCoreError_t status, void* user_data)
 {
   rbusError_t rbus_status = rbusCoreTranslateStatusFromResponse(res, status);
 
@@ -5267,8 +5357,6 @@ static int rbusSetCompletionHandler(rbusMessage res, rbusCoreError_t status, voi
   if (req->completion_handler)
     req->completion_handler(req->rbus, &rbus_res);
   rbusAsyncRequest_Release(req);
-
-  return 0;
 }
 
 rbusError_t
@@ -5283,6 +5371,7 @@ rbusProperty_SetAsync(rbusHandle_t rbus, rbusAsyncRequest_t req)
   rbusMessage_SetString(rbus_req, "TRUE");
 
   rbusAsyncRequest_Retain(req);
+  req->rbus = rbus;
 
   rbusCoreError_t err = rbus_invokeRemoteMethodAsync(
     rbusProperty_GetName(req->props),
