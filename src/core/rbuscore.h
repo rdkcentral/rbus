@@ -142,7 +142,7 @@ rbusCoreError_t rbus_subscribeToEvent(const char * object_name,  const char * ev
 /* Subscribe to 'event_name' events from 'object_name' object, with the specified timeout. If the timeout is less than or equal to zero, timeout will be set to 1000.
  * If the object supports only one event, event_name can be NULL. If the event_name is an alias for the object, then object_name can be NULL. The installed callback will be invoked every time 
  * a matching event is received. */
-rbusCoreError_t rbus_subscribeToEventTimeout(const char * object_name,  const char * event_name, rbus_event_callback_t callback, const rbusMessage payload, void * user_data, int* providerError, int timeout_ms);
+rbusCoreError_t rbus_subscribeToEventTimeout(const char * object_name,  const char * event_name, rbus_event_callback_t callback, const rbusMessage payload, void * user_data, int* providerError, int timeout_ms, bool publishOnSubscribe, rbusMessage *response);
 
 /* Unsubscribe from receiving 'event_name' events from 'object_name' object. If the object supports only one event, event_name can be NULL. */
 rbusCoreError_t rbus_unsubscribeFromEvent(const char * object_name,  const char * event_name, const rbusMessage payload);

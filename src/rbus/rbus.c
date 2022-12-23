@@ -2202,6 +2202,7 @@ static int _method_callback_handler(rbusHandle_t handle, rbusMessage request, rb
     char const* methodName;
     rbusObject_t inParams, outParams;
     rbusValue_t value1, value2;
+    rbusValue_t outParamsVal = NULL;
 
     rbusValue_Init(&value1);
     rbusValue_Init(&value2);
@@ -2241,6 +2242,17 @@ static int _method_callback_handler(rbusHandle_t handle, rbusMessage request, rb
             }
             else
             {
+                if (result != RBUS_ERROR_SUCCESS)
+                {
+                    outParamsVal = rbusObject_GetValue(outParams, "error_code");
+                    if(!outParamsVal)
+                    {
+                        rbusValue_SetInt32(value1, result);
+                        rbusValue_SetString(value2, rbusError_ToString(result));
+                        rbusObject_SetValue(outParams, "error_code", value1);
+                        rbusObject_SetValue(outParams, "error_string", value2);
+                    }
+                }
                 free(asyncHandle);
             }
 
@@ -2309,6 +2321,128 @@ static void rbusCallbackHandlerAdapter(void *argp) {
   rtFuture_SetCompleted(ctx->future, RT_OK, RTINT_TO_PTR(ret));
 }
 
+static void _subscribe_callback_handler (rbusHandle_t handle, rbusMessage request, rbusMessage* response, char const* method)
+{
+    const char * sender = NULL;
+    const char * event_name = NULL;
+    int has_payload = 0;
+    rbusMessage payload = NULL;
+    int publishOnSubscribe = 0;
+    struct _rbusHandle* handleInfo = handle;
+
+    rbusMessage_Init(response);
+
+    if((RT_OK == rbusMessage_GetString(request, &event_name)) &&
+        (RT_OK == rbusMessage_GetString(request, &sender)))
+    {
+        /*Extract arguments*/
+        if((NULL == sender) || (NULL == event_name))
+        {
+            RBUSLOG_ERROR("Malformed subscription request. Sender: %s. Event: %s.", sender, event_name);
+            rbusMessage_SetInt32(*response, RBUSCORE_ERROR_INVALID_PARAM);
+        }
+        else
+        {
+            rbusMessage_GetInt32(request, &has_payload);
+            if(has_payload)
+                rbusMessage_GetMessage(request, &payload);
+            int added = strncmp(method, METHOD_SUBSCRIBE, MAX_METHOD_NAME_LENGTH) == 0 ? 1 : 0;
+            if(added)
+                rbusMessage_GetInt32(request, &publishOnSubscribe);
+            rbusCoreError_t ret = _event_subscribe_callback_handler(NULL, event_name, sender, added, payload, handle);
+            rbusMessage_SetInt32(*response, ret);
+            rbusMessage_SetInt32(*response, 1); /* Based on this value initial value will be published to the consumer in
+                                                   rbusEvent_SubscribeWithRetries() function call */
+
+            if(publishOnSubscribe)
+            {
+                elementNode* el = NULL;
+                rbusEvent_t event = {0};
+                rbusObject_t data = NULL;
+                rbusProperty_t tmpProperties = NULL;
+                rbusError_t err = RBUS_ERROR_SUCCESS;
+
+                rbusObject_Init(&data, NULL);
+                el = retrieveInstanceElement(handleInfo->elementRoot, event_name);
+                if(el->type == RBUS_ELEMENT_TYPE_TABLE)
+                {
+                    rbusMessage tableRequest = NULL;
+                    rbusMessage tableResponse = NULL;
+                    int tableRet = 0;
+                    int count = 0;
+                    int i = 0;
+
+                    rbusMessage_Init(&tableRequest);
+                    rbusMessage_SetString(tableRequest, event_name);
+                    rbusMessage_SetInt32(tableRequest, -1);
+                    rbusMessage_SetInt32(tableRequest, 1);
+                    _get_parameter_names_handler(handle, tableRequest, &tableResponse);
+                    rbusMessage_GetInt32(tableResponse, &tableRet);
+                    rbusMessage_GetInt32(tableResponse, &count);
+                    rbusProperty_Init(&tmpProperties, "numberOfEntries", NULL);
+                    if(count != 0)
+                    {
+                        for(i = 0; i < count; ++i)
+                        {
+                            int32_t instNum = 0;
+                            char fullName[RBUS_MAX_NAME_LENGTH] = {0};
+                            char row_instance[RBUS_MAX_NAME_LENGTH] = {0};
+                            char const* alias = NULL;
+
+                            rbusMessage_GetInt32(tableResponse, &instNum);
+                            rbusMessage_GetString(tableResponse, &alias);
+                            snprintf(fullName, RBUS_MAX_NAME_LENGTH, "%s%d.", event_name, instNum);
+                            if(i == 0)
+                            {
+                                rbusProperty_SetInt32(tmpProperties, count);
+                            }
+                            snprintf(row_instance, RBUS_MAX_NAME_LENGTH, "path%d", instNum);
+                            rbusProperty_AppendString(tmpProperties, row_instance, fullName);
+                        }
+                    }
+                    else
+                    {
+                        rbusProperty_SetInt32(tmpProperties, count);
+                    }
+                    rbusObject_SetProperty(data, tmpProperties);
+                }
+                else
+                {
+                    if(ret == RBUSCORE_SUCCESS && el->cbTable.getHandler)
+                    {
+                        rbusValue_t val = NULL;
+                        rbusGetHandlerOptions_t options;
+                        memset(&options, 0, sizeof(options));
+
+                        options.requestingComponent = handleInfo->componentName;
+                        rbusProperty_Init(&tmpProperties, event_name, NULL);
+                        err = el->cbTable.getHandler(handle, tmpProperties, &options);
+                        val = rbusProperty_GetValue(tmpProperties);
+                        rbusObject_SetValue(data, "initialValue", val);
+                    }
+                }
+                if (err == RBUS_ERROR_SUCCESS)
+                {
+
+                    event.name = event_name;
+                    event.type = RBUS_EVENT_INITIAL_VALUE;
+                    event.data = data;
+                    rbusEventData_appendToMessage(&event, 0, handleInfo->componentId, *response);
+
+                    rbusProperty_Release(tmpProperties);
+                    rbusObject_Release(data);
+                }
+                else
+                {
+                    RBUSLOG_WARN("%s: getHandler not exist for %s", __FUNCTION__, event_name);
+                }
+            }
+            if(payload)
+                rbusMessage_Release(payload);
+        }
+    }
+}
+
 static int _callback_handler(
   char const*               destination,
   char const*               method,
@@ -2343,9 +2477,6 @@ static int _callback_handler(
     if (err == RT_OK) {
       ret = RTPTR_TO_INT( rtFuture_GetValue(ctx.future) );
     }
-    else {
-      RBUSLOG_WARN("error dispatching request to event loop. %s", rtStrError(err));
-    }
 
     rtFuture_Destroy(ctx.future, NULL);
     ret = 0;
@@ -2367,16 +2498,19 @@ int rbusCallbackHandler(
 {
   if (!strcmp(method, METHOD_GETPARAMETERVALUES))
     _get_callback_handler(rbus, request, response);
-  else if(!strcmp(method, METHOD_SETPARAMETERVALUES))
+  else if (!strcmp(method, METHOD_SETPARAMETERVALUES))
     _set_callback_handler(rbus, request, response);
-  else if(!strcmp(method, METHOD_GETPARAMETERNAMES))
+  else if (!strcmp(method, METHOD_GETPARAMETERNAMES))
     _get_parameter_names_handler(rbus, request, response);
-  else if(!strcmp(method, METHOD_ADDTBLROW))
+  else if (!strcmp(method, METHOD_ADDTBLROW))
     _table_add_row_callback_handler(rbus, request, response);
-  else if(!strcmp(method, METHOD_DELETETBLROW))
+  else if (!strcmp(method, METHOD_DELETETBLROW))
     _table_remove_row_callback_handler(rbus, request, response);
-  else if(!strcmp(method, METHOD_RPC))
+  else if (!strcmp(method, METHOD_RPC))
     return _method_callback_handler(rbus, request, response, header);
+  else if (!strcmp(method, METHOD_SUBSCRIBE) || !strcmp(method, METHOD_UNSUBSCRIBE))
+    _subscribe_callback_handler(rbus, request, response, method);
+
   else {
     RBUSLOG_ERROR("unhandled callback for [%s] method!", method);
   }
@@ -4143,12 +4277,14 @@ static rbusError_t rbusEvent_SubscribeWithRetries(
     int32_t                         interval,
     uint32_t                        duration,    
     int                             timeout,
-    rbusSubscribeAsyncRespHandler_t async)
+    rbusSubscribeAsyncRespHandler_t async,
+    bool                            publishOnSubscribe)
 {
     rbusCoreError_t coreerr;
     int providerError = RBUS_ERROR_SUCCESS;
     rbusEventSubscription_t* sub;
     rbusMessage payload = NULL;
+    rbusMessage response = NULL;
     int destNotFoundSleep = 1000; /*miliseconds*/
     int destNotFoundTimeout;
     struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
@@ -4198,7 +4334,7 @@ static rbusError_t rbusEvent_SubscribeWithRetries(
     {
         RBUSLOG_DEBUG("%s: %s subscribing", __FUNCTION__, eventName);
 
-        coreerr = rbus_subscribeToEventTimeout(NULL, sub->eventName, _event_callback_handler, payload, sub, &providerError, destNotFoundTimeout);
+        coreerr = rbus_subscribeToEventTimeout(NULL, sub->eventName, _event_callback_handler, payload, sub, &providerError, destNotFoundTimeout, publishOnSubscribe, &response);
         
         if(coreerr == RBUSCORE_ERROR_DESTINATION_UNREACHABLE && destNotFoundTimeout > 0)
         {
@@ -4234,8 +4370,17 @@ static rbusError_t rbusEvent_SubscribeWithRetries(
 
     if(coreerr == RBUSCORE_SUCCESS)
     {
+        int initial_value = 0;
+        
         rtVector_PushBack(handleInfo->eventSubs, sub);
 
+        if(publishOnSubscribe)
+        {
+            rbusMessage_GetInt32(response, &initial_value);
+            if(initial_value)
+                _master_event_callback_handler(NULL, eventName, response, userData);
+            rbusMessage_Release(response);
+        }
         RBUSLOG_INFO("%s: %s subscribe retries succeeded", __FUNCTION__, eventName);
         return RBUS_ERROR_SUCCESS;
     }
@@ -4278,7 +4423,7 @@ rbusError_t  rbusEvent_Subscribe(
 
     RBUSLOG_DEBUG("%s: %s", __FUNCTION__, eventName);
 
-    errorcode = rbusEvent_SubscribeWithRetries(handle, eventName, handler, userData, NULL, 0, 0 , timeout, NULL);
+    errorcode = rbusEvent_SubscribeWithRetries(handle, eventName, handler, userData, NULL, 0, 0 , timeout, NULL, false);
 
     return errorcode;
 }
@@ -4300,7 +4445,7 @@ rbusError_t  rbusEvent_SubscribeAsync(
 
     RBUSLOG_DEBUG("%s: %s", __FUNCTION__, eventName);
 
-    errorcode = rbusEvent_SubscribeWithRetries(handle, eventName, handler, userData, NULL, 0, 0, timeout, subscribeHandler);
+    errorcode = rbusEvent_SubscribeWithRetries(handle, eventName, handler, userData, NULL, 0, 0, timeout, subscribeHandler, false);
 
     return errorcode;
 }
@@ -4382,7 +4527,7 @@ rbusError_t rbusEvent_SubscribeEx(
         //the asyncsubscribe api to handle this.
         errorcode = rbusEvent_SubscribeWithRetries(
             handle, subscription[i].eventName, subscription[i].handler, subscription[i].userData, 
-            subscription[i].filter, subscription[i].interval, subscription[i].duration, timeout, NULL);
+            subscription[i].filter, subscription[i].interval, subscription[i].duration, timeout, NULL, subscription[i].publishOnSubscribe);
 
         if(errorcode != RBUS_ERROR_SUCCESS)
         {
@@ -4420,7 +4565,7 @@ rbusError_t rbusEvent_SubscribeExAsync(
 
         errorcode = rbusEvent_SubscribeWithRetries(
             handle, subscription[i].eventName, subscription[i].handler, subscription[i].userData, 
-            subscription[i].filter, subscription[i].interval, subscription[i].duration, timeout, subscribeHandler);
+            subscription[i].filter, subscription[i].interval, subscription[i].duration, timeout, subscribeHandler, false);
 
         if(errorcode != RBUS_ERROR_SUCCESS)
         {
@@ -4655,6 +4800,7 @@ rbusError_t rbusMethod_InvokeInternal(
     int returnCode = RBUS_ERROR_INVALID_INPUT;
     rbusMessage request, response;
     rbusLegacyReturn_t legacyRetCode = RBUS_LEGACY_ERR_FAILURE;
+    rbusValue_t value1 = NULL, value2 = NULL;
 
     VERIFY_NULL(handle);
     VERIFY_NULL(methodName);
@@ -4676,6 +4822,17 @@ rbusError_t rbusMethod_InvokeInternal(
         &response)) != RBUSCORE_SUCCESS)
     {
         RBUSLOG_ERROR("%s by %s failed; Received error %d from RBUS Daemon for the object %s", __FUNCTION__, handle->componentName, err, methodName);
+        /* Updating the outParmas as RBUS core is returning failure */
+        rbusObject_Init(outParams, NULL);
+        rbusValue_Init(&value1);
+        rbusValue_Init(&value2);
+
+        rbusValue_SetInt32(value1, rbusCoreError_to_rbusError(err));
+        rbusValue_SetString(value2, rbusError_ToString(rbusCoreError_to_rbusError(err)));
+        rbusObject_SetValue(*outParams, "error_code", value1);
+        rbusObject_SetValue(*outParams, "error_string", value2);
+        rbusValue_Release(value1);
+        rbusValue_Release(value2);
         return rbusCoreError_to_rbusError(err);
     }
 

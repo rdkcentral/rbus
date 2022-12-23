@@ -154,7 +154,7 @@ typedef struct _rtRoutingTree
 void rtRoutingTree_Create(rtRoutingTree* rt);
 void rtRoutingTree_Destroy(rtRoutingTree rt);
 rtError rtRoutingTree_AddTopicRoute(rtRoutingTree rt, const char* topic, const void* route, int err_on_dup);
-void rtRoutingTree_GetTopicRoutes(rtRoutingTree rt, const char* topic, rtList* routes, int discoverall);
+void rtRoutingTree_GetTopicRoutes(rtRoutingTree rt, const char* topic, rtList* routes);
 void rtRoutingTree_GetRouteTopics(rtRoutingTree rt, const void* route, rtList* topics);
 void rtRoutingTree_RemoveRoute(rtRoutingTree rt, const void* route);
 void rtRoutingTree_RemoveTopic(rtRoutingTree rt, const char* topic);

@@ -348,7 +348,7 @@ static int unlock()
 	return pthread_mutex_unlock(&g_mutex);
 }
 
-static rbusCoreError_t send_subscription_request(const char * object_name, const char * event_name, bool activate, const rbusMessage payload, int* providerError, int timeout);
+static rbusCoreError_t send_subscription_request(const char * object_name, const char * event_name, bool activate, const rbusMessage payload, int* providerError, int timeout, bool publishOnSubscribe, rbusMessage *response);
 
 static void perform_init()
 {
@@ -381,7 +381,7 @@ static void perform_cleanup()
             for(i2 = 0; i2 < sz2; i2++)
             {   
                 client_event_t event = rtVector_At(sub->events, i2);
-                send_subscription_request(sub->object, event->name, false, NULL, NULL, 0);
+                send_subscription_request(sub->object, event->name, false, NULL, NULL, 0, false, NULL);
             }
         }
         lock();
@@ -664,7 +664,7 @@ rtConnection rbus_getConnection()
     return g_connection;
 }
 
-static rbusCoreError_t send_subscription_request(const char * object_name, const char * event_name, bool activate, const rbusMessage payload, int* providerError, int timeout_ms)
+static rbusCoreError_t send_subscription_request(const char * object_name, const char * event_name, bool activate, const rbusMessage payload, int* providerError, int timeout_ms, bool publishOnSubscribe, rbusMessage *response)
 {
     /* Method definition to add new event subscription: 
      * method name: METHOD_ADD_EVENT_SUBSCRIPTION / METHOD_REMOVE_EVENT_SUBSCRIPTION.
@@ -673,7 +673,7 @@ static rbusCoreError_t send_subscription_request(const char * object_name, const
      * integer, mapped to key MESSAGE_FIELD_RESULT. 0 is success. Anything else is a failure. */
     rbusCoreError_t ret;
 
-    rbusMessage request, response;
+    rbusMessage request, internal_response;
     rbusMessage_Init(&request);
 
     rbusMessage_SetString(request, event_name);
@@ -681,16 +681,21 @@ static rbusCoreError_t send_subscription_request(const char * object_name, const
     rbusMessage_SetInt32(request, payload ? 1 : 0);
     if(payload)
         rbusMessage_SetMessage(request, payload);
+    if(publishOnSubscribe)
+        rbusMessage_SetInt32(request, 1); /*for publishOnSubscribe */
+    else
+        rbusMessage_SetInt32(request, 0);
 
     if(timeout_ms <= 0)
         timeout_ms = TIMEOUT_VALUE_FIRE_AND_FORGET;
-    ret = rbus_invokeRemoteMethod(object_name, (activate? METHOD_ADD_EVENT_SUBSCRIPTION : METHOD_REMOVE_EVENT_SUBSCRIPTION),
-            request, timeout_ms, &response);
+    ret = rbus_invokeRemoteMethod(object_name, (activate? METHOD_SUBSCRIBE : METHOD_UNSUBSCRIBE),
+            request, timeout_ms, &internal_response);
     if(RBUSCORE_SUCCESS == ret)
     {
         rtError extract_ret;
         int result;
-        extract_ret = rbusMessage_GetInt32(response, &result);
+
+        extract_ret = rbusMessage_GetInt32(internal_response, &result);
         if(RT_OK == extract_ret)
         {
             if(RBUSCORE_SUCCESS == result)
@@ -714,7 +719,10 @@ static rbusCoreError_t send_subscription_request(const char * object_name, const
             RBUSCORELOG_ERROR("Error adding subscription for %s::%s. Received unexpected response.", object_name, event_name);
             ret = RBUSCORE_ERROR_MALFORMED_RESPONSE;
         }
-        rbusMessage_Release(response);
+        if(response != NULL)
+            *response = internal_response;
+        if(!activate)
+            rbusMessage_Release(internal_response);
     }
     else if(RBUSCORE_ERROR_DESTINATION_UNREACHABLE == ret)
     {
@@ -1493,7 +1501,7 @@ static rbusCoreError_t remove_subscription_callback(const char * object_name,  c
     return ret;
 }
 
-static rbusCoreError_t rbus_subscribeToEventInternal(const char * object_name,  const char * event_name, rbus_event_callback_t callback, const rbusMessage payload, void * user_data, int* providerError, int timeout)
+static rbusCoreError_t rbus_subscribeToEventInternal(const char * object_name,  const char * event_name, rbus_event_callback_t callback, const rbusMessage payload, void * user_data, int* providerError, int timeout, bool publishOnSubscribe, rbusMessage *response)
 {
     /*using namespace rbus_client;*/
     rbusCoreError_t ret = RBUSCORE_SUCCESS;
@@ -1566,7 +1574,7 @@ static rbusCoreError_t rbus_subscribeToEventInternal(const char * object_name,  
 
     unlock();
 
-    if((ret = send_subscription_request(object_name, event_name, true, payload, providerError, timeout)) != RBUSCORE_SUCCESS)
+    if((ret = send_subscription_request(object_name, event_name, true, payload, providerError, timeout, publishOnSubscribe, response)) != RBUSCORE_SUCCESS)
     {
         if(g_master_event_callback == NULL)
         {
@@ -1581,12 +1589,12 @@ static rbusCoreError_t rbus_subscribeToEventInternal(const char * object_name,  
 
 rbusCoreError_t rbus_subscribeToEvent(const char * object_name,  const char * event_name, rbus_event_callback_t callback, const rbusMessage payload, void * user_data, int* providerError)
 {
-    return rbus_subscribeToEventInternal(object_name, event_name, callback, payload, user_data, providerError, 0);
+    return rbus_subscribeToEventInternal(object_name, event_name, callback, payload, user_data, providerError, 0, false, NULL);
 }
 
-rbusCoreError_t rbus_subscribeToEventTimeout(const char * object_name,  const char * event_name, rbus_event_callback_t callback, const rbusMessage payload, void * user_data, int* providerError, int timeout)
+rbusCoreError_t rbus_subscribeToEventTimeout(const char * object_name,  const char * event_name, rbus_event_callback_t callback, const rbusMessage payload, void * user_data, int* providerError, int timeout, bool publishOnSubscribe, rbusMessage *response)
 {
-    return rbus_subscribeToEventInternal(object_name, event_name, callback, payload, user_data, providerError, timeout);
+    return rbus_subscribeToEventInternal(object_name, event_name, callback, payload, user_data, providerError, timeout, publishOnSubscribe, response);
 }
 
 rbusCoreError_t rbus_unsubscribeFromEvent(const char * object_name,  const char * event_name, const rbusMessage payload)
@@ -1612,7 +1620,7 @@ rbusCoreError_t rbus_unsubscribeFromEvent(const char * object_name,  const char 
 
     if(!g_master_event_callback)
         remove_subscription_callback(object_name, event_name);
-    ret = send_subscription_request(object_name, event_name, false, payload, NULL, 0);
+    ret = send_subscription_request(object_name, event_name, false, payload, NULL, 0, false, NULL);
     return ret;
 }
 
