@@ -18,7 +18,7 @@
 */
 
 #define _GNU_SOURCE 1 //needed for pthread_mutexattr_settype
-#include "rbus_interval_sub.h"
+#include "rbus_intervalsubscription.h"
 #include "rbus_config.h"
 #include "rbus_handle.h"
 #include <stdlib.h>
@@ -26,7 +26,7 @@
 #include <string.h>
 #include <pthread.h>
 #include <unistd.h>
-#include <assert.h>
+//#include <assert.h>
 #include <errno.h>
 #include <rtVector.h>
 #include <rtTime.h>
@@ -81,6 +81,8 @@ static void sub_Free(void* p)
     sRecord* rec = (sRecord*)p;
     if(rec)
     {
+        ERROR_CHECK(pthread_mutex_destroy(&rec->mutex));
+        ERROR_CHECK(pthread_cond_destroy(&rec->cond));
         rbusProperty_Release(rec->property);
         //subscriptionFree(rec->sub);
         rec->sub = NULL;
@@ -196,7 +198,7 @@ static void* PublishingThreadFunc(void* rec)
 }
 
 /* Add Subscription Record to global record and start subscription thread */
-void AddSubscriptionRecord(
+rbusError_t rbusInterval_AddSubscriptionRecord(
         rbusHandle_t handle,
         elementNode* propNode,
         rbusSubscription_t* sub)
@@ -205,19 +207,19 @@ void AddSubscriptionRecord(
     if(!propNode)
     {
         RBUSLOG_ERROR("%s: propNode NULL error", __FUNCTION__);
-        return;
+        return RBUS_ERROR_INVALID_INPUT;
     }
 
     if(propNode->type != RBUS_ELEMENT_TYPE_PROPERTY)
     {
         RBUSLOG_ERROR("%s: propNode type %d error", __FUNCTION__, propNode->type);
-        return;
+        return RBUS_ERROR_NOSUBSCRIBERS ;
     }
-    assert(propNode->cbTable.getHandler);
+    
     if(!propNode->cbTable.getHandler)
     {
-        RBUSLOG_ERROR("%s: propNode getHandler NULL error", __FUNCTION__);
-        return;
+        RBUSLOG_ERROR("%s: as it does not have getHandler", __FUNCTION__);
+        return RBUS_ERROR_ACCESS_NOT_ALLOWED;
     }
 
     ERROR_CHECK(pthread_mutex_lock(&gMutex));
@@ -235,16 +237,17 @@ void AddSubscriptionRecord(
         rbusProperty_Init(&sub_rec->property, propNode->fullName, NULL);
         init_thread(sub_rec);
 
-        rtVector_PushBack(gRecord, sub_rec);
-
         /* Thread create */
         sub_rec->running = 1;
         pthread_create(&sub_rec->thread, NULL, PublishingThreadFunc, (void *)sub_rec);
+
+        rtVector_PushBack(gRecord, sub_rec);
     }
+    return RBUS_ERROR_SUCCESS; 
 }
 
 /* Delete Subscription Record from global record and stop it's running thread */
-void RemoveSubscriptionRecord(
+void rbusInterval_RemoveSubscriptionRecord(
         rbusHandle_t handle,
         elementNode* propNode,
         rbusSubscription_t* sub)

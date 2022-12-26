@@ -26,8 +26,8 @@
 extern "C" {
 #endif
 
-void AddSubscriptionRecord(rbusHandle_t handle, elementNode* propNode, rbusSubscription_t* sub);
-void RemoveSubscriptionRecord(rbusHandle_t handle, elementNode* propNode, rbusSubscription_t* sub);
+rbusError_t rbusInterval_AddSubscriptionRecord(rbusHandle_t handle, elementNode* propNode, rbusSubscription_t* sub);
+void rbusInterval_RemoveSubscriptionRecord(rbusHandle_t handle, elementNode* propNode, rbusSubscription_t* sub);
 
 #ifdef __cplusplus
 }

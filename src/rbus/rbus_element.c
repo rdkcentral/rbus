@@ -832,36 +832,6 @@ void removeElementSubscription(elementNode* node, rbusSubscription_t* sub)
     }
 }
 
-bool elementHasIntervalSubscriptions(elementNode* node, rbusSubscription_t* including)
-{
-    if(!node)
-        return false;
-    if(node->subscriptions)
-    {
-        rtListItem item;
-        rbusSubscription_t* sub;
-
-        rtList_GetFront(node->subscriptions, &item);
-
-        while(item)
-        {
-            rtListItem_GetData(item, (void**)&sub);
-            if(!sub)
-                return false;
-            if(sub->autoPublish && sub->interval)
-            {
-                if(including == sub)
-                {
-                    return true;
-                }
-            }
-
-            rtListItem_GetNext(item, &item);
-        }
-    }
-    return false;
-}
-
 bool elementHasAutoPubSubscriptions(elementNode* node, rbusSubscription_t* excluding)
 {
     if(!node)

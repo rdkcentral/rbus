@@ -33,7 +33,7 @@
 #include "rbus_valuechange.h"
 #include "rbus_subscriptions.h"
 #include "rbus_asyncsubscribe.h"
-#include "rbus_interval_sub.h"
+#include "rbus_intervalsubscription.h"
 #include "rbus_config.h"
 #include "rbus_log.h"
 #include "rbus_handle.h"
@@ -223,31 +223,17 @@ void rbusEventSubscription_free(void* p)
 }
 
 static rbusEventSubscription_t* rbusEventSubscription_find(rtVector eventSubs, char const* eventName,
-        rbusFilter_t filter, int32_t* interval, uint32_t* duration)
+        rbusFilter_t filter, uint32_t interval, uint32_t duration)
 {
     /*FIXME - convert to map */
     size_t i;
-    bool found = false;
     for(i=0; i < rtVector_Size(eventSubs); ++i)
     {
         rbusEventSubscription_t* sub = (rbusEventSubscription_t*)rtVector_At(eventSubs, i);
-        found = false;
-        if(sub && !strcmp(sub->eventName, eventName) && !rbusFilter_Compare(sub->filter, filter)) {
-            found = true;
-            /*Compare interval */
-            if ((interval != NULL) && (sub->interval != *interval) )
-            {
-                found = false;
-
-            }
-            /*Compare duration*/
-            if ((duration != NULL) && (sub->duration != *duration))
-            {
-                found = false;
-            }
-
-            if (found)
-                return sub;
+        if(sub && !strcmp(sub->eventName, eventName) && !rbusFilter_Compare(sub->filter, filter)
+                && (sub->interval == interval) && (sub->duration == duration))
+        {
+            return sub;
         }
     }
     return NULL;
@@ -334,10 +320,10 @@ void rbusPropertyList_initFromMessage(rbusProperty_t* prop, rbusMessage msg);
 void rbusPropertyList_appendToMessage(rbusProperty_t prop, rbusMessage msg);
 void rbusObject_initFromMessage(rbusObject_t* obj, rbusMessage msg);
 void rbusObject_appendToMessage(rbusObject_t obj, rbusMessage msg);
-void rbusEventData_updateFromMessage(rbusEvent_t* event, rbusFilter_t* filter, int32_t* interval,
+void rbusEventData_updateFromMessage(rbusEvent_t* event, rbusFilter_t* filter, uint32_t* interval,
         uint32_t* duration, int32_t* componentId, rbusMessage msg);
-void rbusEventData_appendToMessage(rbusEvent_t* event, rbusFilter_t filter, int32_t interval,
-        int32_t duration, int32_t componentId, rbusMessage msg);
+void rbusEventData_appendToMessage(rbusEvent_t* event, rbusFilter_t filter, uint32_t interval,
+        uint32_t duration, int32_t componentId, rbusMessage msg);
 void rbusFilter_AppendToMessage(rbusFilter_t filter, rbusMessage msg);
 void rbusFilter_InitFromMessage(rbusFilter_t* filter, rbusMessage msg);
 
@@ -717,7 +703,7 @@ void rbusFilter_InitFromMessage(rbusFilter_t* filter, rbusMessage msg)
 }
 
 void rbusEventData_updateFromMessage(rbusEvent_t* event, rbusFilter_t* filter,
-        int32_t* interval, uint32_t* duration, int32_t* componentId, rbusMessage msg)
+        uint32_t* interval, uint32_t* duration, int32_t* componentId, rbusMessage msg)
 {
     char const* name;
     int type;
@@ -741,13 +727,13 @@ void rbusEventData_updateFromMessage(rbusEvent_t* event, rbusFilter_t* filter,
     event->name = name;
     event->type = type;
     event->data = data;
-    rbusMessage_GetInt32(msg, interval);
+    rbusMessage_GetUInt32(msg, interval);
     rbusMessage_GetUInt32(msg, duration);
     rbusMessage_GetInt32(msg, componentId);
 }
 
 void rbusEventData_appendToMessage(rbusEvent_t* event, rbusFilter_t filter,
-        int32_t interval, int32_t duration, int32_t componentId, rbusMessage msg)
+        uint32_t interval, uint32_t duration, int32_t componentId, rbusMessage msg)
 {
     rbusMessage_SetString(msg, event->name);
     rbusMessage_SetInt32(msg, event->type);
@@ -963,18 +949,18 @@ int subscribeHandlerImpl(
 
             rtListItem_GetData(item, (void**)&node);
 
-            if (subscription->interval && elementHasIntervalSubscriptions(node, subscription))
+            if (subscription->interval)
             {
                 RBUSLOG_INFO("%s: subscription with interval  %s event=%s prop=%s", __FUNCTION__,
                         added ? "Add" : "Remove", subscription->eventName, node->fullName);
                 if(added)
                 {
-                    AddSubscriptionRecord(handle, node, subscription);
+                    rbusInterval_AddSubscriptionRecord(handle, node, subscription);
                     break;
                 }
                 else
                 {
-                    RemoveSubscriptionRecord(handle, node, subscription);
+                    rbusInterval_RemoveSubscriptionRecord(handle, node, subscription);
                     break;
                 }
             }
@@ -1194,7 +1180,7 @@ int _event_callback_handler (char const* objectName, char const* eventName, rbus
     rbusEvent_t event = {0};
     rbusFilter_t filter = NULL;
     int32_t componentId = 0;
-    int32_t interval = -1;
+    uint32_t interval = 0;
     uint32_t duration = 0;
 
     RBUSLOG_DEBUG("Received event callback: objectName=%s eventName=%s", 
@@ -1225,7 +1211,7 @@ static int _master_event_callback_handler(char const* sender, char const* eventN
     int32_t componentId = -1;
     rbusEventSubscription_t* subscription = NULL;
     struct _rbusHandle* handleInfo = NULL;
-    int32_t interval = 0;
+    uint32_t interval = 0;
     uint32_t duration = 0;
     UNUSED1(userData);
 
@@ -1243,7 +1229,7 @@ static int _master_event_callback_handler(char const* sender, char const* eventN
 
     RBUSLOG_DEBUG("Received master event callback: sender=%s eventName=%s componentId=%d", sender, eventName, componentId);
 
-    subscription = rbusEventSubscription_find(handleInfo->eventSubs, eventName, filter, &interval, &duration);
+    subscription = rbusEventSubscription_find(handleInfo->eventSubs, eventName, filter, interval, duration);
 
     if(subscription)
     {
@@ -4111,7 +4097,7 @@ static rbusError_t rbusEvent_SubscribeWithRetries(
     rbusEventHandler_t              handler,
     void*                           userData,
     rbusFilter_t                    filter,
-    int32_t                         interval,
+    uint32_t                        interval,
     uint32_t                        duration,    
     int                             timeout,
     rbusSubscribeAsyncRespHandler_t async,
@@ -4126,7 +4112,7 @@ static rbusError_t rbusEvent_SubscribeWithRetries(
     int destNotFoundTimeout;
     struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
 
-    if ((rbusEventSubscription_find(handleInfo->eventSubs, eventName, filter, &interval, &duration))||
+    if ((rbusEventSubscription_find(handleInfo->eventSubs, eventName, filter, interval, duration))||
             (rbusAsyncSubscribe_GetSubscription(handle, eventName, filter)))
     {
         return RBUS_ERROR_SUBSCRIPTION_ALREADY_EXIST;
@@ -4301,7 +4287,7 @@ rbusError_t rbusEvent_Unsubscribe(
 
     /*the use of rtVector is inefficient here.  I have to loop through the vector to find the sub by name, 
         then call RemoveItem, which loops through again to find the item by address to destroy */
-    sub = rbusEventSubscription_find(handleInfo->eventSubs, eventName, NULL, NULL, NULL);
+    sub = rbusEventSubscription_find(handleInfo->eventSubs, eventName, NULL, 0, 0);
 
     if(sub)
     {
@@ -4450,7 +4436,8 @@ rbusError_t rbusEvent_UnsubscribeEx(
 
         /*the use of rtVector is inefficient here.  I have to loop through the vector to find the sub by name, 
             then call RemoveItem, which loops through again to find the item by address to destroy */
-        sub = rbusEventSubscription_find(handleInfo->eventSubs, subscription[i].eventName, subscription[i].filter, &subscription[i].interval, &subscription[i].duration);
+        sub = rbusEventSubscription_find(handleInfo->eventSubs, subscription[i].eventName, subscription[i].filter, subscription[i].interval, subscription[i].duration);
+        printf("NETAJI %s, %d\n",__FUNCTION__, subscription[i].interval); 
         if(sub)
         {
             rbusCoreError_t coreerr;

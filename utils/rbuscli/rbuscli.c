@@ -2535,6 +2535,10 @@ char *hints(const char *buf, int *color, int *bold) {
         {
             hint = " event [operator value]";
         }
+        else if(strcmp(tokens[0], "unsubint") == 0)
+        {
+            hint = " event [interval]";
+        }
         else if(strcmp(tokens[0], "asub") == 0)
         {
             hint = " event [operator value]";

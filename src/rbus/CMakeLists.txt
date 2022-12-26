@@ -40,7 +40,7 @@ add_library(
     rbus_subscriptions.c
     rbus_tokenchain.c
     rbus_asyncsubscribe.c
-    rbus_interval_sub.c
+    rbus_intervalsubscription.c
     rbus_config.c)
 
 target_link_libraries(rbus rbuscore rtMessage -fPIC -pthread)
