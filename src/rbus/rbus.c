@@ -884,6 +884,7 @@ int subscribeHandlerImpl(
     int32_t duration,
     rbusFilter_t filter)
 {
+    int error = RBUS_ERROR_SUCCESS;
     rbusSubscription_t* subscription = NULL;
     struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
     /*autoPublish is an output parameter used to disable the default behaviour where rbus automatically publishing events for
@@ -953,9 +954,9 @@ int subscribeHandlerImpl(
             {
                 RBUSLOG_INFO("%s: subscription with interval  %s event=%s prop=%s", __FUNCTION__,
                         added ? "Add" : "Remove", subscription->eventName, node->fullName);
-                if(added)
-                {
-                    rbusInterval_AddSubscriptionRecord(handle, node, subscription);
+                if(added) {
+                    if((error = rbusInterval_AddSubscriptionRecord(handle, node, subscription)) != RBUS_ERROR_SUCCESS)
+                        RBUSLOG_ERROR("rbusInterval_AddSubscriptionRecord failed with error : %d\n", error);
                     break;
                 }
                 else
@@ -4437,7 +4438,6 @@ rbusError_t rbusEvent_UnsubscribeEx(
         /*the use of rtVector is inefficient here.  I have to loop through the vector to find the sub by name, 
             then call RemoveItem, which loops through again to find the item by address to destroy */
         sub = rbusEventSubscription_find(handleInfo->eventSubs, subscription[i].eventName, subscription[i].filter, subscription[i].interval, subscription[i].duration);
-        printf("NETAJI %s, %d\n",__FUNCTION__, subscription[i].interval); 
         if(sub)
         {
             rbusCoreError_t coreerr;
