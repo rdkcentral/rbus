@@ -2408,7 +2408,7 @@ rbus_invokeRemoteMethodAsync(
   ctx->user_data = user_data;
 
   return rtConnection_SendRequestAsync(g_connection, data, data_length, object_name,
-    &rbusInvokeMethodHandler, ctx, timeout_millis);
+    &rbusInvokeMethodHandler, ctx, timeout_millis, NULL);
 }
 
 /* End of File */

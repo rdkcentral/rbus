@@ -148,7 +148,7 @@ typedef struct
   rtMessageInfo* response;
   rtMessageCallback callback;
   void* user_data;
-}pending_request;
+} rtPendingRequest;
 
 typedef struct _rtCallbackMessage
 {
@@ -163,7 +163,7 @@ static rtError rtConnection_Read(rtConnection con, int32_t timeout);
 
 static void rtPendingRequest_Free(void *argp)
 {
-  pending_request* req = (pending_request *) argp;
+  rtPendingRequest* req = (rtPendingRequest *) argp;
   rtSemaphore_Destroy(req->sem);
   rt_free(req);
 }
@@ -262,7 +262,8 @@ rtConnection_SendRequestInternal(
   int32_t timeout, 
   int flags,
   rtMessageCallback callback,
-  void* user_data);
+  void* user_data,
+  rtAsyncRequestId* request_id);
 
 static uint32_t
 rtConnection_GetNextSubscriptionId()
@@ -789,7 +790,7 @@ rtConnection_Destroy(rtConnection con)
         listItem != NULL; 
         rtListItem_GetNext(listItem, &listItem))
     {
-      pending_request *entry;
+      rtPendingRequest* entry;
       rtListItem_GetData(listItem, (void**)&entry);
 
       found_pending_requests = 1;
@@ -869,12 +870,23 @@ rtConnection_SendRequestAsync(
   const char*           topic,
   rtMessageCallback     callback,
   void*                 user_data,
-  int32_t               timeout)
-
+  int32_t               timeout,
+  rtAsyncRequestId*     request_id)
 {
   if (!con || !req || !topic || !callback)
     return rtErrorFromErrno(EINVAL);
-  return rtConnection_SendRequestInternal(con, (const uint8_t *)req, n, topic, NULL, timeout, 0, callback, user_data);
+
+  return rtConnection_SendRequestInternal(
+    con,
+    (const uint8_t *) req,
+    n,
+    topic,
+    NULL,
+    timeout,
+    0,
+    callback,
+    user_data,
+    request_id);
 }
 
 rtError
@@ -890,7 +902,7 @@ rtConnection_SendRequest(rtConnection con, rtMessage const req, char const* topi
     return rtErrorFromErrno(EINVAL);
 
   rtMessage_ToByteArrayWithSize(req, &p, DEFAULT_SEND_BUFFER_SIZE, &n);
-  err = rtConnection_SendRequestInternal(con, p, n, topic, &resMsg, timeout, 0, NULL, NULL);
+  err = rtConnection_SendRequestInternal(con, p, n, topic, &resMsg, timeout, 0, NULL, NULL, NULL);
   rtMessage_FreeByteArray(p);
   if(err == RT_OK)
   {
@@ -990,7 +1002,7 @@ rtConnection_SendBinaryRequest(rtConnection con, uint8_t const* pReq, uint32_t n
     return rtErrorFromErrno(EINVAL);
 
   err = rtConnection_SendRequestInternal(con, pReq, nReq, topic, &mi, timeout, rtMessageFlags_RawBinary,
-    NULL, NULL);
+    NULL, NULL, NULL);
   if(err == RT_OK)
   {
     if(mi->data)
@@ -1040,8 +1052,38 @@ rtConnection_SendBinaryResponse(rtConnection con, rtMessageHeader const* request
 }
 
 rtError
-rtConnection_SendRequestInternal(rtConnection con, uint8_t const* pReq, uint32_t nReq, char const* topic,
-  rtMessageInfo** res, int32_t timeout, int flags, rtMessageCallback callback, void* user_data)
+rtConnection_CancelAsyncRequest(rtConnection con, rtAsyncRequestId request_id)
+{
+  rtListItem itr = NULL;
+  rtError err = RT_ERROR_OBJECT_NOT_FOUND;
+
+  pthread_mutex_lock(&con->mutex);
+  for (rtList_GetFront(con->pending_requests_list, &itr); itr; rtListItem_GetNext(itr, &itr)) {
+    rtPendingRequest* req = NULL;
+    rtListItem_GetData(itr, (void **) &req);
+    if (req && req->sequence_number == request_id) {
+      rtList_RemoveItem(con->pending_requests_list, itr, rtPendingRequest_Free);
+      err = RT_OK;
+      itr = NULL;
+    }
+  }
+  pthread_mutex_unlock(&con->mutex);
+
+  return err;
+}
+
+rtError
+rtConnection_SendRequestInternal(
+  rtConnection          con,
+  uint8_t const*        pReq,
+  uint32_t              nReq,
+  char const*           topic,
+  rtMessageInfo**       res,
+  int32_t               timeout,
+  int                   flags,
+  rtMessageCallback     callback,
+  void*                 user_data,
+  rtAsyncRequestId*     request_id)
 {
   if (!con)
     return rtErrorFromErrno(EINVAL);
@@ -1059,13 +1101,20 @@ rtConnection_SendRequestInternal(rtConnection con, uint8_t const* pReq, uint32_t
     pid_t tid = syscall(__NR_gettid);
 
     pthread_mutex_lock(&con->mutex);
+
+    // TODO: Why is this here? Shouldn't there be a macro or function that abstracts this
+    // so that it doesn't have be #ifdef'd everywhere?
 #ifdef C11_ATOMICS_SUPPORTED
     sequence_number = atomic_fetch_add_explicit(&con->sequence_number, 1, memory_order_relaxed);
 #else
     sequence_number = __sync_fetch_and_add(&con->sequence_number, 1);
 #endif
+
+    if (request_id)
+      *request_id = sequence_number;
+
     /* Populate the pending request and enqueue it. */
-    pending_request* queue_entry = rt_malloc(sizeof(pending_request));
+    rtPendingRequest* queue_entry = rt_malloc(sizeof(rtPendingRequest));
     queue_entry->sequence_number = sequence_number;
     queue_entry->callback = callback;
     queue_entry->user_data = user_data;
@@ -1653,17 +1702,20 @@ rtConnection_Read(rtConnection con, int32_t timeout)
         We do not queue responses into the callback_message_list
         because this can lead to lock ups such as RDKB-26837
       */
+      bool found_corresponding_request = false;
+
       pthread_mutex_lock(&con->mutex);
       rtListItem listItem = NULL;
       for(rtList_GetFront(con->pending_requests_list, &listItem); 
           listItem != NULL; 
           rtListItem_GetNext(listItem, &listItem))
       {
-        pending_request *entry = NULL;
+        rtPendingRequest* entry = NULL;
         rtListItem_GetData(listItem, (void**)&entry);
 
         if(entry->sequence_number == msginfo->header.sequence_number)
         {
+          found_corresponding_request = true;
           if (entry->callback)
           {
             entry->callback(&msginfo->header, msginfo->data, msginfo->dataLength, entry->user_data);
@@ -1679,6 +1731,14 @@ rtConnection_Read(rtConnection con, int32_t timeout)
         }
       }
       pthread_mutex_unlock(&con->mutex);
+
+      // This is ok. If the caller cancels an async request and then afterward, we
+      // received the response, we'll just drop it on the floor
+      if (!found_corresponding_request) {
+        rtLog_Debug("failed to find a corresponding response with callback for %u",
+          msginfo->header.sequence_number);
+      }
+
 #ifdef MSG_ROUNDTRIP_TIME
       /* The listItem is not present in the pending_requests_list, as it is been removed from the list because of request timeout */
       if(listItem == NULL)

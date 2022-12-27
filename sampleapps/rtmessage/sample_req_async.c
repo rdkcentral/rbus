@@ -55,7 +55,8 @@ int main()
     snprintf(s, 16, "ctx-%d", i);
     snprintf(buff, sizeof(buff), "Hello World:%d", i);
 
-    rtError err = rtConnection_SendRequestAsync(con, (uint8_t *)buff, strlen(buff), "RDK.MODEL.PROVIDER1", on_response, s, -1);
+    rtError err = rtConnection_SendRequestAsync(con, (uint8_t *)buff, strlen(buff),
+      "RDK.MODEL.PROVIDER1", on_response, s, -1, NULL);
     rtLog_Info("SendRequest:%s", rtStrError(err));
 
     usleep(1000 * 500);
