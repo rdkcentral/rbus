@@ -1752,7 +1752,7 @@ void rbusAsyncRequest_Retain(rbusAsyncRequest_t req);
 void rbusAsyncRequest_SetTimeout(rbusAsyncRequest_t req, int timeout_millis);
 void rbusAsyncRequest_SetCompletionHandler(rbusAsyncRequest_t req, rbusAsyncResponseHandler_t callback);
 void rbusAsyncRequest_SetUserData(rbusAsyncRequest_t req, void* user_data);
-void rbusAsyncRequest_Cancel(rbusAsyncRequest_t req);
+rbusError_t rbusAsyncRequest_Cancel(rbusAsyncRequest_t req);
 void rbusAsyncRequest_AddProperty(rbusAsyncRequest_t req, rbusProperty_t prop);
 void rbusAsyncRequest_SetMethodName(rbusAsyncRequest_t req, const char* method_name);
 void rbusAsyncRequest_SetMethodParameters(rbusAsyncRequest_t req, rbusProperty_t argv);

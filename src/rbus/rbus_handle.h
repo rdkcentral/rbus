@@ -57,6 +57,8 @@ struct rbusRunnable {
 
   // internally, we maintain a list of runnables
   struct rbusRunnable* next;
+
+  uint32_t id;
 };
 
 struct rbusRunnableQueue {

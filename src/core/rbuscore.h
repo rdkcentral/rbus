@@ -106,7 +106,7 @@ rbusCoreError_t rbus_invokeRemoteMethod(const char * object_name, const char *me
 /* Invoke a remote procedure call 'method' on a destination/object object_name. 'out' has the input arguments necessary for the RPC. This function does not block for response
  * from the remote end. It returns immediately after the outbound message is dispatched. 'callback' is invoked when it receives the response to the RPC call, or if it times out 
  * waiting for a response. The callback will contain the response from the remote end. Marshalling of input arguments and output response is the responsibility of the caller.*/
-rbusCoreError_t rbus_invokeRemoteMethodAsync(const char * object_name, const char *method, rbusMessage out, int timeout_millisecs, rbus_async_callback_t callback, void* user_data);
+rbusCoreError_t rbus_invokeRemoteMethodAsync(const char * object_name, const char *method, rbusMessage out, int timeout_millisecs, rbus_async_callback_t callback, void* user_data, rtAsyncRequestId* request_id);
 
 /* Notes on using event APIs:
  * An object_name is a discoverable entity on the bus that is the source of some events. An event source can issue multiple types of events, where each unique type is identified

@@ -251,6 +251,7 @@ void
 _rtConnection_TaintMessages(int i);
 
 typedef uint32_t rtAsyncRequestId;
+#define RT_INVALID_REQUEST_ID UINT32_MAX
 
 rtError
 rtConnection_SendRequestAsync(

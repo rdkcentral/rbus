@@ -76,6 +76,7 @@ struct rbusAsyncRequest {
   void*                         user_data;
   rbusProperty_t                props;
   rbusHandle_t                  rbus;
+  rtAsyncRequestId              rt_request_id;
 
   // fields for methods
   char*                         method_name;
@@ -144,6 +145,7 @@ static pthread_mutex_t gMutex = PTHREAD_MUTEX_INITIALIZER;
 //******************************* INTERNAL FUNCTIONS *****************************//
 static void rbusMessage_GetStatusCodes(rbusMessage m, rbusError_t* rbus_status, rbusLegacyReturn_t* legacy_status);
 static rbusError_t rbusCoreTranslateStatusFromResponse(rbusMessage m, rbusCoreError_t core_status);
+
 
 static rbusError_t rbusCoreError_to_rbusError(rtError e)
 {
@@ -1164,6 +1166,7 @@ static int _event_subscribe_callback_handler(
     r.exec = &rbusEventSubscribeCallbackHandlerAdapter;
     r.cleanup = NULL;
     r.next = NULL;
+    r.id = 0;
 
     rbusRunnableQueue_PushBack(&rbus->eventQueue, r);
 
@@ -2468,6 +2471,7 @@ static int _callback_handler(
     r.exec = &rbusCallbackHandlerAdapter;
     r.cleanup = NULL;
     r.next = NULL;
+    r.id = 0;
 
     rbusRunnableQueue_PushBack(&rbus->eventQueue, r);
 
@@ -4955,7 +4959,8 @@ rbusError_t rbusMethod_InvokeAsyncEx(rbusHandle_t rbus, rbusAsyncRequest_t req)
     rbus_req,
     req->timeout_millis,
     &rbusMethodCompletionHandler,
-    req);
+    req,
+    &req->rt_request_id);
 
   rbusMessage_Release(rbus_req);
 
@@ -5267,6 +5272,7 @@ void rbusRunnableQueue_PushBack(rbusRunnableQueue_t *q, rbusRunnable_t r)
     item->exec = r.exec;
     item->cleanup = r.cleanup;
     item->next = NULL;
+    item->id = r.id;
 
     pthread_mutex_lock(&q->mutex);
     if (!q->head)
@@ -5394,6 +5400,7 @@ static void rbusEventLoop_EnqueueResponse(
   r.exec = exec;
   r.cleanup = NULL;
   r.next = NULL;
+  r.id = req->rt_request_id;
 
   rbusRunnableQueue_PushBack(&rbus->eventQueue, r);
 }
@@ -5485,7 +5492,8 @@ rbusError_t rbusProperty_GetAsync(rbusHandle_t rbus, rbusAsyncRequest_t req)
     rbus_req,
     req->timeout_millis,
     &rbusGetCompletionHandler,
-    req);
+    req,
+    &req->rt_request_id);
 
   rbusMessage_Release(rbus_req);
 
@@ -5546,7 +5554,8 @@ rbusProperty_SetAsync(rbusHandle_t rbus, rbusAsyncRequest_t req)
     rbus_req,
     req->timeout_millis,
     &rbusSetCompletionHandler,
-    req);
+    req,
+    &req->rt_request_id);
 
   rbusMessage_Release(rbus_req);
 
@@ -5562,6 +5571,7 @@ rbusAsyncRequest_t rbusAsyncRequest_New()
   req->user_data = NULL;
   req->props = NULL;
   req->rbus = NULL;
+  req->rt_request_id = RT_INVALID_REQUEST_ID;
 
   req->method_name = NULL;
   req->method_handler = NULL;
@@ -5597,8 +5607,10 @@ void rbusAsyncRequest_Release(rbusAsyncRequest_t req)
 
 void rbusAsyncRequest_ReleaseAuto(rbusAsyncRequest_t* req)
 {
-  if (req && *req)
+  if (req && *req) {
     rtRetainable_release(*req, rbusAsyncRequest_Destroy);
+    *req = NULL;
+  }
 }
 
 void rbusAsyncRequest_SetCompletionHandler(rbusAsyncRequest_t req, rbusAsyncResponseHandler_t callback)
@@ -5611,10 +5623,35 @@ void rbusAsyncRequest_SetUserData(rbusAsyncRequest_t req, void* user_data)
   req->user_data = user_data;
 }
 
-void rbusAsyncRequest_Cancel(rbusAsyncRequest_t req)
+rbusError_t rbusAsyncRequest_Cancel(rbusAsyncRequest_t req)
 {
-  (void) req;
-  // TODO
+  rtError rt_err = rtConnection_CancelAsyncRequest(req->rbus->connection, req->rt_request_id);
+
+  rbusRunnable_t* prev = NULL;
+  rbusRunnable_t* curr = req->rbus->eventQueue.head;
+
+  pthread_mutex_lock(&req->rbus->eventQueue.mutex);
+  while (curr) {
+    if (curr->id == req->rt_request_id) {
+      RBUSLOG_INFO("found oustanging request id of %d, removing from runnable queue", curr->id);
+      if (curr == req->rbus->eventQueue.head)
+        req->rbus->eventQueue.head = curr->next;
+      else if (curr == req->rbus->eventQueue.tail)
+        prev->next = NULL;
+      else
+        prev->next = curr->next;
+      rt_err = RT_OK;
+      rt_free(curr);
+      curr = NULL;
+    }
+    else {
+      prev = curr;
+      curr = curr->next;
+    }
+  }
+  pthread_mutex_unlock(&req->rbus->eventQueue.mutex);
+
+  return rbusCoreError_to_rbusError(rt_err);
 }
 
 rbusError_t rbusAsyncResponse_GetStatus(rbusAsyncResponse_t res)

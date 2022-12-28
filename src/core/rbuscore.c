@@ -2369,7 +2369,6 @@ void rbusInvokeMethodHandler(
   rbusMessage_Release(res);
 }
 
-
 rbusCoreError_t
 rbus_invokeRemoteMethodAsync(
   const char*               object_name,
@@ -2377,7 +2376,8 @@ rbus_invokeRemoteMethodAsync(
   rbusMessage               req,
   int                       timeout_millis,
   rbus_async_callback_t     user_callback,
-  void*                     user_data)
+  void*                     user_data,
+  rtAsyncRequestId*         rt_request_id)
 {
   uint8_t    *data = NULL;
   uint32_t    data_length = 0;
@@ -2408,7 +2408,6 @@ rbus_invokeRemoteMethodAsync(
   ctx->user_data = user_data;
 
   return rtConnection_SendRequestAsync(g_connection, data, data_length, object_name,
-    &rbusInvokeMethodHandler, ctx, timeout_millis, NULL);
+    &rbusInvokeMethodHandler, ctx, timeout_millis, rt_request_id);
 }
-
 /* End of File */
