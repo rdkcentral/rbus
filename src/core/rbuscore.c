@@ -39,8 +39,6 @@ void rbusMessage_EndMetaSectionRead(rbusMessage message);
 static const unsigned int TIMEOUT_VALUE_FIRE_AND_FORGET = 1000;
 static const unsigned int MAX_SUBSCRIBER_NAME_LENGTH = MAX_OBJECT_NAME_LENGTH;
 static const char * DEFAULT_EVENT = "";
-#define METHOD_ADD_EVENT_SUBSCRIPTION "_subscribe"
-#define METHOD_REMOVE_EVENT_SUBSCRIPTION "_unsubscribe"
 /* End constant definitions.*/
 
 /* Begin type definitions.*/
@@ -1210,7 +1208,7 @@ static int subscription_handler(const char *not_used, const char * method_name, 
             rbusMessage_GetInt32(in, &has_payload);
             if(has_payload)
                 rbusMessage_GetMessage(in, &payload);
-            int added = strncmp(method_name, METHOD_ADD_EVENT_SUBSCRIPTION, MAX_METHOD_NAME_LENGTH) == 0 ? 1 : 0;
+            int added = strncmp(method_name, METHOD_SUBSCRIBE, MAX_METHOD_NAME_LENGTH) == 0 ? 1 : 0;
             rbusCoreError_t ret = server_object_subscription_handler(obj, event_name, sender, added, payload);
             if(payload)
                 rbusMessage_Release(payload);
@@ -1262,7 +1260,7 @@ static rbusCoreError_t install_subscription_handlers(server_object_t object)
 {
     rbusCoreError_t ret = RBUSCORE_SUCCESS; 
 
-    server_method_t method = rtVector_Find(object->methods, METHOD_ADD_EVENT_SUBSCRIPTION, server_method_compare);
+    server_method_t method = rtVector_Find(object->methods, METHOD_SUBSCRIBE, server_method_compare);
 
     if(method)
     {
@@ -1272,13 +1270,13 @@ static rbusCoreError_t install_subscription_handlers(server_object_t object)
 
     /*No subscription handlers present. Add them.*/
     RBUSCORELOG_DEBUG("Adding handler for subscription requests for %s.", object->name);
-    if((ret = rbus_registerMethod(object->name, METHOD_ADD_EVENT_SUBSCRIPTION, subscription_handler, object)) != RBUSCORE_SUCCESS)
+    if((ret = rbus_registerMethod(object->name, METHOD_SUBSCRIBE, subscription_handler, object)) != RBUSCORE_SUCCESS)
     {
         RBUSCORELOG_ERROR("Could not register add_subscription_handler.");
     }
     else
     {
-        if((ret = rbus_registerMethod(object->name, METHOD_REMOVE_EVENT_SUBSCRIPTION, subscription_handler, object)) != RBUSCORE_SUCCESS)
+        if((ret = rbus_registerMethod(object->name, METHOD_UNSUBSCRIBE, subscription_handler, object)) != RBUSCORE_SUCCESS)
         {
             RBUSCORELOG_ERROR("Could not register remove_subscription_handler.");
         }
