@@ -439,8 +439,8 @@ int main(int argc, char *argv[])
 
     static rbusDataElement_t dataElements[6] = {
         {"Device.Tables1.T1.{i}.", RBUS_ELEMENT_TYPE_TABLE, {NULL, NULL, tableAddRowHandler1, tableRemoveRowHandler1, eventSubHandler, NULL}},
-        {"Device.Tables1.T1.{i}.Alias", RBUS_ELEMENT_TYPE_PROPERTY, {getHandler1, setHandler1, NULL, NULL, NULL, NULL}},
-        {"Device.Tables1.T1.{i}.Data", RBUS_ELEMENT_TYPE_PROPERTY, {getHandler1, setHandler1, NULL, NULL, NULL, NULL}},
+        {"Device.Tables1.T1.{i}.Alias", RBUS_ELEMENT_TYPE_PROPERTY, {getHandler1, setHandler1, NULL, NULL, eventSubHandler, NULL}},
+        {"Device.Tables1.T1.{i}.Data", RBUS_ELEMENT_TYPE_PROPERTY, {getHandler1, setHandler1, NULL, NULL, eventSubHandler, NULL}},
         {"Device.Tables1.T1.{i}.T2.{i}.", RBUS_ELEMENT_TYPE_TABLE, {NULL, NULL, tableAddRowHandler2,  tableRemoveRowHandler2, NULL, NULL}},
         {"Device.Tables1.T1.{i}.T2.{i}.Data", RBUS_ELEMENT_TYPE_PROPERTY, {getHandler2, setHandler2, NULL, NULL, NULL, NULL}},
         {"Device.Tables1.T1.{i}.T2.{i}.AnotherData", RBUS_ELEMENT_TYPE_PROPERTY, {getHandler2, NULL, NULL, NULL, NULL, NULL}}
