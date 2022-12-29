@@ -97,6 +97,16 @@ rbusError_t getHandler(rbusHandle_t handle, rbusProperty_t property, rbusGetHand
 
         rbusValue_Release(value);
     }
+    else if(strcmp(name, "Device.Provider1.Prop1") == 0)
+    {
+        char buff[24];
+        rbusValue_t value;
+        snprintf(buff, sizeof(buff), "TestInitialValue");
+        rbusValue_Init(&value);
+        rbusValue_SetString(value, buff);
+        rbusProperty_SetValue(property, value);
+        rbusValue_Release(value);
+    }
     return RBUS_ERROR_SUCCESS;
 }
 
@@ -111,9 +121,10 @@ int main(int argc, char *argv[])
     char componentName[] = "EventProvider";
     char* eventData[2] = { "Hello Earth", "Hello Mars" };
 
-    rbusDataElement_t dataElements[4] = {
+    rbusDataElement_t dataElements[5] = {
         {"Device.Provider1.Event1!", RBUS_ELEMENT_TYPE_EVENT, {NULL, NULL, NULL, NULL, eventSubHandler, NULL}},
         {"Device.Provider1.Event2!", RBUS_ELEMENT_TYPE_EVENT, {NULL, NULL, NULL, NULL, eventSubHandler, NULL}},
+        {"Device.Provider1.Prop1", RBUS_ELEMENT_TYPE_PROPERTY, {getHandler, NULL, NULL, NULL, eventSubHandler, NULL}},
         {"Device.Provider1.Param1", RBUS_ELEMENT_TYPE_PROPERTY, {getHandler, NULL, NULL, NULL, NULL, NULL}},
         {"Device.SampleProvider.SampleData2.StrData", RBUS_ELEMENT_TYPE_PROPERTY, {getHandler, NULL, NULL, NULL, NULL, NULL}}
     };

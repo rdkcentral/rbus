@@ -59,6 +59,22 @@ static void eventReceiveHandler(
         printf("  New Value: %s\n", rbusValue_GetString(newValue, NULL));
         printf("  Old Value: %s\n", rbusValue_GetString(oldValue, NULL));
     }
+    else if(event->type == RBUS_EVENT_INITIAL_VALUE)
+    {
+        int i = 0, row;
+        rbusValue_t rowcount;
+        rbusValue_t newValue;
+        char rowinst[128];
+        rowcount = rbusObject_GetValue(event->data, "numberOfEntries");
+        row = rbusValue_GetInt32(rowcount);
+        printf("Row details when subscribe is called\n");
+        for(; i < row; i++)
+        {
+            snprintf(rowinst, 128, "path%d", i+1);
+            newValue = rbusObject_GetValue(event->data, rowinst);
+            printf("%s\n", rbusValue_GetString(newValue, NULL));
+        }
+    }
 
     printf("My user data: %s\n", (char*)subscription->userData);
 }
@@ -80,7 +96,7 @@ int main(int argc, char *argv[])
     char* value;
     char name[RBUS_MAX_NAME_LENGTH];
 
-    printf("constumer: start\n");
+    printf("consumer: start\n");
 
     rc = rbus_open(&handle, "EventConsumer");
     if(rc != RBUS_ERROR_SUCCESS)
@@ -89,8 +105,15 @@ int main(int argc, char *argv[])
         goto exit1;
     }
 
+    rbusEventSubscription_t subscriptions[1] = {
+        {"Device.Tables1.T1.", NULL, 0, 0, eventReceiveHandler, "Initial_value", NULL, NULL, true}
+    };
+
+    /*add rows to the T1 table with aliases 'colors' and 'shapes'*/
+    rbusTable_addRow(handle, "Device.Tables1.T1.", "colors", &instColors);
+    rbusTable_addRow(handle, "Device.Tables1.T1.", "shapes", &instShapes);
     /*subscribe to table T1 events*/
-    rc = rbusEvent_Subscribe(handle, "Device.Tables1.T1.", eventReceiveHandler, NULL, 0);
+    rc = rbusEvent_SubscribeEx(handle, subscriptions, 1, 0);
     if(rc != RBUS_ERROR_SUCCESS)
     {
         printf("consumer: rbusEvent_Subscribe failed: %d\n", rc);
@@ -155,7 +178,7 @@ int main(int argc, char *argv[])
     sleep(3);/*not required but to demonstrate we can get ValueChange callbacks from bus before we exit*/
 
     /*fix octagon and orange being in the wrong tables*/
-    rbusTable_removeRow(handle, "Device.Tables1.T1.[colors].T2.[octagon]."); 
+    rbusTable_removeRow(handle, "Device.Tables1.T1.[colors].T2.[octagon].");
     rbusTable_removeRow(handle, "Device.Tables1.T1.[shapes].T2.[orange].");
 
     rbusTable_addRow(handle, "Device.Tables1.T1.[colors].T2.", "orange", &instNum);
