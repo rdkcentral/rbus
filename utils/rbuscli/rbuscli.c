@@ -254,7 +254,7 @@ void show_menu(const char* command)
         }
         else if(matchCmd(command, 4, "subinterval"))
         {
-            printf ("\e[1msub\e[0minterval \e[4mevent\e[0m [\e[4minterval\e[0m]\n\r");
+            printf ("\e[1msubi\e[0mnterval \e[4mevent\e[0m \e[4minterval\e[0m\n\r");
             printf ("Subscribe to an event with interval\n\r");
             printf ("For interval, can be applied using the \e[4minterval\e[0m parameter.\n\r");
             printf ("Args:\n\r");
@@ -282,7 +282,7 @@ void show_menu(const char* command)
         }
         else if(matchCmd(command, 6, "unsubinterval"))
         {
-            printf ("\e[1munsub\e[0minterval \e[4mevent\e[0m [\e[4minterval\e[0m]\n\r");
+            printf ("\e[1munsubi\e[0mnterval \e[4mevent\e[0m \e[4minterval\e[0m\n\r");
             printf ("Unsubscribe from a single event\n\r");
             printf ("If interval was used to subscribe then the same interval must be passed to unsubscribe.\n\r");
             printf ("Args:\n\r");
@@ -452,9 +452,9 @@ void show_menu(const char* command)
         printf ("\t\e[1mreg\e[0mister \e[4mtype\e[0m \e[4mname\e[0m\n\r");
         printf ("\t\e[1munreg\e[0mister \e[4mname\e[0m\n\r");
         printf ("\t\e[1msub\e[0mscribe \e[4mevent\e[0m [\e[4moperator\e[0m \e[4mvalue\e[0m]\n\r");
-        printf ("\t\e[1msub\e[0minterval \e[4mevent\e[0m [\e[4minterval\e[0m]\n\r");
+        printf ("\t\e[1msubi\e[0mnterval \e[4mevent\e[0m \e[4minterval\e[0m\n\r");
         printf ("\t\e[1munsub\e[0mscribe \e[4mevent\e[0m [\e[4moperator\e[0m \e[4mvalue\e[0m]\n\r");
-        printf ("\t\e[1munsub\e[0minterval \e[4mevent\e[0m [\e[4minterval\e[0m]\n\r");
+        printf ("\t\e[1munsubi\e[0mnterval \e[4mevent\e[0m \e[4minterval\e[0m\n\r");
         printf ("\t\e[1masub\e[0mscribe \e[4mevent\e[0m [\e[4moperator\e[0m \e[4mvalue\e[0m]\n\r");
         printf ("\t\e[1mpub\e[0mlish \e[4mevent\e[0m [\e[4mdata\e[0m]\n\r");
         printf ("\t\e[1maddl\e[0mistener \e[4mexpression\e[0m\n\r");
@@ -2529,7 +2529,7 @@ char *hints(const char *buf, int *color, int *bold) {
         }
         else if(strcmp(tokens[0], "subint") == 0)
         {
-            hint = " event [interval]";
+            hint = " event interval";
         }
         else if(strcmp(tokens[0], "unsub") == 0)
         {
@@ -2537,7 +2537,7 @@ char *hints(const char *buf, int *color, int *bold) {
         }
         else if(strcmp(tokens[0], "unsubint") == 0)
         {
-            hint = " event [interval]";
+            hint = " event interval";
         }
         else if(strcmp(tokens[0], "asub") == 0)
         {
