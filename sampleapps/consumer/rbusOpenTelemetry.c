@@ -66,6 +66,8 @@ void run_client()
   rbusValue_SetString(val, "new-value");
   rbus_set(rbus, kElementName, val, NULL);
 
+  rbusHandle_ClearTraceContext(rbus);
+
   // sample invoke
   rbusHandle_SetTraceContextFromString(rbus, "traceparent: 00-foo-bar-03",
     "tracestate: congo=t61rcWkgMzE");
@@ -73,13 +75,18 @@ void run_client()
   rbusObject_Init(&in, NULL);
   rbusMethod_Invoke(rbus, kElementName, in, &out);
 
+  rbusValue_Release(val);
+  rbusObject_Release(in);
+  rbusObject_Release(out);
 
+  rbusHandle_ClearTraceContext(rbus);
   rbus_close(rbus);
 }
 
 void run_server()
 {
   rbusHandle_t rbus;
+  int count = 3;
   rbusDataElement_t dataElements[1] = {
     {kElementName, RBUS_ELEMENT_TYPE_PROPERTY, {
       get_handler,
@@ -92,8 +99,9 @@ void run_server()
   rbus_regDataElements(rbus, 1, dataElements);
 
   // XXX: wasted thread
-  while (1) {
+  while (count != 0) {
     sleep(5);
+    count --;
   }
 
   rbus_unregDataElements(rbus, 1, dataElements);
