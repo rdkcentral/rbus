@@ -850,7 +850,7 @@ bool elementHasAutoPubSubscriptions(elementNode* node, rbusSubscription_t* exclu
                 return false;
             if(sub->autoPublish)
             {
-                if(excluding != sub)
+                if((excluding != sub) && (!sub->interval))
                 {
                     return true;
                 }
