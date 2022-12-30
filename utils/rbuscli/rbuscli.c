@@ -254,13 +254,13 @@ void show_menu(const char* command)
         }
         else if(matchCmd(command, 4, "subinterval"))
         {
-            printf ("\e[1msub\e[0mscribe \e[4mevent\e[0m [\e[4minterval\e[0m]\n\r");
-            printf ("Subscribe to a event with interval\n\r");
+            printf ("\e[1msubi\e[0mnterval \e[4mevent\e[0m \e[4minterval\e[0m\n\r");
+            printf ("Subscribe to an event with interval\n\r");
             printf ("For interval, can be applied using the \e[4minterval\e[0m parameter.\n\r");
             printf ("Args:\n\r");
             printf ("\t%-20sThe name of the event to subscribe to\n\r", "event");
             printf ("\t%-20sThe interval trigger value\n\r", "interval");
-            printf ("Examples:\n\r");
+            printf ("Example:\n\r");
             printf ("\tsubint Example.SomeIntProp 10\n\r");
             printf ("\n\r");
         }
@@ -278,6 +278,18 @@ void show_menu(const char* command)
             printf ("\tunsub Example.SomeTable.\n\r");
             printf ("\tunsub Example.SomeIntProp > 10\n\r");
             printf ("\tunsub Example.SomeStrProp = \"Hello\"\n\r");
+            printf ("\n\r");
+        }
+        else if(matchCmd(command, 6, "unsubinterval"))
+        {
+            printf ("\e[1munsubi\e[0mnterval \e[4mevent\e[0m \e[4minterval\e[0m\n\r");
+            printf ("Unsubscribe from a single event\n\r");
+            printf ("If interval was used to subscribe then the same interval must be passed to unsubscribe.\n\r");
+            printf ("Args:\n\r");
+            printf ("\t%-20sThe name of the event to unsubscribe from\n\r", "event");
+            printf ("\t%-20sThe interval that was used when subscribing to this event.\n\r", "interval");
+            printf ("Example:\n\r");
+            printf ("\tunsubint Example.SomeIntProp 10\n\r");
             printf ("\n\r");
         }
         else if(matchCmd(command, 4, "asubscribe"))
@@ -440,7 +452,9 @@ void show_menu(const char* command)
         printf ("\t\e[1mreg\e[0mister \e[4mtype\e[0m \e[4mname\e[0m\n\r");
         printf ("\t\e[1munreg\e[0mister \e[4mname\e[0m\n\r");
         printf ("\t\e[1msub\e[0mscribe \e[4mevent\e[0m [\e[4moperator\e[0m \e[4mvalue\e[0m]\n\r");
+        printf ("\t\e[1msubi\e[0mnterval \e[4mevent\e[0m \e[4minterval\e[0m\n\r");
         printf ("\t\e[1munsub\e[0mscribe \e[4mevent\e[0m [\e[4moperator\e[0m \e[4mvalue\e[0m]\n\r");
+        printf ("\t\e[1munsubi\e[0mnterval \e[4mevent\e[0m \e[4minterval\e[0m\n\r");
         printf ("\t\e[1masub\e[0mscribe \e[4mevent\e[0m [\e[4moperator\e[0m \e[4mvalue\e[0m]\n\r");
         printf ("\t\e[1mpub\e[0mlish \e[4mevent\e[0m [\e[4mdata\e[0m]\n\r");
         printf ("\t\e[1maddl\e[0mistener \e[4mexpression\e[0m\n\r");
@@ -1734,41 +1748,49 @@ void validate_and_execute_subscribe_cmd (int argc, char *argv[], bool add, bool 
     if(1)
     {
         userData = rt_calloc(1, 256);
-	if (matchCmd(argv[1], 4, "subinterval")) {
+        if (matchCmd(argv[1], 4, "subinterval"))
+        {
             subinterval = true;
             strcat(userData, "subint ");
-	}
-	else {
+        }
+        else if (matchCmd(argv[1], 6, "unsubinterval"))
+        {
+            subinterval = true;
+            strcat(userData, "unsubint ");
+        }
+        else
+        {
             strcat(userData, "sub ");
-	}
+        }
         strcat(userData, argv[2]);
     }
 
     if(argc > 3) /*filter*/
     {
-	if (subinterval) {
-	    interval = atoi(argv[3]);
-	    strcat(userData, " ");
-	    strcat(userData, argv[3]);
-	}
-	else if ((relOp = find_filter(argv)) >= 0)
+        if (subinterval)
+        {
+            interval = atoi(argv[3]);
+            strcat(userData, " ");
+            strcat(userData, argv[3]);
+        }
+        else if ((relOp = find_filter(argv)) >= 0)
         {
             strcat(userData, " ");
             strcat(userData, argv[3]);
             strcat(userData, " ");
             strcat(userData, argv[4]);
 
-	    rbusValue_Init(&filterValue);
+            rbusValue_Init(&filterValue);
 
             set_filter_value(argv[4], filterValue);
 
             rbusFilter_InitRelation(&filter, relOp, filterValue);
-	}
-	else
+        }
+        else
         {
-	  printf ("Invalid arguments. Please see the help\n\r");
-	  rt_free(userData);
-	  return;
+            printf ("Invalid arguments. Please see the help\n\r");
+            rt_free(userData);
+            return;
         }
     }
 
@@ -2177,7 +2199,7 @@ int handle_cmds (int argc, char *argv[])
     {
         validate_and_execute_subscribe_cmd (argc, argv, true, false);
     }
-    else if(matchCmd(command, 5, "unsubscribe"))
+    else if(matchCmd(command, 5, "unsubscribe") || matchCmd(command, 6, "unsubinterval"))
     {
         validate_and_execute_subscribe_cmd (argc, argv, false, false);
     }
@@ -2382,7 +2404,7 @@ void completion(const char *buf, linenoiseCompletions *lc) {
     {
         runSteps = __LINE__;
         completion = find_completion(tokens[0], 14, "get", "set", "add", "del", "getr", "getn", "disca", "discc", "disce",
-                "discw", "sub", "subint", "unsub", "asub", "method_no", "method_na", "method_va", "reg", "unreg", "pub",
+                "discw", "sub", "subint", "unsub", "unsubint", "asub", "method_no", "method_na", "method_va", "reg", "unreg", "pub",
                 "addl", "reml", "send", "log", "quit", "help");
     }
     else if(num == 2)
@@ -2507,11 +2529,15 @@ char *hints(const char *buf, int *color, int *bold) {
         }
         else if(strcmp(tokens[0], "subint") == 0)
         {
-            hint = " event [interval]";
+            hint = " event interval";
         }
         else if(strcmp(tokens[0], "unsub") == 0)
         {
             hint = " event [operator value]";
+        }
+        else if(strcmp(tokens[0], "unsubint") == 0)
+        {
+            hint = " event interval";
         }
         else if(strcmp(tokens[0], "asub") == 0)
         {
