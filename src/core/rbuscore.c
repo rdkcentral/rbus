@@ -58,6 +58,7 @@ static void rbus_init_open_telemeetry_thread_specific_key()
 }
 
 
+static void rbus_releaseOpenTelemetryContext();
 /* Begin rbus_server */
 
 struct _server_object;
@@ -630,6 +631,7 @@ rbusCoreError_t rbus_closeBrokerConnection()
         RBUSCORELOG_INFO("No connection exist to close.");
         return RBUSCORE_ERROR_INVALID_STATE;
     }
+    rbus_releaseOpenTelemetryContext();
     perform_cleanup();
     err = rtConnection_Destroy(g_connection);
     if(RT_OK != err)
@@ -2279,6 +2281,16 @@ void rbus_clearOpenTelemetryContext()
     rbusOpenTelemetryContext *ot_ctx = rbus_getOpenTelemetryContextFromThreadLocal();
     ot_ctx->otTraceParent[0] = '\0';
     ot_ctx->otTraceState[0] = '\0';
+}
+
+static void rbus_releaseOpenTelemetryContext()
+{
+    rbusOpenTelemetryContext *ot_ctx = rbus_getOpenTelemetryContextFromThreadLocal();
+    if (ot_ctx)
+    {
+        pthread_setspecific(_open_telemetry_key, NULL);
+        free (ot_ctx);
+    }
 }
 
 void rbus_setOpenTelemetryContext(const char *traceParent, const char *traceState)
