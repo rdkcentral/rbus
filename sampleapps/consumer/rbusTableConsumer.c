@@ -216,11 +216,6 @@ int main(int argc, char *argv[])
         sleep(additionalWaitTime);
     }
 
-    printf("########################## remove colors ###############################\n");
-    rbusTable_removeRow(handle, "Device.Tables1.T1.[colors].");
-    printf("########################## remove shapes ###############################\n");
-    snprintf(name, RBUS_MAX_NAME_LENGTH, "Device.Tables1.T1.%d", instShapes);
-    rbusTable_removeRow(handle,name);
     sleep(1);
     printf("########################## unsubscribing ###############################\n");
 

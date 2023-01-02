@@ -56,6 +56,10 @@ rbusError_t eventSubHandler(rbusHandle_t handle, rbusEventSubAction_t action, co
     {
         subscribed2 = action == RBUS_EVENT_ACTION_SUBSCRIBE ? 1 : 0;
     }
+    else if(!strcmp("Device.Provider1.Prop1", eventName))
+    {
+        subscribed2 = action == RBUS_EVENT_ACTION_SUBSCRIBE ? 1 : 0;
+    }
     else
     {
         printf("provider: eventSubHandler unexpected eventName %s\n", eventName);
