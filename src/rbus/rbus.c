@@ -4203,8 +4203,9 @@ static rbusError_t rbusEvent_SubscribeWithRetries(
             rbusMessage_GetInt32(response, &initial_value);
             if(initial_value)
                 _master_event_callback_handler(NULL, eventName, response, userData);
-            rbusMessage_Release(response);
         }
+        if(response)
+            rbusMessage_Release(response);
         RBUSLOG_INFO("%s: %s subscribe retries succeeded", __FUNCTION__, eventName);
         return RBUS_ERROR_SUCCESS;
     }
