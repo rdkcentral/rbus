@@ -1730,8 +1730,6 @@ void validate_and_execute_subscribe_cmd (int argc, char *argv[], bool add, bool 
     bool subinterval = false;
     bool publishOnSubscribe = false;
 
-    if (strncasecmp ("true", argv[argc - 1], 4) == 0)
-        publishOnSubscribe = true;
     if (argc < 3)
     {
         printf ("Invalid arguments. Please see the help\n\r");
@@ -1791,6 +1789,14 @@ void validate_and_execute_subscribe_cmd (int argc, char *argv[], bool add, bool 
             set_filter_value(argv[4], filterValue);
 
             rbusFilter_InitRelation(&filter, relOp, filterValue);
+            if(argv[5] != NULL)
+            {
+                if(strncasecmp ("true", argv[5], 4) == 0)
+                {
+                    if (strncasecmp ("true", argv[argc - 1], 4) == 0)
+                        publishOnSubscribe = true;
+                }
+            }
         }
         else
         {
