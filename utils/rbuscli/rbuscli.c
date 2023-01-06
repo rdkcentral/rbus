@@ -2544,7 +2544,7 @@ char *hints(const char *buf, int *color, int *bold) {
         }
         else if(strcmp(tokens[0], "sub") == 0)
         {
-            hint = " event [operator value] initialValue";
+            hint = " event [operator value initialValue]";
         }
         else if(strcmp(tokens[0], "subint") == 0)
         {
