@@ -67,6 +67,14 @@ add_executable(rbusValueChangeConsumer consumer/rbusValueChangeConsumer.c)
 add_dependencies(rbusValueChangeConsumer rbus)
 target_link_libraries(rbusValueChangeConsumer rbus)
 
+add_executable(rbusIntervalProvider provider/rbusIntervalProvider.c)
+add_dependencies(rbusIntervalProvider rbus)
+target_link_libraries(rbusIntervalProvider rbus)
+
+add_executable(rbusIntervalConsumer consumer/rbusIntervalConsumer.c)
+add_dependencies(rbusIntervalConsumer rbus)
+target_link_libraries(rbusIntervalConsumer rbus)
+
 add_executable(rbusMethodProvider provider/rbusMethodProvider.c)
 add_dependencies(rbusMethodProvider rbus)
 target_link_libraries(rbusMethodProvider rbus)
@@ -106,7 +114,7 @@ add_dependencies(rbusEventLoopServer rbus)
 target_link_libraries(rbusEventLoopServer ev rbus)
 
 
-install (TARGETS 
+install (TARGETS
     rbusSampleProvider
     rbusSampleConsumer
     rbusTableProvider
@@ -123,6 +131,8 @@ install (TARGETS
     rbusMessageListener
     rbusMessageSender
     rbusOpenTelemetry
+    rbusIntervalConsumer
+    rbusIntervalProvider
     RUNTIME DESTINATION bin)
 
 endif (BUILD_RBUS_SAMPLE_APPS)
