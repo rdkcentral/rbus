@@ -2299,6 +2299,12 @@ static void _subscribe_callback_handler (rbusHandle_t handle, rbusMessage reques
                         val = rbusProperty_GetValue(tmpProperties);
                         rbusObject_SetValue(data, "initialValue", val);
                     }
+                    else
+                    {
+                        err = RBUS_ERROR_INVALID_OPERATION;
+                        rbusMessage_SetInt32(*response, 0); /* No initial value returned, as get handler is not present */
+                        RBUSLOG_WARN("%s: Get handler does not exist %s", __FUNCTION__, event_name);
+                    }
                 }
                 if (err == RBUS_ERROR_SUCCESS)
                 {
@@ -2315,10 +2321,6 @@ static void _subscribe_callback_handler (rbusHandle_t handle, rbusMessage reques
 
                     rbusProperty_Release(tmpProperties);
                     rbusObject_Release(data);
-                }
-                else
-                {
-                    RBUSLOG_WARN("%s: getHandler not exist for %s", __FUNCTION__, event_name);
                 }
             }
             if(payload)
