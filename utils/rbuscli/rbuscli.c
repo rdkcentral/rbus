@@ -252,7 +252,7 @@ void show_menu(const char* command)
             printf ("\tsub Example.SomeIntProp > 10\n\r");
             printf ("\tsub Example.SomeStrProp = \"Hello\"\n\r");
             printf ("\tsub Example.SomeEvent! true\n\r");
-            printf ("\tsub Example.SomeEvent! = "data" true\n\r");
+            printf ("\tsub Example.SomeEvent! = \"data\" true\n\r");
             printf ("\n\r");
         }
         else if(matchCmd(command, 4, "subinterval"))
