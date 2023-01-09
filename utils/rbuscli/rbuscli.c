@@ -233,7 +233,7 @@ void show_menu(const char* command)
         }
         else if(matchCmd(command, 3, "subscribe"))
         {
-            printf ("\e[1msub\e[0mscribe \e[4mevent\e[0m [\e[4moperator\e[0m \e[4mvalue\e[0m] \e[4minitialValue\n\r");
+            printf ("\e[1msub\e[0mscribe \e[4mevent\e[0m [\e[4moperator\e[0m \e[4mvalue\e[0m \e[4minitialValue\e[0m]\n\r");
             printf ("Subscribe to a single event.\n\r");
             printf ("Rbus supports general events, value-change events, and table events.\n\r");
             printf ("And the type depends on that type of element \e[4mevent\e[0m refers to.\n\r");
@@ -252,12 +252,12 @@ void show_menu(const char* command)
             printf ("\tsub Example.SomeIntProp > 10\n\r");
             printf ("\tsub Example.SomeStrProp = \"Hello\"\n\r");
             printf ("\tsub Example.SomeEvent! true\n\r");
-            printf ("\tsub Example.SomeEvent! = data true\n\r");
+            printf ("\tsub Example.SomeEvent! = "data" true\n\r");
             printf ("\n\r");
         }
         else if(matchCmd(command, 4, "subinterval"))
         {
-            printf ("\e[1msubi\e[0mnterval \e[4mevent\e[0m \e[4minterval\e[0m\n\r");
+            printf ("\e[1msubi\e[0mnterval \e[4mevent\e[0m \e[4minterval\e[0m [\e[4minitialValue\e[0m]\n\r");
             printf ("Subscribe to an event with interval\n\r");
             printf ("For interval, can be applied using the \e[4minterval\e[0m parameter.\n\r");
             printf ("Args:\n\r");
@@ -265,6 +265,7 @@ void show_menu(const char* command)
             printf ("\t%-20sThe interval trigger value\n\r", "interval");
             printf ("Example:\n\r");
             printf ("\tsubint Example.SomeIntProp 10\n\r");
+            printf ("\tsubint Example.SomeIntProp 5 true\n\r");
             printf ("\n\r");
         }
         else if(matchCmd(command, 5, "unsubscribe"))
@@ -2548,7 +2549,7 @@ char *hints(const char *buf, int *color, int *bold) {
         }
         else if(strcmp(tokens[0], "subint") == 0)
         {
-            hint = " event interval";
+            hint = " event interval [initialValue]";
         }
         else if(strcmp(tokens[0], "unsub") == 0)
         {
