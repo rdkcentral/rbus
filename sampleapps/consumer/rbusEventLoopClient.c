@@ -34,7 +34,7 @@ static uint32_t property1_value = 100;
 static void my_libev_dispatcher(EV_P_ ev_io *w, __attribute__((unused)) int revents)
 {
   rbusHandle_t rbus = (rbusHandle_t) w->data;
-  rbusHandle_RunOne(rbus);
+  rbusHandle_Run(rbus);
 }
 
 void set_callback(rbusHandle_t rbus, rbusAsyncResponse_t res);
@@ -115,7 +115,7 @@ int main(int argc, char* argv[])
 
   #if 1
   ev_timer timeout_get;
-  ev_timer_init(&timeout_get, on_timeout_get, 1.0, 0);
+  ev_timer_init(&timeout_get, on_timeout_get, 1.0, 1.0);
   timeout_get.data = rbus;
   ev_timer_start(loop, &timeout_get);
   #endif

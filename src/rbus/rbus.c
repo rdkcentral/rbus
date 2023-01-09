@@ -5318,7 +5318,6 @@ void rbusRunnableQueue_PushBack(rbusRunnableQueue_t *q, rbusRunnable_t r)
         q->tail = item;
     }
     pthread_mutex_unlock(&q->mutex);
-    pthread_cond_signal(&q->cond);
 
     static const char kQueueIndicator_Runnable = 'r';
     write(q->pipe_fds[1], &kQueueIndicator_Runnable, 1);
@@ -5350,6 +5349,35 @@ int
 rbusHandle_GetEventFD(rbusHandle_t rbus)
 {
     return rbus->eventQueue.pipe_fds[0];
+}
+
+rbusError_t
+rbusHandle_Run(rbusHandle_t rbus)
+{
+  rbusRunnable_t* curr;
+  rbusRunnable_t* next;
+
+  pthread_mutex_lock(&rbus->eventQueue.mutex);
+  curr = rbus->eventQueue.head;
+  rbus->eventQueue.head = NULL;
+  rbus->eventQueue.tail = NULL;
+  pthread_mutex_unlock(&rbus->eventQueue.mutex);
+
+  while (curr) {
+    char queue_indicator = 'z';
+    read(rbus->eventQueue.pipe_fds[0], &queue_indicator, 1);
+
+    curr->exec(curr->argp);
+
+    if (curr->cleanup)
+      curr->cleanup(curr->argp);
+
+    next = curr->next;
+    rt_free(curr);
+    curr = next;
+  }
+
+  return RBUS_ERROR_SUCCESS;
 }
 
 rbusError_t
@@ -5509,6 +5537,11 @@ void rbusGetCompletionHandlerImpl(rbusMessage res, rbusCoreError_t status, void*
 
 rbusError_t rbusProperty_GetAsync(rbusHandle_t rbus, rbusAsyncRequest_t req)
 {
+  // guard here to prevent caller from re-using an rbusAsyncRequest_t that
+  // may be still in progress
+  if (req->rt_request_id != RT_INVALID_REQUEST_ID)
+    return RBUS_ERROR_INVALID_INPUT;
+
   rbusMessage rbus_req;
   rbusMessage_Init(&rbus_req);
   rbusMessage_SetString(rbus_req, rbus->componentName);
@@ -5598,17 +5631,7 @@ rbusAsyncRequest_t rbusAsyncRequest_New()
 {
   struct rbusAsyncRequest* req = rt_malloc(sizeof(struct rbusAsyncRequest));
   req->retainable.refCount = 1;
-  req->timeout_millis = -1;
-  req->completion_handler = NULL;
-  req->user_data = NULL;
-  req->props = NULL;
-  req->rbus = NULL;
-  req->rt_request_id = RT_INVALID_REQUEST_ID;
-
-  req->method_name = NULL;
-  req->method_handler = NULL;
-  req->method_params = NULL;
-
+  rbusAsyncRequest_Reset(req);
   return req;
 }
 
@@ -5655,14 +5678,28 @@ void rbusAsyncRequest_SetUserData(rbusAsyncRequest_t req, void* user_data)
   req->user_data = user_data;
 }
 
+void rbusAsyncRequest_Reset(rbusAsyncRequest_t req)
+{
+  req->timeout_millis = -1;
+  req->completion_handler = NULL;
+  req->user_data = NULL;
+  req->props = NULL;
+  req->rbus = NULL;
+  req->rt_request_id = RT_INVALID_REQUEST_ID;
+  req->method_name = NULL;
+  req->method_handler = NULL;
+  req->method_params = NULL;
+}
+
 rbusError_t rbusAsyncRequest_Cancel(rbusAsyncRequest_t req)
 {
   rtError rt_err = rtConnection_CancelAsyncRequest(req->rbus->connection, req->rt_request_id);
 
   rbusRunnable_t* prev = NULL;
-  rbusRunnable_t* curr = req->rbus->eventQueue.head;
+  rbusRunnable_t* curr = NULL;
 
   pthread_mutex_lock(&req->rbus->eventQueue.mutex);
+  curr = req->rbus->eventQueue.head;
   while (curr) {
     if (curr->id == req->rt_request_id) {
       RBUSLOG_INFO("found oustanging request id of %d, removing from runnable queue", curr->id);
@@ -5682,6 +5719,8 @@ rbusError_t rbusAsyncRequest_Cancel(rbusAsyncRequest_t req)
     }
   }
   pthread_mutex_unlock(&req->rbus->eventQueue.mutex);
+
+  rbusAsyncRequest_Reset(req);
 
   return rbusCoreError_to_rbusError(rt_err);
 }
