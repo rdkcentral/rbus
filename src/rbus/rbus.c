@@ -4457,7 +4457,7 @@ rbusError_t rbusEvent_UnsubscribeEx(
 
             if(coreerr != RBUSCORE_SUCCESS)
             {
-                RBUSLOG_INFO("%s: %s failed with core err=%d", __FUNCTION__, sub->eventName, coreerr);
+                RBUSLOG_INFO("%s: failed with core err=%d", __FUNCTION__, coreerr);
                 
                 //FIXME -- we just overwrite any existing error that might have happened in a previous loop
                 if(coreerr == RBUSCORE_ERROR_DESTINATION_UNREACHABLE)
