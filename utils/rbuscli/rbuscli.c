@@ -233,7 +233,7 @@ void show_menu(const char* command)
         }
         else if(matchCmd(command, 3, "subscribe"))
         {
-            printf ("\e[1msub\e[0mscribe \e[4mevent\e[0m [\e[4moperator\e[0m \e[4mvalue\e[0m]\n\r");
+            printf ("\e[1msub\e[0mscribe \e[4mevent\e[0m [\e[4moperator\e[0m \e[4mvalue\e[0m \e[4minitialValue\e[0m]\n\r");
             printf ("Subscribe to a single event.\n\r");
             printf ("Rbus supports general events, value-change events, and table events.\n\r");
             printf ("And the type depends on that type of element \e[4mevent\e[0m refers to.\n\r");
@@ -245,16 +245,19 @@ void show_menu(const char* command)
             printf ("\t%-20sThe name of the event to subscribe to\n\r", "event");
             printf ("\t%-20sOptional filter relational operator. Supported operators (>, >=, <, <=, =, !=)\n\r", "operator");
             printf ("\t%-20sOptional filter trigger value\n\r", "value");
+            printf ("\t%-20sTo get initial value of the event being subscribed\n\r", "initialValue");
             printf ("Examples:\n\r");
             printf ("\tsub Example.SomeEvent!\n\r");
             printf ("\tsub Example.SomeTable.\n\r");
             printf ("\tsub Example.SomeIntProp > 10\n\r");
             printf ("\tsub Example.SomeStrProp = \"Hello\"\n\r");
+            printf ("\tsub Example.SomeEvent! true\n\r");
+            printf ("\tsub Example.SomeEvent! = \"data\" true\n\r");
             printf ("\n\r");
         }
         else if(matchCmd(command, 4, "subinterval"))
         {
-            printf ("\e[1msubi\e[0mnterval \e[4mevent\e[0m \e[4minterval\e[0m\n\r");
+            printf ("\e[1msubi\e[0mnterval \e[4mevent\e[0m \e[4minterval\e[0m [\e[4minitialValue\e[0m]\n\r");
             printf ("Subscribe to an event with interval\n\r");
             printf ("For interval, can be applied using the \e[4minterval\e[0m parameter.\n\r");
             printf ("Args:\n\r");
@@ -262,6 +265,7 @@ void show_menu(const char* command)
             printf ("\t%-20sThe interval trigger value\n\r", "interval");
             printf ("Example:\n\r");
             printf ("\tsubint Example.SomeIntProp 10\n\r");
+            printf ("\tsubint Example.SomeIntProp 5 true\n\r");
             printf ("\n\r");
         }
         else if(matchCmd(command, 5, "unsubscribe"))
@@ -451,8 +455,8 @@ void show_menu(const char* command)
         }
         printf ("\t\e[1mreg\e[0mister \e[4mtype\e[0m \e[4mname\e[0m\n\r");
         printf ("\t\e[1munreg\e[0mister \e[4mname\e[0m\n\r");
-        printf ("\t\e[1msub\e[0mscribe \e[4mevent\e[0m [\e[4moperator\e[0m \e[4mvalue\e[0m]\n\r");
-        printf ("\t\e[1msubi\e[0mnterval \e[4mevent\e[0m \e[4minterval\e[0m\n\r");
+        printf ("\t\e[1msub\e[0mscribe \e[4mevent\e[0m [\e[4moperator\e[0m \e[4mvalue\e[0m] \e[4minitialValue\n\r");
+        printf ("\t\e[1msubi\e[0mnterval \e[4mevent\e[0m \e[4minterval\e[0m \e[4minitialValue\n\r");
         printf ("\t\e[1munsub\e[0mscribe \e[4mevent\e[0m [\e[4moperator\e[0m \e[4mvalue\e[0m]\n\r");
         printf ("\t\e[1munsubi\e[0mnterval \e[4mevent\e[0m \e[4minterval\e[0m\n\r");
         printf ("\t\e[1masub\e[0mscribe \e[4mevent\e[0m [\e[4moperator\e[0m \e[4mvalue\e[0m]\n\r");
@@ -1720,11 +1724,12 @@ void validate_and_execute_subscribe_cmd (int argc, char *argv[], bool add, bool 
     rbusError_t rc = RBUS_ERROR_SUCCESS;
     rbusFilter_t filter = NULL;
     rbusValue_t filterValue = NULL;
-    rbusFilter_RelationOperator_t relOp;
+    int relOp;
     char* userData = NULL;
     int interval = 0;
     int duration = 0;
     bool subinterval = false;
+    bool publishOnSubscribe = false;
 
     if (argc < 3)
     {
@@ -1785,17 +1790,32 @@ void validate_and_execute_subscribe_cmd (int argc, char *argv[], bool add, bool 
             set_filter_value(argv[4], filterValue);
 
             rbusFilter_InitRelation(&filter, relOp, filterValue);
+            if(argv[5] != NULL)
+            {
+                if(strncasecmp ("true", argv[5], 4) == 0)
+                {
+                    if (strncasecmp ("true", argv[argc - 1], 4) == 0)
+                        publishOnSubscribe = true;
+                }
+            }
         }
         else
         {
-            printf ("Invalid arguments. Please see the help\n\r");
-            rt_free(userData);
-            return;
+            if (strncasecmp ("true", argv[argc - 1], 4) == 0)
+                publishOnSubscribe = true;
+            else if(strncasecmp ("false", argv[argc - 1], 5) == 0)
+                publishOnSubscribe = false;
+            else
+            {
+                printf ("Invalid arguments. Please see the help\n\r");
+                rt_free(userData);
+                return;
+            }
         }
     }
 
     runSteps = __LINE__;
-    rbusEventSubscription_t subscription = {argv[2], filter, interval, duration, event_receive_handler, userData, NULL, NULL, false};
+    rbusEventSubscription_t subscription = {argv[2], filter, interval, duration, event_receive_handler, userData, NULL, NULL, publishOnSubscribe};
 
     /* Async will be TRUE only when add is TRUE */
     if (isAsync && add)
@@ -2525,11 +2545,11 @@ char *hints(const char *buf, int *color, int *bold) {
         }
         else if(strcmp(tokens[0], "sub") == 0)
         {
-            hint = " event [operator value]";
+            hint = " event [operator value initialValue]";
         }
         else if(strcmp(tokens[0], "subint") == 0)
         {
-            hint = " event interval";
+            hint = " event interval [initialValue]";
         }
         else if(strcmp(tokens[0], "unsub") == 0)
         {
