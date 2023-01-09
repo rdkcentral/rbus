@@ -2239,8 +2239,6 @@ static void _subscribe_callback_handler (rbusHandle_t handle, rbusMessage reques
                 rbusProperty_t tmpProperties = NULL;
                 rbusError_t err = RBUS_ERROR_SUCCESS;
 
-                rbusMessage_SetInt32(*response, 1); /* Based on this value initial value will be published to the consumer in
-                                                       rbusEvent_SubscribeWithRetries() function call */
                 rbusObject_Init(&data, NULL);
                 el = retrieveInstanceElement(handleInfo->elementRoot, event_name);
                 if(el->type == RBUS_ELEMENT_TYPE_TABLE)
@@ -2307,6 +2305,8 @@ static void _subscribe_callback_handler (rbusHandle_t handle, rbusMessage reques
                     event.name = event_name;
                     event.type = RBUS_EVENT_INITIAL_VALUE;
                     event.data = data;
+                    rbusMessage_SetInt32(*response, 1); /* Based on this value initial value will be published to the consumer in
+                                                           rbusEvent_SubscribeWithRetries() function call */
                     rbusEventData_appendToMessage(&event, filter, interval, duration, handleInfo->componentId, *response);
                     if(filter)
                     {
