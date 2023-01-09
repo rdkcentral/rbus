@@ -146,9 +146,10 @@ int main(int argc, char *argv[])
     int rc = RBUS_ERROR_SUCCESS;
     rbusHandle_t handle;
     char* data[2] = { "My Data 1", "My Data2" };
-    rbusEventSubscription_t subscriptions[2] = {
-        {"Device.Provider1.Event1!", NULL, 0, 0, generalEvent1Handler, data[0], NULL, NULL, true},
-        {"Device.Provider1.Event2!", NULL, 0, 0, generalEvent2Handler, data[1], NULL, NULL, true}
+    rbusEventSubscription_t subscriptions[3] = {
+        {"Device.Provider1.Event1!", NULL, 0, 0, generalEvent1Handler, data[0], NULL, NULL, false},
+        {"Device.Provider1.Event2!", NULL, 0, 0, generalEvent2Handler, data[1], NULL, NULL, false},
+        {"Device.Provider1.Prop1", NULL, 0, 0, generalEvent1Handler, data[1], NULL, NULL, true}
     };
 
     printf("constumer: start\n");
@@ -215,7 +216,7 @@ int main(int argc, char *argv[])
 #endif
 
 #if TEST_SUBSCRIBE_EX
-    rc = rbusEvent_SubscribeEx(handle, subscriptions, 2, 0);
+    rc = rbusEvent_SubscribeEx(handle, subscriptions, 3, 0);
 
     if(rc != RBUS_ERROR_SUCCESS)
     {
@@ -225,7 +226,7 @@ int main(int argc, char *argv[])
 
     sleep(loopFor/4);
 
-    rbusEvent_UnsubscribeEx(handle, subscriptions, 2);
+    rbusEvent_UnsubscribeEx(handle, subscriptions, 3);
 #endif
     goto exit3;
 

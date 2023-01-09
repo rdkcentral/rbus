@@ -45,6 +45,7 @@ rtError rbusMessage_GetBytes(rbusMessage message, uint8_t const** value, uint32_
 
 rtError rbusMessage_SetInt32(rbusMessage message, int32_t value);
 rtError rbusMessage_GetInt32(rbusMessage const message, int32_t* value);
+rtError rbusMessage_GetUInt32(rbusMessage const message, uint32_t* value);
 
 rtError rbusMessage_SetInt64(rbusMessage message, int64_t value);
 rtError rbusMessage_GetInt64(rbusMessage const message, int64_t* value);
