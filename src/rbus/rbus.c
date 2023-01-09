@@ -2211,10 +2211,6 @@ static void _subscribe_callback_handler (rbusHandle_t handle, rbusMessage reques
             if(payload)
             {
                 int hasFilter = 0;
-                char* buff = NULL;
-                uint32_t buff_length = 0;
-                rbusMessage_ToDebugString(payload, &buff, &buff_length);
-                free(buff);
                 rbusMessage_GetInt32(payload, &componentId);
                 rbusMessage_GetInt32(payload, &interval);
                 rbusMessage_GetInt32(payload, &duration);
