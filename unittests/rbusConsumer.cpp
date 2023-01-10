@@ -95,12 +95,15 @@ static int exec_rbus_get_test(rbusHandle_t handle, const char *param)
         (0 == strcmp(param,"Device.rbuscoreProvider.GetLegDateTime"))) && (RBUS_DATETIME == type)) {
 
     struct tm compileTime;
+    struct tm checkTime;
     rbusDateTime_t *rcTime = NULL;
 
     rcTime = (rbusDateTime_t *)rbusValue_GetTime(val);
     getCompileTime(&compileTime);
 
-    rc = (mktime(&compileTime) == mktime(&(rcTime->m_time))) ? RBUS_ERROR_SUCCESS : RBUS_ERROR_BUS_ERROR;
+    rbusValue_UnMarshallRBUStoTM(&checkTime, rcTime);
+
+    rc = (mktime(&compileTime) == mktime(&checkTime)) ? RBUS_ERROR_SUCCESS : RBUS_ERROR_BUS_ERROR;
 
   } else if((0 == strcmp(param,"Device.rbusProvider.Object")) && (RBUS_OBJECT == type)) {
 

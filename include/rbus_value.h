@@ -83,13 +83,27 @@ typedef enum
 } rbusValueError_t;
 
 typedef struct _rbusTimeZone {
-    int m_tzhour;
-    int m_tzmin;
+    int64_t m_tzhour;
+    int64_t m_tzmin;
     bool m_isWest;
 } rbusTimeZone_t ;
 
+
+struct tm64
+{
+  int64_t tm_sec;			/* Seconds.	[0-60] (1 leap second) */
+  int64_t tm_min;			/* Minutes.	[0-59] */
+  int64_t tm_hour;			/* Hours.	[0-23] */
+  int64_t tm_mday;			/* Day.		[1-31] */
+  int64_t tm_mon;			/* Month.	[0-11] */
+  int64_t tm_year;			/* Year	- 1900.  */
+  int64_t tm_wday;			/* Day of week.	[0-6] */
+  int64_t tm_yday;			/* Days in year.[0-365]	*/
+  int64_t tm_isdst;			/* DST.		[-1/0/1]*/
+};
+
 typedef struct _rbusDateTime {
-    struct tm       m_time;
+    struct tm64       m_time;
     rbusTimeZone_t  m_tz;
 } rbusDateTime_t;
 
@@ -329,6 +343,22 @@ bool rbusValue_SetFromString(rbusValue_t value, rbusValueType_t type, const char
  *  @brief A debug utility function to write the value as a string to a file stream.
  */
 void rbusValue_fwrite(rbusValue_t obj, int depth, FILE* fout);
+
+
+
+/**
+ *  @brief Convert a local "struct tm" type to an explicit length version, which allows 64/32 bit platform message interchange
+ *  @param invalue An incoming struct tm
+ *  @param outvalue An outgoing explicit length time structure
+ */
+void rbusValue_MarshallTMtoRBUS(rbusDateTime_t* outvalue, struct tm* invalue);
+
+/**
+ *  @brief Convert an explicit length time structure to a local "struct tm", which allows 64/32 bit platform message interchange
+ *  @param invalue An incoming explicit length time structure
+ *  @param outvalue An outgoing struct tm
+ */
+void rbusValue_UnMarshallRBUStoTM(struct tm* outvalue, rbusDateTime_t* invalue);
 
 #ifdef __cplusplus
 }

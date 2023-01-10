@@ -196,6 +196,31 @@ void rbusValue_Releases(int count, ...)
     va_end(vl);
 }
 
+
+void rbusValue_MarshallTMtoRBUS(rbusDateTime_t* outvalue, struct tm* invalue){
+    outvalue->m_time.tm_sec =  (int64_t)invalue->tm_sec;
+    outvalue->m_time.tm_min =  (int64_t)invalue->tm_min;
+    outvalue->m_time.tm_hour =  (int64_t)invalue->tm_hour;
+    outvalue->m_time.tm_mday =  (int64_t)invalue->tm_mday;
+    outvalue->m_time.tm_mon =  (int64_t)invalue->tm_mon;
+    outvalue->m_time.tm_year =  (int64_t)invalue->tm_year;
+    outvalue->m_time.tm_wday =  (int64_t)invalue->tm_wday;
+    outvalue->m_time.tm_yday =  (int64_t)invalue->tm_yday;
+    outvalue->m_time.tm_isdst =  (int64_t)invalue->tm_isdst;
+}
+
+void rbusValue_UnMarshallRBUStoTM(struct tm* outvalue, rbusDateTime_t* invalue){
+    outvalue->tm_sec =  (int)invalue->m_time.tm_sec;
+    outvalue->tm_min =  (int)invalue->m_time.tm_min;
+    outvalue->tm_hour =  (int)invalue->m_time.tm_hour;
+    outvalue->tm_mday =  (int)invalue->m_time.tm_mday;
+    outvalue->tm_mon =  (int)invalue->m_time.tm_mon;
+    outvalue->tm_year =  (int)invalue->m_time.tm_year;
+    outvalue->tm_wday =  (int)invalue->m_time.tm_wday;
+    outvalue->tm_yday =  (int)invalue->m_time.tm_yday;
+    outvalue->tm_isdst =  (int)invalue->m_time.tm_isdst;
+}
+
 char* rbusValue_ToString(rbusValue_t v, char* buf, size_t buflen)
 {
     char* p = NULL;
@@ -340,14 +365,14 @@ char* rbusValue_ToString(rbusValue_t v, char* buf, size_t buflen)
             char tmpBuff[40] = {0}; /* 27 bytes is good enough; */
             if(v->d.tv.m_tz.m_tzhour || v->d.tv.m_tz.m_tzmin) {
                 if(v->d.tv.m_tz.m_isWest)
-                    snprintf(tmpBuff, 40, "-%02d:%02d",v->d.tv.m_tz.m_tzhour, v->d.tv.m_tz.m_tzmin);
+                    snprintf(tmpBuff, 40, "-%02"PRId64":%02"PRId64,v->d.tv.m_tz.m_tzhour, v->d.tv.m_tz.m_tzmin);
                 else
-                    snprintf(tmpBuff, 40, "+%02d:%02d",v->d.tv.m_tz.m_tzhour, v->d.tv.m_tz.m_tzmin);
+                    snprintf(tmpBuff, 40, "+%02"PRId64":%02"PRId64,v->d.tv.m_tz.m_tzhour, v->d.tv.m_tz.m_tzmin);
             } else {
                 snprintf(tmpBuff, 40, "Z");
             }
             if(0 == v->d.tv.m_time.tm_year) {
-                snprintf(p, n, "%04d-%02d-%02dT%02d:%02d:%02d%s", v->d.tv.m_time.tm_year,
+                snprintf(p, n, "%04"PRId64"-%02"PRId64"-%02"PRId64"T%02"PRId64":%02"PRId64":%02"PRId64"%s", v->d.tv.m_time.tm_year,
                                                                     v->d.tv.m_time.tm_mon,
                                                                     v->d.tv.m_time.tm_mday,
                                                                     v->d.tv.m_time.tm_hour,
@@ -358,7 +383,7 @@ char* rbusValue_ToString(rbusValue_t v, char* buf, size_t buflen)
                 /* tm_mon represents month from 0 to 11. So increment tm_mon by 1.
                    tm_year represents years since 1900. So add 1900 to tm_year.
                  */
-                snprintf(p, n, "%04d-%02d-%02dT%02d:%02d:%02d%s", v->d.tv.m_time.tm_year+1900,
+                snprintf(p, n, "%04"PRId64"-%02"PRId64"-%02"PRId64"T%02"PRId64":%02"PRId64":%02"PRId64"%s", v->d.tv.m_time.tm_year+1900,
                                                                     v->d.tv.m_time.tm_mon+1,
                                                                     v->d.tv.m_time.tm_mday,
                                                                     v->d.tv.m_time.tm_hour,
@@ -644,6 +669,7 @@ void rbusValue_SetTLV(rbusValue_t v, rbusValueType_t type, uint32_t length, void
 {
     VERIFY_NULL(v);
     VERIFY_NULL(value);
+
     switch(type)
     {
     /*Calling rbusValue_SetString/rbusValue_SetBuffer so the value's internal buffer is created.*/
@@ -905,8 +931,12 @@ int rbusValue_Compare(rbusValue_t v1, rbusValue_t v2)
         if(dt2.m_time.tm_min >= 60)
             dt2.m_time.tm_min -= 60;
 
-        time_t t1 = mktime(&dt1.m_time);
-        time_t t2 = mktime(&dt2.m_time);
+        struct tm t1m, t2m;
+        rbusValue_UnMarshallRBUStoTM(&t1m, &dt1);
+        rbusValue_UnMarshallRBUStoTM(&t2m, &dt2);
+
+        time_t t1 = mktime(&t1m);
+        time_t t2 = mktime(&t2m);
         double diffSecs = difftime(t1, t2);
 
         if(diffSecs == 0)
@@ -954,6 +984,7 @@ void rbusValue_Swap(rbusValue_t* v1, rbusValue_t* v2)
     *v1 = *v2;
     *v2 = tmp;
 }
+
 
 void rbusValue_Copy(rbusValue_t dest, rbusValue_t source)
 {
@@ -1169,28 +1200,30 @@ bool rbusValue_SetFromString(rbusValue_t value, rbusValueType_t type, const char
         }
     case RBUS_DATETIME:
         {
-            rbusDateTime_t tv = {{0},{0}};
+            struct tm tv;
+            rbusDateTime_t tvm = {{0},{0}};
             if(0 != strncmp(pStringInput,"0000-",5)) {
                 char *pRet = NULL;
                 if(strstr(pStringInput,"T"))
-                    pRet=(char *)strptime(pStringInput, "%Y-%m-%dT%H:%M:%S", &(tv.m_time));
+                    pRet=(char *)strptime(pStringInput, "%Y-%m-%dT%H:%M:%S", &(tv));
                 else
-                    pRet=(char *)strptime(pStringInput, "%Y-%m-%d %H:%M:%S", &(tv.m_time));
+                    pRet=(char *)strptime(pStringInput, "%Y-%m-%d %H:%M:%S", &(tv));
                 if(!pRet) {
                     RBUSLOG_INFO ("Invalid input string ");
                     return false;
                 }
+                rbusValue_MarshallTMtoRBUS(&tvm, &tv);
                 if((RBUS_TIMEZONE_LEN == strlen(pRet)) &&
                         (isdigit((int)pRet[1]) &&
                          isdigit((int)pRet[2]) &&
                          isdigit((int)pRet[4]) &&
                          isdigit((int)pRet[5]))
                   ) {
-                    tv.m_tz.m_isWest = ('-' == pRet[0]);
-                    sscanf(pRet+1,"%02d:%02d",&(tv.m_tz.m_tzhour), &(tv.m_tz.m_tzmin));
+                    tvm.m_tz.m_isWest = ('-' == pRet[0]);
+                    sscanf(pRet+1,"%02"PRId64":%02"PRId64,&(tvm.m_tz.m_tzhour), &(tvm.m_tz.m_tzmin));
                 }
             }
-            rbusValue_SetTime(value, &tv);
+            rbusValue_SetTime(value, &tvm);
         }
         break;
     case RBUS_PROPERTY:
