@@ -83,6 +83,8 @@ struct rbusAsyncRequest {
   char*                         method_name;
   rbusMethodAsyncRespHandler_t  method_handler;
   rbusObject_t                  method_params;
+
+  bool                          completed;
 };
 
 struct rbusAsyncResponse {
@@ -2665,6 +2667,7 @@ rbusError_t rbusHandle_New(rbusHandle_t* handle, rbusOptions_t const *opts)
         goto exit_error3;
     }
 
+    tmpHandle->busyWaitSleepDurationMillis = 1;
     tmpHandle->componentId = ++sLastComponentId;
     tmpHandle->connection = rbus_getConnection();
     tmpHandle->componentName = strdup(opts->component_name);
@@ -4900,6 +4903,10 @@ rbusError_t rbusMethod_Invoke(
     return rbusMethod_InvokeInternal(handle, methodName, inParams, outParams, rbusConfig_ReadSetTimeout());
 }
 
+static inline void rbusAsyncRequest_SetCompleted(rbusAsyncRequest_t req, bool b) {
+  req->completed = b;
+}
+
 static void rbusMethodCompletionHandlerImpl(rbusMessage res, rbusCoreError_t status, void* user_data);
 static void rbusMethodCompletionHandlerAdapter(void* user_data) {
   struct rbusEventLoopCallbackContext* ctx = (struct rbusEventLoopCallbackContext *) user_data;
@@ -4941,6 +4948,7 @@ void rbusMethodCompletionHandlerImpl(rbusMessage res, rbusCoreError_t core_statu
     if (rbus_res.props)
       rbusProperty_Release(rbus_res.props);
   }
+  rbusAsyncRequest_SetCompleted(req, true);
   rbusAsyncRequest_Release(req);
   rbusObject_Release(out_params);
 }
@@ -4965,6 +4973,7 @@ rbusError_t rbusMethod_InvokeAsync(
   req->method_handler = req->method_handler;
   rbusAsyncRequest_SetTimeout(req, timeout_millis);
   err = rbusMethod_InvokeAsyncEx(rbus, req);
+  rbusAsyncRequest_SetCompleted(req, true);
   rbusAsyncRequest_Release(req);
   return err;
 }
@@ -5531,6 +5540,7 @@ void rbusGetCompletionHandlerImpl(rbusMessage res, rbusCoreError_t status, void*
   rbus_res.user_data = req->user_data;
   if (req->completion_handler)
     req->completion_handler(req->rbus, &rbus_res);
+  rbusAsyncRequest_SetCompleted(req, true);
   rbusAsyncRequest_Release(req);
   rbusProperty_Release(rbus_res.props);
 }
@@ -5596,6 +5606,7 @@ void rbusSetCompletionHandlerImpl(rbusMessage res, rbusCoreError_t status, void*
   rbus_res.user_data = req->user_data;
   if (req->completion_handler)
     req->completion_handler(req->rbus, &rbus_res);
+  rbusAsyncRequest_SetCompleted(req, true);
   rbusAsyncRequest_Release(req);
 }
 
@@ -5689,6 +5700,7 @@ void rbusAsyncRequest_Reset(rbusAsyncRequest_t req)
   req->method_name = NULL;
   req->method_handler = NULL;
   req->method_params = NULL;
+  req->completed = false;
 }
 
 rbusError_t rbusAsyncRequest_Cancel(rbusAsyncRequest_t req)
@@ -5728,6 +5740,23 @@ rbusError_t rbusAsyncRequest_Cancel(rbusAsyncRequest_t req)
 rbusError_t rbusAsyncResponse_GetStatus(rbusAsyncResponse_t res)
 {
   return res->status;
+}
+
+rbusError_t rbusAsyncRequest_WaitUntil(rbusAsyncRequest_t req, int timeout_millis)
+{
+  rtTime_t start_time;
+  rtTime_Now(&start_time);
+  while (!req->completed) {
+    rtTime_t now;
+    rtTime_Now(&now);
+    if (rtTime_Elapsed(&start_time, &now) > timeout_millis)
+      return RBUS_ERROR_TIMEOUT;
+    // rbusHandle_RunOne returns RBUS_ERROR_TIMEOUT if queue is empty
+    rbusError_t internal_error = rbusHandle_RunOne(req->rbus);
+    if (internal_error == RBUS_ERROR_TIMEOUT)
+      usleep(1000 * req->rbus->busyWaitSleepDurationMillis);
+  }
+  return RBUS_ERROR_SUCCESS;
 }
 
 rbusProperty_t rbusAsyncResponse_GetProperty(rbusAsyncResponse_t res)

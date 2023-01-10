@@ -100,6 +100,8 @@ struct _rbusHandle
   bool                  useEventLoop;
 
   rbusValueChangeDetector_t valueChangeDetector;
+
+  uint32_t              busyWaitSleepDurationMillis;
 };
 
 void rbusHandleList_Add(struct _rbusHandle* handle);

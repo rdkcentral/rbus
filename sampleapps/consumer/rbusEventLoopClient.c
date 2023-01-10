@@ -140,6 +140,25 @@ int main(int argc, char* argv[])
   return 0;
 }
 
+
+void run_with_wait_example(rbusHandle_t rbus)
+{
+  while (true) {
+    rbusAutoPtr(rbusAsyncRequest) req = rbusAsyncRequest_New();
+    rbusAsyncRequest_AddProperty(req, rbusProperty_InitInt32("Examples.Property1", 0));
+    rbusAsyncRequest_SetCompletionHandler(req, get_callback);
+
+    rbusError_t err = rbusProperty_GetAsync(rbus, req);
+    if (err)
+      abort();
+
+    err = rbusAsyncRequest_WaitUntil(req, 5000);
+    printf("rbusAsyncRequest_WaitUntil:%s\n", rbusError_ToString(err));
+
+    sleep(1);
+  }
+}
+
 void get_callback(rbusHandle_t rbus, rbusAsyncResponse_t res)
 {
   (void) rbus;

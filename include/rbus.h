@@ -1742,6 +1742,8 @@ void rbusAsyncRequest_AddProperty(rbusAsyncRequest_t req, rbusProperty_t prop);
 void rbusAsyncRequest_SetMethodName(rbusAsyncRequest_t req, const char* method_name);
 void rbusAsyncRequest_SetMethodParameters(rbusAsyncRequest_t req, rbusProperty_t argv);
 void rbusAsyncRequest_Reset(rbusAsyncRequest_t req);
+rbusError_t rbusAsyncRequest_WaitUntil(rbusAsyncRequest_t req, int timeout_millis);
+
 
 void* rbusAsyncResponse_GetUserData(rbusAsyncResponse_t res);
 rbusProperty_t rbusAsyncResponse_GetProperty(rbusAsyncResponse_t res);
