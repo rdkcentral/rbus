@@ -441,6 +441,7 @@ static void dispatch_method_call(rbusMessage msg, const rtMessageHeader *hdr, se
     rbusMessage response = NULL;
     bool handler_invoked = false;
 
+    /* Fetch the context that was sent with the message */
     _rbusMessage_GetMetaInfo(msg, &method_name, &traceParent, &traceState);
     rbus_setOpenTelemetryContext(traceParent, traceState);
 
@@ -462,7 +463,9 @@ static void dispatch_method_call(rbusMessage msg, const rtMessageHeader *hdr, se
         if(obj->callback(hdr->topic, method_name, msg, obj->data, &response, hdr) == RBUSCORE_SUCCESS_ASYNC) //FIXME: potential for race
             return;/*provider will send response async later on*/
     }
-    
+    /* Clear the context for next method */
+    rbus_clearOpenTelemetryContext();
+
     rbus_sendResponse(hdr, response);
 }
 
