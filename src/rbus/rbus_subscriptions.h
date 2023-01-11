@@ -63,6 +63,7 @@ rbusSubscription_t* rbusSubscriptions_getSubscription(rbusSubscriptions_t subscr
 /*remove an existing subscription*/
 void rbusSubscriptions_removeSubscription(rbusSubscriptions_t subscriptions, rbusSubscription_t* sub);
 
+void rbusSubscriptions_getSubscriptionList(rbusHandle_t handle, rbusSubscriptions_t subscriptions, elementNode* node);
 /*call right after a new row is added*/
 void rbusSubscriptions_onTableRowAdded(rbusSubscriptions_t subscriptions, elementNode* node);
 
