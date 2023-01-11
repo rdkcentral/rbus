@@ -152,6 +152,54 @@ rbusSubscription_t* rbusSubscriptions_addSubscription(rbusSubscriptions_t subscr
     return sub;
 }
 
+void rbusSubscriptions_getSubscriptionList(rbusHandle_t handle, rbusSubscriptions_t subscriptions, elementNode* node)
+{
+    rtListItem item, next;
+    rbusError_t err;
+    char eventName[RBUS_MAX_NAME_LENGTH];
+    size_t size;
+    unsigned int count = 1;
+    rbusSubscription_t* sub;
+    int found;
+    struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
+    elementNode* el = NULL;
+    if(subscriptions)
+    {
+        rtList_GetFront(subscriptions->subList, &item);
+        rtList_GetSize(subscriptions->subList, &size);
+    }
+    while(item && (count <= size))
+    {
+        found = 0;
+        rtListItem_GetData(item, (void**)&sub);
+        if(sub)
+        {
+            if(strncmp(sub->eventName, node->fullName, strlen(node->fullName)) == 0)
+            {
+                strcpy(eventName, sub->eventName);
+                if(found == 0)
+                {
+                    el = retrieveInstanceElement(handleInfo->elementRoot, eventName);
+                    if(el)
+                    {
+                        rtListItem_GetNext(item, &next);
+                        rtList_RemoveItem(subscriptions->subList, item, NULL);
+                        err = subscribeHandlerImpl(handle, true, el, sub->eventName, sub->listener, sub->componentId, sub->interval, sub->duration, sub->filter);
+                        (void)err;
+                        subscriptionFree(sub);
+                    }
+                    item = next;
+                }
+                else
+                    rtListItem_GetNext(item, &item);
+            }
+            else
+                rtListItem_GetNext(item, &item);
+        }
+        count++;
+    }
+}
+
 /*get an existing subscription by searching for its unique key [eventName, listener, filter]*/
 rbusSubscription_t* rbusSubscriptions_getSubscription(rbusSubscriptions_t subscriptions, char const* listener, char const* eventName, int32_t componentId, rbusFilter_t filter)
 {

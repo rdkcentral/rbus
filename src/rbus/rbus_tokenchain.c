@@ -306,11 +306,14 @@ bool TokenChain_match(TokenChain* chain, elementNode* instNode)
             }
             else if(token->type == TokenAlias)
             {
-                rc = strcmp(inst->alias, token->text);
+                if(inst->alias)
+                {
+                    rc = strcmp(inst->alias, token->text);
 
-#               if DEBUG_TOKEN
-                RBUSLOG_INFO("%s DEBUG: aliases %s and %s %s", __FUNCTION__, inst->alias, token->text, rc==0 ? "match" : "don't match");
-#               endif
+#                   if DEBUG_TOKEN
+                    RBUSLOG_INFO("%s DEBUG: aliases %s and %s %s", __FUNCTION__, inst->alias, token->text, rc==0 ? "match" : "don't match");
+#                   endif
+		}
 
                 if(rc != 0)
                 {
