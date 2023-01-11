@@ -1800,7 +1800,7 @@ void validate_and_execute_subscribe_cmd (int argc, char *argv[], bool add, bool 
             {
                 publishOnSubscribe = set_publishOnSubscribe(argc, argv);
                 if(publishOnSubscribe == -1)
-                        goto exit_error;
+                    goto exit_error;
             }
         }
         else if (((relOp = find_filter(argv)) >= 0) && (argc < 7))
@@ -1819,9 +1819,7 @@ void validate_and_execute_subscribe_cmd (int argc, char *argv[], bool add, bool 
             {
                 publishOnSubscribe = set_publishOnSubscribe(argc, argv);
                 if(publishOnSubscribe == -1)
-                {
                     goto exit_error;
-                }
             }
         }
         else
@@ -1830,7 +1828,7 @@ void validate_and_execute_subscribe_cmd (int argc, char *argv[], bool add, bool 
             {
                 publishOnSubscribe = set_publishOnSubscribe(argc, argv);
                 if(publishOnSubscribe == -1)
-                        goto exit_error;
+                    goto exit_error;
             }
             else
             {
@@ -1841,12 +1839,12 @@ void validate_and_execute_subscribe_cmd (int argc, char *argv[], bool add, bool 
     else if(subinterval || argc > 6)
     {
 exit_error:
+        runSteps = __LINE__;
         printf ("Invalid arguments. Please see the help\n\r");
         rt_free(userData);
         return;
     }
 
-    runSteps = __LINE__;
     rbusEventSubscription_t subscription = {argv[2], filter, interval, duration, event_receive_handler, userData, NULL, NULL, publishOnSubscribe};
 
     /* Async will be TRUE only when add is TRUE */
