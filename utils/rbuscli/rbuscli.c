@@ -1719,6 +1719,17 @@ int find_filter(char *argv[])
        return -1;
 }
 
+bool set_publishOnSubscribe(int argc, char *argv[])
+{
+    bool publishOnSubscribe = false;
+
+    if (strncasecmp ("true", argv[argc - 1], 4) == 0)
+        publishOnSubscribe = true;
+    else if(strncasecmp ("false", argv[argc - 1], 5) == 0)
+        publishOnSubscribe = false;
+    return publishOnSubscribe;
+}
+
 void validate_and_execute_subscribe_cmd (int argc, char *argv[], bool add, bool isAsync)
 {
     rbusError_t rc = RBUS_ERROR_SUCCESS;
@@ -1772,13 +1783,29 @@ void validate_and_execute_subscribe_cmd (int argc, char *argv[], bool add, bool 
 
     if(argc > 3) /*filter*/
     {
-        if (subinterval)
+        if (subinterval && argc < 6)
         {
             interval = atoi(argv[3]);
             strcat(userData, " ");
             strcat(userData, argv[3]);
+            publishOnSubscribe = set_publishOnSubscribe(argc, argv);
+            if(!atoi(argv[3]))
+            {
+                goto exit_error;
+            }
+            if(argv[4] != NULL)
+            {
+                publishOnSubscribe = set_publishOnSubscribe(argc, argv);
+                if(!publishOnSubscribe)
+                {
+                    if(strncasecmp ("false", argv[argc - 1], 5) != 0)
+                    {
+                        goto exit_error;
+                    }
+                }
+            }
         }
-        else if ((relOp = find_filter(argv)) >= 0)
+        else if (((relOp = find_filter(argv)) >= 0) && (argc < 7))
         {
             strcat(userData, " ");
             strcat(userData, argv[3]);
@@ -1792,26 +1819,41 @@ void validate_and_execute_subscribe_cmd (int argc, char *argv[], bool add, bool 
             rbusFilter_InitRelation(&filter, relOp, filterValue);
             if(argv[5] != NULL)
             {
-                if(strncasecmp ("true", argv[5], 4) == 0)
+                publishOnSubscribe = set_publishOnSubscribe(argc, argv);
+                if(!publishOnSubscribe)
                 {
-                    if (strncasecmp ("true", argv[argc - 1], 4) == 0)
-                        publishOnSubscribe = true;
+                    if(strncasecmp ("false", argv[argc - 1], 5) != 0)
+                    {
+                        goto exit_error;
+                    }
                 }
             }
         }
         else
         {
-            if (strncasecmp ("true", argv[argc - 1], 4) == 0)
-                publishOnSubscribe = true;
-            else if(strncasecmp ("false", argv[argc - 1], 5) == 0)
-                publishOnSubscribe = false;
+            if(argc == 4)
+            {
+                publishOnSubscribe = set_publishOnSubscribe(argc, argv);
+                if(!publishOnSubscribe)
+                {
+                    if(strncasecmp ("false", argv[argc - 1], 5) != 0)
+                    {
+                        goto exit_error;
+                    }
+                }
+            }
             else
             {
-                printf ("Invalid arguments. Please see the help\n\r");
-                rt_free(userData);
-                return;
+                goto exit_error;
             }
         }
+    }
+    else if(subinterval || argc > 6)
+    {
+exit_error:
+        printf ("Invalid arguments. Please see the help\n\r");
+        rt_free(userData);
+        return;
     }
 
     runSteps = __LINE__;
