@@ -1800,7 +1800,7 @@ void validate_and_execute_subscribe_cmd (int argc, char *argv[], bool add, bool 
             {
                 publishOnSubscribe = set_publishOnSubscribe(argc, argv);
                 if(publishOnSubscribe == -1)
-                        goto exit_error;
+                    goto exit_error;
             }
         }
         else if (((relOp = find_filter(argv)) >= 0) && (argc < 7))
@@ -1819,9 +1819,7 @@ void validate_and_execute_subscribe_cmd (int argc, char *argv[], bool add, bool 
             {
                 publishOnSubscribe = set_publishOnSubscribe(argc, argv);
                 if(publishOnSubscribe == -1)
-                {
                     goto exit_error;
-                }
             }
         }
         else
@@ -1830,7 +1828,7 @@ void validate_and_execute_subscribe_cmd (int argc, char *argv[], bool add, bool 
             {
                 publishOnSubscribe = set_publishOnSubscribe(argc, argv);
                 if(publishOnSubscribe == -1)
-                        goto exit_error;
+                    goto exit_error;
             }
             else
             {
