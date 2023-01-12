@@ -110,6 +110,7 @@ static void* PublishingThreadFunc(void* rec)
     struct sRecord *sub_rec = (struct sRecord*)rec;
     int count = 0;
     int duration_count = 0;
+    bool duration_timeout = false;
     rbusCoreError_t error;
     rbusSubscription_t* sub = sub_rec->sub;
     struct _rbusHandle* handleInfo = (struct _rbusHandle*)sub_rec->handle;
@@ -129,15 +130,6 @@ static void* PublishingThreadFunc(void* rec)
             RBUSLOG_ERROR("Error %d:%s running command pthread_cond_timedwait", err, strerror(err));
         }
         
-        if (sub->duration != 0)
-        {
-            duration_count = sub->duration/sub->interval;
-            if (count >= duration_count)
-            {
-                break;
-            }
-        }
-
         rbusProperty_t property;
         rbusValue_t Val;
 
@@ -165,7 +157,18 @@ static void* PublishingThreadFunc(void* rec)
         event.name = rbusProperty_GetName(sub_rec->property);
         event.data = data;
         event.type = RBUS_EVENT_INTERVAL;
- 
+        /* Handling subscription with duration */
+        if (sub->duration != 0)
+        {
+            duration_count = sub->duration/sub->interval;
+            if (count >= duration_count)
+            {
+                /* Update event type after duration timeout*/
+                event.type = RBUS_EVENT_DURATION_COMPLETE;
+                duration_timeout = true;
+            }
+        }
+
         rbusMessage msg;
         rbusMessage_Init(&msg);
 
@@ -190,7 +193,15 @@ static void* PublishingThreadFunc(void* rec)
         /*update the record's property with new value*/
         rbusProperty_SetValue(sub_rec->property, rbusProperty_GetValue(property));
         rbusProperty_Release(property);
-        count++;
+
+        if (duration_timeout)
+        {
+            break;
+        }
+        else
+        {
+            count++;
+        }
     }
     ERROR_CHECK(pthread_mutex_unlock(&sub_rec->mutex));
     RBUSLOG_DEBUG("%s: stop\n", __FUNCTION__);
