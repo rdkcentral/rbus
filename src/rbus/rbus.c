@@ -1042,13 +1042,6 @@ static void registerTableRow (rbusHandle_t handle, elementNode* tableInstElem, c
         }
         if(handleInfo->subscriptions)
         {
-            if(aliasName)
-            {
-                strcat((char*)tableName, "[");
-                strcat((char*)tableName, aliasName);
-                strcat((char*)tableName, "]");
-                strcpy(rowElem->fullName, tableName);
-            }
             rbusSubscriptions_getSubscriptionList(handle, handleInfo->subscriptions, rowElem);
 	}
 
