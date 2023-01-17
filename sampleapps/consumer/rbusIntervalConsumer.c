@@ -28,9 +28,9 @@
 #include <getopt.h>
 #include <rbus.h>
 
-int runtime = 60;
+#define TEST_VALUE_CHNAGE 1
 #define PRINT_EVENT(EVENT, SUBSCRIPTION) \
-    printf("\n############################################################################\n" \
+    printf("\n-----------------------------------------------------------------\n" \
         " Event received in handler: %s\n" \
         " Subscription:\n" \
         "   eventName=%s\n" \
@@ -45,7 +45,9 @@ int runtime = 60;
             (EVENT)->type, \
             (EVENT)->name); \
     rbusObject_fwrite((EVENT)->data, 8, stdout); \
-    printf("\n############################################################################\n");
+    printf("\n=============================================================\n");
+
+rbusHandle_t g_handle;
 
 static void eventReceiveHandler1(
         rbusHandle_t handle,
@@ -53,8 +55,9 @@ static void eventReceiveHandler1(
         rbusEventSubscription_t* subscription)
 {
     (void)handle;
+    printf("\n => ReceiveHandleronsumer: %s\n", __FUNCTION__);
+    printf(" Consumer receiver Value event for param %s\n", event->name);
     PRINT_EVENT(event, subscription);
-    printf("Consumer receiver Value event for param %s fun: %s\n", event->name, __FUNCTION__);
 }
 
 static void eventReceiveHandler2(
@@ -63,57 +66,81 @@ static void eventReceiveHandler2(
         rbusEventSubscription_t* subscription)
 {
     (void)handle;
+    printf("\n => ReceiveHandleronsumer: %s\n", __FUNCTION__);
+    printf("Consumer receiver Value event for param %s \n", event->name);
     PRINT_EVENT(event, subscription);
-    printf("Consumer receiver Value event for param %s : %s\n", event->name, __FUNCTION__);
 }
 
+static void eventReceiveHandler3(
+        rbusHandle_t handle,
+        rbusEvent_t const* event,
+        rbusEventSubscription_t* subscription)
+{
+    (void)handle;
+    printf("\n => ReceiveHandleronsumer: %s\n", __FUNCTION__);
+    printf("Consumer receiver Value event for param %s\n", event->name);
+    PRINT_EVENT(event, subscription);
+    if (event->type == 6)
+    {
+        printf("\nConsumer received duration timeout event, unsubscribing it \n");
+        printf("*******************************************\n");
+        rbusEvent_UnsubscribeEx(g_handle, subscription, 1);
+    }
+}
+
+#if TEST_VALUE_CHNAGE
 static void valueChangeHandler(
         rbusHandle_t handle,
         rbusEvent_t const* event,
         rbusEventSubscription_t* subscription)
 {
-    printf("Consumer receiver ValueChange event for param %s: %s\n", event->name, __FUNCTION__);
+    printf("\n => ReceiveHandleronsumer: %s\n", __FUNCTION__);
+    printf("Consumer receiver ValueChange event for param %s\n", event->name);
     PRINT_EVENT(event, subscription);
 
     (void)handle;
 }
+#endif
 
 int main(int argc, char *argv[])
 {
     (void)(argc);
     (void)(argv);
 
-    rbusHandle_t handle;
     int rc = RBUS_ERROR_SUCCESS;
-    char* data[2] = { "My Data 1", "My Data2" };
+    char* data[3] = { "My Data 1", "My Data2", "My Data 3" };
     rbusEventSubscription_t subscription[] = {
         {"Device.Provider1.Param1", NULL, 10, 0, eventReceiveHandler1, data[0], NULL, NULL, false},
-        {"Device.Provider1.Param2", NULL, 14, 0, eventReceiveHandler2, data[1], NULL, NULL, false}
+        {"Device.Provider1.Param2", NULL, 14, 0, eventReceiveHandler2, data[1], NULL, NULL, false},
+        {"Device.Provider1.Param2", NULL, 10, 60, eventReceiveHandler3, data[2], NULL, NULL, false}
     };
 
-    rc = rbus_open(&handle, "EventIntervalConsumer");
+    rc = rbus_open(&g_handle, "EventIntervalConsumer");
     if(rc != RBUS_ERROR_SUCCESS)
     {
         printf("consumer: rbus_open failed: %d\n", rc);
         return -1;
     }
-
+#if TEST_VALUE_CHNAGE
     rc = rbusEvent_Subscribe(
-            handle,
+            g_handle,
             "Device.Provider1.Param1",
             valueChangeHandler,
             "My User Data",
             0);
     sleep(5);
-    rc = rbusEvent_SubscribeEx(handle, subscription, 2, 0);
-    sleep(100);
-    rbusEvent_UnsubscribeEx(handle, subscription, 2);
+#endif
+    rc = rbusEvent_SubscribeEx(g_handle, subscription, 3, 0);
+    sleep(180);
+    rbusEvent_UnsubscribeEx(g_handle, subscription, 2);
 
+#if TEST_VALUE_CHNAGE
     rbusEvent_Unsubscribe(
-        handle,
+        g_handle,
         "Device.Provider1.Param1");
+#endif
     printf("Rbus Closed!");
-    rbus_close(handle);
+    rbus_close(g_handle);
     return rc;
 }
 
