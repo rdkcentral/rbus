@@ -313,7 +313,7 @@ bool TokenChain_match(TokenChain* chain, elementNode* instNode)
 #                   if DEBUG_TOKEN
                     RBUSLOG_INFO("%s DEBUG: aliases %s and %s %s", __FUNCTION__, inst->alias, token->text, rc==0 ? "match" : "don't match");
 #                   endif
-		}
+                }
 
                 if(rc != 0)
                 {
