@@ -1908,31 +1908,34 @@ rbusCoreError_t rbus_discoverObjectElements(const char * object, int * count, ch
         {
             RBUSCORELOG_ERROR("rbus_GetElementsAddedByObject size missmatch");
         }
-
-        char **array_ptr = (char **)rt_try_malloc(size * sizeof(char *));
-        *count = size;
-        if (NULL != array_ptr)
-        {
-            *elements = array_ptr;
-            memset(array_ptr, 0, (length * sizeof(char *)));
-            for (i = 0; i < length; i++)
+        
+	if(size && length)
+	{
+            char **array_ptr = (char **)rt_try_malloc(size * sizeof(char *));
+            *count = size;
+            if (NULL != array_ptr)
             {
-                if ((RT_OK != rtMessage_GetStringItem(msg, RTM_DISCOVERY_ITEMS, i, &value)) || (NULL == (array_ptr[i] = strndup(value, MAX_OBJECT_NAME_LENGTH))))
+                *elements = array_ptr;
+                memset(array_ptr, 0, (length * sizeof(char *)));
+                for (i = 0; i < length; i++)
                 {
-                    for (int j = 0; j < i; j++)
-                        free(array_ptr[j]);
-                    free(array_ptr);
-                    RBUSCORELOG_ERROR("Read/Memory allocation failure");
-                    ret = RBUSCORE_ERROR_GENERAL;
-                    break;
+                    if ((RT_OK != rtMessage_GetStringItem(msg, RTM_DISCOVERY_ITEMS, i, &value)) || (NULL == (array_ptr[i] = strndup(value, MAX_OBJECT_NAME_LENGTH))))
+                    {
+                        for (int j = 0; j < i; j++)
+                            free(array_ptr[j]);
+                        free(array_ptr);
+                        RBUSCORELOG_ERROR("Read/Memory allocation failure");
+                        ret = RBUSCORE_ERROR_GENERAL;
+                        break;
+                    }
                 }
             }
-        }
-        else
-        {
-            RBUSCORELOG_ERROR("Memory allocation failure");
-            ret = RBUSCORE_ERROR_INSUFFICIENT_MEMORY;
-        }
+            else
+            {
+                RBUSCORELOG_ERROR("Memory allocation failure");
+                ret = RBUSCORE_ERROR_INSUFFICIENT_MEMORY;
+            }
+	}
 
         rtMessage_Release(msg);
 
