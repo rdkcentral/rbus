@@ -21,9 +21,9 @@
 
 APPNAME=Sample
 XML="../Sample_dm.xml"
-RBUS_INSTALL_DIR=../../../../../../
-INCS="-I./ -I../../src -I$RBUS_INSTALL_DIR/include/rbus -I$RBUS_INSTALL_DIR/include/rtmessage"
-LIBS="-L$RBUS_INSTALL_DIR/lib"
+RBUS_INSTALL_DIR=../../../../../install/
+INCS="-I./ -I../../src -I$RBUS_INSTALL_DIR/usr/include/rbus -I$RBUS_INSTALL_DIR/usr/include/rtmessage -I$RBUS_INSTALL_DIR/usr/include/"
+LIBS="-L$RBUS_INSTALL_DIR/usr/lib -lcjson"
 BUILD_SCRIPT="../../scripts/rbus_code_generator_ccsp_style.sh"
 PYTHON_SCRIPT="../../scripts/rbus_code_generator_ccsp_style.py"
 

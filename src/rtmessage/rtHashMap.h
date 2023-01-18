@@ -49,6 +49,9 @@ void rtHashMap_CreateEx(
 void rtHashMap_Destroy(rtHashMap hashmap);
 void rtHashMap_Set(rtHashMap hashmap, const void* key, const void* value);
 void* rtHashMap_Get(rtHashMap hashmap, const void* key);
+int rtHashMap_GetByIndex(rtHashMap hashmap, const void* key);
+int GetRowIndex(char const* path);
+size_t rtHashMap_Get_rtVector_Size(rtHashMap hashmap);
 size_t rtHashMap_GetSize(rtHashMap hashmap);
 int rtHashMap_Contains(rtHashMap hashmap, const void* key);
 int rtHashMap_Remove(rtHashMap hashmap, const void* key);

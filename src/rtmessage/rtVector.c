@@ -123,6 +123,21 @@ rtVector_RemoveItem(rtVector v, void* item, rtVector_Cleanup destroyer)
   return RT_OK;
 }
 
+void*
+rtVector_GetItemByCompare(rtVector v, const void* comparison, rtVector_Compare compare)
+{
+  size_t i;
+  void* vData=NULL;
+  for (i = 0; i < v->count; ++i)
+  {
+    if (compare(v->data[i], comparison) == 0)
+    {
+        vData =  v->data[i];
+    }
+  }
+  return vData;
+}
+
 rtError 
 rtVector_RemoveItemByCompare(rtVector v, const void* comparison, rtVector_Compare compare, rtVector_Cleanup destroyer)
 {

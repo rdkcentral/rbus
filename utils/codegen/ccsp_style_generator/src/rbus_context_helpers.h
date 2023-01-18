@@ -62,6 +62,13 @@ void* GetParentContext(char const* path);
  */
 void* GetRowContext(char const* path);
 
+/* void GetRowContextInstNum(char const* tableName, uint32_t* instNum)
+ * @brief      Get the instance number of row if writable table row exists
+ * @param      tableName        The path to the table name for the row to be added
+ * @param      instNum          Argument returns the current table index number to set next index
+ */
+void GetRowContextInstNum(char const* tableName, uint32_t* instNum);
+
 /* void SetRowContext(char const* tableName, uint32_t instNum, char const* alias, void* context)
  *  @brief      Set the context for a newly created row along with its instance number and any alias it might have
  *  @param      tableName       The path to the table the row was created in

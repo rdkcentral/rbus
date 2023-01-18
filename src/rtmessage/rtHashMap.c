@@ -26,11 +26,13 @@
 
 #define RTHASHMAP_INITSIZE 16
 #define RTHASHMAP_LOAD_FACTOR 0.75f
+#define RBUS_MAX_NAME_LENGTH 256
 
 typedef struct rtHashMapNode
 {
     const void* key;
     const void* value;
+    uint32_t lastTblIndex;
     rtHashMap hashmap;
 } rtHashMapNode;
 
@@ -220,8 +222,27 @@ static void rtHashMap_Resize(rtHashMap hashmap, int grow)
     rtLog_Debug("Hashmap resize %zu", rtVector_Size(hashmap->buckets));
 }
 
+int GetRowIndex(char const* path)
+{
+    int x=0;
+    char *p= NULL;
+    char buff[RBUS_MAX_NAME_LENGTH]={0} ;
+    snprintf(buff,RBUS_MAX_NAME_LENGTH,"%s", path);
+    if(buff[strlen(buff)-1] == '.'){
+        buff[strlen(buff)-1] = '\0';
+     }
+     p= (char*)buff + strlen((char*)buff);
+    while(p > buff && *(p-1) != '.')
+        p--;
+
+    x =atoi(p);
+    return x;
+}
+
 void rtHashMap_Set(rtHashMap hashmap, const void* key, const void* value)
 {
+    int keyIndex = GetRowIndex(key);
+
     rtVector bucket = rtHashMap_GetBucket(hashmap, key);
     rtHashMapNode* node = rtVector_Find(bucket, key, rtHashMap_Compare_Node);
     if(node)
@@ -239,6 +260,7 @@ void rtHashMap_Set(rtHashMap hashmap, const void* key, const void* value)
         }
         node = rt_try_malloc(sizeof(struct rtHashMapNode));
         node->hashmap = hashmap;
+        node->lastTblIndex =  (uint32_t)keyIndex;
         rtVector_PushBack(bucket, node);
         hashmap->size++;
     }
@@ -255,6 +277,21 @@ void* rtHashMap_Get(rtHashMap hashmap, const void* key)
         return NULL;
 }
 
+size_t rtHashMap_Get_rtVector_Size(rtHashMap hashmap)
+{
+  return rtVector_Size(hashmap->buckets);
+}
+
+int rtHashMap_GetByIndex(rtHashMap hashmap, const void* key)
+{
+    int ret = 0;
+    rtHashMapNode* node = rtVector_GetItemByCompare(rtHashMap_GetBucket(hashmap, key), key, rtHashMap_Compare_Node);
+    if (node)
+    {
+        ret = node->lastTblIndex;
+    }
+   return ret;
+}
 size_t rtHashMap_GetSize(rtHashMap hashmap)
 {
     return hashmap->size;
