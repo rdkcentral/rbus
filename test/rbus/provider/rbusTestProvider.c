@@ -309,7 +309,7 @@ rbusError_t createTableRowNode(Node* parent, char const* alias, uint32_t* instNu
 
             rtListItem_GetData(item, (void**)&child);
 
-            assert(child && child->type == RBUS_ELEMENT_TYPE_TABLE_ROW);
+            assert(child);
 
             if(child->type == RBUS_ELEMENT_TYPE_TABLE_ROW)
             {
