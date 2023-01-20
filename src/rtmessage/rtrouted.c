@@ -960,7 +960,7 @@ rtRouted_OnMessageDiscoverRegisteredComponents(rtConnectedClient* sender, rtMess
           for (i = 0; i < rtVector_Size(routes); i++)
           {
               rtRouteEntry* route = (rtRouteEntry *) rtVector_At(routes, i);
-              if((route->expression != NULL) && (strcmp(route->expression, "")) && ('_' != route->expression[0]))
+              if((route) && (strcmp(route->expression, "")) && ('_' != route->expression[0]))
               {
                   if(pass == 0)
                       counter++;
