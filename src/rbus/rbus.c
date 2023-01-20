@@ -448,6 +448,8 @@ rbusError_t rbusProperty_initFromMessage(rbusProperty_t* property, rbusMessage m
     err= rbusValue_initFromMessage(&value, msg);
     rbusProperty_SetValue(*property, value);
     rbusValue_Release(value);
+    if(name)
+        free((void*)name);
     return err;
 }
 
@@ -1182,6 +1184,8 @@ int _event_callback_handler (char const* objectName, char const* eventName, rbus
     (*handler)(subscription->handle, &event, subscription);
 
     rbusObject_Release(event.data);
+    if(filter)
+        rbusFilter_Release(filter);
 
     return 0;
 }
