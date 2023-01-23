@@ -73,6 +73,12 @@ add_executable(rbus_event_server rbus_test_util.c rbus_event_server.c)
 add_dependencies(rbus_event_server rbuscore)
 target_link_libraries(rbus_event_server rbuscore)
 
+if (BUILD_SESSIONMGR_SAMPLE_APPS)
+add_executable(sample_rbus_session_mgr sample_rbus_session_mgr.c)
+add_dependencies(sample_rbus_session_mgr rbus)
+target_link_libraries(sample_rbus_session_mgr rbus)
+endif (BUILD_SESSIONMGR_SAMPLE_APPS)
+
 enable_testing()
 
 add_executable(rbus_gtest.bin
@@ -108,7 +114,7 @@ else ()
     target_link_libraries(rbus_gtest.bin rbus gtest gcov)
 endif()
 
-install (TARGETS rbus_event_server rbus_test_server rbus_gtest.bin
+install (TARGETS rbus_event_server rbus_test_server rbus_gtest.bin sample_rbus_session_mgr
     RUNTIME DESTINATION bin)
 
 if (ENABLE_CODE_COVERAGE)
