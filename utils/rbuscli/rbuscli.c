@@ -788,6 +788,7 @@ void event_receive_handler(rbusHandle_t handle, rbusEvent_t const* event, rbusEv
     if(g_logEvents)
     {
         const char* stype = "";
+        bool duration_complete = false;
         switch(event->type)
         {
             case RBUS_EVENT_OBJECT_CREATED: stype = "RBUS_EVENT_OBJECT_CREATED";    break;
@@ -798,8 +799,7 @@ void event_receive_handler(rbusHandle_t handle, rbusEvent_t const* event, rbusEv
             case RBUS_EVENT_INTERVAL:       stype = "RBUS_EVENT_INTERVAL";          break;
             case RBUS_EVENT_DURATION_COMPLETE:
                                             stype = "RBUS_EVENT_DURATION_COMPLETE";
-                                            /*unsubscription*/
-                                            rbusEvent_UnsubscribeEx(g_busHandle, subscription, 1);
+                                            duration_complete = true;
                                             break;
         }
 
@@ -809,6 +809,9 @@ void event_receive_handler(rbusHandle_t handle, rbusEvent_t const* event, rbusEv
         printf("\n\r");
         if (subscription->userData)
             printf("User data: %s\n\r", (const char*)subscription->userData);
+        /*unsubscription*/
+        if (duration_complete)
+            rbusEvent_UnsubscribeEx(g_busHandle, subscription, 1);
     }
 }
 
@@ -1778,15 +1781,10 @@ void validate_and_execute_subscribe_cmd (int argc, char *argv[], bool add, bool 
     if(1)
     {
         userData = rt_calloc(1, 256);
-        if (matchCmd(argv[1], 4, "subinterval"))
+        if (matchCmd(argv[1], 4, "subinterval") || matchCmd(argv[1], 6, "unsubinterval"))
         {
             subinterval = true;
             strcat(userData, "subint ");
-        }
-        else if (matchCmd(argv[1], 6, "unsubinterval"))
-        {
-            subinterval = true;
-            strcat(userData, "unsubint ");
         }
         else
         {
