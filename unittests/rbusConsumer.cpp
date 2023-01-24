@@ -162,6 +162,7 @@ static int exec_rbus_set_test(rbusHandle_t handle, int expectedRc, const char *p
   {
     rbusValue_Init(&value);
     rc = rbus_set(handle, "test.params", value, NULL);
+    rbusValue_Release(value);
   }
   else
   {
@@ -941,7 +942,7 @@ int rbusConsumer(rbusGtest_t test, pid_t pid, int runtime)
       {
         const char *param = "Device.rbusProvider.Param2";
         isElementPresent(handle, param);
-        isElementPresent(handle, "Device.rbusProvider.PartialPath");
+        isElementPresent(handle, "Device.rbusProvider.PartialPath.");
         rc = exec_rbus_set_test(handle, RBUS_ERROR_SUCCESS, param, "register_row");
       }
       break;

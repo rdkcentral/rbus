@@ -82,21 +82,19 @@ rtLoggerSelection rtLog_GetOption();
 #define RT_PRINTF_FORMAT(IDX, FIRST)
 #endif
 
-void rtLogPrintf(rtLogLevel level, const char* file, int line, const char* format, ...) RT_PRINTF_FORMAT(4, 5);
+void rtLogPrintf(rtLogLevel level, const char* pModule, const char* file, int line, const char* format, ...) RT_PRINTF_FORMAT(5, 6);
 
-#ifdef ENABLE_RDKLOGGER
-#define rtLog_Debug(FORMAT,...)   do{if(rtLogGetLogHandler() || rtLog_GetOption() == RT_USE_RTLOGGER){rtLogPrintf(RT_LOG_DEBUG,__FILE__,__LINE__,FORMAT, ##__VA_ARGS__);}else{RDK_LOG(RDK_LOG_DEBUG,"LOG.RDK.RTMESSAGE",FORMAT"\n", ##__VA_ARGS__);}}while(0)
-#define rtLog_Info(FORMAT, ...)   do{if(rtLogGetLogHandler() || rtLog_GetOption() == RT_USE_RTLOGGER){rtLogPrintf(RT_LOG_INFO, __FILE__,__LINE__,FORMAT, ##__VA_ARGS__);}else{RDK_LOG(RDK_LOG_INFO, "LOG.RDK.RTMESSAGE",FORMAT"\n", ##__VA_ARGS__);}}while(0)
-#define rtLog_Warn(FORMAT, ...)   do{if(rtLogGetLogHandler() || rtLog_GetOption() == RT_USE_RTLOGGER){rtLogPrintf(RT_LOG_WARN, __FILE__,__LINE__,FORMAT, ##__VA_ARGS__);}else{RDK_LOG(RDK_LOG_WARN, "LOG.RDK.RTMESSAGE",FORMAT"\n", ##__VA_ARGS__);}}while(0)
-#define rtLog_Error(FORMAT, ...)  do{if(rtLogGetLogHandler() || rtLog_GetOption() == RT_USE_RTLOGGER){rtLogPrintf(RT_LOG_ERROR,__FILE__,__LINE__,FORMAT, ##__VA_ARGS__);}else{RDK_LOG(RDK_LOG_ERROR,"LOG.RDK.RTMESSAGE",FORMAT"\n", ##__VA_ARGS__);}}while(0)
-#define rtLog_Fatal(FORMAT, ...)  do{if(rtLogGetLogHandler() || rtLog_GetOption() == RT_USE_RTLOGGER){rtLogPrintf(RT_LOG_FATAL,__FILE__,__LINE__,FORMAT, ##__VA_ARGS__);}else{RDK_LOG(RDK_LOG_FATAL,"LOG.RDK.RTMESSAGE",FORMAT"\n", ##__VA_ARGS__);}}while(0)
-#else
-#define rtLog_Debug(FORMAT...) rtLogPrintf(RT_LOG_DEBUG, __FILE__, __LINE__, FORMAT)
-#define rtLog_Info(FORMAT...)  rtLogPrintf(RT_LOG_INFO,  __FILE__, __LINE__, FORMAT)
-#define rtLog_Warn(FORMAT...)  rtLogPrintf(RT_LOG_WARN,  __FILE__, __LINE__, FORMAT)
-#define rtLog_Error(FORMAT...) rtLogPrintf(RT_LOG_ERROR, __FILE__, __LINE__, FORMAT)
-#define rtLog_Fatal(FORMAT...) rtLogPrintf(RT_LOG_FATAL, __FILE__, __LINE__, FORMAT)
-#endif
+#define rtLog_DebugPrint(mod,FORMAT...)  rtLogPrintf(RT_LOG_DEBUG, mod,__FILE__, __LINE__, FORMAT)
+#define rtLog_InfoPrint(mod,FORMAT...)   rtLogPrintf(RT_LOG_INFO, mod, __FILE__, __LINE__, FORMAT)
+#define rtLog_WarnPrint(mod,FORMAT...)   rtLogPrintf(RT_LOG_WARN, mod, __FILE__, __LINE__, FORMAT)
+#define rtLog_ErrorPrint(mod,FORMAT...)  rtLogPrintf(RT_LOG_ERROR, mod, __FILE__, __LINE__, FORMAT)
+#define rtLog_FatalPrint(mod,FORMAT...)  rtLogPrintf(RT_LOG_FATAL, mod, __FILE__, __LINE__, FORMAT)
+
+#define rtLog_Debug(FORMAT,...) rtLog_DebugPrint("RTMESSAGE",FORMAT"\n", ##__VA_ARGS__)
+#define rtLog_Info(FORMAT,...)  rtLog_InfoPrint("RTMESSAGE",FORMAT"\n", ##__VA_ARGS__)
+#define rtLog_Warn(FORMAT,...)  rtLog_WarnPrint("RTMESSAGE",FORMAT"\n", ##__VA_ARGS__)
+#define rtLog_Error(FORMAT,...) rtLog_ErrorPrint("RTMESSAGE",FORMAT"\n", ##__VA_ARGS__)
+#define rtLog_Fatal(FORMAT,...) rtLog_FatalPrint("RTMESSAGE",FORMAT"\n", ##__VA_ARGS__)
 
 #ifdef __cplusplus
 }

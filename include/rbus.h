@@ -115,34 +115,18 @@ typedef enum _rbusError
     RBUS_ERROR_INVALID_EVENT,                   /**< Invalid Event            */
     RBUS_ERROR_INVALID_HANDLE,                  /**< Invalid Handle           */
     RBUS_ERROR_SESSION_ALREADY_EXIST,           /**< Session already opened   */
-    //Initialization error codes
     RBUS_ERROR_COMPONENT_NAME_DUPLICATE,        /**< Comp name already exists */
-    //Element Registration error codes
-    RBUS_ERROR_ELEMENT_NAME_DUPLICATE,          /**< One or more element name(s)
-                                                   were previously registered */
-    RBUS_ERROR_ELEMENT_NAME_MISSING,            /**< No names were provided in
-                                                   the name field             */
-    //Discovery operations error codes
-    RBUS_ERROR_COMPONENT_DOES_NOT_EXIST,        /**< A bus connection for this
-                                                   component name was not
-                                                   previously opened.         */
-    RBUS_ERROR_ELEMENT_DOES_NOT_EXIST,          /**< One or more data element
-                                                   name(s) do not currently have
-                                                   a valid registration       */
-    //Access Control error codes
-    RBUS_ERROR_ACCESS_NOT_ALLOWED,              /**< Access to the requested data
-                                                   element was not permitted by
-                                                   the provider component.    */
-    //Get Response Builder error codes
-    RBUS_ERROR_INVALID_CONTEXT,                 /**< The Context is not same as
-                                                    what was sent in the get
-                                                    callback handler.         */
-
+    RBUS_ERROR_ELEMENT_NAME_DUPLICATE,          /**< One or more element name(s) were previously registered */
+    RBUS_ERROR_ELEMENT_NAME_MISSING,            /**< No names were provided in the name field */
+    RBUS_ERROR_COMPONENT_DOES_NOT_EXIST,        /**< A bus connection for this component name was not previously opened. */
+    RBUS_ERROR_ELEMENT_DOES_NOT_EXIST,          /**< One or more data element name(s) do not currently have a valid registration */
+    RBUS_ERROR_ACCESS_NOT_ALLOWED,              /**< Access to the requested data element was not permitted by the provider component. */
+    RBUS_ERROR_INVALID_CONTEXT,                 /**< The Context is not same as what was sent in the get callback handler.*/
     RBUS_ERROR_TIMEOUT,                         /**< The operation timedout   */
     RBUS_ERROR_ASYNC_RESPONSE,                  /**< The method request will be handle asynchronously by provider */
     RBUS_ERROR_INVALID_METHOD,                  /**< Invalid Method           */
     RBUS_ERROR_NOSUBSCRIBERS,                   /**< No subscribers present   */
-    RBUS_ERROR_SUBSCRIPTION_ALREADY_EXIST        /**< The subscription already exists*/
+    RBUS_ERROR_SUBSCRIPTION_ALREADY_EXIST       /**< The subscription already exists*/
 } rbusError_t;
 
 
@@ -220,13 +204,13 @@ typedef enum
  */
 typedef enum
 {
-    RBUS_EVENT_OBJECT_CREATED, /**< Notification that an object instance 
-                                    was created in table. */
-    RBUS_EVENT_OBJECT_DELETED, /**< Notification that an object instance
-                                    was deleted in table. */
-    RBUS_EVENT_VALUE_CHANGED,  /**< Notification that a property value
-                                    was changed. */
-    RBUS_EVENT_GENERAL         /**< Provider defined event.*/
+    RBUS_EVENT_OBJECT_CREATED,   /**< Notification that an object instance was created in table. */
+    RBUS_EVENT_OBJECT_DELETED,   /**< Notification that an object instance was deleted in table. */
+    RBUS_EVENT_VALUE_CHANGED,    /**< Notification that a property value was changed. */
+    RBUS_EVENT_GENERAL,          /**< Provider defined event.*/
+    RBUS_EVENT_INITIAL_VALUE,    /**< Notification of initial value immediately after subscription*/
+    RBUS_EVENT_INTERVAL,         /**< For event with interval*/
+    RBUS_EVENT_DURATION_COMPLETE /**< For event with duration timeout*/
 } rbusEventType_t;
 
 /**
@@ -287,11 +271,11 @@ typedef struct _rbusEventSubscription
     rbusFilter_t        filter;     /** Optional filter that the client would like 
                                         the sender to apply before sending the event
                                       */
-    int32_t             interval;   /**< Total interval period after which
+    uint32_t             interval;   /**< Total interval period after which
                                          the event needs to be fired. Should
                                          be in multiples of minInterval
                                       */
-    uint32_t            duration;   /** Optional maximum duration in seconds until which 
+    uint32_t            duration;   /** Optional maximum duration in seconds until which
                                         the subscription should be in effect. Beyond this 
                                         duration, the event would be unsubscribed automatically. 
                                         Pass "0" for indefinite event subscription which requires 
@@ -301,6 +285,7 @@ typedef struct _rbusEventSubscription
     void*               userData;   /** The userData set when subscribing to the event. */
     rbusHandle_t        handle;     /** Private use only: The rbus handle associated with this subscription */
     rbusSubscribeAsyncRespHandler_t asyncHandler;/** Private use only: The async handler being used for any background subscription retries */
+    bool                publishOnSubscribe;
 } rbusEventSubscription_t;
 
 /** @} */

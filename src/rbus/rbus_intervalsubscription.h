@@ -16,16 +16,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
 */
-#ifndef __RBUS_CORE_LOG_H__
-#define __RBUS_CORE_LOG_H__
 
-#include <stdarg.h>
-#include "rtLog.h"
+#ifndef RBUS_INTERVAL_H
+#define RBUS_INTERVAL_H
 
-#define RBUSCORELOG_ERROR(format, ...)       rtLog_ErrorPrint("RBUSCORE", format"\n", ##__VA_ARGS__)
-#define RBUSCORELOG_WARN(format, ...)        rtLog_WarnPrint("RBUSCORE", format"\n", ##__VA_ARGS__)
-#define RBUSCORELOG_INFO(format, ...)        rtLog_InfoPrint("RBUSCORE", format"\n", ##__VA_ARGS__)
-#define RBUSCORELOG_DEBUG(format, ...)       rtLog_DebugPrint("RBUSCORE", format"\n", ##__VA_ARGS__)
-#define RBUSCORELOG_TRACE(format, ...)       rtLog_DebugPrint("RBUSCORE", format"\n", ##__VA_ARGS__)
+#include "rbus_subscriptions.h"
 
-#endif  // __RBUS_CORE_LOG_H__
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+rbusError_t rbusInterval_AddSubscriptionRecord(rbusHandle_t handle, elementNode* propNode, rbusSubscription_t* sub);
+void rbusInterval_RemoveSubscriptionRecord(rbusHandle_t handle, elementNode* propNode, rbusSubscription_t* sub);
+
+#ifdef __cplusplus
+}
+#endif
+#endif

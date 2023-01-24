@@ -61,7 +61,11 @@ typedef volatile int atomic_uint_least32_t;
 #include <sys/time.h>
 
 #define RTMSG_LISTENERS_MAX 64
+#ifdef  RDKC_BUILD
+#define RTMSG_SEND_BUFFER_SIZE (1024 * 8)
+#else
 #define RTMSG_SEND_BUFFER_SIZE (1024 * 64)
+#endif /* RDKC_BUILD */
 #ifndef SOL_TCP
 #define SOL_TCP 6
 #endif
@@ -1534,8 +1538,10 @@ rtConnection_Read(rtConnection con, int32_t timeout)
       if(msginfo->dataCapacity < msginfo->header.payload_length + 1)
       {
         msginfo->data = (uint8_t *)rt_try_malloc(msginfo->header.payload_length + 1);
-        if(!msginfo->data)
+        if(!msginfo->data){
+          rtMessageInfo_Release(msginfo);
           return rtErrorFromErrno(ENOMEM);
+        }
         msginfo->dataCapacity = msginfo->header.payload_length + 1;
       }
 

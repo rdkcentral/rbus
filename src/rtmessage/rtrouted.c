@@ -71,7 +71,11 @@
 #endif
 #define RTMSG_MAX_CONNECTED_CLIENTS 64
 #define RTMSG_CLIENT_MAX_TOPICS 64
+#ifdef  RDKC_BUILD
+#define RTMSG_CLIENT_READ_BUFFER_SIZE (1024 * 8)
+#else
 #define RTMSG_CLIENT_READ_BUFFER_SIZE (1024 * 64)
+#endif /* RDKC_BUILD */
 #define RTMSG_INVALID_FD -1
 #define RTMSG_MAX_EXPRESSION_LEN 128
 #define RTMSG_ADDR_MAX 128
@@ -549,7 +553,7 @@ rtRouted_SendMessage(rtMessageHeader * request_hdr, rtMessage message, rtConnect
 
   /*Find the route to populate control_id field.*/
   rtRouteEntry *route = NULL;
-  rtRoutingTree_GetTopicRoutes(routingTree, request_hdr->topic, &list, 0);
+  rtRoutingTree_GetTopicRoutes(routingTree, request_hdr->topic, &list);
   if(list)
   {
     rtList_GetFront(list, &item);
@@ -960,7 +964,7 @@ rtRouted_OnMessageDiscoverRegisteredComponents(rtConnectedClient* sender, rtMess
           for (i = 0; i < rtVector_Size(routes); i++)
           {
               rtRouteEntry* route = (rtRouteEntry *) rtVector_At(routes, i);
-              if((route->expression != NULL) && (strcmp(route->expression, "")) && ('_' != route->expression[0]))
+              if((route) && (strcmp(route->expression, "")) && ('_' != route->expression[0]))
               {
                   if(pass == 0)
                       counter++;
@@ -1146,7 +1150,7 @@ rtRouted_OnMessageDiscoverElementObjects(rtConnectedClient* sender, rtMessageHea
           rtList routes;
           rtListItem item;
           int set = 0;
-          rtRoutingTree_GetTopicRoutes(routingTree, expression, &routes, 1);
+          rtRoutingTree_GetTopicRoutes(routingTree, expression, &routes);
           if(routes)
           {
             size_t count;
@@ -1456,7 +1460,7 @@ rtRouter_DispatchMessageFromClient(rtConnectedClient* clnt)
   START_TRACKING();
 dispatch:
 
-  rtRoutingTree_GetTopicRoutes(routingTree, clnt->header.topic, &list, 0);
+  rtRoutingTree_GetTopicRoutes(routingTree, clnt->header.topic, &list);
   if(list)
   {
     rtList_GetFront(list, &item);

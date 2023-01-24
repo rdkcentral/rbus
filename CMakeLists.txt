@@ -22,10 +22,10 @@ cmake_minimum_required (VERSION 2.8.12)
 
 if (POLICY CMP0048)
   cmake_policy(SET CMP0048 NEW)
-  project(rbus VERSION 2.0.0)
+  project(rbus VERSION 2.0.2)
 else ()
   project(rbus)
-  set(PROJECT_VERSION "2.0.0")
+  set(PROJECT_VERSION "2.0.2")
 endif (POLICY CMP0048)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/")
@@ -156,19 +156,19 @@ if (BUILD_FOR_DESKTOP)
 
 else()
   find_package(cJSON REQUIRED)
-  if (NOT BUILD_ONLY_RTMESSAGE)
+  IF (NOT BUILD_ONLY_RTMESSAGE)
    find_package(msgpack REQUIRED)
    find_package(linenoise REQUIRED)
-  endif (BUILD_ONLY_RTMESSAGE)
+  ENDIF ()
 
   set(INCLUDE_DIR ${CMAKE_INSTALL_PREFIX}/include)
   set(LIBRARY_DIR ${CMAKE_INSTALL_PREFIX}/lib)
 
   include_directories(${CMAKE_CURRENT_SOURCE_DIR})
   include_directories(${CJSON_INCLUDE_DIRS})
-  if (NOT BUILD_ONLY_RTMESSAGE)
+  IF (NOT BUILD_ONLY_RTMESSAGE)
    include_directories(${MSGPACK_INCLUDE_DIRS})
-  endif (BUILD_ONLY_RTMESSAGE)
+  ENDIF ()
 
   link_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
@@ -247,11 +247,10 @@ endif (ENABLE_RDKLOGGER)
 
 add_subdirectory(src)
 
-if (BUILD_ONLY_RTMESSAGE)
-else()
+IF (NOT BUILD_ONLY_RTMESSAGE)
    add_subdirectory(utils)
    add_subdirectory(test)
-endif (BUILD_ONLY_RTMESSAGE)
+ENDIF ()
 
 if(BUILD_RBUS_SAMPLE_APPS)
     add_subdirectory(sampleapps)

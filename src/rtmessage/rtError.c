@@ -99,7 +99,10 @@ rtError rtErrorGetLastError()
   rtError current = 0;
   rtErrorThreadSpecific* specific = getThreadSpecific();
   if (specific)
+  {
     current = specific->last_error;
+    free(specific);
+  }
   return current;
 }
 
@@ -119,7 +122,7 @@ const char* rtStrError_SystemError(int e)
   // TODO: The below #ifdef is not the best approach. @see man strerror_r and
   // /usr/include/string.h for proper check of which version of strerror_r is 
   // available. Need to check for osx portability also
-  if (specific && specific->error_message)
+  if (specific)
   {
     #ifdef __linux__
     int n = strerror_r(e, specific->error_message, 256);

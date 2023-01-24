@@ -88,7 +88,7 @@ target_link_libraries(rtMessage -pthread ${CJSON_LIBRARIES})
 
 if (ENABLE_RDKLOGGER)
     add_dependencies(rtMessage rdklogger)
-    target_link_libraries(rtMessage -lrdkloggers)
+    target_link_libraries(rtMessage ${RDKLOGGER_LIBRARIES})
 endif (ENABLE_RDKLOGGER)
 
 if (OPENSSL_REQUIRED)
@@ -107,12 +107,9 @@ if (BUILD_RBUS_DAEMON)
     target_link_libraries(rtrouted rtMessage)
 
     if (INCLUDE_BREAKPAD)
-      add_dependencies(rtrouted breakpad)
-      if (RDKC_BUILD)
-        target_link_libraries(rtrouted -lbreakpadwrap)
-      else ()
-        target_link_libraries(rtrouted -lbreakpadwrapper)
-      endif (RDKC_BUILD)
+	find_package(breakpad REQUIRED)
+	add_dependencies(rtrouted breakpad)
+	target_link_libraries(rtrouted ${BREAKPAD_LIBRARIES})
     endif (INCLUDE_BREAKPAD)
 
     # rtrouted_diag

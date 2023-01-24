@@ -219,6 +219,13 @@ rtError rbusMessage_GetInt32(rbusMessage const message, int32_t* value)
     return RT_OK;
 }
 
+rtError rbusMessage_GetUInt32(rbusMessage const message, uint32_t* value)
+{
+    VERIFY_UNPACK2(MSGPACK_OBJECT_POSITIVE_INTEGER, MSGPACK_OBJECT_NEGATIVE_INTEGER);
+    *value = (uint32_t)message->upk.data.via.i64;
+    return RT_OK;
+}
+
 rtError rbusMessage_SetInt64(rbusMessage message, int64_t value)
 {
     VERIFY_PACK(int64);

@@ -70,6 +70,10 @@ typedef enum _rbuscore_bus_status
 #define METHOD_DELETETBLROW "METHOD_DELETETBLROW"
 #define METHOD_RPC "METHOD_RPC"
 #define METHOD_RESPONSE "METHOD_RESPONSE"
+#define METHOD_SUBSCRIBE "METHOD_SUBSCRIBE"
+#define METHOD_UNSUBSCRIBE "METHOD_UNSUBSCRIBE"
+/*#define METHOD_SUBSCRIBE "_subscribe"
+#define METHOD_UNSUBSCRIBE "_unsubscribe"*/
 #define METHOD_MAX "METHOD_MAX"
 
 /*Message fields defined by rtwrapper*/
