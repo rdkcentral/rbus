@@ -83,27 +83,27 @@ typedef enum
 } rbusValueError_t;
 
 typedef struct _rbusTimeZone {
-    int64_t m_tzhour;
-    int64_t m_tzmin;
+    int32_t m_tzhour;
+    int32_t m_tzmin;
     bool m_isWest;
 } rbusTimeZone_t ;
 
 
-struct tm64
+struct tm32
 {
-  int64_t tm_sec;			/* Seconds.	[0-60] (1 leap second) */
-  int64_t tm_min;			/* Minutes.	[0-59] */
-  int64_t tm_hour;			/* Hours.	[0-23] */
-  int64_t tm_mday;			/* Day.		[1-31] */
-  int64_t tm_mon;			/* Month.	[0-11] */
-  int64_t tm_year;			/* Year	- 1900.  */
-  int64_t tm_wday;			/* Day of week.	[0-6] */
-  int64_t tm_yday;			/* Days in year.[0-365]	*/
-  int64_t tm_isdst;			/* DST.		[-1/0/1]*/
+  int32_t tm_sec;			/* Seconds.	[0-60] (1 leap second) */
+  int32_t tm_min;			/* Minutes.	[0-59] */
+  int32_t tm_hour;			/* Hours.	[0-23] */
+  int32_t tm_mday;			/* Day.		[1-31] */
+  int32_t tm_mon;			/* Month.	[0-11] */
+  int32_t tm_year;			/* Year	- 1900.  */
+  int32_t tm_wday;			/* Day of week.	[0-6] */
+  int32_t tm_yday;			/* Days in year.[0-365]	*/
+  int32_t tm_isdst;			/* DST.		[-1/0/1]*/
 };
 
 typedef struct _rbusDateTime {
-    struct tm64       m_time;
+    struct tm32       m_time;
     rbusTimeZone_t  m_tz;
 } rbusDateTime_t;
 

@@ -198,15 +198,15 @@ void rbusValue_Releases(int count, ...)
 
 
 void rbusValue_MarshallTMtoRBUS(rbusDateTime_t* outvalue, struct tm* invalue){
-    outvalue->m_time.tm_sec =  (int64_t)invalue->tm_sec;
-    outvalue->m_time.tm_min =  (int64_t)invalue->tm_min;
-    outvalue->m_time.tm_hour =  (int64_t)invalue->tm_hour;
-    outvalue->m_time.tm_mday =  (int64_t)invalue->tm_mday;
-    outvalue->m_time.tm_mon =  (int64_t)invalue->tm_mon;
-    outvalue->m_time.tm_year =  (int64_t)invalue->tm_year;
-    outvalue->m_time.tm_wday =  (int64_t)invalue->tm_wday;
-    outvalue->m_time.tm_yday =  (int64_t)invalue->tm_yday;
-    outvalue->m_time.tm_isdst =  (int64_t)invalue->tm_isdst;
+    outvalue->m_time.tm_sec =  (int32_t)invalue->tm_sec;
+    outvalue->m_time.tm_min =  (int32_t)invalue->tm_min;
+    outvalue->m_time.tm_hour =  (int32_t)invalue->tm_hour;
+    outvalue->m_time.tm_mday =  (int32_t)invalue->tm_mday;
+    outvalue->m_time.tm_mon =  (int32_t)invalue->tm_mon;
+    outvalue->m_time.tm_year =  (int32_t)invalue->tm_year;
+    outvalue->m_time.tm_wday =  (int32_t)invalue->tm_wday;
+    outvalue->m_time.tm_yday =  (int32_t)invalue->tm_yday;
+    outvalue->m_time.tm_isdst =  (int32_t)invalue->tm_isdst;
 }
 
 void rbusValue_UnMarshallRBUStoTM(struct tm* outvalue, rbusDateTime_t* invalue){
@@ -365,14 +365,14 @@ char* rbusValue_ToString(rbusValue_t v, char* buf, size_t buflen)
             char tmpBuff[40] = {0}; /* 27 bytes is good enough; */
             if(v->d.tv.m_tz.m_tzhour || v->d.tv.m_tz.m_tzmin) {
                 if(v->d.tv.m_tz.m_isWest)
-                    snprintf(tmpBuff, 40, "-%02"PRId64":%02"PRId64,v->d.tv.m_tz.m_tzhour, v->d.tv.m_tz.m_tzmin);
+                    snprintf(tmpBuff, 40, "-%02d:%02d",v->d.tv.m_tz.m_tzhour, v->d.tv.m_tz.m_tzmin);
                 else
-                    snprintf(tmpBuff, 40, "+%02"PRId64":%02"PRId64,v->d.tv.m_tz.m_tzhour, v->d.tv.m_tz.m_tzmin);
+                    snprintf(tmpBuff, 40, "+%02d:%02d",v->d.tv.m_tz.m_tzhour, v->d.tv.m_tz.m_tzmin);
             } else {
                 snprintf(tmpBuff, 40, "Z");
             }
             if(0 == v->d.tv.m_time.tm_year) {
-                snprintf(p, n, "%04"PRId64"-%02"PRId64"-%02"PRId64"T%02"PRId64":%02"PRId64":%02"PRId64"%s", v->d.tv.m_time.tm_year,
+                snprintf(p, n, "%04d-%02d-%02dT%02d:%02d:%02d%s", v->d.tv.m_time.tm_year,
                                                                     v->d.tv.m_time.tm_mon,
                                                                     v->d.tv.m_time.tm_mday,
                                                                     v->d.tv.m_time.tm_hour,
@@ -383,7 +383,7 @@ char* rbusValue_ToString(rbusValue_t v, char* buf, size_t buflen)
                 /* tm_mon represents month from 0 to 11. So increment tm_mon by 1.
                    tm_year represents years since 1900. So add 1900 to tm_year.
                  */
-                snprintf(p, n, "%04"PRId64"-%02"PRId64"-%02"PRId64"T%02"PRId64":%02"PRId64":%02"PRId64"%s", v->d.tv.m_time.tm_year+1900,
+                snprintf(p, n, "%04d-%02d-%02dT%02d:%02d:%02d%s", v->d.tv.m_time.tm_year+1900,
                                                                     v->d.tv.m_time.tm_mon+1,
                                                                     v->d.tv.m_time.tm_mday,
                                                                     v->d.tv.m_time.tm_hour,
@@ -1220,7 +1220,7 @@ bool rbusValue_SetFromString(rbusValue_t value, rbusValueType_t type, const char
                          isdigit((int)pRet[5]))
                   ) {
                     tvm.m_tz.m_isWest = ('-' == pRet[0]);
-                    sscanf(pRet+1,"%02"PRId64":%02"PRId64,&(tvm.m_tz.m_tzhour), &(tvm.m_tz.m_tzmin));
+                    sscanf(pRet+1,"%02d:%02d",&(tvm.m_tz.m_tzhour), &(tvm.m_tz.m_tzmin));
                 }
             }
             rbusValue_SetTime(value, &tvm);
