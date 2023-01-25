@@ -804,16 +804,27 @@ static rbusError_t WritableTable2_GetParamStringValue_rbus(rbusHandle_t handle, 
 
 rbusError_t WritableTable2_Validate(void* ctx)
 {
+    DmlStaticRecord* record = (DmlStaticRecord*)ctx;
+    if(strcmp(record->halData.stringVal, "TESTROLLBACK") == 0)
+        return RBUS_ERROR_INVALID_INPUT;
     return RBUS_ERROR_SUCCESS;
 }
 
 rbusError_t WritableTable2_Commit(void* ctx)
 {
+    DmlWritableRecord* record = (DmlWritableRecord*)ctx;
+    uint32_t id = record - staticRecords;
+    Hal_SetWritableRecord(id, &record->halData);
+    record->dirty = false;
     return RBUS_ERROR_SUCCESS;
 }
 
 rbusError_t WritableTable2_Rollback(void* ctx)
 {
+    DmlWritableRecord* record = (DmlWritableRecord*)ctx;
+    uint32_t id = record - staticRecords;
+    Hal_GetWritableRecord(id, &record->halData);
+    record->dirty = false;
     return RBUS_ERROR_SUCCESS;
 }
 
@@ -861,7 +872,7 @@ rbusError_t WritableTable2_SetParamBoolValue_rbus(rbusHandle_t handle, rbusPrope
 
     if(opts->commit)
     {
-      return do_WritableTable_Validate_WritableTable_Commit_WritableTable_Rollback(context.userData);
+      return do_WritableTable2_Validate_WritableTable2_Commit_WritableTable2_Rollback(context.userData);
     }
 
     return RBUS_ERROR_SUCCESS;
@@ -893,7 +904,7 @@ rbusError_t WritableTable2_SetParamIntValue_rbus(rbusHandle_t handle, rbusProper
 
     if(opts->commit)
     {
-      return do_WritableTable_Validate_WritableTable_Commit_WritableTable_Rollback(context.userData);
+      return do_WritableTable2_Validate_WritableTable2_Commit_WritableTable2_Rollback(context.userData);
     }
 
     return RBUS_ERROR_SUCCESS;
@@ -925,7 +936,7 @@ rbusError_t WritableTable2_SetParamUlongValue_rbus(rbusHandle_t handle, rbusProp
 
     if(opts->commit)
     {
-      return do_WritableTable_Validate_WritableTable_Commit_WritableTable_Rollback(context.userData);
+      return do_WritableTable2_Validate_WritableTable2_Commit_WritableTable2_Rollback(context.userData);
     }
 
     return RBUS_ERROR_SUCCESS;
@@ -959,6 +970,322 @@ rbusError_t WritableTable2_SetParamStringValue_rbus(rbusHandle_t handle, rbusPro
     if(opts->commit)
     {
       return do_WritableTable2_Validate_WritableTable2_Commit_WritableTable2_Rollback(context.userData);
+    }
+
+    return RBUS_ERROR_SUCCESS;
+}
+
+void* WritableTable3_AddEntry(void* ctx, uint32_t* instNum)
+{
+    int index;
+    writableRecordCount = Hal_AddWritableRecord();
+    index = writableRecordCount-1;
+    if(writableRecords)
+    {
+        writableRecords = realloc(writableRecords, sizeof(DmlWritableRecord) * writableRecordCount);
+        memset(&writableRecords[index], 0, sizeof(DmlWritableRecord));
+        *instNum = writableRecords[index].instNum = (*instNum)++;
+    }
+    else
+    {
+        writableRecords = malloc(sizeof(DmlWritableRecord) * writableRecordCount);
+        memset(&writableRecords[index], 0, sizeof(DmlWritableRecord));
+        *instNum = writableRecords[index].instNum = writableRecordNextInstNum++;
+    }
+
+    return &writableRecords[index];
+}
+
+static rbusError_t WritableTable3_AddEntry_rbus(rbusHandle_t handle, char const* tableName, char const* aliasName, uint32_t* instNum)
+{
+    uint32_t setInst = 0;
+    char path[RBUS_MAX_NAME_LENGTH]="";
+
+    HandlerContext context = GetTableContext(tableName);
+    sprintf(path,"%s",context.fullName);
+    GetRowContextInstNum(path,&setInst);
+    *instNum = setInst+1;
+
+    void* rowContext = WritableTable3_AddEntry(context.userData, instNum);
+    if(!rowContext)
+    {
+        rtLog_Error("WritableTable3_AddEntry returned null row context");
+        return RBUS_ERROR_BUS_ERROR;
+    }
+
+    SetRowContext(context.fullName, *instNum, aliasName, rowContext);
+    return RBUS_ERROR_SUCCESS;
+}
+
+rbusError_t WritableTable3_DelEntry(void* ctx, void* inst)
+{
+    return RBUS_ERROR_SUCCESS;
+}
+
+static rbusError_t WritableTable3_DelEntry_rbus(rbusHandle_t handle, char const* rowName)
+{
+    HandlerContext context = GetHandlerContext(rowName);
+    void* rowContext = GetRowContext(context.fullName);
+    int rc = WritableTable3_DelEntry(context.userData, rowContext);
+    if(rc != RBUS_ERROR_SUCCESS)
+    {
+        rtLog_Error("WritableTable3_DelEntry failed");
+        return RBUS_ERROR_BUS_ERROR;
+    }
+
+    RemoveRowContextByName(context.fullName);
+    return RBUS_ERROR_SUCCESS;
+}
+
+static rbusError_t WritableTable3_GetParamBoolValue_rbus(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t* opts)
+{
+    HandlerContext context = GetPropertyContext(property);
+    DmlWritableRecord* record = (DmlWritableRecord*)context.userData;
+    if(!record)
+        return RBUS_ERROR_INVALID_INPUT;
+
+    if(strcmp(context.name, "BoolParam3") == 0)
+    {
+        rbusProperty_SetBoolean(property, record->halData.boolVal);
+    }
+    else
+    {
+        rtLog_Error("WritableTable3_GetParamBoolValue_rbus failed");
+        return RBUS_ERROR_INVALID_INPUT;
+    }
+
+    return RBUS_ERROR_SUCCESS;
+}
+
+static rbusError_t WritableTable3_GetParamIntValue_rbus(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t* opts)
+{
+    HandlerContext context = GetPropertyContext(property);
+    DmlWritableRecord* record = (DmlWritableRecord*)context.userData;
+    if(!record)
+        return RBUS_ERROR_INVALID_INPUT;
+
+    if(strcmp(context.name, "IntParam3") == 0)
+    {
+        rbusProperty_SetInt32(property, record->halData.intVal);
+    }
+    else
+    {
+        rtLog_Error("WritableTable3_GetParamIntValue_rbus failed");
+        return RBUS_ERROR_INVALID_INPUT;
+    }
+
+    return RBUS_ERROR_SUCCESS;
+}
+
+static rbusError_t WritableTable3_GetParamUlongValue_rbus(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t* opts)
+{
+    HandlerContext context = GetPropertyContext(property);
+    DmlWritableRecord* record = (DmlWritableRecord*)context.userData;
+    if(!record)
+        return RBUS_ERROR_INVALID_INPUT;
+
+    if(strcmp(context.name, "UlongParam3") == 0)
+    {
+        rbusProperty_SetUInt32(property, record->halData.ulongVal);
+    }
+    else
+    {
+        rtLog_Error("WritableTable3_GetParamUlongValue_rbus failed");
+        return RBUS_ERROR_INVALID_INPUT;
+    }
+
+    return RBUS_ERROR_SUCCESS;
+}
+
+static rbusError_t WritableTable3_GetParamStringValue_rbus(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t* opts)
+{
+    HandlerContext context = GetPropertyContext(property);
+    DmlWritableRecord* record = (DmlWritableRecord*)context.userData;
+    if(!record)
+        return RBUS_ERROR_INVALID_INPUT;
+
+    if(strcmp(context.name, "StringParam3") == 0)
+    {
+        rbusProperty_SetString(property, record->halData.stringVal);
+    }
+    else
+    {
+        rtLog_Error("WritableTable3_GetParamStringValue_rbus failed");
+        return RBUS_ERROR_INVALID_INPUT;
+    }
+
+    return RBUS_ERROR_SUCCESS;
+}
+
+rbusError_t WritableTable3_Validate(void* ctx)
+{
+    DmlStaticRecord* record = (DmlStaticRecord*)ctx;
+    if(strcmp(record->halData.stringVal, "TESTROLLBACK") == 0)
+        return RBUS_ERROR_INVALID_INPUT;
+    return RBUS_ERROR_SUCCESS;
+}
+
+rbusError_t WritableTable3_Commit(void* ctx)
+{
+    DmlWritableRecord* record = (DmlWritableRecord*)ctx;
+    uint32_t id = record - staticRecords;
+    Hal_SetWritableRecord(id, &record->halData);
+    record->dirty = false;
+    return RBUS_ERROR_SUCCESS;
+}
+
+rbusError_t WritableTable3_Rollback(void* ctx)
+{
+    DmlWritableRecord* record = (DmlWritableRecord*)ctx;
+    uint32_t id = record - staticRecords;
+    Hal_GetWritableRecord(id, &record->halData);
+    record->dirty = false;
+    return RBUS_ERROR_SUCCESS;
+}
+
+rbusError_t do_WritableTable3_Validate_WritableTable3_Commit_WritableTable3_Rollback(void* context)
+{
+    if(WritableTable3_Validate(context) == 0)
+    {
+        if(WritableTable3_Commit(context) == 0)
+            return RBUS_ERROR_SUCCESS;
+        else
+            return RBUS_ERROR_BUS_ERROR;
+    }
+    else
+    {
+        if(WritableTable3_Rollback(context) == 0)
+            return RBUS_ERROR_INVALID_INPUT;
+        else
+            return RBUS_ERROR_BUS_ERROR;  
+    }
+}
+
+rbusError_t WritableTable3_SetParamBoolValue_rbus(rbusHandle_t handle, rbusProperty_t property, rbusSetHandlerOptions_t* opts)
+{
+    HandlerContext context = GetPropertyContext(property);
+    DmlWritableRecord* record = (DmlWritableRecord*)context.userData;
+    if(!record)
+        return RBUS_ERROR_INVALID_INPUT;
+
+    if(strcmp(context.name, "BoolParam3") == 0)
+    {
+      bool val;
+
+        rbusValueError_t verr = rbusProperty_GetBooleanEx(property, &val);
+        if(verr != RBUS_VALUE_ERROR_SUCCESS)
+            return RBUS_ERROR_INVALID_INPUT;
+
+        record->halData.boolVal = val;
+        record->dirty = true;
+    }
+    else
+    {
+        rtLog_Error("WritableTable3_SetParamBoolValue_rbus failed");
+        return RBUS_ERROR_INVALID_INPUT;
+    }
+    
+    if(opts->commit)
+    {
+      return do_WritableTable3_Validate_WritableTable3_Commit_WritableTable3_Rollback(context.userData);
+    }
+
+    return RBUS_ERROR_SUCCESS;
+}
+
+rbusError_t WritableTable3_SetParamIntValue_rbus(rbusHandle_t handle, rbusProperty_t property, rbusSetHandlerOptions_t* opts)
+{
+    HandlerContext context = GetPropertyContext(property);
+    DmlWritableRecord* record = (DmlWritableRecord*)context.userData;
+    if(!record)
+        return RBUS_ERROR_INVALID_INPUT;
+
+    if(strcmp(context.name, "IntParam3") == 0)
+    {
+        int32_t val;
+
+        rbusValueError_t verr = rbusProperty_GetInt32Ex(property, &val);
+        if(verr != RBUS_VALUE_ERROR_SUCCESS)
+            return RBUS_ERROR_INVALID_INPUT;
+
+        record->halData.intVal = val;
+        record->dirty = true;
+    }
+    else
+    {
+        rtLog_Error("WritableTable3_SetParamIntValue_rbus failed");
+        return RBUS_ERROR_INVALID_INPUT;
+    }
+
+    if(opts->commit)
+    {
+      return do_WritableTable3_Validate_WritableTable3_Commit_WritableTable3_Rollback(context.userData);
+    }
+
+    return RBUS_ERROR_SUCCESS;
+
+}
+
+rbusError_t WritableTable3_SetParamUlongValue_rbus(rbusHandle_t handle, rbusProperty_t property, rbusSetHandlerOptions_t* opts)
+{
+    HandlerContext context = GetPropertyContext(property);
+    DmlWritableRecord* record = (DmlWritableRecord*)context.userData;
+    if(!record)
+        return RBUS_ERROR_INVALID_INPUT;
+
+    if(strcmp(context.name, "UlongParam3") == 0)
+    {
+      uint32_t val;
+
+        rbusValueError_t verr = rbusProperty_GetUInt32Ex(property, &val);
+        if(verr != RBUS_VALUE_ERROR_SUCCESS)
+            return RBUS_ERROR_INVALID_INPUT;
+
+        record->halData.ulongVal = val;
+        record->dirty = true;
+    }
+    else
+    {
+        rtLog_Error("WritableTable3_SetParamUlongValue_rbus failed");
+        return RBUS_ERROR_INVALID_INPUT;
+    }
+    
+    if(opts->commit)
+    {
+      return do_WritableTable3_Validate_WritableTable3_Commit_WritableTable3_Rollback(context.userData);
+    }
+
+    return RBUS_ERROR_SUCCESS;
+}
+
+rbusError_t WritableTable3_SetParamStringValue_rbus(rbusHandle_t handle, rbusProperty_t property, rbusSetHandlerOptions_t* opts)
+{
+    HandlerContext context = GetPropertyContext(property);
+    DmlWritableRecord* record = (DmlWritableRecord*)context.userData;
+    if(!record)
+        return RBUS_ERROR_INVALID_INPUT;
+
+    if(strcmp(context.name, "StringParam3") == 0)
+    {
+       const char* val;
+        int len;
+        
+        rbusValueError_t verr = rbusProperty_GetStringEx(property, &val, &len);
+        if(verr != RBUS_VALUE_ERROR_SUCCESS || len >= HAL_MAX_STR_LEN)
+            return RBUS_ERROR_INVALID_INPUT;
+            
+        strncpy(record->halData.stringVal, val, HAL_MAX_STR_LEN);
+        record->dirty = true;
+    }
+    else
+    {
+        rtLog_Error("WritableTable3_SetParamStringValue_rbus failed");
+        return RBUS_ERROR_INVALID_INPUT;
+    }
+    
+    if(opts->commit)
+    {
+      return do_WritableTable3_Validate_WritableTable3_Commit_WritableTable3_Rollback(context.userData);
     }
 
     return RBUS_ERROR_SUCCESS;
@@ -1337,7 +1664,7 @@ static rbusError_t DynamicTable_GetParamStringValue_rbus(rbusHandle_t handle, rb
 rbusError_t registerGeneratedDataElements(rbusHandle_t handle)
 {
     rbusError_t rc;
-    static rbusDataElement_t dataElements[25] = {
+    static rbusDataElement_t dataElements[30] = {
         {"Device.Sample.BoolParam", RBUS_ELEMENT_TYPE_PROPERTY, {Sample_GetParamBoolValue_rbus, Sample_SetParamBoolValue_rbus, NULL, NULL, NULL, NULL}},
         {"Device.Sample.IntParam", RBUS_ELEMENT_TYPE_PROPERTY, {Sample_GetParamIntValue_rbus, Sample_SetParamIntValue_rbus, NULL, NULL, NULL, NULL}},
         {"Device.Sample.UlongParam", RBUS_ELEMENT_TYPE_PROPERTY, {Sample_GetParamUlongValue_rbus, Sample_SetParamUlongValue_rbus, NULL, NULL, NULL, NULL}},
@@ -1353,6 +1680,11 @@ rbusError_t registerGeneratedDataElements(rbusHandle_t handle)
         {"Device.Sample.WritableTable.{i}.WritableTable2.{i}.IntParam2", RBUS_ELEMENT_TYPE_PROPERTY, {WritableTable2_GetParamIntValue_rbus, WritableTable2_SetParamIntValue_rbus, NULL, NULL, NULL, NULL}},
         {"Device.Sample.WritableTable.{i}.WritableTable2.{i}.UlongParam2", RBUS_ELEMENT_TYPE_PROPERTY, {WritableTable2_GetParamUlongValue_rbus, WritableTable2_SetParamUlongValue_rbus, NULL, NULL, NULL, NULL}},
         {"Device.Sample.WritableTable.{i}.WritableTable2.{i}.StringParam2", RBUS_ELEMENT_TYPE_PROPERTY, {WritableTable2_GetParamStringValue_rbus, WritableTable2_SetParamStringValue_rbus, NULL, NULL, NULL, NULL}},
+        {"Device.Sample.WritableTable.{i}.WritableTable3.{i}.", RBUS_ELEMENT_TYPE_TABLE, {NULL, NULL, WritableTable3_AddEntry_rbus, WritableTable3_DelEntry_rbus, NULL, NULL}},
+        {"Device.Sample.WritableTable.{i}.WritableTable3.{i}.BoolParam3", RBUS_ELEMENT_TYPE_PROPERTY, {WritableTable3_GetParamBoolValue_rbus, WritableTable3_SetParamBoolValue_rbus, NULL, NULL, NULL, NULL}},
+        {"Device.Sample.WritableTable.{i}.WritableTable3.{i}.IntParam3", RBUS_ELEMENT_TYPE_PROPERTY, {WritableTable3_GetParamIntValue_rbus, WritableTable3_SetParamIntValue_rbus, NULL, NULL, NULL, NULL}},
+        {"Device.Sample.WritableTable.{i}.WritableTable3.{i}.UlongParam3", RBUS_ELEMENT_TYPE_PROPERTY, {WritableTable3_GetParamUlongValue_rbus, WritableTable3_SetParamUlongValue_rbus, NULL, NULL, NULL, NULL}},
+        {"Device.Sample.WritableTable.{i}.WritableTable3.{i}.StringParam3", RBUS_ELEMENT_TYPE_PROPERTY, {WritableTable3_GetParamStringValue_rbus, WritableTable3_SetParamStringValue_rbus, NULL, NULL, NULL, NULL}},
         {"Device.Sample.StaticTable.{i}.", RBUS_ELEMENT_TYPE_TABLE, {NULL, NULL, NULL, NULL, NULL, NULL}},
         {"Device.Sample.StaticTable.{i}.BoolParam", RBUS_ELEMENT_TYPE_PROPERTY, {StaticTable_GetParamBoolValue_rbus, StaticTable_SetParamBoolValue_rbus, NULL, NULL, NULL, NULL}},
         {"Device.Sample.StaticTable.{i}.IntParam", RBUS_ELEMENT_TYPE_PROPERTY, {StaticTable_GetParamIntValue_rbus, StaticTable_SetParamIntValue_rbus, NULL, NULL, NULL, NULL}},
@@ -1364,7 +1696,7 @@ rbusError_t registerGeneratedDataElements(rbusHandle_t handle)
         {"Device.Sample.DynamicTable.{i}.UlongParam", RBUS_ELEMENT_TYPE_PROPERTY, {DynamicTable_GetParamUlongValue_rbus, NULL, NULL, NULL, NULL, NULL}},
         {"Device.Sample.DynamicTable.{i}.StringParam", RBUS_ELEMENT_TYPE_PROPERTY, {DynamicTable_GetParamStringValue_rbus, NULL, NULL, NULL, NULL, NULL}}
     };
-    rc = rbus_regDataElements(handle, 25, dataElements);
+    rc = rbus_regDataElements(handle, 30, dataElements);
     if(rc != RBUS_ERROR_SUCCESS)
     {
         rtLog_Error("rbus_regDataElements failed");

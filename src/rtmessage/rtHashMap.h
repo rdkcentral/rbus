@@ -31,6 +31,13 @@ extern "C" {
 struct _rtHashMap;
 typedef struct _rtHashMap* rtHashMap;
 
+typedef struct rtHashMapNode
+{
+    const void* key;
+    const void* value;
+    rtHashMap hashmap;
+} rtHashMapNode;
+
 typedef uint32_t (*rtHashMap_Hash_Func)(rtHashMap, const void*);
 typedef int (*rtHashMap_Compare_Func)(const void *, const void *);
 typedef const void* (*rtHashMap_Copy_Func)(const void *);
@@ -49,8 +56,7 @@ void rtHashMap_CreateEx(
 void rtHashMap_Destroy(rtHashMap hashmap);
 void rtHashMap_Set(rtHashMap hashmap, const void* key, const void* value);
 void* rtHashMap_Get(rtHashMap hashmap, const void* key);
-int rtHashMap_GetByIndex(rtHashMap hashmap, const void* key);
-int GetRowIndex(char const* path);
+rtHashMapNode* rtHashMap_GetByIndex(rtHashMap hashmap, const void* key);
 size_t rtHashMap_Get_rtVector_Size(rtHashMap hashmap);
 size_t rtHashMap_GetSize(rtHashMap hashmap);
 int rtHashMap_Contains(rtHashMap hashmap, const void* key);

@@ -117,17 +117,39 @@ void* GetRowContext(char const* path)
     return rtHashMap_Get(gContextMaps.row, path);
 }
 
+int GetRowIndex(char const* path)
+{
+    int x=0;
+    char *p= NULL;
+    char buff[RBUS_MAX_NAME_LENGTH]={0} ;
+    snprintf(buff,RBUS_MAX_NAME_LENGTH,"%s", path);
+    if(buff[strlen(buff)-1] == '.'){
+        buff[strlen(buff)-1] = '\0';
+    }
+    p= (char*)buff + strlen((char*)buff);
+    while(p > buff && *(p-1) != '.')
+        p--;
+
+    x =atoi(p);
+    return x;
+}
 
 void GetRowContextInstNum(char const* tableName, uint32_t* instNum)
 {
     char rowName[RBUS_MAX_NAME_LENGTH]="";
     int temp=0;
+    int ret=0;
     while (*instNum < rtHashMap_Get_rtVector_Size(gContextMaps.row))
     {
         sprintf(rowName, "%s%u", ConvertPath(tableName), *instNum);
-        int ret = rtHashMap_GetByIndex(gContextMaps.row, ConvertPath(rowName));
-        if (ret)
-            temp = ret;
+        rtHashMapNode* node = rtHashMap_GetByIndex(gContextMaps.row, ConvertPath(rowName));
+        if(node)
+        {
+           const void* key = node->key;
+           ret = GetRowIndex(key);
+           if (ret)
+               temp = ret;
+        }
         *instNum = *instNum+1;
     }
     *instNum = temp;

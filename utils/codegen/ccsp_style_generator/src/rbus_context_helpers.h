@@ -62,6 +62,12 @@ void* GetParentContext(char const* path);
  */
 void* GetRowContext(char const* path);
 
+/* int GetRowIndex(char const* path)
+ * @brief      Get the instance number of row from node->key value of a writable table
+ * @param      path        The path to the writable table full name
+ */
+int GetRowIndex(char const* path);
+
 /* void GetRowContextInstNum(char const* tableName, uint32_t* instNum)
  * @brief      Get the instance number of row if writable table row exists
  * @param      tableName        The path to the table name for the row to be added
