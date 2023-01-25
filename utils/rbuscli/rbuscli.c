@@ -2836,6 +2836,7 @@ int main( int argc, char *argv[] )
             {
                 linenoiseHistoryAdd(line);
 
+                memset(interArgv, 0, sizeof(interArgv));
                 if(construct_input_into_cmds(line, &interArgc, interArgv) == 0)
                 {
                     int i;
