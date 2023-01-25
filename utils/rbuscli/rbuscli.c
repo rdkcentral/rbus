@@ -788,7 +788,6 @@ void event_receive_handler(rbusHandle_t handle, rbusEvent_t const* event, rbusEv
     if(g_logEvents)
     {
         const char* stype = "";
-        bool duration_complete = false;
         switch(event->type)
         {
             case RBUS_EVENT_OBJECT_CREATED: stype = "RBUS_EVENT_OBJECT_CREATED";    break;
@@ -797,10 +796,7 @@ void event_receive_handler(rbusHandle_t handle, rbusEvent_t const* event, rbusEv
             case RBUS_EVENT_GENERAL:        stype = "RBUS_EVENT_GENERAL";           break;
             case RBUS_EVENT_INITIAL_VALUE:  stype = "RBUS_EVENT_INITIAL_VALUE";     break;
             case RBUS_EVENT_INTERVAL:       stype = "RBUS_EVENT_INTERVAL";          break;
-            case RBUS_EVENT_DURATION_COMPLETE:
-                                            stype = "RBUS_EVENT_DURATION_COMPLETE";
-                                            duration_complete = true;
-                                            break;
+            case RBUS_EVENT_DURATION_COMPLETE: stype = "RBUS_EVENT_DURATION_COMPLETE"; break;
         }
 
         printf("Event received %s of type %s\n\r", event->name, stype);
@@ -809,9 +805,6 @@ void event_receive_handler(rbusHandle_t handle, rbusEvent_t const* event, rbusEv
         printf("\n\r");
         if (subscription->userData)
             printf("User data: %s\n\r", (const char*)subscription->userData);
-        /*unsubscription*/
-        if (duration_complete)
-            rbusEvent_UnsubscribeEx(g_busHandle, subscription, 1);
     }
 }
 
