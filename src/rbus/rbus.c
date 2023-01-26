@@ -1120,11 +1120,6 @@ static int _event_subscribe_callback_handler(char const* object,  char const* ev
         RBUSLOG_DEBUG("%s: found element of type %d", __FUNCTION__, el->type);
 
         err = subscribeHandlerImpl(handle, added, el, eventName, listener, componentId, interval, duration, filter);
-
-        if(filter)
-        {
-            rbusFilter_Release(filter);
-        }
     }
     else
     {
@@ -2322,17 +2317,18 @@ static void _subscribe_callback_handler (rbusHandle_t handle, rbusMessage reques
                     rbusMessage_SetInt32(*response, 1); /* Based on this value initial value will be published to the consumer in
                                                            rbusEvent_SubscribeWithRetries() function call */
                     rbusEventData_appendToMessage(&event, filter, interval, duration, handleInfo->componentId, *response);
-                    if(filter)
-                    {
-                        rbusFilter_Release(filter);
-                    }
-
                     rbusProperty_Release(tmpProperties);
                     rbusObject_Release(data);
                 }
             }
             if(payload)
+            {
+                if(filter)
+                {
+                    rbusFilter_Release(filter);
+                }
                 rbusMessage_Release(payload);
+            }
         }
     }
 }
