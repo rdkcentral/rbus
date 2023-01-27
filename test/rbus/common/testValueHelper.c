@@ -31,6 +31,7 @@
 #include <float.h>
 #include <unistd.h>
 #include <rbus.h>
+#include "rbus_value.h"
 #include "testValueHelper.h"
 
 TestValueProperty gTestData[] = {
@@ -124,9 +125,9 @@ void TestValueProperties_Init(TestValueProperty** list)
     rbusValue_SetDouble(gTestData[10].values[1], 999999999999999.1);
     rbusValue_SetDouble(gTestData[10].values[2], 3.141592653589793);
 
-    memcpy(&(rbus_time[0].m_time), localtime(&nowtime[0]),sizeof(struct tm));
-    memcpy(&(rbus_time[1].m_time), localtime(&nowtime[1]),sizeof(struct tm));
-    memcpy(&(rbus_time[2].m_time), localtime(&nowtime[2]),sizeof(struct tm));
+    rbusValue_MarshallTMtoRBUS(&rbus_time[0], localtime(&nowtime[0]));
+    rbusValue_MarshallTMtoRBUS(&rbus_time[0], localtime(&nowtime[1]));
+    rbusValue_MarshallTMtoRBUS(&rbus_time[0], localtime(&nowtime[2]));
 
     rbusValue_SetTime(gTestData[11].values[0], &rbus_time[0]);
     rbusValue_SetTime(gTestData[11].values[1], &rbus_time[1]);

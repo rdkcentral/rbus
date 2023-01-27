@@ -36,6 +36,7 @@
 #include <math.h>
 #include "../common/test_macros.h"
 #include <rtMemory.h>
+#include "rbus_value.h"
 
 int getDurationValueAPI()
 {
@@ -427,7 +428,8 @@ void testValue_Time()
 
     printf("%s\n",__FUNCTION__);
 
-    memcpy(&(tv1.m_time), localtime(&nowtime),sizeof(struct tm));
+    rbusValue_MarshallTMtoRBUS(&tv1, localtime(&nowtime));
+    //memcpy(&(tv1.m_time), localtime(&nowtime),sizeof(struct tm));
     rbusValue_SetTime(val, &tv1);
     TEST(rbusValue_GetType(val)==RBUS_DATETIME);
     tv2 = rbusValue_GetTime(val);
@@ -435,7 +437,8 @@ void testValue_Time()
 
     sleep(1);
     /*test replacing time works*/
-    memcpy(&(tv1.m_time), localtime(&nowtime),sizeof(struct tm));
+    //memcpy(&(tv1.m_time), localtime(&nowtime),sizeof(struct tm));
+    rbusValue_MarshallTMtoRBUS(&tv1, localtime(&nowtime));
     rbusValue_SetTime(val, &tv1);
     tv2 = rbusValue_GetTime(val);
     TEST(memcmp(&tv1, tv2, sizeof(rbusDateTime_t)) == 0);
@@ -586,6 +589,7 @@ void testValue_Bytes()
     rbusValue_Release(v2);\
 }
 
+
 void testValue_Compare()
 {
     rbusValue_t v1;
@@ -600,7 +604,7 @@ void testValue_Compare()
 
     time(&tnow);
     tlocal = localtime(&tnow);
-    rbus_time.m_time = *tlocal;
+    rbusValue_MarshallTMtoRBUS(&rbus_time, tlocal);
     rbus_time.m_tz.m_tzhour = 5;
     rbus_time.m_tz.m_tzmin = 0;
     rbus_time.m_tz.m_isWest = true;
@@ -833,7 +837,8 @@ void testValue_Buffer()
                 time_t tnow;
                 time(&tnow);
                 struct tm* tlocal = localtime(&tnow);
-                rbus_time.m_time = *tlocal;
+                //rbus_time.m_time = *tlocal;
+                rbusValue_MarshallTMtoRBUS(&rbus_time, tlocal);
                 rbus_time.m_tz.m_tzhour = 5;
                 rbus_time.m_tz.m_tzmin = 0;
                 rbus_time.m_tz.m_isWest = true;
@@ -923,7 +928,7 @@ void testValue_TLV()
             case RBUS_SINGLE: rbusValue_SetSingle(valIn, 3.141592653589793f); break;
             case RBUS_DOUBLE: rbusValue_SetDouble(valIn, 3.141592653589793); break;
             case RBUS_DATETIME:
-                              memcpy(&(rbus_time.m_time), localtime(&nowtime),sizeof(struct tm));
+                              rbusValue_MarshallTMtoRBUS(&rbus_time, localtime(&nowtime));
                               rbusValue_SetTime(valIn, &rbus_time);
                 break;
             case RBUS_STRING: rbusValue_SetString(valIn, "This is a string"); break;
@@ -1271,7 +1276,8 @@ void testValue_Print()
             rbusValue_SetDouble(v, 3.141592653589793);
             break;
         case RBUS_DATETIME:
-            memcpy(&(rbus_time.m_time), localtime(&nowtime),sizeof(struct tm));
+            //memcpy(&(rbus_time.m_time), localtime(&nowtime),sizeof(struct tm));
+            rbusValue_MarshallTMtoRBUS(&rbus_time, localtime(&nowtime));
             rbusValue_SetTime(v, &rbus_time);
             break;
         case RBUS_STRING:
@@ -1307,7 +1313,7 @@ void testValue_InitType()
 
     printf("%s\n",__FUNCTION__);
 
-    memcpy(&(tv1.m_time), localtime(&nowtime),sizeof(struct tm));
+    rbusValue_MarshallTMtoRBUS(&tv1, localtime(&nowtime));
     rbusProperty_Init(&prop, "MyProp", NULL);
     rbusObject_Init(&obj, "MyObj");
 
