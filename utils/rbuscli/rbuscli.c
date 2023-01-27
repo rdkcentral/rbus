@@ -796,11 +796,7 @@ void event_receive_handler(rbusHandle_t handle, rbusEvent_t const* event, rbusEv
             case RBUS_EVENT_GENERAL:        stype = "RBUS_EVENT_GENERAL";           break;
             case RBUS_EVENT_INITIAL_VALUE:  stype = "RBUS_EVENT_INITIAL_VALUE";     break;
             case RBUS_EVENT_INTERVAL:       stype = "RBUS_EVENT_INTERVAL";          break;
-            case RBUS_EVENT_DURATION_COMPLETE:
-                                            stype = "RBUS_EVENT_DURATION_COMPLETE";
-                                            /*unsubscription*/
-                                            rbusEvent_UnsubscribeEx(g_busHandle, subscription, 1);
-                                            break;
+            case RBUS_EVENT_DURATION_COMPLETE: stype = "RBUS_EVENT_DURATION_COMPLETE"; break;
         }
 
         printf("Event received %s of type %s\n\r", event->name, stype);
@@ -911,12 +907,12 @@ void execute_discover_component_cmd(int argc, char* argv[])
                 printf ("\tComponent %d: %s\n\r", (i + 1), pComponentNames[i]);
                 free(pComponentNames[i]);
             }
+            free(pComponentNames);
         }
         else
         {
             printf ("\tNone\n\r");
         }
-        free(pComponentNames);
     }
     else
     {
@@ -1778,15 +1774,10 @@ void validate_and_execute_subscribe_cmd (int argc, char *argv[], bool add, bool 
     if(1)
     {
         userData = rt_calloc(1, 256);
-        if (matchCmd(argv[1], 4, "subinterval"))
+        if (matchCmd(argv[1], 4, "subinterval") || matchCmd(argv[1], 6, "unsubinterval"))
         {
             subinterval = true;
             strcat(userData, "subint ");
-        }
-        else if (matchCmd(argv[1], 6, "unsubinterval"))
-        {
-            subinterval = true;
-            strcat(userData, "unsubint ");
         }
         else
         {
