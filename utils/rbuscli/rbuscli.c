@@ -907,12 +907,12 @@ void execute_discover_component_cmd(int argc, char* argv[])
                 printf ("\tComponent %d: %s\n\r", (i + 1), pComponentNames[i]);
                 free(pComponentNames[i]);
             }
+            free(pComponentNames);
         }
         else
         {
             printf ("\tNone\n\r");
         }
-        free(pComponentNames);
     }
     else
     {
