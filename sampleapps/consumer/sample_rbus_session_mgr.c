@@ -34,11 +34,8 @@ int main(int argc, char *argv[])
 
     rbusHandle_t handle = NULL;
     unsigned int sessionId = 0 , newSessionId = 0;
-    char *componentName = NULL;
 
-    componentName = strdup("sessiontest");
-
-    rbus_open(&handle, componentName);
+    rbus_open(&handle, "sessiontest");
     rbus_createSession(handle, &sessionId);
     rbus_getCurrentSession(handle, &newSessionId);
     rbus_closeSession(handle, sessionId); 
