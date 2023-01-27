@@ -1174,8 +1174,7 @@ rtRouted_OnMessageDiscoverElementObjects(rtConnectedClient* sender, rtMessageHea
           }
           if(!set)
           {
-            rtMessage_SetInt32(response, RTM_DISCOVERY_COUNT, 1);
-            rtMessage_AddString(response, RTM_DISCOVERY_ITEMS, "");
+            rtMessage_SetInt32(response, RTM_DISCOVERY_COUNT, 0);
           }
         }
         else
