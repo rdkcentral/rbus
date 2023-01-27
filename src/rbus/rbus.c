@@ -1190,6 +1190,7 @@ static int _master_event_callback_handler(char const* sender, char const* eventN
     struct _rbusHandle* handleInfo = NULL;
     uint32_t interval = 0;
     uint32_t duration = 0;
+    bool duration_complete = false;
     UNUSED1(userData);
 
     rbusEventData_updateFromMessage(&event, &filter, &interval, &duration, &componentId, message);
@@ -1210,7 +1211,15 @@ static int _master_event_callback_handler(char const* sender, char const* eventN
 
     if(subscription)
     {
+        if (event.type == RBUS_EVENT_DURATION_COMPLETE) {
+            rtVector_RemoveItem(handleInfo->eventSubs, subscription, NULL);
+            duration_complete = true;
+        }
         ((rbusEventHandler_t)subscription->handler)(subscription->handle, &event, subscription);
+        if(duration_complete)
+        {
+            rbusEventSubscription_free(subscription);
+        }
     }
     else
     {

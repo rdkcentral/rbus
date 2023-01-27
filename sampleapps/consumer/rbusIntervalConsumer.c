@@ -82,9 +82,8 @@ static void eventReceiveHandler3(
     PRINT_EVENT(event, subscription);
     if (event->type == 6)
     {
-        printf("\nConsumer received duration timeout event, unsubscribing it \n");
+        printf("\nConsumer received duration complete event\n");
         printf("*******************************************\n");
-        rbusEvent_UnsubscribeEx(g_handle, subscription, 1);
     }
 }
 
