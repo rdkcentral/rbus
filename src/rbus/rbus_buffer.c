@@ -231,7 +231,7 @@ void rbusBuffer_WriteDoubleTLV(rbusBuffer_t buff, double f64)
 
 void rbusBuffer_WriteDateTimeTLV(rbusBuffer_t buff, rbusDateTime_t const* tv)
 {
-    rbusDateTime_t temp;
+    rbusDateTime_t temp = {{0},{0}};
     VERIFY_NULL(tv);
     temp.m_time.tm_sec      = rbusHostToLittleInt32(tv->m_time.tm_sec);
     temp.m_time.tm_min      = rbusHostToLittleInt32(tv->m_time.tm_min);

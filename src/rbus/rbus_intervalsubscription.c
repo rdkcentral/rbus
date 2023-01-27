@@ -84,7 +84,6 @@ static void sub_Free(void* p)
         ERROR_CHECK(pthread_mutex_destroy(&rec->mutex));
         ERROR_CHECK(pthread_cond_destroy(&rec->cond));
         rbusProperty_Release(rec->property);
-        //subscriptionFree(rec->sub);
         rec->sub = NULL;
         free(rec);
     }
@@ -110,7 +109,7 @@ static void* PublishingThreadFunc(void* rec)
     struct sRecord *sub_rec = (struct sRecord*)rec;
     int count = 0;
     int duration_count = 0;
-    bool duration_timeout = false;
+    bool duration_complete = false;
     rbusCoreError_t error;
     rbusSubscription_t* sub = sub_rec->sub;
     struct _rbusHandle* handleInfo = (struct _rbusHandle*)sub_rec->handle;
@@ -139,7 +138,6 @@ static void* PublishingThreadFunc(void* rec)
         opts.requestingComponent = "IntervalThread";
 
         int result = sub_rec->node->cbTable.getHandler(sub_rec->handle, property, &opts);
-        //struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
         if(result != RBUS_ERROR_SUCCESS)
         {
             RBUSLOG_ERROR("%s: failed to get value of %s", __FUNCTION__, rbusProperty_GetName(property));
@@ -165,7 +163,7 @@ static void* PublishingThreadFunc(void* rec)
             {
                 /* Update event type after duration timeout*/
                 event.type = RBUS_EVENT_DURATION_COMPLETE;
-                duration_timeout = true;
+                duration_complete = true;
             }
         }
 
@@ -194,7 +192,7 @@ static void* PublishingThreadFunc(void* rec)
         rbusProperty_SetValue(sub_rec->property, rbusProperty_GetValue(property));
         rbusProperty_Release(property);
 
-        if (duration_timeout)
+        if (duration_complete)
         {
             break;
         }
@@ -204,6 +202,12 @@ static void* PublishingThreadFunc(void* rec)
         }
     }
     ERROR_CHECK(pthread_mutex_unlock(&sub_rec->mutex));
+    if(duration_complete) {
+        ERROR_CHECK(pthread_mutex_lock(&gMutex));
+        rbusSubscriptions_removeSubscription(handleInfo->subscriptions, sub);
+        rtVector_RemoveItem(gRecord, sub_rec, sub_Free);
+        ERROR_CHECK(pthread_mutex_unlock(&gMutex));
+    }
     RBUSLOG_DEBUG("%s: stop\n", __FUNCTION__);
     return NULL;
 }
@@ -267,13 +271,13 @@ void rbusInterval_RemoveSubscriptionRecord(
     (void)(propNode);
     VERIFY_NULL(sub);
 
-    ERROR_CHECK(pthread_mutex_lock(&gMutex));
     if (!gRecord)
     {
         return;
     }
 
     sRecord* rec;
+    ERROR_CHECK(pthread_mutex_lock(&gMutex));
     rec = sub_find(sub);
     ERROR_CHECK(pthread_mutex_unlock(&gMutex));
 
@@ -285,7 +289,9 @@ void rbusInterval_RemoveSubscriptionRecord(
             ERROR_CHECK(pthread_cond_signal(&rec->cond));
             ERROR_CHECK(pthread_join(rec->thread, NULL));
         }
+        ERROR_CHECK(pthread_mutex_lock(&gMutex));
         rtVector_RemoveItem(gRecord, rec, sub_Free);
+        ERROR_CHECK(pthread_mutex_unlock(&gMutex));
     }
     else
     {
