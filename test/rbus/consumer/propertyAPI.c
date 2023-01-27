@@ -35,6 +35,7 @@
 #include "rbus_buffer.h"
 #include <math.h>
 #include "../common/test_macros.h"
+#include "rbus_value.h"
 
 int getDurationPropertyAPI()
 {
@@ -305,7 +306,7 @@ void testValue_InitGetSetByType()
 
     printf("%s\n",__FUNCTION__);
 
-    memcpy(&(tv1.m_time), localtime(&nowtime),sizeof(struct tm));
+    rbusValue_MarshallTMtoRBUS(&tv1, localtime(&nowtime));
     rbusProperty_Init(&prop, "MyProp", NULL);
     rbusObject_Init(&obj, "MyObj");
     rbusProperty_Init(&prop2, "MyProp2", NULL);
@@ -348,7 +349,7 @@ void testValue_InitGetSetByType()
     TEST(rbusProperty_GetObject(vobj) != NULL && rbusObject_GetName(rbusProperty_GetObject(vobj)) && !strcmp(rbusObject_GetName(rbusProperty_GetObject(vobj)), "MyObj"));
 
     sleep(1);
-    memcpy(&(tv1.m_time), localtime(&nowtime),sizeof(struct tm));
+    rbusValue_MarshallTMtoRBUS(&tv1, localtime(&nowtime));
 
     rbusProperty_SetBoolean(vbtrue, false);
     rbusProperty_SetBoolean(vbfalse, true);
