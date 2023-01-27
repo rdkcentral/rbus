@@ -17,27 +17,25 @@
   * limitations under the License.
 */
 #include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <string.h>
 #include <rbus.h>
-#include <src/core/rbuscore.h>
-#include <src/session_manager/rbus_session_mgr.h>
-#include "rtLog.h"
 
 
 int main(int argc, char *argv[])
 {
     (void) argc;
     (void) argv;
-    rtLog_SetLevel(RT_LOG_INFO);
+    rbus_setLogLevel(RBUS_LOG_INFO);
 
     rbusHandle_t handle = NULL;
     unsigned int sessionId = 0 , newSessionId = 0;
 
     rbus_open(&handle, "sessiontest");
     rbus_createSession(handle, &sessionId);
+    printf ("Created Session ID %u\n", sessionId);
+
     rbus_getCurrentSession(handle, &newSessionId);
+    printf ("Current Session ID %u\n", newSessionId);
+
     rbus_closeSession(handle, sessionId); 
     rbus_close(handle);
 
