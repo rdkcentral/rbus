@@ -271,13 +271,13 @@ void rbusInterval_RemoveSubscriptionRecord(
     (void)(propNode);
     VERIFY_NULL(sub);
 
-    ERROR_CHECK(pthread_mutex_lock(&gMutex));
     if (!gRecord)
     {
         return;
     }
 
     sRecord* rec;
+    ERROR_CHECK(pthread_mutex_lock(&gMutex));
     rec = sub_find(sub);
     ERROR_CHECK(pthread_mutex_unlock(&gMutex));
 
@@ -289,7 +289,9 @@ void rbusInterval_RemoveSubscriptionRecord(
             ERROR_CHECK(pthread_cond_signal(&rec->cond));
             ERROR_CHECK(pthread_join(rec->thread, NULL));
         }
+        ERROR_CHECK(pthread_mutex_lock(&gMutex));
         rtVector_RemoveItem(gRecord, rec, sub_Free);
+        ERROR_CHECK(pthread_mutex_unlock(&gMutex));
     }
     else
     {
