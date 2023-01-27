@@ -911,12 +911,12 @@ void execute_discover_component_cmd(int argc, char* argv[])
                 printf ("\tComponent %d: %s\n\r", (i + 1), pComponentNames[i]);
                 free(pComponentNames[i]);
             }
+            free(pComponentNames);
         }
         else
         {
             printf ("\tNone\n\r");
         }
-        free(pComponentNames);
     }
     else
     {
@@ -2838,6 +2838,7 @@ int main( int argc, char *argv[] )
             {
                 linenoiseHistoryAdd(line);
 
+                memset(interArgv, 0, sizeof(interArgv));
                 if(construct_input_into_cmds(line, &interArgc, interArgv) == 0)
                 {
                     int i;

@@ -714,7 +714,7 @@ static rbusCoreError_t send_subscription_request(const char * object_name, const
         }
         if(response != NULL)
             *response = internal_response;
-        if((response == NULL) && !activate)
+        else
             rbusMessage_Release(internal_response);
     }
     else if(RBUSCORE_ERROR_DESTINATION_UNREACHABLE == ret)
@@ -1909,29 +1909,32 @@ rbusCoreError_t rbus_discoverObjectElements(const char * object, int * count, ch
             RBUSCORELOG_ERROR("rbus_GetElementsAddedByObject size missmatch");
         }
 
-        char **array_ptr = (char **)rt_try_malloc(size * sizeof(char *));
-        *count = size;
-        if (NULL != array_ptr)
+        if(size && length)
         {
-            *elements = array_ptr;
-            memset(array_ptr, 0, (length * sizeof(char *)));
-            for (i = 0; i < length; i++)
+            char **array_ptr = (char **)rt_try_malloc(size * sizeof(char *));
+            *count = size;
+            if (NULL != array_ptr)
             {
-                if ((RT_OK != rtMessage_GetStringItem(msg, RTM_DISCOVERY_ITEMS, i, &value)) || (NULL == (array_ptr[i] = strndup(value, MAX_OBJECT_NAME_LENGTH))))
+                *elements = array_ptr;
+                memset(array_ptr, 0, (length * sizeof(char *)));
+                for (i = 0; i < length; i++)
                 {
-                    for (int j = 0; j < i; j++)
-                        free(array_ptr[j]);
-                    free(array_ptr);
-                    RBUSCORELOG_ERROR("Read/Memory allocation failure");
-                    ret = RBUSCORE_ERROR_GENERAL;
-                    break;
+                    if ((RT_OK != rtMessage_GetStringItem(msg, RTM_DISCOVERY_ITEMS, i, &value)) || (NULL == (array_ptr[i] = strndup(value, MAX_OBJECT_NAME_LENGTH))))
+                    {
+                        for (int j = 0; j < i; j++)
+                            free(array_ptr[j]);
+                        free(array_ptr);
+                        RBUSCORELOG_ERROR("Read/Memory allocation failure");
+                        ret = RBUSCORE_ERROR_GENERAL;
+                        break;
+                    }
                 }
             }
-        }
-        else
-        {
-            RBUSCORELOG_ERROR("Memory allocation failure");
-            ret = RBUSCORE_ERROR_INSUFFICIENT_MEMORY;
+            else
+            {
+                RBUSCORELOG_ERROR("Memory allocation failure");
+                ret = RBUSCORE_ERROR_INSUFFICIENT_MEMORY;
+            }
         }
 
         rtMessage_Release(msg);
@@ -1981,28 +1984,31 @@ rbusCoreError_t rbus_discoverElementObjects(const char* element, int * count, ch
             rtMessage_GetInt32(msg, RTM_DISCOVERY_COUNT, &num_elements);
             *count = num_elements;
 
-            char **array_ptr = (char **)rt_try_malloc(num_elements * sizeof(char *));
-            if (NULL != array_ptr)
+            if(num_elements)
             {
-                *objects = array_ptr;
-                memset(array_ptr, 0, (num_elements * sizeof(char *)));
-                for (int i = 0; i < num_elements; i++)
+                char **array_ptr = (char **)rt_try_malloc(num_elements * sizeof(char *));
+                if (NULL != array_ptr)
                 {
-                    if ((RT_OK != rtMessage_GetStringItem(msg, RTM_DISCOVERY_ITEMS, i, &value)) || (NULL == (array_ptr[i] = strndup(value, MAX_OBJECT_NAME_LENGTH))))
+                    *objects = array_ptr;
+                    memset(array_ptr, 0, (num_elements * sizeof(char *)));
+                    for (int i = 0; i < num_elements; i++)
                     {
-                        for (int j = 0; j < i; j++)
-                            free(array_ptr[j]);
-                        free(array_ptr);
-                        RBUSCORELOG_ERROR("Read/Memory allocation failure");
-                        ret = RBUSCORE_ERROR_GENERAL;
-                        break;
+                        if ((RT_OK != rtMessage_GetStringItem(msg, RTM_DISCOVERY_ITEMS, i, &value)) || (NULL == (array_ptr[i] = strndup(value, MAX_OBJECT_NAME_LENGTH))))
+                        {
+                            for (int j = 0; j < i; j++)
+                                free(array_ptr[j]);
+                            free(array_ptr);
+                            RBUSCORELOG_ERROR("Read/Memory allocation failure");
+                            ret = RBUSCORE_ERROR_GENERAL;
+                            break;
+                        }
                     }
                 }
-            }
-            else
-            {
-                RBUSCORELOG_ERROR("Memory allocation failure");
-                ret = RBUSCORE_ERROR_INSUFFICIENT_MEMORY;
+                else
+                {
+                    RBUSCORELOG_ERROR("Memory allocation failure");
+                    ret = RBUSCORE_ERROR_INSUFFICIENT_MEMORY;
+                }
             }
         }
         else
@@ -2065,32 +2071,35 @@ rbusCoreError_t rbus_discoverElementsObjects(int numElements, const char** eleme
                 if(rtMessage_GetInt32(msg, RTM_DISCOVERY_COUNT, &numComponents) == RT_OK)
                 {
                     char **next = NULL;
-                    if(!array_ptr)
-                        next = (char **)rt_try_malloc(numComponents * sizeof(char *));
-                    else
-                        next = (char **)rt_try_realloc(array_ptr, (array_count + numComponents) * sizeof(char *));
-                    if (!next)
+                    if(numComponents)
                     {
-                        RBUSCORELOG_ERROR("Memory allocation failure");
-                        ret = RBUSCORE_ERROR_GENERAL;
-                        break;
-                    }
-                    array_ptr = next;
-                    for (int j = 0; j < numComponents; j++)
-                    {
-                        if (RT_OK != rtMessage_GetStringItem(msg, RTM_DISCOVERY_ITEMS, array_count, &component))
+                        if(!array_ptr)
+                            next = (char **)rt_try_malloc(numComponents * sizeof(char *));
+                        else
+                            next = (char **)rt_try_realloc(array_ptr, (array_count + numComponents) * sizeof(char *));
+                        if (!next)
                         {
-                            RBUSCORELOG_ERROR("Read item failure");
+                            RBUSCORELOG_ERROR("Memory allocation failure");
                             ret = RBUSCORE_ERROR_GENERAL;
                             break;
                         }
-                        if(component[0]) /*rtrouted will put a 0 len string if no route found*/
+                        array_ptr = next;
+                        for (int j = 0; j < numComponents; j++)
                         {
-                            if (NULL == (array_ptr[array_count++] = strndup(component, MAX_OBJECT_NAME_LENGTH)))
+                            if (RT_OK != rtMessage_GetStringItem(msg, RTM_DISCOVERY_ITEMS, array_count, &component))
                             {
-                                RBUSCORELOG_ERROR("Memory allocation failure");
+                                RBUSCORELOG_ERROR("Read item failure");
                                 ret = RBUSCORE_ERROR_GENERAL;
                                 break;
+                            }
+                            if(component[0]) /*rtrouted will put a 0 len string if no route found*/
+                            {
+                                if (NULL == (array_ptr[array_count++] = strndup(component, MAX_OBJECT_NAME_LENGTH)))
+                                {
+                                    RBUSCORELOG_ERROR("Memory allocation failure");
+                                    ret = RBUSCORE_ERROR_GENERAL;
+                                    break;
+                                }
                             }
                         }
                     }
