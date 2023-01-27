@@ -448,8 +448,6 @@ rbusError_t rbusProperty_initFromMessage(rbusProperty_t* property, rbusMessage m
     err= rbusValue_initFromMessage(&value, msg);
     rbusProperty_SetValue(*property, value);
     rbusValue_Release(value);
-    if(name)
-        free((void*)name);
     return err;
 }
 
