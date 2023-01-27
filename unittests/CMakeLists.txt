@@ -114,7 +114,10 @@ else ()
     target_link_libraries(rbus_gtest.bin rbus gtest gcov)
 endif()
 
-install (TARGETS rbus_event_server rbus_test_server rbus_gtest.bin sample_rbus_session_mgr
+install (TARGETS rbus_event_server 
+    rbus_test_server 
+    rbus_gtest.bin 
+    sample_rbus_session_mgr
     RUNTIME DESTINATION bin)
 
 if (ENABLE_CODE_COVERAGE)
