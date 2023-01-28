@@ -1085,6 +1085,10 @@ static void registerTableRow (rbusHandle_t handle, elementNode* tableInstElem, c
             RBUSLOG_WARN("failed to publish ObjectCreated event err:%d", respub);
         }
 
+        /* Re-subscribe all the child elements of this row */
+        if(handleInfo->subscriptions)
+            rbusSubscriptions_resubscribeRowElementCache(handle, handleInfo->subscriptions, rowElem);
+
         rbusValue_Release(rowNameVal);
         rbusValue_Release(instNumVal);
         rbusValue_Release(aliasVal);
@@ -2884,7 +2888,7 @@ rbusError_t rbus_regDataElements(
             }
             else
             {
-                rbusSubscriptions_resubscribeCache(handle, handleInfo->subscriptions, name, node);
+                rbusSubscriptions_resubscribeElementCache(handle, handleInfo->subscriptions, name, node);
                 RBUSLOG_INFO("%s inserted successfully!", name);
             }
         }

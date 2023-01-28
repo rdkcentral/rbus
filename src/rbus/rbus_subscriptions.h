@@ -69,8 +69,11 @@ void rbusSubscriptions_onTableRowAdded(rbusSubscriptions_t subscriptions, elemen
 /*call right before an existing row is delete*/
 void rbusSubscriptions_onTableRowRemoved(rbusSubscriptions_t subscriptions, elementNode* node);
 
-/*call when registering an event data element to resubscribe any listeners that might have been loaded from cache*/
-void rbusSubscriptions_resubscribeCache(rbusHandle_t handle, rbusSubscriptions_t subscriptions, char const* elementName, elementNode* el);
+/*call when registering an event data element to resubscribe any listeners that might have been loaded from cache */
+void rbusSubscriptions_resubscribeElementCache(rbusHandle_t handle, rbusSubscriptions_t subscriptions, char const* elementName, elementNode* el);
+
+/*call when registering row of a table, to resubscribe any listeners that might have been loaded from cache */
+void rbusSubscriptions_resubscribeRowElementCache(rbusHandle_t handle, rbusSubscriptions_t subscriptions, elementNode* rowNode);
 
 /*unsubscribe any client when they disconnect from broker. handles cases where clients don't unsubscribe properly (e.g. because they crashed)*/
 void rbusSubscriptions_handleClientDisconnect(rbusHandle_t handle, rbusSubscriptions_t subscriptions, char const* listener);

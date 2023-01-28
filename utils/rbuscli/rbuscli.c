@@ -257,15 +257,19 @@ void show_menu(const char* command)
         }
         else if(matchCmd(command, 4, "subinterval"))
         {
-            printf ("\e[1msubi\e[0mnterval \e[4mevent\e[0m \e[4minterval\e[0m [\e[4minitialValue\e[0m]\n\r");
+            printf ("\e[1msubi\e[0mnterval \e[4mevent\e[0m \e[4minterval\e[0m [\e[4mduration\e[0m] \e[4minitialValue\e[0m]\n\r");
             printf ("Subscribe to an event with interval\n\r");
             printf ("For interval, can be applied using the \e[4minterval\e[0m parameter.\n\r");
             printf ("Args:\n\r");
             printf ("\t%-20sThe name of the event to subscribe to\n\r", "event");
             printf ("\t%-20sThe interval trigger value\n\r", "interval");
+            printf ("\t%-20sOptional duration trigger value\n\r", "duration");
+            printf ("\t%-20sOptional to get initial value of the event being subscribed\n\r", "initialValue");
             printf ("Example:\n\r");
             printf ("\tsubint Example.SomeIntProp 10\n\r");
+            printf ("\tsubint Example.SomeIntProp 10 60\n\r");
             printf ("\tsubint Example.SomeIntProp 5 true\n\r");
+            printf ("\tsubint Example.SomeIntProp 5 20 true\n\r");
             printf ("\n\r");
         }
         else if(matchCmd(command, 5, "unsubscribe"))
@@ -286,14 +290,16 @@ void show_menu(const char* command)
         }
         else if(matchCmd(command, 6, "unsubinterval"))
         {
-            printf ("\e[1munsubi\e[0mnterval \e[4mevent\e[0m \e[4minterval\e[0m\n\r");
+            printf ("\e[1munsubi\e[0mnterval \e[4mevent\e[0m \e[4minterval\e[0m [\e[4mduration\e[0m]\n\r");
             printf ("Unsubscribe from a single event\n\r");
-            printf ("If interval was used to subscribe then the same interval must be passed to unsubscribe.\n\r");
+            printf ("If interval, duration are used to subscribe then the same interval, duration must be passed to unsubscribe.\n\r");
             printf ("Args:\n\r");
             printf ("\t%-20sThe name of the event to unsubscribe from\n\r", "event");
             printf ("\t%-20sThe interval that was used when subscribing to this event.\n\r", "interval");
+            printf ("\t%-20sOptional duration that was used when subscribing to this event.\n\r", "duration");
             printf ("Example:\n\r");
             printf ("\tunsubint Example.SomeIntProp 10\n\r");
+            printf ("\tunsubint Example.SomeIntProp 10 60\n\r");
             printf ("\n\r");
         }
         else if(matchCmd(command, 4, "asubscribe"))
@@ -455,10 +461,10 @@ void show_menu(const char* command)
         }
         printf ("\t\e[1mreg\e[0mister \e[4mtype\e[0m \e[4mname\e[0m\n\r");
         printf ("\t\e[1munreg\e[0mister \e[4mname\e[0m\n\r");
-        printf ("\t\e[1msub\e[0mscribe \e[4mevent\e[0m [\e[4moperator\e[0m \e[4mvalue\e[0m] \e[4minitialValue\n\r");
-        printf ("\t\e[1msubi\e[0mnterval \e[4mevent\e[0m \e[4minterval\e[0m \e[4minitialValue\n\r");
+        printf ("\t\e[1msub\e[0mscribe \e[4mevent\e[0m [\e[4moperator\e[0m \e[4mvalue\e[0m] [\e[4minitialValue\e[0m]\n\r");
+        printf ("\t\e[1msubi\e[0mnterval \e[4mevent\e[0m \e[4minterval\e[0m [\e[4mduration\e[0m] [\e[4minitialValue\e[0m]\n\r");
         printf ("\t\e[1munsub\e[0mscribe \e[4mevent\e[0m [\e[4moperator\e[0m \e[4mvalue\e[0m]\n\r");
-        printf ("\t\e[1munsubi\e[0mnterval \e[4mevent\e[0m \e[4minterval\e[0m\n\r");
+        printf ("\t\e[1munsubi\e[0mnterval \e[4mevent\e[0m \e[4minterval\e[0m [\e[4mduration\e[0m] [\e[4minitialValue\e[0m]\n\r");
         printf ("\t\e[1masub\e[0mscribe \e[4mevent\e[0m [\e[4moperator\e[0m \e[4mvalue\e[0m]\n\r");
         printf ("\t\e[1mpub\e[0mlish \e[4mevent\e[0m [\e[4mdata\e[0m]\n\r");
         printf ("\t\e[1maddl\e[0mistener \e[4mexpression\e[0m\n\r");
@@ -790,6 +796,11 @@ void event_receive_handler(rbusHandle_t handle, rbusEvent_t const* event, rbusEv
             case RBUS_EVENT_GENERAL:        stype = "RBUS_EVENT_GENERAL";           break;
             case RBUS_EVENT_INITIAL_VALUE:  stype = "RBUS_EVENT_INITIAL_VALUE";     break;
             case RBUS_EVENT_INTERVAL:       stype = "RBUS_EVENT_INTERVAL";          break;
+            case RBUS_EVENT_DURATION_COMPLETE:
+                                            stype = "RBUS_EVENT_DURATION_COMPLETE";
+                                            /*unsubscription*/
+                                            rbusEvent_UnsubscribeEx(g_busHandle, subscription, 1);
+                                            break;
         }
 
         printf("Event received %s of type %s\n\r", event->name, stype);
@@ -1719,6 +1730,19 @@ int find_filter(char *argv[])
        return -1;
 }
 
+int set_publishOnSubscribe(int argc, char *argv[])
+{
+    int publishOnSubscribe = 0;
+
+    if (strncasecmp ("true", argv[argc - 1], 4) == 0)
+        publishOnSubscribe = 1;
+    else if(strncasecmp ("false", argv[argc - 1], 5) == 0)
+        publishOnSubscribe = 0;
+    else
+        publishOnSubscribe = -1;
+    return publishOnSubscribe;
+}
+
 void validate_and_execute_subscribe_cmd (int argc, char *argv[], bool add, bool isAsync)
 {
     rbusError_t rc = RBUS_ERROR_SUCCESS;
@@ -1729,7 +1753,7 @@ void validate_and_execute_subscribe_cmd (int argc, char *argv[], bool add, bool 
     int interval = 0;
     int duration = 0;
     bool subinterval = false;
-    bool publishOnSubscribe = false;
+    int publishOnSubscribe = 0;
 
     if (argc < 3)
     {
@@ -1738,7 +1762,8 @@ void validate_and_execute_subscribe_cmd (int argc, char *argv[], bool add, bool 
     }
 
     runSteps = __LINE__;
-    if(strlen(argv[2]) + (argc>3 ? strlen(argv[3]):0) + (argc>4 ? strlen(argv[4]):0) > 255)
+    if(strlen(argv[2]) + (argc>3 ? strlen(argv[3]):0) + (argc>4 ? strlen(argv[4]):0)
+            + (argc>5 ? strlen(argv[5]):0) > 255)
     {
         printf("Query too long.");
         return;
@@ -1769,16 +1794,47 @@ void validate_and_execute_subscribe_cmd (int argc, char *argv[], bool add, bool 
         }
         strcat(userData, argv[2]);
     }
-
     if(argc > 3) /*filter*/
     {
-        if (subinterval)
+        /*interval*/
+        if (subinterval && (argc < 7))
         {
+            if (!atoi(argv[3])) {
+                goto exit_error;
+            }
+
             interval = atoi(argv[3]);
             strcat(userData, " ");
             strcat(userData, argv[3]);
+            if(argv[4] != NULL)
+            {
+                if( argc > 5 ) {
+                    /*duration*/
+                    duration = atoi(argv[4]);
+                    strcat(userData, " ");
+                    strcat(userData, argv[4]);
+
+                    publishOnSubscribe = set_publishOnSubscribe(argc, argv);
+                    if(publishOnSubscribe == -1)
+                        goto exit_error;
+                }
+                else if(argc == 5)
+                {
+                    if (atoi(argv[4])) {
+                        duration = atoi(argv[4]);
+                        strcat(userData, " ");
+                        strcat(userData, argv[4]);
+                    }
+                    else
+                    {
+                        publishOnSubscribe = set_publishOnSubscribe(argc, argv);
+                        if(publishOnSubscribe == -1)
+                            goto exit_error;
+                    }
+                }
+            }
         }
-        else if ((relOp = find_filter(argv)) >= 0)
+        else if (((relOp = find_filter(argv)) >= 0) && (argc < 7))
         {
             strcat(userData, " ");
             strcat(userData, argv[3]);
@@ -1792,29 +1848,34 @@ void validate_and_execute_subscribe_cmd (int argc, char *argv[], bool add, bool 
             rbusFilter_InitRelation(&filter, relOp, filterValue);
             if(argv[5] != NULL)
             {
-                if(strncasecmp ("true", argv[5], 4) == 0)
-                {
-                    if (strncasecmp ("true", argv[argc - 1], 4) == 0)
-                        publishOnSubscribe = true;
-                }
+                publishOnSubscribe = set_publishOnSubscribe(argc, argv);
+                if(publishOnSubscribe == -1)
+                    goto exit_error;
             }
         }
         else
         {
-            if (strncasecmp ("true", argv[argc - 1], 4) == 0)
-                publishOnSubscribe = true;
-            else if(strncasecmp ("false", argv[argc - 1], 5) == 0)
-                publishOnSubscribe = false;
+            if(argc == 4)
+            {
+                publishOnSubscribe = set_publishOnSubscribe(argc, argv);
+                if(publishOnSubscribe == -1)
+                    goto exit_error;
+            }
             else
             {
-                printf ("Invalid arguments. Please see the help\n\r");
-                rt_free(userData);
-                return;
+                goto exit_error;
             }
         }
     }
+    else if(subinterval || argc > 7)
+    {
+exit_error:
+        runSteps = __LINE__;
+        printf ("Invalid arguments. Please see the help\n\r");
+        rt_free(userData);
+        return;
+    }
 
-    runSteps = __LINE__;
     rbusEventSubscription_t subscription = {argv[2], filter, interval, duration, event_receive_handler, userData, NULL, NULL, publishOnSubscribe};
 
     /* Async will be TRUE only when add is TRUE */
@@ -2549,7 +2610,7 @@ char *hints(const char *buf, int *color, int *bold) {
         }
         else if(strcmp(tokens[0], "subint") == 0)
         {
-            hint = " event interval [initialValue]";
+            hint = " event interval [duration] [initialValue]";
         }
         else if(strcmp(tokens[0], "unsub") == 0)
         {
@@ -2557,7 +2618,7 @@ char *hints(const char *buf, int *color, int *bold) {
         }
         else if(strcmp(tokens[0], "unsubint") == 0)
         {
-            hint = " event interval";
+            hint = " event interval [duration]";
         }
         else if(strcmp(tokens[0], "asub") == 0)
         {

@@ -132,7 +132,7 @@ rbusSubscription_t* rbusSubscriptions_addSubscription(rbusSubscriptions_t subscr
     sub = rt_malloc(sizeof(rbusSubscription_t));
 
     sub->listener = strdup(listener);
-    sub->eventName = strdup(eventName);
+    sub->eventName = strdup(registryElem->fullName);
     sub->componentId = componentId;
     sub->filter = filter;
     if(sub->filter)
@@ -696,7 +696,7 @@ static int _compareEventNameToElemName(char const* event, char const* elem)
     }
 }
 
-void rbusSubscriptions_resubscribeCache(rbusHandle_t handle, rbusSubscriptions_t subscriptions, char const* elementName, elementNode* el)
+void rbusSubscriptions_resubscribeElementCache(rbusHandle_t handle, rbusSubscriptions_t subscriptions, char const* elementName, elementNode* el)
 {
     rtListItem item;
     rbusSubscription_t* sub;
@@ -718,7 +718,7 @@ void rbusSubscriptions_resubscribeCache(rbusHandle_t handle, rbusSubscriptions_t
         {
             rtListItem next;
             rbusError_t err;
-            RBUSLOG_INFO("%s: subscribing %s %s", __FUNCTION__, sub->eventName, sub->listener);
+            RBUSLOG_INFO("%s: resubscribing %s for %s", __FUNCTION__, sub->eventName, sub->listener);
             rtListItem_GetNext(item, &next);
             rtList_RemoveItem(subscriptions->subList, item, NULL);/*remove before calling subscribeHandlerImpl to avoid dupes in cache file*/
             err = subscribeHandlerImpl(handle, true, el, sub->eventName, sub->listener, sub->componentId, sub->interval, sub->duration, sub->filter);
@@ -733,6 +733,52 @@ void rbusSubscriptions_resubscribeCache(rbusHandle_t handle, rbusSubscriptions_t
         {
             rtListItem_GetNext(item, &item);
         }
+    }
+}
+
+void rbusSubscriptions_resubscribeRowElementCache(rbusHandle_t handle, rbusSubscriptions_t subscriptions, elementNode* rowNode)
+{
+    rtListItem item = NULL;
+    rbusSubscription_t* sub = NULL;
+    elementNode* el = NULL;
+    rbusError_t err = RBUS_ERROR_SUCCESS;
+    size_t size = 0;
+    unsigned int count = 0;
+    struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
+
+    if(subscriptions)
+    {
+        rtList_GetFront(subscriptions->subList, &item);
+        rtList_GetSize(subscriptions->subList, &size);
+    }
+
+    while(item && (count < size))
+    {
+        /* This count matters otherwise, the sublist will go on forever as we push the new subscription at the end of the list */
+        count++;
+        rtListItem_GetData(item, (void**)&sub);
+        if(sub)
+        {
+            rtListItem next = NULL;
+            rtListItem_GetNext(item, &next);
+            if(strncmp(sub->eventName, rowNode->fullName, strlen(rowNode->fullName)) == 0)
+            {
+                el = retrieveInstanceElement(handleInfo->elementRoot, sub->eventName);
+                if(el)
+                {
+                    RBUSLOG_INFO("%s: resubscribing %s for %s", __FUNCTION__, sub->eventName, sub->listener);
+                    rtList_RemoveItem(subscriptions->subList, item, NULL);
+                    err = subscribeHandlerImpl(handle, true, el, sub->eventName, sub->listener, sub->componentId, sub->interval, sub->duration, sub->filter);
+                    (void)err;
+                    subscriptionFree(sub);
+                }
+            }
+
+            /* Move to Next */
+            item = next;
+        }
+        else
+            break;
     }
 }
 
