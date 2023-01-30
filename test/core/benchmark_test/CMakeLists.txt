@@ -32,4 +32,4 @@ add_test(rbus_benchmark_test rbus_benchmark_test_app --benchmark_min_time=0.01)
 
 enable_testing()
 install (TARGETS rbus_benchmark_test_app
-         RUNTIME DESTINATION bin)
+         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})

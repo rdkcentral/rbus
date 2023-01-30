@@ -51,13 +51,21 @@ set(CMAKE_C_FLAGS_RELEASE "-fPIC -Wall -Werror -Wextra ${CMAKE_C_FLAGS_RELEASE} 
 set(CMAKE_CXX_FLAGS_DEBUG "-fPIC -Wall -Werror -Wextra -Wno-type-limits -fno-inline ${CMAKE_C_FLAGS_DEBUG} -DRBUS_ALWAYS_ON ")
 set(CMAKE_CXX_FLAGS_RELEASE "-fPIC -Wall -Werror -Wextra ${CMAKE_C_FLAGS_RELEASE} -DRBUS_ALWAYS_ON ")
 
+# include(GNUInstallDirs)
+
 IF (NOT DEFINED CMAKE_INSTALL_BINDIR)
-    SET(CMAKE_INSTALL_BINDIR ${CMAKE_INSTALL_PREFIX}/bin)
+    message ("Setting Bindir")
+    SET(FULL_CMAKE_INSTALL_BINDIR ${CMAKE_INSTALL_PREFIX}/bin)
+    SET(CMAKE_INSTALL_BINDIR bin)
 ENDIF ()
 
 IF (NOT DEFINED CMAKE_INSTALL_LIBDIR)
-    SET(CMAKE_INSTALL_LIBDIR ${CMAKE_INSTALL_PREFIX}/lib)
+    message ("Setting Libdir")
+    SET(FULL_CMAKE_INSTALL_LIBDIR ${CMAKE_INSTALL_PREFIX}/lib)
+    SET(CMAKE_INSTALL_LIBDIR lib)
 ENDIF ()
+
+message ("Using ${CMAKE_INSTALL_BINDIR}  and ${CMAKE_INSTALL_LIBDIR}")
 
 include(CMakePackageConfigHelpers)
 
@@ -104,7 +112,7 @@ if (BUILD_FOR_DESKTOP)
   
   set(CJSON_LIBRARIES "-lcjson")
 
-    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/deps/src/cjson/libcjson.so ${CMAKE_CURRENT_BINARY_DIR}/deps/src/cjson/libcjson.so.1 ${CMAKE_CURRENT_BINARY_DIR}/deps/src/cjson/libcjson.so.1.6.0 DESTINATION lib)
+    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/deps/src/cjson/libcjson.so ${CMAKE_CURRENT_BINARY_DIR}/deps/src/cjson/libcjson.so.1 ${CMAKE_CURRENT_BINARY_DIR}/deps/src/cjson/libcjson.so.1.6.0 DESTINATION ${CMAKE_INSTALL_LIBDIR})
 
 
   ExternalProject_Add(
@@ -130,7 +138,7 @@ if (BUILD_FOR_DESKTOP)
     ${CMAKE_BINARY_DIR}
     ${LIBRARY_DIR})
 
-  install(FILES ${CMAKE_CURRENT_BINARY_DIR}/deps/src/linenoise/liblinenoise.so DESTINATION lib)
+  install(FILES ${CMAKE_CURRENT_BINARY_DIR}/deps/src/linenoise/liblinenoise.so DESTINATION ${CMAKE_INSTALL_LIBDIR})
 
   ExternalProject_Add(
     msgpack
@@ -162,7 +170,7 @@ else()
   ENDIF ()
 
   set(INCLUDE_DIR ${CMAKE_INSTALL_PREFIX}/include)
-  set(LIBRARY_DIR ${CMAKE_INSTALL_PREFIX}/lib)
+  set(LIBRARY_DIR ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR})
 
   include_directories(${CMAKE_CURRENT_SOURCE_DIR})
   include_directories(${CJSON_INCLUDE_DIRS})
