@@ -102,7 +102,7 @@ int rbusConfig_ReadGetTimeout()
         if (timeout > 0)
             return timeout * 1000;
     }
-
+    rbusConfig_CreateOnce();
     return gConfig->getTimeout;
 }
 
@@ -123,6 +123,6 @@ int rbusConfig_ReadSetTimeout()
         if (timeout > 0)
             return timeout * 1000;
     }
-
+    rbusConfig_CreateOnce();
     return gConfig->setTimeout;
 }
