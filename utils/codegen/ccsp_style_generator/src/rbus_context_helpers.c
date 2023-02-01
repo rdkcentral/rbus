@@ -137,8 +137,9 @@ int GetRowIndex(char const* path)
 void GetRowContextInstNum(char const* tableName, uint32_t* instNum)
 {
     char rowName[RBUS_MAX_NAME_LENGTH]="";
-    int temp=0;
-    int ret=0;
+    uint32_t temp=0;
+    uint32_t ret=0;
+    *instNum=0;
     while (*instNum < rtHashMap_Get_rtVector_Size(gContextMaps.row))
     {
         sprintf(rowName, "%s%u", ConvertPath(tableName), *instNum);
