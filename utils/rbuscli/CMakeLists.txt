@@ -33,5 +33,5 @@ else (BUILD_FOR_DESKTOP)
 	target_include_directories (rbuscli PUBLIC ${LINENOISE_INCLUDE_DIRS})
 endif (BUILD_FOR_DESKTOP)
 
-install (TARGETS rbuscli RUNTIME DESTINATION bin)
+install (TARGETS rbuscli RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 

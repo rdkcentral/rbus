@@ -51,10 +51,10 @@ target_link_libraries(rbusTestConsumer rbus)
 set (CMAKE_C_FLAGS "-Wno-overflow ${CMAKE_C_FLAGS}")
 
 install (TARGETS rbusTestProvider rbusTestConsumer 
-        RUNTIME DESTINATION bin)
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 install(FILES rbus_test.sh
-        DESTINATION bin
+        DESTINATION ${CMAKE_INSTALL_BINDIR}
         PERMISSIONS
           OWNER_READ OWNER_WRITE OWNER_EXECUTE
           GROUP_READ GROUP_EXECUTE
@@ -73,7 +73,7 @@ add_dependencies(rbusTestMultiConsumer rbus)
 target_link_libraries(rbusTestMultiConsumer rbus)
 
 install (TARGETS rbusTestMultiProvider rbusTestMultiConsumer 
-        RUNTIME DESTINATION bin)
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 add_executable(rbusRecoveryConsumer 
     consumer/rbusRecoveryConsumer.c
@@ -81,5 +81,5 @@ add_executable(rbusRecoveryConsumer
 add_dependencies(rbusRecoveryConsumer rbus)
 target_link_libraries(rbusRecoveryConsumer rbus)
 install (TARGETS rbusRecoveryConsumer 
-        RUNTIME DESTINATION bin)
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 

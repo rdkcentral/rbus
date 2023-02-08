@@ -109,11 +109,11 @@ else ()
 endif()
 
 install (TARGETS rbus_event_server rbus_test_server rbus_gtest.bin
-    RUNTIME DESTINATION bin)
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 if (ENABLE_CODE_COVERAGE)
     install(CODE "execute_process(COMMAND find . -name *.gcno -exec tar -rvf rbus_src_gcno.tar {} \;)")
-    install(FILES ${CMAKE_BINARY_DIR}/rbus_src_gcno.tar DESTINATION bin)
+    install(FILES ${CMAKE_BINARY_DIR}/rbus_src_gcno.tar DESTINATION ${CMAKE_INSTALL_BINDIR})
 endif()
 
 # not sure why this isn't working

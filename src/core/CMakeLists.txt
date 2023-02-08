@@ -33,7 +33,7 @@ set_target_properties(rbuscore
 
 
 install (TARGETS rbuscore
-    RUNTIME DESTINATION bin
-    LIBRARY DESTINATION lib)
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 
 install (FILES rbuscore.h rbuscore_message.h  rbuscore_types.h  DESTINATION "include/rbus")

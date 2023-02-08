@@ -26,7 +26,7 @@ if (WITH_SPAKE2)
   if (BUILD_FOR_DESKTOP)
     add_definitions(-DWITH_SPAKE2_TEST_PIN=1)
     include_directories(${CMAKE_INSTALL_PREFIX}/include)
-    link_directories(${CMAKE_INSTALL_PREFIX}/lib)
+    link_directories(${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR})
   endif (BUILD_FOR_DESKTOP)
   set(LIBEXCHANGER_PATH ${CMAKE_CURRENT_SOURCE_DIR}/../../../../../libexchanger)
   set(LIBSYSWRAPPER_PATH ${CMAKE_CURRENT_SOURCE_DIR}/../../../../../libsyswrapper)
@@ -45,8 +45,9 @@ if (OPENSSL_REQUIRED)
     if( OPENSSL_VERSION )
         find_package(OpenSSL "${OPENSSL_VERSION}" EXACT REQUIRED PATH "${OPENSSL_ROOT_DIR}")
     else()
-        find_library(SSL_LIBRARY ssl HINTS "${OPENSSL_ROOT_DIR}/lib")
-        find_library(CRYPTO_LIBRARY crypto HINTS "${OPENSSL_ROOT_DIR}/lib")
+		# Use the CMakelib dir, which will get lib vs lib64 correct (we hope)
+        find_library(SSL_LIBRARY ssl HINTS "${OPENSSL_ROOT_DIR}/${CMAKE_INSTALL_LIBDIR}")
+        find_library(CRYPTO_LIBRARY crypto HINTS "${OPENSSL_ROOT_DIR}/${CMAKE_INSTALL_LIBDIR}")
         find_package(OpenSSL REQUIRED PATH "${OPENSSL_ROOT_DIR}")
     endif()
   else()
@@ -117,7 +118,7 @@ if (BUILD_RBUS_DAEMON)
     add_dependencies(rtrouted_diag rtMessage)
     target_link_libraries(rtrouted_diag rtMessage)
 
-    install (TARGETS rtMessage rtrouted rtrouted_diag RUNTIME DESTINATION bin LIBRARY DESTINATION lib)
+    install (TARGETS rtMessage rtrouted rtrouted_diag RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 endif (BUILD_RBUS_DAEMON)
 
 
@@ -126,7 +127,7 @@ set_target_properties(rtMessage
     VERSION "${PROJECT_VERSION}")
 
 if (BUILD_ONLY_RTMESSAGE)
-    install (TARGETS rtMessage RUNTIME DESTINATION bin LIBRARY DESTINATION lib)
+    install (TARGETS rtMessage RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 endif (BUILD_ONLY_RTMESSAGE)
 
 install (

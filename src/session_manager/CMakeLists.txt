@@ -31,6 +31,6 @@ target_link_libraries(rbus_session_mgr_client rbuscore)
 endif (BUILD_SESSIONMGR_SAMPLE_APPS)
 
 install (TARGETS rbus_session_mgr 
-        RUNTIME DESTINATION bin)
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 install(FILES rbus_session_mgr.h DESTINATION "include/rbus")

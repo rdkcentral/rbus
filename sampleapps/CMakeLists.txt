@@ -87,7 +87,7 @@ if (BUILD_SESSIONMGR_SAMPLE_APPS)
 add_executable(sample_rbus_session_mgr consumer/sample_rbus_session_mgr.c)
 add_dependencies(sample_rbus_session_mgr rbus)
 target_link_libraries(sample_rbus_session_mgr rbus)
-install (TARGETS sample_rbus_session_mgr RUNTIME DESTINATION bin)
+install (TARGETS sample_rbus_session_mgr RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 endif (BUILD_SESSIONMGR_SAMPLE_APPS)
 
 if (BUILD_FOR_DESKTOP)
@@ -132,7 +132,7 @@ install (TARGETS
     rbusOpenTelemetry
     rbusIntervalConsumer
     rbusIntervalProvider
-    RUNTIME DESTINATION bin)
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 endif (BUILD_RBUS_SAMPLE_APPS)
 
