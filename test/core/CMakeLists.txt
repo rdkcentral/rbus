@@ -36,7 +36,7 @@ add_dependencies(sample_client rbus-core)
 target_link_libraries(sample_client rbus-core)
 
 install (TARGETS sample_server sample_client 
-        RUNTIME DESTINATION bin)
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 add_executable(bin_client bin_client.c)
 add_dependencies(bin_client rbus-core)
@@ -51,7 +51,7 @@ target_link_libraries(bin_server rbus-core)
 #target_link_libraries(rbus_perf rbus-core)
 
 install (TARGETS bin_server bin_client #rbus_perf 
-        RUNTIME DESTINATION bin)
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 add_executable(rbus_sample_event_server sample_event_server.c)
 add_dependencies(rbus_sample_event_server rbus-core)
@@ -90,7 +90,7 @@ add_dependencies(rbus_obj_lookup rbus-core)
 target_link_libraries(rbus_obj_lookup rbus-core)
 
 install (TARGETS rbus_sample_event_server rbus_sample_event_client rbus_sample_wildcard_server rbus_sample_wildcard_client #rbus_load_test 
-        RUNTIME DESTINATION bin)
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 
 if (BUILD_RBUSCORE_BENCHMARK_TEST)
