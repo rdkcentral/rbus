@@ -110,6 +110,7 @@ void rbusProperty_Retain(rbusProperty_t property);
  *  @param property the property to release
  */
 void rbusProperty_Release(rbusProperty_t property);
+void rbusProperty_ReleaseAuto(rbusProperty_t* prop);
 
 void rbusProperty_Releases(int count, ...);
 

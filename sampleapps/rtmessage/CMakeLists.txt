@@ -51,3 +51,7 @@ add_dependencies(rtsend cjson)
 add_dependencies(rtsend rtMessage)
 target_link_libraries(rtsend rtMessage)
 
+# sample_req_async
+add_executable(sample_req_async sample_req_async.c)
+add_dependencies(sample_req_async cjson)
+target_link_libraries(sample_req_async rtMessage)

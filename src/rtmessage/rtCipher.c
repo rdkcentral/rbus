@@ -28,8 +28,6 @@
 #include <assert.h>
 #include <sys/socket.h>
 
-#define RT_UNUSED(x) UNUSED_ ## x __attribute__((__unused__))
-
 #ifdef WITH_SPAKE2
 
 #include "spake2plus.h"

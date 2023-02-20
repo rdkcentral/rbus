@@ -697,6 +697,16 @@ rbusError_t rbus_close(
     rbusHandle_t handle);
 /** @} */
 
+
+typedef struct _rbusOptions {
+  bool         use_event_loop;
+  char const  *component_name;
+} rbusOptions_t;
+
+rbusError_t rbusHandle_New(rbusHandle_t* rbus, rbusOptions_t const *opts);
+rbusError_t rbusHandle_RunOne(rbusHandle_t rbus);
+rbusError_t rbusHandle_Run(rbusHandle_t rbus);
+
 /**
  * @brief Allows a caller to propogate an OpenTelemetry context from client
  * to server.
@@ -1706,7 +1716,44 @@ rbusError_t rbus_registerLogHandler(
 
 rbusError_t rbus_setLogLevel(rbusLogLevel_t level);
 
+
+int rbusHandle_GetEventFD(rbusHandle_t rbus);
+
+struct rbusAsyncRequest;
+typedef struct rbusAsyncRequest* rbusAsyncRequest_t;
+
+struct rbusAsyncResponse;
+typedef struct rbusAsyncResponse* rbusAsyncResponse_t;
+
+typedef void (*rbusAsyncResponseHandler_t)(rbusHandle_t rbus, rbusAsyncResponse_t res);
+
+rbusAsyncRequest_t  rbusAsyncRequest_New();
+void rbusAsyncRequest_Release(rbusAsyncRequest_t req);
+void rbusAsyncRequest_ReleaseAuto(rbusAsyncRequest_t* ret);
+void rbusAsyncRequest_Retain(rbusAsyncRequest_t req);
+void rbusAsyncRequest_SetTimeout(rbusAsyncRequest_t req, int timeout_millis);
+void rbusAsyncRequest_SetCompletionHandler(rbusAsyncRequest_t req, rbusAsyncResponseHandler_t callback);
+void rbusAsyncRequest_SetUserData(rbusAsyncRequest_t req, void* user_data);
+rbusError_t rbusAsyncRequest_Cancel(rbusAsyncRequest_t req);
+void rbusAsyncRequest_AddProperty(rbusAsyncRequest_t req, rbusProperty_t prop);
+void rbusAsyncRequest_SetMethodName(rbusAsyncRequest_t req, const char* method_name);
+void rbusAsyncRequest_SetMethodParameters(rbusAsyncRequest_t req, rbusProperty_t argv);
+void rbusAsyncRequest_Reset(rbusAsyncRequest_t req);
+rbusError_t rbusAsyncRequest_WaitUntil(rbusAsyncRequest_t req, int timeout_millis);
+
+
+void* rbusAsyncResponse_GetUserData(rbusAsyncResponse_t res);
+rbusProperty_t rbusAsyncResponse_GetProperty(rbusAsyncResponse_t res);
+rbusError_t rbusAsyncResponse_GetStatus(rbusAsyncResponse_t res);
+
+rbusError_t rbusProperty_GetAsync(rbusHandle_t rbus, rbusAsyncRequest_t req);
+rbusError_t rbusProperty_SetAsync(rbusHandle_t rbus, rbusAsyncRequest_t req);
+rbusError_t rbusMethod_InvokeAsyncEx(rbusHandle_t rbus, rbusAsyncRequest_t req);
+
 /** @} */
+
+
+// event loop specific
 
 #ifdef __cplusplus
 }

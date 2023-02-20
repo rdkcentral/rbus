@@ -28,6 +28,9 @@
 #include "rdk_debug.h"
 #endif
 
+#define RT_UNUSED(x) UNUSED_x ## x __attribute__((__unused__))
+#define RTLIB_PRIVATE __attribute__ ((visibility ("hidden")))
+
 #ifdef __APPLE__
 typedef uint64_t rtThreadId;
 #define RT_THREADID_FMT PRIu64

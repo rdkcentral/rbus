@@ -105,6 +105,14 @@ add_executable(rbusOpenTelemetry consumer/rbusOpenTelemetry.c)
 add_dependencies(rbusOpenTelemetry rbus)
 target_link_libraries(rbusOpenTelemetry rbus)
 
+add_executable(rbusEventLoopClient consumer/rbusEventLoopClient.c)
+add_dependencies(rbusEventLoopClient rbus)
+target_link_libraries(rbusEventLoopClient ev rbus)
+
+add_executable(rbusEventLoopServer consumer/rbusEventLoopServer.c)
+add_dependencies(rbusEventLoopServer rbus)
+target_link_libraries(rbusEventLoopServer ev rbus)
+
 
 install (TARGETS
     rbusSampleProvider

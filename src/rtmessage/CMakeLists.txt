@@ -65,6 +65,7 @@ add_library(
       SHARED
       rtConnection.c
       rtCipher.c
+      rtFuture.c
       rtLog.c
       rtError.c
       rtMessageHeader.c

@@ -57,6 +57,16 @@ static void rbus_init_open_telemeetry_thread_specific_key()
   pthread_key_create(&_open_telemetry_key, free);
 }
 
+static rbusCoreError_t rt2core(rtError rt_err)
+{
+  rbusCoreError_t core_err = RBUSCORE_ERROR_GENERAL;
+  if (rt_err == RT_OBJECT_NO_LONGER_AVAILABLE)
+    core_err = RBUSCORE_ERROR_DESTINATION_UNREACHABLE;
+  else if (rt_err == RT_ERROR_TIMEOUT)
+    core_err = RBUSCORE_ERROR_REMOTE_TIMED_OUT;
+  return core_err;
+}
+
 
 static void rbus_releaseOpenTelemetryContext();
 /* Begin rbus_server */
@@ -2345,4 +2355,72 @@ void rbus_setOpenTelemetryContext(const char *traceParent, const char *traceStat
         ot_ctx->otTraceState[0] = '\0';
 }
 
+struct rbusInvokeMethodContext {
+  rbus_async_callback_t user_callback;
+  void*                 user_data;
+};
+
+void rbusInvokeMethodHandler(
+  const rtMessageHeader*              header,
+  const uint8_t*                      data,
+  uint32_t                            data_length,
+  void*                               user_data)
+{
+  rbusMessage res;
+  rbusMessage_FromBytes(&res, data, data_length);
+
+  // TODO: This callback should include an rtError and not have to repl
+  // on header flags. Also, what if lower-layer wants to issue a timeout?
+  rbusCoreError_t core_err = RBUSCORE_SUCCESS;
+  if (header->flags & rtMessageFlags_Undeliverable)
+    core_err = rt2core(RT_OBJECT_NO_LONGER_AVAILABLE);
+
+  struct rbusInvokeMethodContext* ctx = (struct rbusInvokeMethodContext *) user_data;
+  ctx->user_callback(res, core_err, ctx->user_data);
+  free(ctx);
+
+  rbusMessage_Release(res);
+}
+
+rbusCoreError_t
+rbus_invokeRemoteMethodAsync(
+  const char*               object_name,
+  const char*               method,
+  rbusMessage               req,
+  int                       timeout_millis,
+  rbus_async_callback_t     user_callback,
+  void*                     user_data,
+  rtAsyncRequestId*         rt_request_id)
+{
+  uint8_t    *data = NULL;
+  uint32_t    data_length = 0;
+  char const *traceParent = NULL;
+  char const *traceState = NULL;
+
+  RBUSCORELOG_INFO("rbus_invokeRemoteMethodAsync");
+
+  rbus_getOpenTelemetryContext(&traceParent, &traceState);
+
+  if (!g_connection)
+  {
+    RBUSCORELOG_ERROR("Not connected.");
+    return RBUSCORE_ERROR_INVALID_STATE;
+  }
+
+  if (MAX_OBJECT_NAME_LENGTH <= strnlen(object_name, MAX_OBJECT_NAME_LENGTH))
+  {
+    RBUSCORELOG_ERROR("Object name is too long.");
+    return RBUSCORE_ERROR_INVALID_PARAM;
+  }
+
+  _rbusMessage_SetMetaInfo(req, method, traceParent, traceState);
+  rbusMessage_ToBytes(req, &data, &data_length);
+
+  struct rbusInvokeMethodContext* ctx = rt_malloc(sizeof(struct rbusInvokeMethodContext));
+  ctx->user_callback = user_callback;
+  ctx->user_data = user_data;
+
+  return rtConnection_SendRequestAsync(g_connection, data, data_length, object_name,
+    &rbusInvokeMethodHandler, ctx, timeout_millis, rt_request_id);
+}
 /* End of File */

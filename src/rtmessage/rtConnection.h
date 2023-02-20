@@ -250,6 +250,23 @@ _rtConnection_ReadAndDropBytes(int fd, unsigned int bytes_to_read);
 void
 _rtConnection_TaintMessages(int i);
 
+typedef uint32_t rtAsyncRequestId;
+#define RT_INVALID_REQUEST_ID UINT32_MAX
+
+rtError
+rtConnection_SendRequestAsync(
+  rtConnection          con,
+  const void*           req,
+  uint32_t              n,
+  const char*           topic,
+  rtMessageCallback     callback,
+  void*                 user_data,
+  int32_t               timeout,
+  rtAsyncRequestId*     request_id);
+
+rtError
+rtConnection_CancelAsyncRequest(rtConnection con, rtAsyncRequestId request_id);
+
 #ifdef __cplusplus
 }
 #endif

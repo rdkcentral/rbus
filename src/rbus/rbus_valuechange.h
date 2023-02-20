@@ -22,13 +22,26 @@
 
 #include "rbus_subscriptions.h"
 
+#include <rtLog.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-void rbusValueChange_AddPropertyNode(rbusHandle_t handle, elementNode* propNode);
-void rbusValueChange_RemovePropertyNode(rbusHandle_t handle, elementNode* propNode);
-void rbusValueChange_CloseHandle(rbusHandle_t handle);
+struct rbusValueChangeDetector {
+  bool              running;
+  rtVector          params;
+  pthread_mutex_t   mutex;
+  pthread_t         thread;
+  pthread_cond_t    cond;
+};
+
+typedef struct rbusValueChangeDetector rbusValueChangeDetector_t;
+
+RTLIB_PRIVATE void rbusValueChange_AddPropertyNode(rbusHandle_t handle, elementNode* propNode);
+RTLIB_PRIVATE void rbusValueChange_RemovePropertyNode(rbusHandle_t handle, elementNode* propNode);
+RTLIB_PRIVATE void rbusValueChange_Destroy(rbusValueChangeDetector_t *d);
+RTLIB_PRIVATE void rbusValueChange_Init(rbusValueChangeDetector_t *d);
 
 #ifdef __cplusplus
 }

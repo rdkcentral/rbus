@@ -22,41 +22,54 @@
 #include "rtLog.h"
 #include "rtMessage.h"
 
-#include <stdlib.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 
-void onMessage(rtMessageHeader const* hdr, uint8_t const* buff, uint32_t n, void* closure)
+static void on_response(const rtMessageHeader* header, const uint8_t* buff, uint32_t n, void* user_data)
 {
-  rtConnection con = (rtConnection) closure;
-
-  if (rtMessageHeader_IsRequest(hdr))
-  {
-    rtLog_Info("req:%.*s", n, buff);
-
-    // create response
-    rtMessage res;
-    rtMessage_Create(&res);
-    rtMessage_SetString(res, "reply", "reply -- Hello World");
-    rtConnection_SendResponse(con, hdr, res, 1000);
-    rtMessage_Release(res);
-  }
-
-  rtLog_Info("flags     :%d", hdr->flags);
-  rtLog_Info("is_request:%d", rtMessageHeader_IsRequest(hdr));
+  rtLog_Info("--- begin sync response --- ");
+  rtLog_Info("topic         : %s", header->topic);
+  rtLog_Info("async_response: '%.*s'", n, (char *) buff);
+  rtLog_Info("async_context : '%s'", (char *) user_data);
+  rtLog_Info("---  end async response --- ");
+  free(user_data);
 }
 
 int main()
 {
+  int i;
+
   rtLog_SetLevel(RT_LOG_DEBUG);
 
   rtConnection con;
-  rtConnection_Create(&con, "PROVIDER1", "tcp://127.0.0.1:10001");
-  rtConnection_AddListener(con, "RDK.MODEL.PROVIDER1", onMessage, con);
+  rtConnection_Create(&con, "APP1", "tcp://127.0.0.1:10001");
 
-  pause();
+  i = 1;
+  while (true)
+  {
+    char buff[64];
+    char* s = malloc(16);
+
+    snprintf(s, 16, "ctx-%d", i);
+    snprintf(buff, sizeof(buff), "Hello World:%d", i);
+
+    rtError err = rtConnection_SendRequestAsync(con, (uint8_t *)buff, strlen(buff),
+      "RDK.MODEL.PROVIDER1", on_response, s, -1, NULL);
+    rtLog_Info("SendRequest:%s", rtStrError(err));
+
+    usleep(1000 * 500);
+
+    i++;
+  }
+
+  while (1) {
+    sleep(1);
+  }
 
   rtConnection_Destroy(con);
+
   return 0;
 }
 
