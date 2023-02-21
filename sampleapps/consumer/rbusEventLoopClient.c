@@ -28,6 +28,8 @@
 
 #include <ev.h>
 
+#define TEST_REENTRANCY 0
+
 static pthread_t main_thread_id;
 static uint32_t property1_value = 100;
 
@@ -101,10 +103,15 @@ int main(int argc, char* argv[])
 
   main_thread_id = pthread_self();
 
-  opts.use_event_loop = true;
-  opts.component_name = "event-loop-example";
+  char * component_name = "event-loop-example";
 
-  rbusHandle_New(&rbus, &opts);
+  rbusOptions_Init(&opts);
+  rbusOptions_EnableEventLoop(opts, true);
+  rbusOptions_SetName(opts, component_name);
+
+  rbusHandle_Open(&rbus, opts);
+
+  rbusOptions_Release(opts);
 
   struct ev_loop *loop = EV_DEFAULT;
 
@@ -165,6 +172,10 @@ void get_callback(rbusHandle_t rbus, rbusAsyncResponse_t res)
 
   assert(main_thread_id == pthread_self());
 
+#if TEST_REENTRANCY
+  rbusHandle_RunOne(rbus);
+#endif
+
   rbusError_t err = rbusAsyncResponse_GetStatus(res);
   if (err == RBUS_ERROR_SUCCESS) {
     rbusProperty_t prop = rbusAsyncResponse_GetProperty(res);
@@ -213,17 +224,4 @@ void method_callback(rbusHandle_t rbus, rbusAsyncResponse_t res)
   }
 
   // ev_break(EV_DEFAULT, EVBREAK_ONE);
-}
-
-void on_value_changed(rbusHandle_t rbus, const rbusEvent_t* e, rbusEventSubscription_t* sub)
-{
-  (void) rbus;
-  (void) sub;
-
-  assert(main_thread_id == pthread_self());
-
-  printf("EVENT:%s\n", e->name);
-  rbusObject_fwrite(e->data, 2, stdout);
-  printf("\n");
-  printf("\n");
 }

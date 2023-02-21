@@ -1216,7 +1216,7 @@ static int _event_subscribe_callback_handler(
 
     rbusRunnableQueue_PushBack(&rbus->eventQueue, r);
 
-    rtError err = rtFuture_Wait(ctx.future, 10000);
+    rtError err = rtFuture_Wait(ctx.future, RT_TIMEOUT_INFINITE);
     if (err == RT_OK) {
       ret = RTPTR_TO_INT( rtFuture_GetValue(ctx.future) );
     }
@@ -2609,15 +2609,48 @@ static void _rbus_mutex_destructor()
 
 //******************************* Bus Initialization *****************************//
 
-rbusError_t rbus_open(rbusHandle_t* handle, char const* componentName)
+void rbusOptions_Init(rbusOptions_t* popts)
 {
-  rbusOptions_t opts;
-  opts.use_event_loop = false;
-  opts.component_name = strdup(componentName);
-  return rbusHandle_New(handle, &opts);
+    rbusOptions_t opts = rt_calloc(1, sizeof(struct _rbusOptions));
+    opts->use_event_loop = false;
+    opts->component_name = NULL;
+    if(popts)
+        *popts = opts;
 }
 
-rbusError_t rbusHandle_New(rbusHandle_t* handle, rbusOptions_t const *opts)
+void rbusOptions_EnableEventLoop(rbusOptions_t opts, bool val)
+{
+    opts->use_event_loop = val;
+}
+
+void rbusOptions_SetName(rbusOptions_t opts, char const* name)
+{
+    opts->component_name = strdup(name);
+}
+
+void rbusOptions_Release(rbusOptions_t opts)
+{
+    if(opts->component_name)
+    {
+        free((void*)opts->component_name);
+        opts->component_name = NULL;
+    }
+    free(opts);
+}
+
+rbusError_t rbus_open(rbusHandle_t* handle, char const* componentName)
+{
+  rbusError_t ret = RBUS_ERROR_SUCCESS;
+  rbusOptions_t opts;
+  rbusOptions_Init(&opts);
+  rbusOptions_EnableEventLoop(opts, false);
+  rbusOptions_SetName(opts, componentName);
+  ret = rbusHandle_Open(handle, opts);
+  rbusOptions_Release(opts);
+  return ret;
+}
+
+rbusError_t rbusHandle_Open(rbusHandle_t* handle, rbusOptions_t const opts)
 {
     rbusError_t ret = RBUS_ERROR_SUCCESS;
     rbusCoreError_t err = RBUSCORE_SUCCESS;
@@ -2694,6 +2727,7 @@ rbusError_t rbusHandle_New(rbusHandle_t* handle, rbusOptions_t const *opts)
     rtVector_Create(&tmpHandle->eventSubs);
     rtVector_Create(&tmpHandle->messageCallbacks);
     rbusValueChange_Init(&tmpHandle->valueChangeDetector);
+    tmpHandle->reentrancyGuard = 0;
 
     if (opts->use_event_loop)
       rbusRunnableQueue_Init(&tmpHandle->eventQueue);
@@ -5380,6 +5414,14 @@ rbusHandle_Run(rbusHandle_t rbus)
   rbusRunnable_t* curr;
   rbusRunnable_t* next;
 
+  // being very cautious about applications calling rbusHandle_Run from a callback
+  // that's being invoked from this context.
+  int depth = rtAtomicFetchAdd(&rbus->reentrancyGuard, 1);
+  if (depth > 0) {
+    RBUSLOG_ERROR("re-entrancy problem. rbusHandle_Run was called from Run or RunOne.");
+    abort();
+  }
+
   pthread_mutex_lock(&rbus->eventQueue.mutex);
   curr = rbus->eventQueue.head;
   rbus->eventQueue.head = NULL;
@@ -5400,12 +5442,22 @@ rbusHandle_Run(rbusHandle_t rbus)
     curr = next;
   }
 
+  rtAtomicFetchSub(&rbus->reentrancyGuard, 1);
+
   return RBUS_ERROR_SUCCESS;
 }
 
 rbusError_t
 rbusHandle_RunOne(rbusHandle_t rbus)
 {
+    // being very cautious about applications calling rbusHandle_Run from a callback
+    // that's being invoked from this context.
+    int depth = rtAtomicFetchAdd(&rbus->reentrancyGuard, 1);
+    if (depth > 0) {
+      RBUSLOG_ERROR("re-entrancy problem. rbusHandle_RunOne was called from Run or RunOne.");
+      abort();
+    }
+
     rbusRunnable_t* r = rbusRunnableQueue_PopFront(&rbus->eventQueue);
     if (r)
     {
@@ -5418,8 +5470,11 @@ rbusHandle_RunOne(rbusHandle_t rbus)
             r->cleanup(r->argp);
         }
         rt_free(r);
+        rtAtomicFetchSub(&rbus->reentrancyGuard, 1);
         return RBUS_ERROR_SUCCESS;
     }
+
+    rtAtomicFetchSub(&rbus->reentrancyGuard, 1);
     return RBUS_ERROR_TIMEOUT;
 }
 

@@ -697,13 +697,18 @@ rbusError_t rbus_close(
     rbusHandle_t handle);
 /** @} */
 
-
-typedef struct _rbusOptions {
+struct _rbusOptions {
   bool         use_event_loop;
   char const  *component_name;
-} rbusOptions_t;
+};
 
-rbusError_t rbusHandle_New(rbusHandle_t* rbus, rbusOptions_t const *opts);
+typedef struct _rbusOptions* rbusOptions_t;
+
+void rbusOptions_Init(rbusOptions_t* popts);
+void rbusOptions_EnableEventLoop(rbusOptions_t opts, bool val);
+void rbusOptions_SetName(rbusOptions_t opts, char const* name);
+void rbusOptions_Release(rbusOptions_t opts);
+rbusError_t rbusHandle_Open(rbusHandle_t* rbus, rbusOptions_t const opts);
 rbusError_t rbusHandle_RunOne(rbusHandle_t rbus);
 rbusError_t rbusHandle_Run(rbusHandle_t rbus);
 

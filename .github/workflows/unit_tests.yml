@@ -1,9 +1,9 @@
 name: unit_tests
 on:
   push:
-     branches: [ main, 'rbus-**' ]
+     branches: [ main, 'rbus-**', libev ]
   pull_request:
-     branches: [ main, 'rbus-**' ]
+     branches: [ main, 'rbus-**', libev ]
 jobs:
   all:
     runs-on: ubuntu-latest

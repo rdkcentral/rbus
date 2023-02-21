@@ -60,18 +60,23 @@ rtError rtFuture_Wait(rtFuture_t* f, int millis)
 {
   rtError err = RT_ERROR_TIMEOUT;
 
-  int32_t s = millis / 1000;
-  int32_t m = (millis - (s * 1000));
-
   struct timespec wait_until = { 0, 0 };
-  clock_gettime(CLOCK_REALTIME, &wait_until);
 
-  wait_until.tv_sec += s;
-  wait_until.tv_nsec += (m * 1000 * 1000);
+  if (millis != RT_TIMEOUT_INFINITE) {
+    int32_t s = millis / 1000;
+    int32_t m = (millis - (s * 1000));
+
+    clock_gettime(CLOCK_REALTIME, &wait_until);
+    wait_until.tv_sec += s;
+    wait_until.tv_nsec += (m * 1000 * 1000);
+  }
 
   pthread_mutex_lock(&f->mutex);
   while (!f->completed) {
-    pthread_cond_timedwait(&f->cond, &f->mutex, &wait_until);
+    if (millis != RT_TIMEOUT_INFINITE)
+      pthread_cond_timedwait(&f->cond, &f->mutex, &wait_until);
+    else
+      pthread_cond_wait(&f->cond, &f->mutex);
   }
   if (f->completed) {
     err = f->status;
