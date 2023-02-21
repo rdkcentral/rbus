@@ -77,10 +77,16 @@ int main(int argc, char* argv[])
   main_thread_id = pthread_self();
 
   rbusOptions_t opts;
-  opts.use_event_loop = true;
-  opts.component_name = "event-loop-example";
+  char *componentName = "event-loop-example";
 
-  rbusHandle_New(&rbus, &opts);
+  rbusOptions_Init(&opts);
+  rbusOptions_EnableEventLoop(opts, true);
+  rbusOptions_SetName(opts, componentName);
+
+  rbusHandle_Open(&rbus, opts);
+
+  rbusOptions_Release(opts);
+
   rbus_regDataElements(rbus, 2, dataElements);
   
   struct ev_loop *loop = EV_DEFAULT; 

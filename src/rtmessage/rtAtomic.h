@@ -28,7 +28,12 @@
 #endif
 
 #if defined(RT_ATOMIC_HAS_ATOMIC_FETCH)
-  #include <stdatomic.h>
+  #ifdef __cplusplus
+    #include <atomic>
+    using namespace std;
+  #else
+    #include <stdatomic.h>
+  #endif
 #elif defined(RT_ATOMIC_HAS_SYNC_FETCH)
   #define atomic_int volatile int
 #else
@@ -41,32 +46,59 @@
 extern "C" {
 #endif
 
-static inline void rt_atomic_fetch_add(atomic_int* var, int value)
+static inline int rtAtomicFetchAdd(atomic_int* var, int value)
 {
 #if defined(RT_ATOMIC_HAS_ATOMIC_FETCH)
-    __atomic_fetch_add(var, value, __ATOMIC_SEQ_CST);
+  #ifdef __cplusplus
+    return atomic_fetch_add(var, value);
+  #else
+    return __atomic_fetch_add(var, value, __ATOMIC_SEQ_CST);
+  #endif
 #elif defined(RT_ATOMIC_HAS_SYNC_FETCH)
-    __sync_fetch_and_add(var, value);
+    return __sync_fetch_and_add(var, value);
 #else
+    int original_value = 0;
     pthread_mutex_lock(&g_atomic_mutex);
-    if(NULL != var)
+    if (NULL != var) {
+        original_value = *var;
         *(var) = *(var) + value;
+    }
     pthread_mutex_unlock(&g_atomic_mutex);
+    return original_value;
+#endif
+}
+
+static inline void rt_atomic_fetch_add(atomic_int* var, int value)
+{
+  return (void) rtAtomicFetchAdd(var, value);
+}
+
+
+static inline int rtAtomicFetchSub(atomic_int* var, int value)
+{
+#if defined(RT_ATOMIC_HAS_ATOMIC_FETCH)
+  #ifdef __cplusplus
+    return atomic_fetch_sub(var, value);
+  #else
+    return __atomic_fetch_sub(var, value, __ATOMIC_SEQ_CST);
+  #endif
+#elif defined(RT_ATOMIC_HAS_SYNC_FETCH)
+    return __sync_fetch_and_sub(var, value);
+#else
+    int original_value = 0
+    pthread_mutex_lock(&g_atomic_mutex);
+    if (NULL != var) {
+        original_value = *var;
+        *(var) = *(var) - value;
+    }
+    pthread_mutex_unlock(&g_atomic_mutex);
+    return original_value;
 #endif
 }
 
 static inline void rt_atomic_fetch_sub(atomic_int* var, int value)
 {
-#if defined(RT_ATOMIC_HAS_ATOMIC_FETCH)
-    __atomic_fetch_sub(var, value, __ATOMIC_SEQ_CST);
-#elif defined(RT_ATOMIC_HAS_SYNC_FETCH)
-    __sync_fetch_and_sub(var, value);
-#else
-    pthread_mutex_lock(&g_atomic_mutex);
-    if(NULL != var)
-        *(var) = *(var) - value;
-    pthread_mutex_unlock(&g_atomic_mutex);
-#endif
+  return (void) rt_atomic_fetch_add(var, value);
 }
 
 #ifdef __cplusplus

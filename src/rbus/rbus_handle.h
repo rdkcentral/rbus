@@ -23,6 +23,7 @@
 #include "rbus_subscriptions.h"
 #include "rbus_valuechange.h"
 
+#include <rtAtomic.h>
 #include <rtConnection.h>
 #include <rtVector.h>
 
@@ -102,6 +103,7 @@ struct _rbusHandle
   rbusValueChangeDetector_t valueChangeDetector;
 
   uint32_t              busyWaitSleepDurationMillis;
+  atomic_int            reentrancyGuard;
 };
 
 void rbusHandleList_Add(struct _rbusHandle* handle);
