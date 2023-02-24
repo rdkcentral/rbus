@@ -1900,7 +1900,9 @@ rbusCoreError_t rbus_discoverObjectElements(const char * object, int * count, ch
     {
         int32_t size, length, i;
         const char * value = NULL;
+        char **array_ptr = NULL;
 
+        *elements = array_ptr;
         rtMessage_GetInt32(msg, RTM_DISCOVERY_COUNT, &size);
         rtMessage_GetArrayLength(msg, RTM_DISCOVERY_ITEMS, &length);
 
@@ -1909,13 +1911,12 @@ rbusCoreError_t rbus_discoverObjectElements(const char * object, int * count, ch
             RBUSCORELOG_ERROR("rbus_GetElementsAddedByObject size missmatch");
         }
 
+        *count = size;
         if(size && length)
         {
-            char **array_ptr = (char **)rt_try_malloc(size * sizeof(char *));
-            *count = size;
+            array_ptr = (char **)rt_try_malloc(size * sizeof(char *));
             if (NULL != array_ptr)
             {
-                *elements = array_ptr;
                 memset(array_ptr, 0, (length * sizeof(char *)));
                 for (i = 0; i < length; i++)
                 {
@@ -1924,6 +1925,7 @@ rbusCoreError_t rbus_discoverObjectElements(const char * object, int * count, ch
                         for (int j = 0; j < i; j++)
                             free(array_ptr[j]);
                         free(array_ptr);
+                        array_ptr=NULL;
                         RBUSCORELOG_ERROR("Read/Memory allocation failure");
                         ret = RBUSCORE_ERROR_GENERAL;
                         break;

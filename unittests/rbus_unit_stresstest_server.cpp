@@ -840,7 +840,9 @@ TEST_F(StressTestServer, rbusMessage_GetElementsAddedByObject_test1)
 
         for(i = 0; i < num_objects; ++i)
             free(objects[i]);
-        free(objects);
+        if(objects != NULL){
+            free(objects);
+        }
 
         if(conn_status)
             CLOSE_BROKER_CONNECTION();
