@@ -30,6 +30,10 @@
 #include <sys/time.h>
 #include "rtLog.h"
 
+#ifdef ENABLE_RDKLOGGER
+#include "rdk_debug.h"
+#endif
+
 #ifndef WIN32
 #include <unistd.h>
 #include <sys/syscall.h>
@@ -44,6 +48,29 @@
 #endif
 
 #include <inttypes.h>
+
+static const char* rtLogLevelStrings[] =
+{
+  "DEBUG",
+  "INFO",
+  "WARN",
+  "ERROR",
+  "FATAL"
+};
+
+static rtLogHandler sLogHandler = NULL;
+static rtLogLevel sLevel = RT_LOG_WARN;
+static rtLoggerSelection sOption =
+#ifdef ENABLE_RDKLOGGER
+  RT_USE_RDKLOGGER;
+#else
+  RT_USE_RTLOGGER;
+#endif
+
+static const uint32_t numRTLogLevels = sizeof(rtLogLevelStrings)/sizeof(rtLogLevelStrings[0]);
+
+rtThreadId rtThreadGetCurrentId();
+
 
 #ifdef __cplusplus
 static void setLogLevelFromEnvironment()
@@ -82,28 +109,6 @@ struct LogLevelSetter
 
 static LogLevelSetter __logLevelSetter; // force RT_LOG_LEVEL to be read from env
 #endif
-
-static const char* rtLogLevelStrings[] =
-{
-  "DEBUG",
-  "INFO",
-  "WARN",
-  "ERROR",
-  "FATAL"
-};
-
-static rtLogHandler sLogHandler = NULL;
-static rtLogLevel sLevel = RT_LOG_WARN;
-static rtLoggerSelection sOption =
-#ifdef ENABLE_RDKLOGGER
-  RT_USE_RDKLOGGER;
-#else
-  RT_USE_RTLOGGER;
-#endif
-
-static const uint32_t numRTLogLevels = sizeof(rtLogLevelStrings)/sizeof(rtLogLevelStrings[0]);
-
-rtThreadId rtThreadGetCurrentId();
 
 const char* rtLogLevelToString(rtLogLevel l)
 {
