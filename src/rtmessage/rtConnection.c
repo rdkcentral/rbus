@@ -110,14 +110,10 @@ struct _rtConnection
   struct _rtListener      listeners[RTMSG_LISTENERS_MAX];
   pthread_mutex_t         mutex;
   rtList                  pending_requests_list;
-  rtList                  callback_message_list;
   rtMessageCallback       default_callback;
   void*                   default_closure;
   unsigned int            run_threads;
-  pthread_t               reader_thread;
-  pthread_t               callback_thread;
-  pthread_mutex_t         callback_message_mutex;
-  pthread_cond_t          callback_message_cond;
+  pthread_t               dispatch_thread;
   pthread_mutex_t         reconnect_mutex;
   rtTime_t                reader_reconnect_time;
   rtTime_t                sender_reconnect_time;
@@ -200,11 +196,6 @@ static void rtMessageInfo_Destroy(rtRetainable* r)
 static void rtMessageInfo_Release(rtMessageInfo* mi)
 {
   rtRetainable_release(mi, rtMessageInfo_Destroy);
-}
-
-static void rtMessageInfo_ListItemFree(void* p)
-{
-    rtMessageInfo_Release((rtMessageInfo*)p);
 }
 
 static inline bool rtMessageInfo_IsEncrypted(rtMessageInfo* msginfo)
@@ -557,14 +548,12 @@ rtConnection_CreateInternal(rtConnection* con, char const* application_name, cha
   pthread_mutexattr_init(&mutex_attribute);
   pthread_mutexattr_settype(&mutex_attribute, PTHREAD_MUTEX_ERRORCHECK);
   if (0 != pthread_mutex_init(&c->mutex, &mutex_attribute) ||
-      0 != pthread_mutex_init(&c->callback_message_mutex, &mutex_attribute) ||
       0 != pthread_mutex_init(&c->reconnect_mutex, &mutex_attribute))
   {
     rtLog_Error("Could not initialize mutex. Cannot create connection.");
     free(c);
     return RT_ERROR;
   }
-  pthread_cond_init(&c->callback_message_cond, NULL);
   for (i = 0; i < RTMSG_LISTENERS_MAX; ++i)
   {
     c->listeners[i].in_use = 0;
@@ -591,7 +580,6 @@ rtConnection_CreateInternal(rtConnection* con, char const* application_name, cha
     c->max_retries = 1;
   c->fd = -1;
   rtList_Create(&c->pending_requests_list);
-  rtList_Create(&c->callback_message_list);
   c->default_callback = NULL;
   c->run_threads = 0;
   c->read_tid = 0;
@@ -616,7 +604,6 @@ rtConnection_CreateInternal(rtConnection* con, char const* application_name, cha
     free(c->recv_buffer);
     free(c->application_name);
     rtList_Destroy(c->pending_requests_list,NULL);
-    rtList_Destroy(c->callback_message_list, NULL);
     free(c);
     return err;
   }
@@ -629,7 +616,6 @@ rtConnection_CreateInternal(rtConnection* con, char const* application_name, cha
     free(c->recv_buffer);
     free(c->application_name);
     rtList_Destroy(c->pending_requests_list,NULL);
-    rtList_Destroy(c->callback_message_list, NULL);
     free(c);
   }
 
@@ -776,7 +762,6 @@ rtConnection_Destroy(rtConnection con)
       rtSemaphore_Post(entry->sem);
     }
     rtList_Destroy(con->pending_requests_list,NULL);
-    rtList_Destroy(con->callback_message_list, rtMessageInfo_ListItemFree);
     pthread_mutex_unlock(&con->mutex);
     if(0 != found_pending_requests)
     {
@@ -786,8 +771,6 @@ rtConnection_Destroy(rtConnection con)
     }
 
     pthread_mutex_destroy(&con->mutex);
-    pthread_mutex_destroy(&con->callback_message_mutex);
-    pthread_cond_destroy(&con->callback_message_cond);
     pthread_mutex_destroy(&con->reconnect_mutex);
 
     free(con);
@@ -1637,29 +1620,16 @@ rtConnection_Read(rtConnection con, int32_t timeout)
     }
     else
     {
-      /*request message must be dispatched to the Callback thread*/
-      rtListItem listItem;
-
-      pthread_mutex_lock(&con->callback_message_mutex);
-
-      rtList_PushBack(con->callback_message_list, msginfo, &listItem);
-      msginfo = NULL; /*the callback thread will release it*/
-
-      /*log something if the callback thread isn't processing fast enough*/
-      size_t size;
-      rtList_GetSize(con->callback_message_list, &size);
-      if(size >= 5)
+      /*handle request message callback on this thread*/
+      int i;
+      for (i = 0; i < RTMSG_LISTENERS_MAX; ++i)
       {
-        if(size == 5 || size == 10 || size == 20 || size == 40 || size == 80)
-          rtLog_Debug("callback_message_list has reached %lu", (unsigned long)size);
-        else if(size >= 100)
-          rtLog_Debug("callback_message_list has reached %lu", (unsigned long)size);
+        if (con->listeners[i].in_use && (con->listeners[i].subscription_id == msginfo->header.control_data))
+        {
+          con->listeners[i].callback(&msginfo->header, msginfo->data, msginfo->dataLength, con->listeners[i].closure);
+          break;
+        }
       }
-
-      /*wake the callback thread up to process new message*/
-      pthread_cond_signal(&con->callback_message_cond);
-
-      pthread_mutex_unlock(&con->callback_message_mutex);
     }
   }
 
@@ -1713,122 +1683,7 @@ void check_router(rtConnection con)
 }
 #endif
 
-/*
-  RDKB-26837: added rtConnection_CallbackThread to decouple
-  reading message from the socket (what rtConnection_ReaderThread does)
-  from executing the listener callbacks which can block.
-  This prevents rtConnection_ReaderThread from getting blocked by callbacks 
-  so that it can continue to read incoming message.
-  Importantly, it allows rtConnection_ReaderThread to handle Response messages  
-  for threads which have called rtConnection_SendRequest.  In RDKB-26837,
-  rtConnection_ReaderThread was executing a callback directly which
-  blocked on an application mutex being help by another thread
-  attempting to call rtConnection_SendRequest.   Since the reader thread
-  was blocked, it could not read the response message the SendRequest 
-  was waiting on.  
-*/
-static void * rtConnection_CallbackThread(void *data)
-{
-  rtConnection con = (rtConnection)data;
-  rtLog_Debug("Callback thread started");
-
-  while (1 == GetRunThreadsSync(con))
-  {
-    size_t size;
-    rtListItem listItem;
-
-    pthread_mutex_lock(&con->callback_message_mutex);
-
-    /*Must check run_threads after lock in order to stay synced with rtConnection_StopThreads*/
-    if (0 == GetRunThreadsSync(con))
-    {
-      pthread_mutex_unlock(&con->callback_message_mutex);
-      break;
-    }
-
-    rtList_GetSize(con->callback_message_list, &size);
-
-    if (size == 0)
-    {
-      //rtLog_Error("Callback thread before wait");
-      pthread_cond_wait(&con->callback_message_cond, &con->callback_message_mutex);
-      //rtLog_Error("Callback thread after wait");
-    }
-
-    /*get first item to handle*/
-    rtList_GetFront(con->callback_message_list, &listItem);
-
-    pthread_mutex_unlock(&con->callback_message_mutex);
-
-    if (0 == GetRunThreadsSync(con))
-    {
-      break;
-    }
-    /*Execute listener callbacks for all messages in callback_message_list.
-      Remove messages from list as you go and return once the list is empty.
-      Very important to not keep any mutex lock while executing the callback*/
-    while(listItem != NULL)
-    {
-      int i;
-      rtMessageInfo* msginfo = NULL;
-      rtMessageCallback callback = NULL;
-
-      rtListItem_GetData(listItem, (void**)&msginfo);
-
-      pthread_mutex_lock(&con->mutex);
-
-      /*check for controlled exit*/
-      if(0 == con->run_threads)
-      {
-        pthread_mutex_unlock(&con->mutex);
-        break;
-      }
-
-      /*find the listener for the msg*/
-      for (i = 0; i < RTMSG_LISTENERS_MAX; ++i)
-      {
-        if (con->listeners[i].in_use && (con->listeners[i].subscription_id == msginfo->header.control_data))
-        {
-          callback = con->listeners[i].callback;
-          msginfo->userData = con->listeners[i].closure;
-          break;
-        }
-      }
-
-      pthread_mutex_unlock(&con->mutex);
-
-      /*process the message without locking any mutex*/
-      if(callback)
-      {
-          //rtLog_Error("rtConnection_CallbackThread before callback");
-          callback(&msginfo->header, msginfo->data, msginfo->dataLength, msginfo->userData);
-          //rtLog_Error("rtConnection_CallbackThread after callback");
-      }
-      else
-      {
-        //rtLog_Error("rtConnection_CallbackThread no callback found for message");
-      }
-
-      pthread_mutex_lock(&con->callback_message_mutex);
-
-      /*remove item. pass NULL so data can be reused*/
-      rtList_RemoveItem(con->callback_message_list, listItem, rtMessageInfo_ListItemFree);
-
-      /*get next item to handle from front*/
-      rtList_GetFront(con->callback_message_list, &listItem);
-
-      size_t size;
-      rtList_GetSize(con->callback_message_list, &size);
-      //rtLog_Error("Remove callback_message_list size=%d", size);
-
-      pthread_mutex_unlock(&con->callback_message_mutex);
-    }
-  }
-  rtLog_Debug("Callback thread exiting");
-  return NULL;
-}
-
-static void * rtConnection_ReaderThread(void *data)
+static void * rtConnection_DispatchThread(void *data)
 {
   rtError err = RT_OK;
   rtConnection con = (rtConnection)data;
@@ -1897,15 +1752,9 @@ static int rtConnection_StartThreads(rtConnection con)
   if(0 == con->run_threads)
   {
     con->run_threads = 1;
-    if(0 != pthread_create(&con->reader_thread, NULL, rtConnection_ReaderThread, (void *)con))
+    if(0 != pthread_create(&con->dispatch_thread, NULL, rtConnection_DispatchThread, (void *)con))
     {
       rtLog_Error("Unable to launch reader thread.");
-      ret = RT_ERROR;
-    }
-
-    if(0 != pthread_create(&con->callback_thread, NULL, rtConnection_CallbackThread, (void *)con))
-    {
-      rtLog_Error("Unable to launch callback thread.");
       ret = RT_ERROR;
     }
   }
@@ -1918,12 +1767,7 @@ static int rtConnection_StopThreads(rtConnection con)
 
   SetRunThreadsSync(con, 0);
 
-  pthread_mutex_lock(&con->callback_message_mutex);
-  pthread_cond_signal(&con->callback_message_cond);
-  pthread_mutex_unlock(&con->callback_message_mutex);
-
-  pthread_join(con->reader_thread, NULL);
-  pthread_join(con->callback_thread, NULL);
+  pthread_join(con->dispatch_thread, NULL);
   return 0;
 }
 
