@@ -1902,7 +1902,8 @@ rbusCoreError_t rbus_discoverObjectElements(const char * object, int * count, ch
         const char * value = NULL;
         char **array_ptr = NULL;
 
-        *elements = array_ptr;
+        *elements = NULL;
+
         rtMessage_GetInt32(msg, RTM_DISCOVERY_COUNT, &size);
         rtMessage_GetArrayLength(msg, RTM_DISCOVERY_ITEMS, &length);
 
@@ -1917,6 +1918,7 @@ rbusCoreError_t rbus_discoverObjectElements(const char * object, int * count, ch
             array_ptr = (char **)rt_try_malloc(size * sizeof(char *));
             if (NULL != array_ptr)
             {
+                *elements = array_ptr;
                 memset(array_ptr, 0, (length * sizeof(char *)));
                 for (i = 0; i < length; i++)
                 {
@@ -1926,10 +1928,7 @@ rbusCoreError_t rbus_discoverObjectElements(const char * object, int * count, ch
                             free(array_ptr[j]);
                         free(array_ptr);
                         array_ptr=NULL;
-			if(*elements == NULL)
-                            RBUSCORELOG_ERROR("DEEPAK *elements IS NULL");
-			else
-                            RBUSCORELOG_ERROR("DEEPAK *elements NOT NULL");
+			*elements = NULL;
                         RBUSCORELOG_ERROR("Read/Memory allocation failure");
                         ret = RBUSCORE_ERROR_GENERAL;
                         break;
