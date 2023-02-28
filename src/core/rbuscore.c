@@ -1926,6 +1926,10 @@ rbusCoreError_t rbus_discoverObjectElements(const char * object, int * count, ch
                             free(array_ptr[j]);
                         free(array_ptr);
                         array_ptr=NULL;
+			if(*elements == NULL)
+                            RBUSCORELOG_ERROR("DEEPAK *elements IS NULL");
+			else
+                            RBUSCORELOG_ERROR("DEEPAK *elements NOT NULL");
                         RBUSCORELOG_ERROR("Read/Memory allocation failure");
                         ret = RBUSCORE_ERROR_GENERAL;
                         break;
