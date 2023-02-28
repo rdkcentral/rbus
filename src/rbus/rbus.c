@@ -2680,7 +2680,7 @@ rbusError_t rbus_regDataElements(
             else
             {
                 rbusSubscriptions_resubscribeElementCache(handle, handleInfo->subscriptions, name, node);
-                RBUSLOG_INFO("%s inserted successfully!", name);
+                RBUSLOG_DEBUG("%s inserted successfully!", name);
             }
         }
     }
