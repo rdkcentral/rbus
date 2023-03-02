@@ -82,472 +82,472 @@ void show_menu(const char* command)
     {
         if(matchCmd(command, 3, "getvalues"))
         {
-            printf ("\e[1mget\e[0mvalues \e[4mpath\e[0m [\e[4mpath\e[0m \e[4m...\e[0m]\n\r");
-            printf ("Gets the value(s) of one or more parameters.\n\r");
-            printf ("Args:\n\r");
-            printf ("\t%-20sEither the name of a parameter or a partial path(ending with '.')\n\r", "path");
-            printf ("Returns:\n\r");
-            printf ("\tValue(s) for all parameter\n\r");
-            printf ("Examples:\n\r");
-            printf ("\tget Example.Prop1\n\r");
-            printf ("\tget Example.Prop1 Example.Prop2\n\r");
-            printf ("\tget Example.\n\r");
-            printf ("\n\r");
+            printf ("\e[1mget\e[0mvalues \e[4mpath\e[0m [\e[4mpath\e[0m \e[4m...\e[0m]\n");
+            printf ("Gets the value(s) of one or more parameters.\n");
+            printf ("Args:\n");
+            printf ("\t%-20sEither the name of a parameter or a partial path(ending with '.')\n", "path");
+            printf ("Returns:\n");
+            printf ("\tValue(s) for all parameter\n");
+            printf ("Examples:\n");
+            printf ("\tget Example.Prop1\n");
+            printf ("\tget Example.Prop1 Example.Prop2\n");
+            printf ("\tget Example.\n");
+            printf ("\n");
         }
         else if(matchCmd(command, 3, "setvalues"))
         {
-            printf ("\e[1mset\e[0mvalues \e[4mparameter\e[0m \e[4mtype\e[0m \e[4mvalue\e[0m [[\e[4mparameter\e[0m \e[4mtype\e[0m \e[4mvalue\e[0m] \e[4m...\e[0m] [commit]\n\r");
-            printf ("Sets the value(s) of one or more parameters.\n\r");
-            printf ("Args:\n\r");
-            printf ("\t%-20sThe name of a parameter\n\r", "parameter");
-            printf ("\t%-20sData type of the parameter. Supported data types: string, int, uint, boolean, datetime, \n\r", "type");
-            printf ("\t%-20ssingle, double, bytes, char, byte, int8, uint8, int16, uint16, int32, uint32, int64, uint64\n\r", " ");
-            printf ("\t%-20sThe new value.\n\r", "value");
-            printf ("\t%-20sOptional commit flag that if set to true will commit all parameters as a session (default true)\n\r", "commit");
-            printf ("Examples:\n\r");
-            printf ("\tset Example.Prop1 string \"Hello World\"\n\r");
-            printf ("\tset Example.Prop2 int 10\n\r");
-            printf ("\tset Example.Prop1 string \"Hello World\" Example.Prop2 int 10\n\r");
-            printf ("\n\r");
+            printf ("\e[1mset\e[0mvalues \e[4mparameter\e[0m \e[4mtype\e[0m \e[4mvalue\e[0m [[\e[4mparameter\e[0m \e[4mtype\e[0m \e[4mvalue\e[0m] \e[4m...\e[0m] [commit]\n");
+            printf ("Sets the value(s) of one or more parameters.\n");
+            printf ("Args:\n");
+            printf ("\t%-20sThe name of a parameter\n", "parameter");
+            printf ("\t%-20sData type of the parameter. Supported data types: string, int, uint, boolean, datetime, \n", "type");
+            printf ("\t%-20ssingle, double, bytes, char, byte, int8, uint8, int16, uint16, int32, uint32, int64, uint64\n", " ");
+            printf ("\t%-20sThe new value.\n", "value");
+            printf ("\t%-20sOptional commit flag that if set to true will commit all parameters as a session (default true)\n", "commit");
+            printf ("Examples:\n");
+            printf ("\tset Example.Prop1 string \"Hello World\"\n");
+            printf ("\tset Example.Prop2 int 10\n");
+            printf ("\tset Example.Prop1 string \"Hello World\" Example.Prop2 int 10\n");
+            printf ("\n");
         }
         else if(matchCmd(command, 3, "addrow"))
         {
-            printf ("\e[1madd\e[0mrow \e[4mtable\e[0m [alias]\n\r");
-            printf ("Add a new row to a table.\n\r");
-            printf ("Args:\n\r");
-            printf ("\t%-20sThe name of the table\n\r", "table");
-            printf ("\t%-20sOptional alias name for new row\n\r", "alias");
-            printf ("Examples:\n\r");
-            printf ("\tadd Example.SomeTable.\n\r");
-            printf ("\tadd Example.SomeTable. MyAlias\n\r");
-            printf ("\n\r");
+            printf ("\e[1madd\e[0mrow \e[4mtable\e[0m [alias]\n");
+            printf ("Add a new row to a table.\n");
+            printf ("Args:\n");
+            printf ("\t%-20sThe name of the table\n", "table");
+            printf ("\t%-20sOptional alias name for new row\n", "alias");
+            printf ("Examples:\n");
+            printf ("\tadd Example.SomeTable.\n");
+            printf ("\tadd Example.SomeTable. MyAlias\n");
+            printf ("\n");
 
         }
         else if(matchCmd(command, 3, "delrow"))
         {
-            printf ("\e[1mdel\e[0mrow \e[4mrow\e[0m\n\r");
-            printf ("Remove a row from a table.\n\r");
-            printf ("Args:\n\r");
-            printf ("\t%-20sThe name of the row to remove\n\r", "row");
-            printf ("Examples:\n\r");
-            printf ("\tdel Example.SomeTable.1\n\r");
-            printf ("\n\r");
+            printf ("\e[1mdel\e[0mrow \e[4mrow\e[0m\n");
+            printf ("Remove a row from a table.\n");
+            printf ("Args:\n");
+            printf ("\t%-20sThe name of the row to remove\n", "row");
+            printf ("Examples:\n");
+            printf ("\tdel Example.SomeTable.1\n");
+            printf ("\n");
         }
         else if(matchCmd(command, 4, "getrows"))
         {
-            printf ("\e[1mgetr\e[0mows \e[4mpath\e[0m\n\r");
-            printf ("Get the names of the rows in a table\n\r");
-            printf ("Args:\n\r");
-            printf ("\t%-20sThe name of a table\n\r", "path");
-            printf ("Returns:\n\r");
-            printf ("\tNames of all rows\n\r");
-            printf ("Examples:\n\r");
-            printf ("\tgetr Example.Table1.\n\r");
-            printf ("\n\r");
+            printf ("\e[1mgetr\e[0mows \e[4mpath\e[0m\n");
+            printf ("Get the names of the rows in a table\n");
+            printf ("Args:\n");
+            printf ("\t%-20sThe name of a table\n", "path");
+            printf ("Returns:\n");
+            printf ("\tNames of all rows\n");
+            printf ("Examples:\n");
+            printf ("\tgetr Example.Table1.\n");
+            printf ("\n");
         }        
         else if(matchCmd(command, 4, "getnames"))
         {
-            printf ("\e[1mgetn\e[0mames \e[4mpath\e[0m  [nextLevel]\n\r");
-            printf ("Gets the names of the elements inside an object or table.\n\r");
-            printf ("Args:\n\r");
-            printf ("\t%-20sThe name of a table or object\n\r", "path");
-            printf ("\t%-20sOptional flag to get only the next level if true or get all names if false (default true)\n\r", "nextLevel");
-            printf ("Returns:\n\r");
-            printf ("\tNames of all children\n\r");
-            printf ("Examples:\n\r");
-            printf ("\tgetn Example.Object1.\n\r");
-            printf ("\tgetn Example.Table1.\n\r");
-            printf ("\n\r");
+            printf ("\e[1mgetn\e[0mames \e[4mpath\e[0m  [nextLevel]\n");
+            printf ("Gets the names of the elements inside an object or table.\n");
+            printf ("Args:\n");
+            printf ("\t%-20sThe name of a table or object\n", "path");
+            printf ("\t%-20sOptional flag to get only the next level if true or get all names if false (default true)\n", "nextLevel");
+            printf ("Returns:\n");
+            printf ("\tNames of all children\n");
+            printf ("Examples:\n");
+            printf ("\tgetn Example.Object1.\n");
+            printf ("\tgetn Example.Table1.\n");
+            printf ("\n");
         }        
         else if(matchCmd(command, 5, "discallcomponents"))
         {
-            printf ("\e[1mdisca\e[0mllcomponents\n\r");
-            printf ("Get a list of all components registered with the bus.\n\r");
-            printf ("Returns:\n\r");
-            printf ("\tList of components\n\r");
-            printf ("Examples:\n\r");
-            printf ("\tdisca\n\r");
-            printf ("\n\r");
+            printf ("\e[1mdisca\e[0mllcomponents\n");
+            printf ("Get a list of all components registered with the bus.\n");
+            printf ("Returns:\n");
+            printf ("\tList of components\n");
+            printf ("Examples:\n");
+            printf ("\tdisca\n");
+            printf ("\n");
         }
         else if(matchCmd(command, 5, "disccomponents"))
         {
-            printf ("\e[1mdiscc\e[0momponents \e[4melement\e[0m [\e[4melement\e[0m \e[4m...\e[0m]\n\r");
-            printf ("Get a list of components that provide a set of data elements name(s).\n\r");
-            printf ("Args:\n\r");
-            printf ("\t%-20sPath of a single element (an element can be a parameter, table, event, or method)\n\r", "element");
-            printf ("Returns:\n\r");
-            printf ("\tList of component, one per element\n\r");
-            printf ("Examples:\n\r");
-            printf ("\tdiscc Example.Prop1\n\r");
-            printf ("\tdiscc Example.Prop1 Another.Prop2\n\r");
-            printf ("\n\r");
+            printf ("\e[1mdiscc\e[0momponents \e[4melement\e[0m [\e[4melement\e[0m \e[4m...\e[0m]\n");
+            printf ("Get a list of components that provide a set of data elements name(s).\n");
+            printf ("Args:\n");
+            printf ("\t%-20sPath of a single element (an element can be a parameter, table, event, or method)\n", "element");
+            printf ("Returns:\n");
+            printf ("\tList of component, one per element\n");
+            printf ("Examples:\n");
+            printf ("\tdiscc Example.Prop1\n");
+            printf ("\tdiscc Example.Prop1 Another.Prop2\n");
+            printf ("\n");
         }
         else if(matchCmd(command, 5, "discelements"))
         {
-            printf ("\e[1mdisce\e[0mlements \e[4mcomponent\e[0m\n\r");
-            printf ("Get a list of all data elements provided by a component.\n\r");
-            printf ("Args:\n\r");
-            printf ("\t%-20sPath of a single element (an element can be a parameter, table, event, or method)\n\r", "element");
-            printf ("Returns:\n\r");
-            printf ("\tValue for each parameter\n\r");
-            printf ("Examples:\n\r");
-            printf ("\tdisce ComponentA\n\r");
-            printf ("\tdisce ComponentA ComponentB\n\r");
-            printf ("\n\r");
+            printf ("\e[1mdisce\e[0mlements \e[4mcomponent\e[0m\n");
+            printf ("Get a list of all data elements provided by a component.\n");
+            printf ("Args:\n");
+            printf ("\t%-20sPath of a single element (an element can be a parameter, table, event, or method)\n", "element");
+            printf ("Returns:\n");
+            printf ("\tValue for each parameter\n");
+            printf ("Examples:\n");
+            printf ("\tdisce ComponentA\n");
+            printf ("\tdisce ComponentA ComponentB\n");
+            printf ("\n");
         }
         else if(matchCmd(command, 5, "discwildcarddests"))
         {
-            printf ("\e[1mdiscw\e[0mildcarddests\n\r");
-            printf ("Get the list of components handling a wildcard/partial path query.\n\r");
-            printf ("Returns:\n\r");
-            printf ("\tList of components\n\r");
-            printf ("Examples:\n\r");
-            printf ("\tdiscw Device.DeviceInfo.\n\r");
-            printf ("\n\r");
+            printf ("\e[1mdiscw\e[0mildcarddests\n");
+            printf ("Get the list of components handling a wildcard/partial path query.\n");
+            printf ("Returns:\n");
+            printf ("\tList of components\n");
+            printf ("Examples:\n");
+            printf ("\tdiscw Device.DeviceInfo.\n");
+            printf ("\n");
         }        
         else if(matchCmd(command, 3, "register"))
         {
-            printf ("\e[1mreg\e[0mister \e[4mtype\e[0m \e[4mname\e[0m\n\r"); //(property,event,table)
-            printf ("Register a new element with the bus.\n\r");
-            printf ("Args:\n\r");
-            printf ("\t%-20sThe type of the new element. Supported types: prop(e.g. property), table, event, method\n\r", "type");
-            printf ("\t%-20sA system-wide unique name for the new element\n\r", "name");
-            printf ("\t%-20sIf type is table, the name must end in \".{i}.\"\n\r", " ");
-            printf ("\t%-20sIf type is event, the name must end in \"!\"\n\r", " ");
-            printf ("\t%-20sIf type is method, the name must end in \"()\"\n\r", " ");
-            printf ("Examples:\n\r");
-            printf ("\treg prop Example.NewProp\n\r");
-            printf ("\treg table Example.NewTable.{i}.\n\r");
-            printf ("\treg event Example.NewEvent!\n\r");
-            printf ("\treg method Example.NewMethod()\n\r");
-            printf ("\n\r");
+            printf ("\e[1mreg\e[0mister \e[4mtype\e[0m \e[4mname\e[0m\n"); //(property,event,table)
+            printf ("Register a new element with the bus.\n");
+            printf ("Args:\n");
+            printf ("\t%-20sThe type of the new element. Supported types: prop(e.g. property), table, event, method\n", "type");
+            printf ("\t%-20sA system-wide unique name for the new element\n", "name");
+            printf ("\t%-20sIf type is table, the name must end in \".{i}.\"\n", " ");
+            printf ("\t%-20sIf type is event, the name must end in \"!\"\n", " ");
+            printf ("\t%-20sIf type is method, the name must end in \"()\"\n", " ");
+            printf ("Examples:\n");
+            printf ("\treg prop Example.NewProp\n");
+            printf ("\treg table Example.NewTable.{i}.\n");
+            printf ("\treg event Example.NewEvent!\n");
+            printf ("\treg method Example.NewMethod()\n");
+            printf ("\n");
         }
         else if(matchCmd(command, 5, "unregister"))
         {
-            printf ("\e[1munreg\e[0mister \e[4mname\e[0m\n\r");
-            printf ("Unregister a previously registered element from the bus.\n\r");
-            printf ("Args:\n\r");
-            printf ("\t%-20sThe name of the element to unregister\n\r", "name");
-            printf ("Examples:\n\r");
-            printf ("\tunreg Example.NewProp\n\r");
-            printf ("\tunreg Example.NewTable.{i}.\n\r");
-            printf ("\tunreg Example.NewEvent!\n\r");
-            printf ("\tunreg Example.NewMethod()\n\r");
-            printf ("\n\r");
+            printf ("\e[1munreg\e[0mister \e[4mname\e[0m\n");
+            printf ("Unregister a previously registered element from the bus.\n");
+            printf ("Args:\n");
+            printf ("\t%-20sThe name of the element to unregister\n", "name");
+            printf ("Examples:\n");
+            printf ("\tunreg Example.NewProp\n");
+            printf ("\tunreg Example.NewTable.{i}.\n");
+            printf ("\tunreg Example.NewEvent!\n");
+            printf ("\tunreg Example.NewMethod()\n");
+            printf ("\n");
         }
         else if(matchCmd(command, 3, "subscribe"))
         {
-            printf ("\e[1msub\e[0mscribe \e[4mevent\e[0m [\e[4moperator\e[0m \e[4mvalue\e[0m \e[4minitialValue\e[0m]\n\r");
-            printf ("Subscribe to a single event.\n\r");
-            printf ("Rbus supports general events, value-change events, and table events.\n\r");
-            printf ("And the type depends on that type of element \e[4mevent\e[0m refers to.\n\r");
-            printf ("If the type is a parameter then it is value-change event.\n\r");
-            printf ("If the type is a table then it is table events.\n\r");
-            printf ("If the type is a event then it is a general event.\n\r");
-            printf ("For value-change, an optional filter can be applied using the \e[4moperator\e[0m \e[4mvalue\e[0m parameters.\n\r");
-            printf ("Args:\n\r");
-            printf ("\t%-20sThe name of the event to subscribe to\n\r", "event");
-            printf ("\t%-20sOptional filter relational operator. Supported operators (>, >=, <, <=, =, !=)\n\r", "operator");
-            printf ("\t%-20sOptional filter trigger value\n\r", "value");
-            printf ("\t%-20sTo get initial value of the event being subscribed\n\r", "initialValue");
-            printf ("Examples:\n\r");
-            printf ("\tsub Example.SomeEvent!\n\r");
-            printf ("\tsub Example.SomeTable.\n\r");
-            printf ("\tsub Example.SomeIntProp > 10\n\r");
-            printf ("\tsub Example.SomeStrProp = \"Hello\"\n\r");
-            printf ("\tsub Example.SomeEvent! true\n\r");
-            printf ("\tsub Example.SomeEvent! = \"data\" true\n\r");
-            printf ("\n\r");
+            printf ("\e[1msub\e[0mscribe \e[4mevent\e[0m [\e[4moperator\e[0m \e[4mvalue\e[0m \e[4minitialValue\e[0m]\n");
+            printf ("Subscribe to a single event.\n");
+            printf ("Rbus supports general events, value-change events, and table events.\n");
+            printf ("And the type depends on that type of element \e[4mevent\e[0m refers to.\n");
+            printf ("If the type is a parameter then it is value-change event.\n");
+            printf ("If the type is a table then it is table events.\n");
+            printf ("If the type is a event then it is a general event.\n");
+            printf ("For value-change, an optional filter can be applied using the \e[4moperator\e[0m \e[4mvalue\e[0m parameters.\n");
+            printf ("Args:\n");
+            printf ("\t%-20sThe name of the event to subscribe to\n", "event");
+            printf ("\t%-20sOptional filter relational operator. Supported operators (>, >=, <, <=, =, !=)\n", "operator");
+            printf ("\t%-20sOptional filter trigger value\n", "value");
+            printf ("\t%-20sTo get initial value of the event being subscribed\n", "initialValue");
+            printf ("Examples:\n");
+            printf ("\tsub Example.SomeEvent!\n");
+            printf ("\tsub Example.SomeTable.\n");
+            printf ("\tsub Example.SomeIntProp > 10\n");
+            printf ("\tsub Example.SomeStrProp = \"Hello\"\n");
+            printf ("\tsub Example.SomeEvent! true\n");
+            printf ("\tsub Example.SomeEvent! = \"data\" true\n");
+            printf ("\n");
         }
         else if(matchCmd(command, 4, "subinterval"))
         {
-            printf ("\e[1msubi\e[0mnterval \e[4mevent\e[0m \e[4minterval\e[0m [\e[4mduration\e[0m] \e[4minitialValue\e[0m]\n\r");
-            printf ("Subscribe to an event with interval\n\r");
-            printf ("For interval, can be applied using the \e[4minterval\e[0m parameter.\n\r");
-            printf ("Args:\n\r");
-            printf ("\t%-20sThe name of the event to subscribe to\n\r", "event");
-            printf ("\t%-20sThe interval trigger value\n\r", "interval");
-            printf ("\t%-20sOptional duration trigger value\n\r", "duration");
-            printf ("\t%-20sOptional to get initial value of the event being subscribed\n\r", "initialValue");
-            printf ("Example:\n\r");
-            printf ("\tsubint Example.SomeIntProp 10\n\r");
-            printf ("\tsubint Example.SomeIntProp 10 60\n\r");
-            printf ("\tsubint Example.SomeIntProp 5 true\n\r");
-            printf ("\tsubint Example.SomeIntProp 5 20 true\n\r");
-            printf ("\n\r");
+            printf ("\e[1msubi\e[0mnterval \e[4mevent\e[0m \e[4minterval\e[0m [\e[4mduration\e[0m] \e[4minitialValue\e[0m]\n");
+            printf ("Subscribe to an event with interval\n");
+            printf ("For interval, can be applied using the \e[4minterval\e[0m parameter.\n");
+            printf ("Args:\n");
+            printf ("\t%-20sThe name of the event to subscribe to\n", "event");
+            printf ("\t%-20sThe interval trigger value\n", "interval");
+            printf ("\t%-20sOptional duration trigger value\n", "duration");
+            printf ("\t%-20sOptional to get initial value of the event being subscribed\n", "initialValue");
+            printf ("Example:\n");
+            printf ("\tsubint Example.SomeIntProp 10\n");
+            printf ("\tsubint Example.SomeIntProp 10 60\n");
+            printf ("\tsubint Example.SomeIntProp 5 true\n");
+            printf ("\tsubint Example.SomeIntProp 5 20 true\n");
+            printf ("\n");
         }
         else if(matchCmd(command, 5, "unsubscribe"))
         {
-            printf ("\e[1munsub\e[0mscribe \e[4mevent\e[0m [\e[4moperator\e[0m \e[4mvalue\e[0m]\n\r");
-            printf ("Unsubscribe from a single event.\n\r");
-            printf ("If a value-change filter was used to subscribe then the same filter must be passed to unsubscribe.\n\r");
-            printf ("Args:\n\r");
-            printf ("\t%-20sThe name of the event to unsubscribe from\n\r", "event");
-            printf ("\t%-20sOptional operator that was used when subscribing to this event. Supported operators (>, >=, <, <=, =, !=)\n\r", "operator");
-            printf ("\t%-20sOptional value that was used when subscribing to this event.\n\r", "value");
-            printf ("Examples:\n\r");
-            printf ("\tunsub Example.SomeEvent!\n\r");
-            printf ("\tunsub Example.SomeTable.\n\r");
-            printf ("\tunsub Example.SomeIntProp > 10\n\r");
-            printf ("\tunsub Example.SomeStrProp = \"Hello\"\n\r");
-            printf ("\n\r");
+            printf ("\e[1munsub\e[0mscribe \e[4mevent\e[0m [\e[4moperator\e[0m \e[4mvalue\e[0m]\n");
+            printf ("Unsubscribe from a single event.\n");
+            printf ("If a value-change filter was used to subscribe then the same filter must be passed to unsubscribe.\n");
+            printf ("Args:\n");
+            printf ("\t%-20sThe name of the event to unsubscribe from\n", "event");
+            printf ("\t%-20sOptional operator that was used when subscribing to this event. Supported operators (>, >=, <, <=, =, !=)\n", "operator");
+            printf ("\t%-20sOptional value that was used when subscribing to this event.\n", "value");
+            printf ("Examples:\n");
+            printf ("\tunsub Example.SomeEvent!\n");
+            printf ("\tunsub Example.SomeTable.\n");
+            printf ("\tunsub Example.SomeIntProp > 10\n");
+            printf ("\tunsub Example.SomeStrProp = \"Hello\"\n");
+            printf ("\n");
         }
         else if(matchCmd(command, 11, "rawdataunsubscribe"))
         {
-            printf ("\e[1mrawdataunsub\e[0mscribe \e[4mevent\e[0m [\e[4moperator\e[0m \e[4mvalue\e[0m]\n\r");
-            printf ("Unsubscribe from a single event.\n\r");
-            printf ("If a value-change filter was used to subscribe then the same filter must be passed to rawdataunsubscribe.\n\r");
-            printf ("Args:\n\r");
-            printf ("\t%-20sThe name of the event to rawdataunsubscribe from\n\r", "event");
-            printf ("\t%-20sOptional operator that was used when subscribing to this event. Supported operators (>, >=, <, <=, =, !=)\n\r", "operator");
-            printf ("\t%-20sOptional value that was used when subscribing to this event.\n\r", "value");
-            printf ("Examples:\n\r");
-            printf ("\trawdataunsub Example.SomeEvent!\n\r");
-            printf ("\n\r");
+            printf ("\e[1mrawdataunsub\e[0mscribe \e[4mevent\e[0m [\e[4moperator\e[0m \e[4mvalue\e[0m]\n");
+            printf ("Unsubscribe from a single event.\n");
+            printf ("If a value-change filter was used to subscribe then the same filter must be passed to rawdataunsubscribe.\n");
+            printf ("Args:\n");
+            printf ("\t%-20sThe name of the event to rawdataunsubscribe from\n", "event");
+            printf ("\t%-20sOptional operator that was used when subscribing to this event. Supported operators (>, >=, <, <=, =, !=)\n", "operator");
+            printf ("\t%-20sOptional value that was used when subscribing to this event.\n", "value");
+            printf ("Examples:\n");
+            printf ("\trawdataunsub Example.SomeEvent!\n");
+            printf ("\n");
         }
         else if(matchCmd(command, 6, "unsubinterval"))
         {
-            printf ("\e[1munsubi\e[0mnterval \e[4mevent\e[0m \e[4minterval\e[0m [\e[4mduration\e[0m]\n\r");
-            printf ("Unsubscribe from a single event\n\r");
-            printf ("If interval, duration are used to subscribe then the same interval, duration must be passed to unsubscribe.\n\r");
-            printf ("Args:\n\r");
-            printf ("\t%-20sThe name of the event to unsubscribe from\n\r", "event");
-            printf ("\t%-20sThe interval that was used when subscribing to this event.\n\r", "interval");
-            printf ("\t%-20sOptional duration that was used when subscribing to this event.\n\r", "duration");
-            printf ("Example:\n\r");
-            printf ("\tunsubint Example.SomeIntProp 10\n\r");
-            printf ("\tunsubint Example.SomeIntProp 10 60\n\r");
-            printf ("\n\r");
+            printf ("\e[1munsubi\e[0mnterval \e[4mevent\e[0m \e[4minterval\e[0m [\e[4mduration\e[0m]\n");
+            printf ("Unsubscribe from a single event\n");
+            printf ("If interval, duration are used to subscribe then the same interval, duration must be passed to unsubscribe.\n");
+            printf ("Args:\n");
+            printf ("\t%-20sThe name of the event to unsubscribe from\n", "event");
+            printf ("\t%-20sThe interval that was used when subscribing to this event.\n", "interval");
+            printf ("\t%-20sOptional duration that was used when subscribing to this event.\n", "duration");
+            printf ("Example:\n");
+            printf ("\tunsubint Example.SomeIntProp 10\n");
+            printf ("\tunsubint Example.SomeIntProp 10 60\n");
+            printf ("\n");
         }
         else if(matchCmd(command, 4, "asubscribe"))
         {
-            printf ("\e[1masub\e[0mscribe \e[4mevent\e[0m [\e[4moperator\e[0m \e[4mvalue\e[0m]\n\r");
-            printf ("Asynchronously subscribe to a single event.\n\r");
-            printf ("Rbus supports general events, value-change events, and table events.\n\r");
-            printf ("And the type depends on that type of element \e[4mevent\e[0m refers to.\n\r");
-            printf ("If the type is a parameter then it is value-change event.\n\r");
-            printf ("If the type is a table then it is table events.\n\r");
-            printf ("If the type is a event then it is a general event.\n\r");
-            printf ("For value-change, an optional filter can be applied using the \e[4moperator\e[0m \e[4mvalue\e[0m parameters.\n\r");
-            printf ("Args:\n\r");
-            printf ("\t%-20sThe name of the event to subscribe to\n\r", "event");
-            printf ("\t%-20sOptional filter relational operator. Supported operators (>, >=, <, <=, =, !=)\n\r", "operator");
-            printf ("\t%-20sOptional filter trigger value\n\r", "value");
-            printf ("Examples:\n\r");
-            printf ("\tasub Example.SomeEvent!\n\r");
-            printf ("\tasub Example.SomeTable.\n\r");
-            printf ("\tasub Example.SomeIntProp > 10\n\r");
-            printf ("\tasub Example.SomeStrProp = \"Hello\"\n\r");
-            printf ("\n\r");
+            printf ("\e[1masub\e[0mscribe \e[4mevent\e[0m [\e[4moperator\e[0m \e[4mvalue\e[0m]\n");
+            printf ("Asynchronously subscribe to a single event.\n");
+            printf ("Rbus supports general events, value-change events, and table events.\n");
+            printf ("And the type depends on that type of element \e[4mevent\e[0m refers to.\n");
+            printf ("If the type is a parameter then it is value-change event.\n");
+            printf ("If the type is a table then it is table events.\n");
+            printf ("If the type is a event then it is a general event.\n");
+            printf ("For value-change, an optional filter can be applied using the \e[4moperator\e[0m \e[4mvalue\e[0m parameters.\n");
+            printf ("Args:\n");
+            printf ("\t%-20sThe name of the event to subscribe to\n", "event");
+            printf ("\t%-20sOptional filter relational operator. Supported operators (>, >=, <, <=, =, !=)\n", "operator");
+            printf ("\t%-20sOptional filter trigger value\n", "value");
+            printf ("Examples:\n");
+            printf ("\tasub Example.SomeEvent!\n");
+            printf ("\tasub Example.SomeTable.\n");
+            printf ("\tasub Example.SomeIntProp > 10\n");
+            printf ("\tasub Example.SomeStrProp = \"Hello\"\n");
+            printf ("\n");
         }
         else if(matchCmd(command, 3, "rawdatasubscribe"))
         {
-            printf ("\e[1mrawdatasub\e[0mscribe \e[4mevent\e[0m [\e[4moperator\e[0m \e[4mvalue\e[0m \e[4minitialValue\e[0m]\n\r");
-            printf ("Subscribe to a single event.\n\r");
-            printf ("Rbus supports general events, value-change events, and table events.\n\r");
-            printf ("And the type depends on that type of element \e[4mevent\e[0m refers to.\n\r");
-            printf ("If the type is a parameter then it is value-change event.\n\r");
-            printf ("If the type is a table then it is table events.\n\r");
-            printf ("If the type is a event then it is a general event.\n\r");
-            printf ("For value-change, an optional filter can be applied using the \e[4moperator\e[0m \e[4mvalue\e[0m parameters.\n\r");
-            printf ("Args:\n\r");
-            printf ("\t%-20sThe name of the event to subscribe to\n\r", "event");
-            printf ("\t%-20sOptional filter relational operator. Supported operators (>, >=, <, <=, =, !=)\n\r", "operator");
-            printf ("\t%-20sOptional filter trigger value\n\r", "value");
-            printf ("\t%-20sTo get initial value of the event being subscribed\n\r", "initialValue");
-            printf ("Examples:\n\r");
-            printf ("\tsub Example.SomeEvent!\n\r");
-            printf ("\tsub Example.SomeTable.\n\r");
-            printf ("\tsub Example.SomeIntProp > 10\n\r");
-            printf ("\tsub Example.SomeStrProp = \"Hello\"\n\r");
-            printf ("\tsub Example.SomeEvent! true\n\r");
-            printf ("\tsub Example.SomeEvent! = \"data\" true\n\r");
-            printf ("\n\r");
+            printf ("\e[1mrawdatasub\e[0mscribe \e[4mevent\e[0m [\e[4moperator\e[0m \e[4mvalue\e[0m \e[4minitialValue\e[0m]\n");
+            printf ("Subscribe to a single event.\n");
+            printf ("Rbus supports general events, value-change events, and table events.\n");
+            printf ("And the type depends on that type of element \e[4mevent\e[0m refers to.\n");
+            printf ("If the type is a parameter then it is value-change event.\n");
+            printf ("If the type is a table then it is table events.\n");
+            printf ("If the type is a event then it is a general event.\n");
+            printf ("For value-change, an optional filter can be applied using the \e[4moperator\e[0m \e[4mvalue\e[0m parameters.\n");
+            printf ("Args:\n");
+            printf ("\t%-20sThe name of the event to subscribe to\n", "event");
+            printf ("\t%-20sOptional filter relational operator. Supported operators (>, >=, <, <=, =, !=)\n", "operator");
+            printf ("\t%-20sOptional filter trigger value\n", "value");
+            printf ("\t%-20sTo get initial value of the event being subscribed\n", "initialValue");
+            printf ("Examples:\n");
+            printf ("\tsub Example.SomeEvent!\n");
+            printf ("\tsub Example.SomeTable.\n");
+            printf ("\tsub Example.SomeIntProp > 10\n");
+            printf ("\tsub Example.SomeStrProp = \"Hello\"\n");
+            printf ("\tsub Example.SomeEvent! true\n");
+            printf ("\tsub Example.SomeEvent! = \"data\" true\n");
+            printf ("\n");
         }
         else if(matchCmd(command, 3, "publish"))
         {
-            printf ("\e[1mpub\e[0mlish \e[4mevent\e[0m [\e[4mdata\e[0m]\n\r");
-            printf ("Publishes an event which will be sent to all subscribers of this event.\n\r");
-            printf ("Args:\n\r");
-            printf ("\t%-20sThe name of the event to publish\n\r", "event");
-            printf ("\t%-20sThe data to publish with the event (as a string)\n\r", "data");
-            printf ("Examples:\n\r");
-            printf ("\tpub Example.MyEvent! \"Hello World\"\n\r");
-            printf ("\n\r");
+            printf ("\e[1mpub\e[0mlish \e[4mevent\e[0m [\e[4mdata\e[0m]\n");
+            printf ("Publishes an event which will be sent to all subscribers of this event.\n");
+            printf ("Args:\n");
+            printf ("\t%-20sThe name of the event to publish\n", "event");
+            printf ("\t%-20sThe data to publish with the event (as a string)\n", "data");
+            printf ("Examples:\n");
+            printf ("\tpub Example.MyEvent! \"Hello World\"\n");
+            printf ("\n");
         }
         else if(matchCmd(command, 3, "rawdatapublish"))
         {
-            printf ("\e[1mpub\e[0mlish \e[4mevent\e[0m [\e[4mdata\e[0m]\n\r");
-            printf ("Publishes an event which will be sent to all subscribers of this event.\n\r");
-            printf ("Args:\n\r");
-            printf ("\t%-20sThe name of the event to publish\n\r", "event");
-            printf ("\t%-20sThe data to publish with the event (as a string)\n\r", "data");
-            printf ("Examples:\n\r");
-            printf ("\tpub Example.MyEvent! \"Hello World\"\n\r");
-            printf ("\n\r");
+            printf ("\e[1mpub\e[0mlish \e[4mevent\e[0m [\e[4mdata\e[0m]\n");
+            printf ("Publishes an event which will be sent to all subscribers of this event.\n");
+            printf ("Args:\n");
+            printf ("\t%-20sThe name of the event to publish\n", "event");
+            printf ("\t%-20sThe data to publish with the event (as a string)\n", "data");
+            printf ("Examples:\n");
+            printf ("\tpub Example.MyEvent! \"Hello World\"\n");
+            printf ("\n");
         }
         else if(matchCmd(command, 9, "method_noargs"))
         {
-            printf ("\e[1mmethod_no\e[0margs \e[4mmethodname\e[0m\n\r");
-            printf ("Used when a method does not require any input arguement.\n\r");
-            printf ("Args:\n\r");
-            printf ("\t%-20sName of a method\n\r", "methodname");
-            printf ("Examples:\n\r");
-            printf ("\tIsLanEnabled()\n\r");
-            printf ("\n\r");
+            printf ("\e[1mmethod_no\e[0margs \e[4mmethodname\e[0m\n");
+            printf ("Used when a method does not require any input arguement.\n");
+            printf ("Args:\n");
+            printf ("\t%-20sName of a method\n", "methodname");
+            printf ("Examples:\n");
+            printf ("\tIsLanEnabled()\n");
+            printf ("\n");
         }
         else if(matchCmd(command, 9, "method_names"))
         {
-            printf ("\e[1mmethod_na\e[0mmes \e[4mmethodname\e[0m \e[4mparameter\e[0m [[\e[4mparameter\e[0m] \e[4m...\e[0m]\n\r");
-            printf ("Uses the parameter name as an input to the specified method.\n\r");
-            printf ("Args:\n\r");
-            printf ("\t%-20sName of a method\n\r", "methodname");
-            printf ("\t%-20sName of a parameter\n\r", "parameter");
-            printf ("Examples:\n\r");
-            printf ("\tGetPSMRecordValue() Device.Test.Psm\n\r");
-            printf ("\n\r");
+            printf ("\e[1mmethod_na\e[0mmes \e[4mmethodname\e[0m \e[4mparameter\e[0m [[\e[4mparameter\e[0m] \e[4m...\e[0m]\n");
+            printf ("Uses the parameter name as an input to the specified method.\n");
+            printf ("Args:\n");
+            printf ("\t%-20sName of a method\n", "methodname");
+            printf ("\t%-20sName of a parameter\n", "parameter");
+            printf ("Examples:\n");
+            printf ("\tGetPSMRecordValue() Device.Test.Psm\n");
+            printf ("\n");
         }
         else if(matchCmd(command, 9, "method_values"))
         {
-            printf ("\e[1mmethod_va\e[0mlues \e[4mmethodname\e[0m \e[4mparameter\e[0m \e[4mtype\e[0m \e[4mvalue\e[0m [[\e[4mparameter\e[0m \e[4mtype\e[0m \e[4mvalue\e[0m] \e[4m...\e[0m] [commit]\n\r");
-            printf ("Uses the type and value of the parameter name as an input to the specified method.\n\r");
-            printf ("Args:\n\r");
-            printf ("\t%-20sName of a method\n\r", "methodname");
-            printf ("\t%-20sName of a parameter\n\r", "parameter");
-            printf ("\t%-20sType of the parameter\n\r", "type");
-            printf ("\t%-20sValue to be stored in the parameter\n\r", "value");
-            printf ("Examples:\n\r");
-            printf ("\tSetPSMRecordValue() Device.Test.Psm string test_value\n\r");
-            printf ("\n\r");
+            printf ("\e[1mmethod_va\e[0mlues \e[4mmethodname\e[0m \e[4mparameter\e[0m \e[4mtype\e[0m \e[4mvalue\e[0m [[\e[4mparameter\e[0m \e[4mtype\e[0m \e[4mvalue\e[0m] \e[4m...\e[0m] [commit]\n");
+            printf ("Uses the type and value of the parameter name as an input to the specified method.\n");
+            printf ("Args:\n");
+            printf ("\t%-20sName of a method\n", "methodname");
+            printf ("\t%-20sName of a parameter\n", "parameter");
+            printf ("\t%-20sType of the parameter\n", "type");
+            printf ("\t%-20sValue to be stored in the parameter\n", "value");
+            printf ("Examples:\n");
+            printf ("\tSetPSMRecordValue() Device.Test.Psm string test_value\n");
+            printf ("\n");
         }
         else if(matchCmd(command, 10, "create_session"))
         {
-            printf ("\e[1mcreate_ses\e[0sion\n\r");
-            printf ("Create a session.\n\r");
-            printf ("Examples:\n\r");
-            printf ("\tcreate_session\n\r");
-            printf ("\n\r");
+            printf ("\e[1mcreate_ses\e[0sion\n");
+            printf ("Create a session.\n");
+            printf ("Examples:\n");
+            printf ("\tcreate_session\n");
+            printf ("\n");
         }
         else if(matchCmd(command, 7, "get_session"))
         {
-            printf ("\e[1mget_ses\e[0sion\n\r");
-            printf ("Get the current session Id value.\n\r");
-            printf ("\tget_session\n\r");
-            printf ("\n\r");
+            printf ("\e[1mget_ses\e[0sion\n");
+            printf ("Get the current session Id value.\n");
+            printf ("\tget_session\n");
+            printf ("\n");
         }
         else if(matchCmd(command, 9, "close_session"))
         {
-            printf ("\e[1mclose_ses\e[0sion\n\r");
-            printf ("Close the current session.\n\r");
-            printf ("\tclose_session\n\r");
-            printf ("\n\r");
+            printf ("\e[1mclose_ses\e[0sion\n");
+            printf ("Close the current session.\n");
+            printf ("\tclose_session\n");
+            printf ("\n");
         }
         else if(matchCmd(command, 3, "log"))
         {
-            printf ("\t\e[1mlog\e[0m \e[4mlevel\e[0m\n\r");
-            printf ("Sets the logging level.\n\r");
-            printf ("You both adjust the rbus log level and enable additional client logging of event data for any subscription made by the program.\n\r");
-            printf ("Args:\n\r");
-            printf ("\t%-20sThe level of logging to enable. Supported levels: debug, info, warn, error, fatal, event\n\r", "level");
-            printf ("Examples:\n\r");
-            printf ("\tToggle event logging:\n\r");
-            printf ("\t\tlog events\n\r");
-            printf ("\tEnable full rbus logging (minus events):\n\r");
-            printf ("\t\tlog debug\n\r");
-            printf ("\tReturn logging to default/quiet:\n\r");
-            printf ("\t\tlog fatal\n\r");
-            printf ("\n\r");
+            printf ("\t\e[1mlog\e[0m \e[4mlevel\e[0m\n");
+            printf ("Sets the logging level.\n");
+            printf ("You both adjust the rbus log level and enable additional client logging of event data for any subscription made by the program.\n");
+            printf ("Args:\n");
+            printf ("\t%-20sThe level of logging to enable. Supported levels: debug, info, warn, error, fatal, event\n", "level");
+            printf ("Examples:\n");
+            printf ("\tToggle event logging:\n");
+            printf ("\t\tlog events\n");
+            printf ("\tEnable full rbus logging (minus events):\n");
+            printf ("\t\tlog debug\n");
+            printf ("\tReturn logging to default/quiet:\n");
+            printf ("\t\tlog fatal\n");
+            printf ("\n");
         }
         else if(matchCmd(command, 5, "opendirect"))
         {
-            printf ("\e[1mopend\e[0mirect \e[4mpath\e[0m\n\r");
-            printf ("Opens direct connection to the DML.\n\r");
-            printf ("Args:\n\r");
-            printf ("\t%-20sThe name of a parameter \n\r", "path");
-            printf ("Examples:\n\r");
-            printf ("\topendirect Example.Prop1\n\r");
-            printf ("\n\r");
+            printf ("\e[1mopend\e[0mirect \e[4mpath\e[0m\n");
+            printf ("Opens direct connection to the DML.\n");
+            printf ("Args:\n");
+            printf ("\t%-20sThe name of a parameter \n", "path");
+            printf ("Examples:\n");
+            printf ("\topendirect Example.Prop1\n");
+            printf ("\n");
         }
         else if(matchCmd(command, 5, "closedirect"))
         {
-            printf ("\e[1mclosed\e[0mirect \e[4mpath\e[0m\n\r");
-            printf ("closes direct connection to the DML.\n\r");
-            printf ("Args:\n\r");
-            printf ("\t%-20sThe name of a parameter \n\r", "path");
-            printf ("Examples:\n\r");
-            printf ("\tclosedirect Example.Prop1\n\r");
-            printf ("\n\r");
+            printf ("\e[1mclosed\e[0mirect \e[4mpath\e[0m\n");
+            printf ("closes direct connection to the DML.\n");
+            printf ("Args:\n");
+            printf ("\t%-20sThe name of a parameter \n", "path");
+            printf ("Examples:\n");
+            printf ("\tclosedirect Example.Prop1\n");
+            printf ("\n");
         }
         else if(matchCmd(command, 4, "quit"))
         {
-            printf ("\t\e[1mquit\e[0m\n\r");
-            printf ("exist the program\n\r");
+            printf ("\t\e[1mquit\e[0m\n");
+            printf ("exist the program\n");
         }
         else
         {
-            printf ("Invalid command: %s\n\r", command);
+            printf ("Invalid command: %s\n", command);
         }
     }
     else
     {
         if(!g_isInteractive)
         {
-            printf ("\nrbuscli\n\r");
-            printf ("\nThis utility allows you to interact with the rbus system on this device.\n\r");
-            printf ("\nUsage:\n\r");
-            printf ("\trbuscli [command]\n\r");
-            printf ("\trbuscli [-i]\n\r");
-            printf ("\trbuscli [-g \e[0m \e[4mparameter\e\e[0m \e[0m]\n\r");
-            printf ("\trbuscli [-s \e[0m \e[4mparameter\e[0m \e[4mtype\e[0m \e[4mvalue\e[0m \e[0m]\n\r");
-            printf ("\n\r");
-            printf ("Options:\n\r");
-            printf ("\t\e[1m-i\e[0m Run as interactive shell.\n\r");
-            printf ("\t\e[1m-g\e[0m Get the value of parameter\n\r");
-            printf ("\t\e[1m-s\e[0m Set the value of parameter\n\r");
-            printf ("\n\r");
-            printf ("Commands:\n\r");
+            printf ("\nrbuscli\n");
+            printf ("\nThis utility allows you to interact with the rbus system on this device.\n");
+            printf ("\nUsage:\n");
+            printf ("\trbuscli [command]\n");
+            printf ("\trbuscli [-i]\n");
+            printf ("\trbuscli [-g \e[0m \e[4mparameter\e\e[0m \e[0m]\n");
+            printf ("\trbuscli [-s \e[0m \e[4mparameter\e[0m \e[4mtype\e[0m \e[4mvalue\e[0m \e[0m]\n");
+            printf ("\n");
+            printf ("Options:\n");
+            printf ("\t\e[1m-i\e[0m Run as interactive shell.\n");
+            printf ("\t\e[1m-g\e[0m Get the value of parameter\n");
+            printf ("\t\e[1m-s\e[0m Set the value of parameter\n");
+            printf ("\n");
+            printf ("Commands:\n");
         }
-        printf ("\t\e[1mopen\e[0mdirect \e[4mpath\e[0m\n\r");
-        printf ("\t\e[1mclose\e[0mdirect \e[4mpath\e[0m\n\r");
-        printf ("\t\e[1mget\e[0mvalues \e[4mpath\e[0m [\e[4mpath\e[0m \e[4m...\e[0m]\n\r");
-        printf ("\t\e[1mset\e[0mvalues \e[4mparameter\e[0m \e[4mtype\e[0m \e[4mvalue\e[0m [[\e[4mparameter\e[0m \e[4mtype\e[0m \e[4mvalue\e[0m] \e[4m...\e[0m] [commit]\n\r");
-        printf ("\t\e[1madd\e[0mrow \e[4mtable\e[0m [alias]\n\r");
-        printf ("\t\e[1mdel\e[0mrow \e[4mrow\e[0m\n\r");
-        printf ("\t\e[1mgetr\e[0mows \e[4mpath\e[0m\n\r");
-        printf ("\t\e[1mgetn\e[0mames \e[4mpath\e[0m [nextLevel]\n\r");
-        printf ("\t\e[1mdiscc\e[0momponents \e[4melement\e[0m [\e[4melement\e[0m \e[4m...\e[0m]\n\r");
-        printf ("\t\e[1mdisca\e[0mllcomponents\n\r");
-        printf ("\t\e[1mmethod_no\e[0margs \e[4mmethodname\e[0m\n\r");
-        printf ("\t\e[1mmethod_na\e[0mmes \e[4mmethodname\e[0m \e[4mparameter\e[0m [[\e[4mparameter\e[0m] \e[4m...\e[0m]\n\r");
-        printf ("\t\e[1mmethod_va\e[0mlues \e[4mmethodname\e[0m \e[4mparameter\e[0m \e[4mtype\e[0m \e[4mvalue\e[0m [[\e[4mparameter\e[0m \e[4mtype\e[0m \e[4mvalue\e[0m] \e[4m...\e[0m] [commit]\n\r");
-        printf ("\t\e[1mdisce\e[0mlements \e[4mcomponent\e[0m\n\r");
-        printf ("\t\e[1mdisce\e[0mlements \e[4mpartial-path\e[0m immediate/all\n\r");
-        printf ("\t\e[1mdiscw\e[0mildcarddests\n\r");
+        printf ("\t\e[1mopen\e[0mdirect \e[4mpath\e[0m\n");
+        printf ("\t\e[1mclose\e[0mdirect \e[4mpath\e[0m\n");
+        printf ("\t\e[1mget\e[0mvalues \e[4mpath\e[0m [\e[4mpath\e[0m \e[4m...\e[0m]\n");
+        printf ("\t\e[1mset\e[0mvalues \e[4mparameter\e[0m \e[4mtype\e[0m \e[4mvalue\e[0m [[\e[4mparameter\e[0m \e[4mtype\e[0m \e[4mvalue\e[0m] \e[4m...\e[0m] [commit]\n");
+        printf ("\t\e[1madd\e[0mrow \e[4mtable\e[0m [alias]\n");
+        printf ("\t\e[1mdel\e[0mrow \e[4mrow\e[0m\n");
+        printf ("\t\e[1mgetr\e[0mows \e[4mpath\e[0m\n");
+        printf ("\t\e[1mgetn\e[0mames \e[4mpath\e[0m [nextLevel]\n");
+        printf ("\t\e[1mdiscc\e[0momponents \e[4melement\e[0m [\e[4melement\e[0m \e[4m...\e[0m]\n");
+        printf ("\t\e[1mdisca\e[0mllcomponents\n");
+        printf ("\t\e[1mmethod_no\e[0margs \e[4mmethodname\e[0m\n");
+        printf ("\t\e[1mmethod_na\e[0mmes \e[4mmethodname\e[0m \e[4mparameter\e[0m [[\e[4mparameter\e[0m] \e[4m...\e[0m]\n");
+        printf ("\t\e[1mmethod_va\e[0mlues \e[4mmethodname\e[0m \e[4mparameter\e[0m \e[4mtype\e[0m \e[4mvalue\e[0m [[\e[4mparameter\e[0m \e[4mtype\e[0m \e[4mvalue\e[0m] \e[4m...\e[0m] [commit]\n");
+        printf ("\t\e[1mdisce\e[0mlements \e[4mcomponent\e[0m\n");
+        printf ("\t\e[1mdisce\e[0mlements \e[4mpartial-path\e[0m immediate/all\n");
+        printf ("\t\e[1mdiscw\e[0mildcarddests\n");
         if(!g_isInteractive)    
         {
-            printf ("\t\e[1mhelp\e[0m [\e[4mcommand\e[0m]\n\r");
-            printf ("Additional interactive shell commands:\n\r");
+            printf ("\t\e[1mhelp\e[0m [\e[4mcommand\e[0m]\n");
+            printf ("Additional interactive shell commands:\n");
         }
-        printf ("\t\e[1mreg\e[0mister \e[4mtype\e[0m \e[4mname\e[0m\n\r");
-        printf ("\t\e[1munreg\e[0mister \e[4mname\e[0m\n\r");
-        printf ("\t\e[1msub\e[0mscribe \e[4mevent\e[0m [\e[4moperator\e[0m \e[4mvalue\e[0m] [\e[4minitialValue\e[0m]\n\r");
-        printf ("\t\e[1msubi\e[0mnterval \e[4mevent\e[0m \e[4minterval\e[0m [\e[4mduration\e[0m] [\e[4minitialValue\e[0m]\n\r");
-        printf ("\t\e[1mrawdatasub\e[0mscribe \e[4mevent\e[0m]\n\r");
-        printf ("\t\e[1munsub\e[0mscribe \e[4mevent\e[0m [\e[4moperator\e[0m \e[4mvalue\e[0m]\n\r");
-        printf ("\t\e[1mrawdataunsub\e[0mscribe \e[4mevent\e[0m]\n\r");
-        printf ("\t\e[1munsubi\e[0mnterval \e[4mevent\e[0m \e[4minterval\e[0m [\e[4mduration\e[0m] [\e[4minitialValue\e[0m]\n\r");
-        printf ("\t\e[1masub\e[0mscribe \e[4mevent\e[0m [\e[4moperator\e[0m \e[4mvalue\e[0m]\n\r");
-        printf ("\t\e[1mpub\e[0mlish \e[4mevent\e[0m [\e[4mdata\e[0m]\n\r");
-        printf ("\t\e[1mrawdatapub\e[0mlish \e[4mevent\e[0m [\e[4mdata\e[0m]\n\r");
-        printf ("\t\e[1mcreate_ses\e[0msion\n\r");
-        printf ("\t\e[1mget_ses\e[0msion\n\r");
-        printf ("\t\e[1mclose_ses\e[0msion\n\r");
-        printf ("\t\e[1mquit\e[0m\n\r");
+        printf ("\t\e[1mreg\e[0mister \e[4mtype\e[0m \e[4mname\e[0m\n");
+        printf ("\t\e[1munreg\e[0mister \e[4mname\e[0m\n");
+        printf ("\t\e[1msub\e[0mscribe \e[4mevent\e[0m [\e[4moperator\e[0m \e[4mvalue\e[0m] [\e[4minitialValue\e[0m]\n");
+        printf ("\t\e[1msubi\e[0mnterval \e[4mevent\e[0m \e[4minterval\e[0m [\e[4mduration\e[0m] [\e[4minitialValue\e[0m]\n");
+        printf ("\t\e[1mrawdatasub\e[0mscribe \e[4mevent\e[0m]\n");
+        printf ("\t\e[1munsub\e[0mscribe \e[4mevent\e[0m [\e[4moperator\e[0m \e[4mvalue\e[0m]\n");
+        printf ("\t\e[1mrawdataunsub\e[0mscribe \e[4mevent\e[0m]\n");
+        printf ("\t\e[1munsubi\e[0mnterval \e[4mevent\e[0m \e[4minterval\e[0m [\e[4mduration\e[0m] [\e[4minitialValue\e[0m]\n");
+        printf ("\t\e[1masub\e[0mscribe \e[4mevent\e[0m [\e[4moperator\e[0m \e[4mvalue\e[0m]\n");
+        printf ("\t\e[1mpub\e[0mlish \e[4mevent\e[0m [\e[4mdata\e[0m]\n");
+        printf ("\t\e[1mrawdatapub\e[0mlish \e[4mevent\e[0m [\e[4mdata\e[0m]\n");
+        printf ("\t\e[1mcreate_ses\e[0msion\n");
+        printf ("\t\e[1mget_ses\e[0msion\n");
+        printf ("\t\e[1mclose_ses\e[0msion\n");
+        printf ("\t\e[1mquit\e[0m\n");
         if(g_isInteractive)    
         {
-            printf ("\t\e[1mhelp\e[0m [\e[4mcommand\e[0m]\n\r");
+            printf ("\t\e[1mhelp\e[0m [\e[4mcommand\e[0m]\n");
         }
-        printf ("\n\r");
+        printf ("\n");
     }
 }
 
@@ -575,7 +575,7 @@ void rbus_log_handler(
     case RBUS_LOG_ERROR:    slevel = "ERROR";   break;
     case RBUS_LOG_FATAL:    slevel = "FATAL";   break;
     }
-    printf("%s %5s %s:%d -- Thread-%d: %s \n\r", rtTime_ToString(&tm, tbuff), slevel, file, line, threadId, message);
+    printf("%s %5s %s:%d -- Thread-%d: %s \n", rtTime_ToString(&tm, tbuff), slevel, file, line, threadId, message);
 }
 
 rbusValueType_t getDataType_fromString(const char* pType)
@@ -747,7 +747,7 @@ rbusError_t property_get_handler(rbusHandle_t handle, rbusProperty_t property, r
     {
         if(g_logEvents)
         {
-            printf("Get handler called for invalid property %s\n\r", name);
+            printf("Get handler called for invalid property %s\n", name);
         }
         return RBUS_ERROR_INVALID_INPUT;
     }
@@ -757,7 +757,7 @@ rbusError_t property_get_handler(rbusHandle_t handle, rbusProperty_t property, r
     if(g_logEvents)
     {
         char* buff;
-        printf("Get handler called for %s, returning value: %s\n\r", 
+        printf("Get handler called for %s, returning value: %s\n", 
             name, buff = rbusValue_ToString(rbusProperty_GetValue(property), NULL, 0));
         free(buff);
     }
@@ -779,7 +779,7 @@ rbusError_t property_set_handler(rbusHandle_t handle, rbusProperty_t prop, rbusS
     {
         if(g_logEvents)
         {
-            printf("Get handler called for invalid property %s\n\r", name);
+            printf("Get handler called for invalid property %s\n", name);
         }
         return RBUS_ERROR_INVALID_INPUT;
     }
@@ -788,7 +788,7 @@ rbusError_t property_set_handler(rbusHandle_t handle, rbusProperty_t prop, rbusS
 
     if(g_logEvents)
     {
-        printf("Set handler called for %s, new value: %s\n\r", 
+        printf("Set handler called for %s, new value: %s\n", 
             name, buff = rbusValue_ToString(rbusProperty_GetValue(registeredProp), NULL, 0));
         free(buff);
     }
@@ -806,7 +806,7 @@ rbusError_t table_add_row_handler(rbusHandle_t handle, char const* tableName, ch
     runSteps = __LINE__;
     if(g_logEvents)
     {
-        printf("Table add row handler called for %s\n\r", tableName);
+        printf("Table add row handler called for %s\n", tableName);
     }
     return RBUS_ERROR_SUCCESS;
 }
@@ -816,7 +816,7 @@ rbusError_t table_remove_row_handler(rbusHandle_t handle, char const* rowName)
     (void)handle;
     if(g_logEvents)
     {
-        printf("Table remove row handler called for %s\n\r", rowName);
+        printf("Table remove row handler called for %s\n", rowName);
     }
     return RBUS_ERROR_SUCCESS;
 }
@@ -830,7 +830,7 @@ static rbusError_t method_invoke_handler(rbusHandle_t handle, char const* method
     runSteps = __LINE__;
     if(g_logEvents)
     {
-        printf("Method handler called for %s\n\r", methodName);
+        printf("Method handler called for %s\n", methodName);
     }
     rbusObject_fwrite(inParams, 1, stdout);
     return RBUS_ERROR_SUCCESS;
@@ -845,7 +845,7 @@ rbusError_t event_subscribe_handler(rbusHandle_t handle, rbusEventSubAction_t ac
     runSteps = __LINE__;
     if(g_logEvents)
     {
-        printf("Subscribe handler called for %s, action: %s\n\r", eventName, 
+        printf("Subscribe handler called for %s, action: %s\n", eventName, 
             action == RBUS_EVENT_ACTION_SUBSCRIBE ? "subscribe" : "unsubscribe");
     }
     return RBUS_ERROR_SUCCESS;
@@ -856,11 +856,11 @@ static void event_receive_handler1(rbusHandle_t handle, rbusEventRawData_t const
     (void)handle;
     (void)subscription;
     runSteps = __LINE__;
-    printf("\nevent_receive_handler1 called\n\r");
-    printf("Event received %s\n\r", event->name);
-    printf("Event data: %s\n\r", (char*)event->rawData);
-    printf("Event data len: %d\n\r", event->rawDataLen);
-    printf("\n\r");
+    printf("\nevent_receive_handler1 called\n");
+    printf("Event received %s\n", event->name);
+    printf("Event data: %s\n", (char*)event->rawData);
+    printf("Event data len: %d\n", event->rawDataLen);
+    printf("\n");
 }
 
 void event_receive_handler2(rbusHandle_t handle, rbusEvent_t const* event, rbusEventSubscription_t* subscription)
@@ -882,12 +882,12 @@ void event_receive_handler2(rbusHandle_t handle, rbusEvent_t const* event, rbusE
             case RBUS_EVENT_DURATION_COMPLETE: stype = "RBUS_EVENT_DURATION_COMPLETE"; break;
         }
 
-        printf("Event received %s of type %s\n\r", event->name, stype);
-        printf("Event data:\n\r");
+        printf("Event received %s of type %s\n", event->name, stype);
+        printf("Event data:\n");
         rbusObject_fwrite(event->data, 2, stdout); 
-        printf("\n\r");
+        printf("\n");
         if (subscription->userData)
-            printf("User data: %s\n\r", (const char*)subscription->userData);
+            printf("User data: %s\n", (const char*)subscription->userData);
     }
 }
 
@@ -909,7 +909,7 @@ static bool verify_rbus_open()
         rc = rbus_open(&g_busHandle, compName);
         if(rc != RBUS_ERROR_SUCCESS)
         {
-            printf("rbus_open failed err: %d\n\r", rc);
+            printf("rbus_open failed err: %d\n", rc);
             return false;
         }
     }
@@ -932,17 +932,17 @@ void execute_discover_registered_components_cmd(int argc, char* argv[])
     if(RBUSCORE_SUCCESS == rc)
     {
         int i;
-        printf ("Discovered registered components..\n\r");
+        printf ("Discovered registered components..\n");
         for (i = 0; i < componentCnt; i++)
         {
-            printf ("\tComponent %d: %s\n\r", (i + 1), pComponentNames[i]);
+            printf ("\tComponent %d: %s\n", (i + 1), pComponentNames[i]);
             free(pComponentNames[i]);
         }
         free(pComponentNames);
     }
     else
     {
-        printf ("Failed to discover components. Error Code = %d\n\r", rc);
+        printf ("Failed to discover components. Error Code = %d\n", rc);
     }
 }
 
@@ -968,24 +968,24 @@ void execute_discover_component_cmd(int argc, char* argv[])
     rc = rbus_discoverComponentName (g_busHandle, elementCnt, pElementNames, &componentCnt, &pComponentNames);
     if(RBUS_ERROR_SUCCESS == rc)
     {
-        printf ("Discovered components for the given elements.\n\r");
+        printf ("Discovered components for the given elements.\n");
         if(componentCnt)
         {
             for (i = 0; i < componentCnt; i++)
             {
-                printf ("\tComponent %d: %s\n\r", (i + 1), pComponentNames[i]);
+                printf ("\tComponent %d: %s\n", (i + 1), pComponentNames[i]);
                 free(pComponentNames[i]);
             }
             free(pComponentNames);
         }
         else
         {
-            printf ("\tNone\n\r");
+            printf ("\tNone\n");
         }
     }
     else
     {
-        printf ("Failed to discover components. Error Code = %d\n\r", rc);
+        printf ("Failed to discover components. Error Code = %d\n", rc);
     }
 }
 
@@ -1015,22 +1015,22 @@ void execute_discover_elements_cmd(int argc, char *argv[])
         if(numElements)
         {
             int i;
-            printf ("Discovered elements are:\n\r");
+            printf ("Discovered elements are:\n");
             for (i = 0; i < numElements; i++)
             {
-                printf ("\tElement %d: %s\n\r", (i + 1), pElementNames[i]);
+                printf ("\tElement %d: %s\n", (i + 1), pElementNames[i]);
                 free(pElementNames[i]);
             }
             free(pElementNames);
         }
         else
         {
-            printf("No elements discovered!\n\r");
+            printf("No elements discovered!\n");
         }
     }
     else
     {
-        printf ("Failed to discover elements. Error Code = %d\n\r", rc);
+        printf ("Failed to discover elements. Error Code = %d\n", rc);
     }
 }
 
@@ -1045,7 +1045,7 @@ void execute_discover_wildcard_dests_cmd(int argc, char* argv[])
 
     if (argc < 3)
     {
-        printf ("Invalid arguments. Please see the help\n\r");
+        printf ("Invalid arguments. Please see the help\n");
         return;
     }
 
@@ -1062,19 +1062,19 @@ void execute_discover_wildcard_dests_cmd(int argc, char* argv[])
             int i;
             for(i = 0; i < numDestinations; i++)
             {
-                printf ("\tComponent %d: %s\n\r", (i + 1), destinations[i]);
+                printf ("\tComponent %d: %s\n", (i + 1), destinations[i]);
                 free(destinations[i]);
             }
             free(destinations);
         }
         else
         {
-            printf("No destinations discovered.\n\r");
+            printf("No destinations discovered.\n");
         }
     }
     else
     {
-        printf ("Failed to discover components. Error Code = %d\n\r", rc);
+        printf ("Failed to discover components. Error Code = %d\n", rc);
     }
 }
 
@@ -1086,7 +1086,7 @@ void validate_and_execute_open_n_close_direct_cmd(int argc, char *argv[], bool i
 
     if (numOfInputParams != 1)
     {
-        printf ("Invalid arguments. Please see the help\n\r");
+        printf ("Invalid arguments. Please see the help\n");
         return;
     }
 
@@ -1098,7 +1098,7 @@ void validate_and_execute_open_n_close_direct_cmd(int argc, char *argv[], bool i
 
     if(pInputParam[0][strlen(pInputParam[0])-1] == '.' || strchr(pInputParam[0], '*'))
     {
-        printf ("Invalid arguments. Please see the help\n\r");
+        printf ("Invalid arguments. Please see the help\n");
         return;
     }
 
@@ -1111,7 +1111,7 @@ void validate_and_execute_open_n_close_direct_cmd(int argc, char *argv[], bool i
         rc = rbus_openDirect(g_busHandle, &directHandle, pInputParam[0]);
         if (RBUS_ERROR_SUCCESS != rc)
         {
-            printf ("Failed to open direct connection to %s\n\r", pInputParam[0]);
+            printf ("Failed to open direct connection to %s\n", pInputParam[0]);
         }
         else
         {
@@ -1128,7 +1128,7 @@ void validate_and_execute_open_n_close_direct_cmd(int argc, char *argv[], bool i
             rc = rbus_closeDirect(directHandle);
             if (RBUS_ERROR_SUCCESS != rc)
             {
-                printf ("Failed to close direct connection to %s\n\r", pInputParam[0]);
+                printf ("Failed to close direct connection to %s\n", pInputParam[0]);
             }
             else
             {
@@ -1137,7 +1137,7 @@ void validate_and_execute_open_n_close_direct_cmd(int argc, char *argv[], bool i
         }
         else
         {
-            printf ("Failed to find direct connection to %s\n\r", pInputParam[0]);
+            printf ("Failed to find direct connection to %s\n", pInputParam[0]);
         }
     }
     return;
@@ -1156,7 +1156,7 @@ void validate_and_execute_get_cmd (int argc, char *argv[])
 
     if ((numOfInputParams < 1) || ((strcmp("-g", argv[1]) == 0) && (numOfInputParams > 1)))
     {
-        RBUSCLI_LOG ("Invalid arguments. Please see the help\n\r");
+        RBUSCLI_LOG ("Invalid arguments. Please see the help\n");
         return;
     }
 
@@ -1210,10 +1210,10 @@ void validate_and_execute_get_cmd (int argc, char *argv[])
             }
             else
             {
-                printf ("Parameter %2d:\n\r", i+1);
-                printf ("              Name  : %s\n\r", rbusProperty_GetName(next));
-                printf ("              Type  : %s\n\r", getDataType_toString(type));
-                printf ("              Value : %s\n\r", pStrVal);
+                printf ("Parameter %2d:\n", i+1);
+                printf ("              Name  : %s\n", rbusProperty_GetName(next));
+                printf ("              Type  : %s\n", getDataType_toString(type));
+                printf ("              Value : %s\n", pStrVal);
             }
             if(pStrVal)
             {
@@ -1226,7 +1226,7 @@ void validate_and_execute_get_cmd (int argc, char *argv[])
     }
     else
     {
-        RBUSCLI_LOG ("Failed to get the data. Error : %d\n\r",rc);
+        RBUSCLI_LOG ("Failed to get the data. Error : %d\n",rc);
     }
 }
 
@@ -1239,7 +1239,7 @@ void validate_and_execute_addrow_cmd (int argc, char *argv[])
 
     if (argc < 3)
     {
-        printf ("Invalid arguments. Please see the help\n\r");
+        printf ("Invalid arguments. Please see the help\n");
         return;
     }
 
@@ -1256,11 +1256,11 @@ void validate_and_execute_addrow_cmd (int argc, char *argv[])
 
     if(RBUS_ERROR_SUCCESS == rc)
     {
-        printf ("\n\n%s%d. added\n\n\r", pTablePathName, instanceNum);
+        printf ("\n\n%s%d. added\n\n", pTablePathName, instanceNum);
     }
     else
     {
-        printf ("Add row to a table failed with error code:%d..\n\r", rc);
+        printf ("Add row to a table failed with error code:%d..\n", rc);
     }
 }
 
@@ -1271,7 +1271,7 @@ void validate_and_execute_delrow_cmd (int argc, char *argv[])
 
     if (argc < 3)
     {
-        printf ("Invalid arguments. Please see the help\n\r");
+        printf ("Invalid arguments. Please see the help\n");
         return;
     }
 
@@ -1285,11 +1285,11 @@ void validate_and_execute_delrow_cmd (int argc, char *argv[])
 
     if(RBUS_ERROR_SUCCESS == rc)
     {
-        printf ("\n\n%s deleted successfully\n\n\r", pTablePathName);
+        printf ("\n\n%s deleted successfully\n\n", pTablePathName);
     }
     else
     {
-        printf ("\n\nDeletion of a row from table failed with error code:%d..\n\r", rc);
+        printf ("\n\nDeletion of a row from table failed with error code:%d..\n", rc);
     }
 }
 
@@ -1305,7 +1305,7 @@ void validate_and_execute_set_cmd (int argc, char *argv[])
      * could be having commit and set to true/false */
     if (((strcmp("-s", argv[1]) == 0 ) && (i > 3)) || (!((i >= 3) && ((i % 3 == 0) || (i % 3 == 1)))))
     {
-        RBUSCLI_LOG ("Invalid arguments. Please see the help\n\r");
+        RBUSCLI_LOG ("Invalid arguments. Please see the help\n");
         return;
     }
 
@@ -1328,14 +1328,14 @@ void validate_and_execute_set_cmd (int argc, char *argv[])
             rbusValue_Init(&setVal[index]);
             setNames[index] = argv[loopCnt+2];
 
-            printf ("Name = %s \n\r", argv[loopCnt+2]);
+            printf ("Name = %s \n", argv[loopCnt+2]);
 
             /* Get Param Type */
             rbusValueType_t type = getDataType_fromString(argv[loopCnt+3]);
 
             if (type == RBUS_NONE)
             {
-                printf ("Invalid data type. Please see the help\n\r");
+                printf ("Invalid data type. Please see the help\n");
                 isInvalid = 1;
                 break;
             }
@@ -1504,17 +1504,17 @@ void validate_and_execute_set_cmd (int argc, char *argv[])
         else
         {
             rc = RBUS_ERROR_INVALID_INPUT;
-            RBUSCLI_LOG ("Invalid data type. Please see the help\n\r");
+            RBUSCLI_LOG ("Invalid data type. Please see the help\n");
         }
     }
 
     if(RBUS_ERROR_SUCCESS == rc)
     {
-        RBUSCLI_LOG ("setvalues succeeded..\n\r");
+        RBUSCLI_LOG ("setvalues succeeded..\n");
     }
     else
     {
-        RBUSCLI_LOG ("setvalues failed with return value: %d\n\r", rc);
+        RBUSCLI_LOG ("setvalues failed with return value: %d\n", rc);
     }
 }
 
@@ -1527,7 +1527,7 @@ void validate_and_execute_getnames_cmd (int argc, char *argv[])
 
     if (argc < 3)
     {
-        printf ("Invalid arguments. Please see the help\n\r");
+        printf ("Invalid arguments. Please see the help\n");
         return;
     }
 
@@ -1544,7 +1544,7 @@ void validate_and_execute_getnames_cmd (int argc, char *argv[])
             nextLevel = false;
         else
         {
-            printf ("Invalid nextLevel option.  This should be 'true' or 'false'.\n\r");
+            printf ("Invalid nextLevel option.  This should be 'true' or 'false'.\n");
             return;
         }
     }
@@ -1590,10 +1590,10 @@ void validate_and_execute_getnames_cmd (int argc, char *argv[])
                 elem = elem->next;
             }
 
-            len = printf("%*s  %-8s  %6s  %-*s  %-*s\n\r", (int)maxIndexLen, " ", "type", "access", (int)maxComponentLen, "component", (int)maxNameLen, "name");
+            len = printf("%*s  %-8s  %6s  %-*s  %-*s\n", (int)maxIndexLen, " ", "type", "access", (int)maxComponentLen, "component", (int)maxNameLen, "name");
             for(index = 0; index < (int)len; ++index)
                 printf("%c", '-');
-            printf("\n\r");
+            printf("\n");
 
             elem = elems;
             component = NULL;
@@ -1602,7 +1602,7 @@ void validate_and_execute_getnames_cmd (int argc, char *argv[])
 
             while(elem)
             {
-                printf("%*d  %-8s  %d%d%d%d%d%d  %-*s  %s\n\r",
+                printf("%*d  %-8s  %d%d%d%d%d%d  %-*s  %s\n",
                     (int)maxIndexLen,
                     index++,
                     elem->type == RBUS_ELEMENT_TYPE_PROPERTY ? "property" :
@@ -1633,13 +1633,13 @@ void validate_and_execute_getnames_cmd (int argc, char *argv[])
             {
                 if(component == NULL || strcmp(component, elem->component) != 0)
                 {
-                    printf("\n\rComponent %s:\n\r", elem->component);
+                    printf("\nComponent %s:\n", elem->component);
                     component = elem->component;
                     index = 1;
                 }
-                printf ("Element   %2d:\n\r", index++);
-                printf ("              Name  : %s\n\r", elem->name);
-                printf ("              Type  : %s\n\r",
+                printf ("Element   %2d:\n", index++);
+                printf ("              Name  : %s\n", elem->name);
+                printf ("              Type  : %s\n",
                     elem->type == RBUS_ELEMENT_TYPE_PROPERTY ? "Property" :
                     (elem->type == RBUS_ELEMENT_TYPE_TABLE ?   "Table" :
                     (elem->type == RBUS_ELEMENT_TYPE_EVENT ?   "Event" :
@@ -1652,9 +1652,9 @@ void validate_and_execute_getnames_cmd (int argc, char *argv[])
                     printf( "Writable");
                 else if(elem->access & RBUS_ACCESS_GET)
                     printf( "ReadOnly");
-                printf( "\n\r");
+                printf( "\n");
 
-                printf ("              Access Flags: %d%d%d%d%d%d\n\r",
+                printf ("              Access Flags: %d%d%d%d%d%d\n",
                     elem->access & RBUS_ACCESS_GET ? 1 : 0,
                     elem->access & RBUS_ACCESS_SET ? 1 : 0,
                     elem->access & RBUS_ACCESS_ADDROW ? 1 : 0,
@@ -1671,12 +1671,12 @@ void validate_and_execute_getnames_cmd (int argc, char *argv[])
         }
         else
         {
-            printf ("No results returned for %s\n\r",argv[2]);
+            printf ("No results returned for %s\n",argv[2]);
         }
     }
     else
     {
-        printf ("Failed to get the data. Error : %d\n\r",rc);
+        printf ("Failed to get the data. Error : %d\n",rc);
     }
 }
 
@@ -1688,7 +1688,7 @@ void validate_and_execute_getrownames_cmd (int argc, char *argv[])
 
     if (argc < 3)
     {
-        printf ("Invalid arguments. Please see the help\n\r");
+        printf ("Invalid arguments. Please see the help\n");
         return;
     }
 
@@ -1703,14 +1703,14 @@ void validate_and_execute_getrownames_cmd (int argc, char *argv[])
         rbusRowName_t* row = rows;
         while(row)
         {
-            printf("Row %2u: instNum=%u, alias=%s, name=%s\n\r", i++, row->instNum, row->alias ? row->alias : "None", row->name);
+            printf("Row %2u: instNum=%u, alias=%s, name=%s\n", i++, row->instNum, row->alias ? row->alias : "None", row->name);
             row = row->next;
         }
         rbusTable_freeRowNames(g_busHandle, rows);
     }
     else
     {
-        printf ("Failed to get the data. Error : %d\n\r",rc);
+        printf ("Failed to get the data. Error : %d\n",rc);
     }
 }
 
@@ -1721,7 +1721,7 @@ void validate_and_execute_register_command (int argc, char *argv[], bool add)
 
     if( !(argc >= 4 && (argc % 2) == 0))
     {
-        printf ("Invalid arguments. Please see the help\n\r");
+        printf ("Invalid arguments. Please see the help\n");
         return;
     }
 
@@ -1765,7 +1765,7 @@ void validate_and_execute_register_command (int argc, char *argv[], bool add)
         }
         else 
         {
-            printf("Invalid element type: %s.  Must be prop, table, event, or method.\n\r", stype);
+            printf("Invalid element type: %s.  Must be prop, table, event, or method.\n", stype);
             continue;
         }
 
@@ -1780,7 +1780,7 @@ void validate_and_execute_register_command (int argc, char *argv[], bool add)
 
         if(rc == RBUS_ERROR_SUCCESS)
         {
-            printf("%s %s\n\r", add ? "Registered" : "Unregistered", name);
+            printf("%s %s\n", add ? "Registered" : "Unregistered", name);
 
             if(add)
             {
@@ -1815,7 +1815,7 @@ void validate_and_execute_register_command (int argc, char *argv[], bool add)
         }
         else
         {
-            printf("Failed to %s %s, error: %d\n\r", add ? "register" : "unregister", name, rc);
+            printf("Failed to %s %s, error: %d\n", add ? "register" : "unregister", name, rc);
         }
     }
 }
@@ -1907,7 +1907,7 @@ void validate_and_execute_subscribe_cmd (int argc, char *argv[], bool add, bool 
 
     if (argc < 3)
     {
-        printf ("Invalid arguments. Please see the help\n\r");
+        printf ("Invalid arguments. Please see the help\n");
         return;
     }
 
@@ -2016,7 +2016,7 @@ void validate_and_execute_subscribe_cmd (int argc, char *argv[], bool add, bool 
     {
 exit_error:
         runSteps = __LINE__;
-        printf ("Invalid arguments. Please see the help\n\r");
+        printf ("Invalid arguments. Please see the help\n");
         rt_free(userData);
         return;
     }
@@ -2053,7 +2053,7 @@ exit_error:
 
     if(rc != RBUS_ERROR_SUCCESS)
     {
-        printf("Invalid Subscription err:%d\n\r", rc);
+        printf("Invalid Subscription err:%d\n", rc);
         rt_free (userData);
     }
     else
@@ -2094,7 +2094,7 @@ void validate_and_execute_publish_command(int argc, char *argv[], bool rawDataPu
 
     if (argc < 3)
     {
-        printf ("Invalid arguments. Please see the help\n\r");
+        printf ("Invalid arguments. Please see the help\n");
         return;
     }
 
@@ -2131,7 +2131,7 @@ void validate_and_execute_publish_command(int argc, char *argv[], bool rawDataPu
 
         if(rc != RBUS_ERROR_SUCCESS)
         {
-            printf("Publish failed err: %d\n\r", rc);
+            printf("Publish failed err: %d\n", rc);
         }
         rbusObject_Release(data);
     }
@@ -2155,7 +2155,7 @@ static void execute_method_cmd(char *cmd, char *method, rbusObject_t inParams)
     {
         if(outParams)
         {
-            printf("%s failed for %s with err: '%s'\n\r",cmd, method,rbusError_ToString(rc));
+            printf("%s failed for %s with err: '%s'\n",cmd, method,rbusError_ToString(rc));
             rbusObject_fwrite(outParams, 1, stdout);
             rbusObject_Release(outParams);
         }
@@ -2177,10 +2177,10 @@ static void execute_method_cmd(char *cmd, char *method, rbusObject_t inParams)
 
             if(str_value)
             {
-                printf ("Parameter %2d:\n\r", ++i);
-                printf ("              Name  : %s\n\r", rbusProperty_GetName(prop));
-                printf ("              Type  : %s\n\r", getDataType_toString(type));
-                printf ("              Value : %s\n\r", str_value);
+                printf ("Parameter %2d:\n", ++i);
+                printf ("              Name  : %s\n", rbusProperty_GetName(prop));
+                printf ("              Type  : %s\n", getDataType_toString(type));
+                printf ("              Value : %s\n", str_value);
                 free(str_value);
             }
         }
@@ -2195,7 +2195,7 @@ void validate_and_execute_method_values_cmd (int argc, char *argv[])
 {
     if(!((argc >= 6) && (0 == (argc % 3))))
     {
-        printf ("Invalid arguments. Please see the help\n\r");
+        printf ("Invalid arguments. Please see the help\n");
         return;
     }
 
@@ -2215,7 +2215,7 @@ void validate_and_execute_method_values_cmd (int argc, char *argv[])
         type = getDataType_fromString(argv[i+1]);
         if (type == RBUS_NONE)
         {
-            printf ("Invalid data type '%s' for the parameter %s\n\r",argv[i+1],argv[i]);
+            printf ("Invalid data type '%s' for the parameter %s\n",argv[i+1],argv[i]);
             if(inParams)
                 rbusObject_Release(inParams);
             return;
@@ -2224,7 +2224,7 @@ void validate_and_execute_method_values_cmd (int argc, char *argv[])
         rbusValue_Init(&value);
         if(false == rbusValue_SetFromString(value, type, argv[i+2]))
         {
-            printf ("Invalid value '%s' for the parameter %s\n\r",argv[i+2],argv[i]);
+            printf ("Invalid value '%s' for the parameter %s\n",argv[i+2],argv[i]);
             if(inParams)
                 rbusObject_Release(inParams);
             return;
@@ -2243,7 +2243,7 @@ void validate_and_execute_method_noargs_cmd (int argc, char *argv[])
 {
     if (argc < 3)
     {
-        printf ("Invalid arguments. Please see the help\n\r");
+        printf ("Invalid arguments. Please see the help\n");
         return;
     }
 
@@ -2258,7 +2258,7 @@ void validate_and_execute_method_names_cmd (int argc, char *argv[])
 {
     if (argc < 4)
     {
-        printf ("Invalid arguments. Please see the help\n\r");
+        printf ("Invalid arguments. Please see the help\n");
         return;
     }
 
@@ -2297,7 +2297,7 @@ void validate_and_execute_get_session_cmd ( )
     if (!verify_rbus_open())
         return;
     rbus_getCurrentSession(g_busHandle, &g_curr_sessionId);
-    printf ("current sessionID %d\n\r", g_curr_sessionId);
+    printf ("current sessionID %d\n", g_curr_sessionId);
 }
 
 void validate_and_execute_close_session_cmd (int argc, char *argv[])
@@ -2356,7 +2356,7 @@ int handle_cmds (int argc, char *argv[])
         }
         else
         {
-            printf ("Invalid arguments. Please see the help\n\r");
+            printf ("Invalid arguments. Please see the help\n");
         }
     }
     else if(matchCmd(command, 5, "discelements"))
@@ -2368,7 +2368,7 @@ int handle_cmds (int argc, char *argv[])
         }
         else
         {
-            printf ("Invalid arguments. Please see the help\n\r");
+            printf ("Invalid arguments. Please see the help\n");
         }
     }
     else if(matchCmd(command, 5, "discallcomponents"))
@@ -2458,13 +2458,13 @@ int handle_cmds (int argc, char *argv[])
     {
         if(argc < 3)
         {
-            printf("Missing log level\n\r");
+            printf("Missing log level\n");
             return 0;
         }
         if(matchCmd(argv[2], 5, "events"))
         {
             g_logEvents = !g_logEvents;
-            printf("Event logs %s\n\r", g_logEvents ? "enabled" : "disabled");
+            printf("Event logs %s\n", g_logEvents ? "enabled" : "disabled");
         }
         else
         {
@@ -2501,11 +2501,11 @@ int handle_cmds (int argc, char *argv[])
                 rbus_setLogLevel(level);
                 g_logLevel = level;
 
-                printf("Log level set to %s\n\r", argv[2]);
+                printf("Log level set to %s\n", argv[2]);
             }
             else
             {
-                printf("Invalid log level\n\r");
+                printf("Invalid log level\n");
             }
         }
     }
@@ -2523,7 +2523,7 @@ int handle_cmds (int argc, char *argv[])
     }
     else
     {
-        printf ("Invalid arguments. Please see the help\n\r");
+        printf ("Invalid arguments. Please see the help\n");
     }
 
     return 0;
@@ -2897,25 +2897,25 @@ static void exception_handler(int sig, siginfo_t *info)
     }
 
     /* dump general information */
-    printf("\n\r!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" );
-    printf("\n\r!!!!!!!!!!!!!!!!!!!!!!!!!!!! Exception Caught !!!!!!!!!!!!!!!!!!!!!!!!!!!!" );
-    printf("\n\r!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" );
+    printf("\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" );
+    printf("\n!!!!!!!!!!!!!!!!!!!!!!!!!!!! Exception Caught !!!!!!!!!!!!!!!!!!!!!!!!!!!!" );
+    printf("\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" );
 
-    printf("\n\n\rSignal info:\n\r"
-                        "\n\rTime: %s "
-                        "\n\rProcess name: <%s>"
-                        "\n\rPID: %d"
-                        "\n\rFault Address: %p"
-                        "\n\rSignal: %d"
-                        "\n\rSignal Code: %d",
+    printf("\n\nSignal info:\n"
+                        "\nTime: %s "
+                        "\nProcess name: <%s>"
+                        "\nPID: %d"
+                        "\nFault Address: %p"
+                        "\nSignal: %d"
+                        "\nSignal Code: %d",
                         asctime (timeinfo),
                         cmdName,
                         getpid(),
                         info->si_addr,
                         sig,
                         info->si_code);
-    printf("\n\r\n\rThe cmd line is :%s.", cmdLine );
-    printf("\n\rThe latest Line number is:%d.\n\r", runSteps);
+    printf("\n\nThe cmd line is :%s.", cmdLine );
+    printf("\nThe latest Line number is:%d.\n", runSteps);
 
 #if (__linux__ && __GLIBC__ && !__UCLIBC__) || __APPLE__
     int size, i;
@@ -2923,16 +2923,16 @@ static void exception_handler(int sig, siginfo_t *info)
     size = backtrace(addresses, BT_BUF_SIZE);
     backtrace_symbols_fd(addresses,size,STDOUT_FILENO);
     if(size >= 3) {
-        printf("backtrace returned: %d\n\r", size);
+        printf("backtrace returned: %d\n", size);
         for(i = 0; i < size; i++) {
-            printf("\n\r%d: %p \n\r", i, addresses[i]);
+            printf("\n%d: %p \n", i, addresses[i]);
         }
     }
 #endif
 
-    printf("\n\r!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" );
-    printf("\n\r!!!!!!!!!!!!!!!!!!!!!!!!!! Dump Ending!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" );
-    printf("\n\r!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n\r");
+    printf("\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" );
+    printf("\n!!!!!!!!!!!!!!!!!!!!!!!!!! Dump Ending!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" );
+    printf("\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
     exit(0);
 }
 
@@ -2994,7 +2994,7 @@ int main( int argc, char *argv[] )
                             free(interArgv[i]);
                 }
                 else
-                    printf("Command missing quotes\n\r");
+                    printf("Command missing quotes\n");
             }
             runSteps = __LINE__;
             linenoiseFree(line);
