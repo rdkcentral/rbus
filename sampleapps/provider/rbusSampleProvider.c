@@ -77,7 +77,7 @@ rbusDataElement_t allTypeDataElements[14] = {
     {"Device.SampleProvider.AllTypes.UInt64Data", RBUS_ELEMENT_TYPE_PROPERTY, {SampleProvider_allTypesGetHandler, SampleProvider_allTypesSetHandler, NULL, NULL, NULL, NULL}},
     {"Device.SampleProvider.AllTypes.SingleData", RBUS_ELEMENT_TYPE_PROPERTY, {SampleProvider_allTypesGetHandler, SampleProvider_allTypesSetHandler, NULL, NULL, NULL, NULL}},
     {"Device.SampleProvider.AllTypes.DoubleData", RBUS_ELEMENT_TYPE_PROPERTY, {SampleProvider_allTypesGetHandler, SampleProvider_allTypesSetHandler, NULL, NULL, NULL, NULL}},
-    {"Device.SampleProvider.AllTypes.DateTimeData", RBUS_ELEMENT_TYPE_PROPERTY, {SampleProvider_allTypesGetHandler, NULL, NULL, NULL, NULL, NULL}},
+    {"Device.SampleProvider.AllTypes.DateTimeData", RBUS_ELEMENT_TYPE_PROPERTY, {SampleProvider_allTypesGetHandler, SampleProvider_allTypesSetHandler, NULL, NULL, NULL, NULL}},
     {"Device.SampleProvider.AllTypes.StringData", RBUS_ELEMENT_TYPE_PROPERTY, {SampleProvider_allTypesGetHandler, SampleProvider_allTypesSetHandler, NULL, NULL, NULL, NULL}},
     {"Device.SampleProvider.AllTypes.BytesData", RBUS_ELEMENT_TYPE_PROPERTY, {SampleProvider_allTypesGetHandler, SampleProvider_allTypesSetHandler, NULL, NULL, NULL, NULL}}
 };
@@ -361,11 +361,9 @@ rbusError_t SampleProvider_allTypesSetHandler(rbusHandle_t handle, rbusProperty_
 {
     (void)handle;
     (void)opts;
-
     char const* name = rbusProperty_GetName(prop);
     rbusValue_t value = rbusProperty_GetValue(prop);
     rbusValueType_t type = rbusValue_GetType(value);
-
     if ((strcmp(name, "Device.SampleProvider.AllTypes.BoolData") == 0) && (type == RBUS_BOOLEAN))
         gTestSampleVal.m_bool = rbusValue_GetBoolean(value);
     else if ((strcmp(name, "Device.SampleProvider.AllTypes.CharData") == 0) && (type == RBUS_CHAR))
@@ -402,6 +400,10 @@ rbusError_t SampleProvider_allTypesSetHandler(rbusHandle_t handle, rbusProperty_
         char const* pTmp = NULL;
         pTmp = rbusValue_GetString(value, &len);
         strncpy (gTestSampleVal.m_string, pTmp, 250);
+    }
+    else if ((strcmp(name, "Device.SampleProvider.AllTypes.DateTimeData") == 0) && (type == RBUS_DATETIME))
+    {
+        gTestSampleVal.m_timeval = *rbusValue_GetTime(value);
     }
     else
         return RBUS_ERROR_INVALID_INPUT;
@@ -446,8 +448,6 @@ rbusError_t SampleProvider_allTypesGetHandler(rbusHandle_t handle, rbusProperty_
         rbusValue_SetDouble(value, gTestSampleVal.m_double);
     else if (strcmp(name, "Device.SampleProvider.AllTypes.DateTimeData") == 0)
     {
-        time_t nowtime = 0;
-        memcpy(&(gTestSampleVal.m_timeval.m_time), localtime(&nowtime), sizeof(struct tm));
         rbusValue_SetTime(value, &(gTestSampleVal.m_timeval));
     }
     else if (strcmp(name, "Device.SampleProvider.AllTypes.StringData") == 0)
