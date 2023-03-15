@@ -2314,45 +2314,17 @@ void rbus_setOpenTelemetryContext(const char *traceParent, const char *traceStat
 {
     rbusOpenTelemetryContext *ot_ctx = rbus_getOpenTelemetryContextFromThreadLocal();
 
-    if (traceParent)
+    if ((traceParent) && (strlen(traceParent) > 0))
     {
-        // The http header form looks like
-        // traceparent: 00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01
-        // If the caller includes the "traceparent:" part, let's trim it off
-        char const* s = strchr(traceParent, ':');
-        if (s) {
-            s++;
-            while (s && *s && isspace(*s))
-                s++;
-        }
-        else
-            s = traceParent;
-
-        if (s && strlen(s) > 0)
-            strncpy(ot_ctx->otTraceParent, s, RBUS_OPEN_TELEMETRY_DATA_MAX - 1);
-
+        strncpy(ot_ctx->otTraceParent, traceParent, RBUS_OPEN_TELEMETRY_DATA_MAX - 1);
         ot_ctx->otTraceParent[RBUS_OPEN_TELEMETRY_DATA_MAX - 1] = '\0';
     }
     else
         ot_ctx->otTraceParent[0] = '\0';
 
-    if (traceState)
+    if ((traceState) && (strlen(traceState) > 0))
     {
-        // The http header form looks like
-        // tracestate: congo=t61rcWkgMzE
-        // If the caller includes the "tracestate:", then let's trim it off
-        char const *s = strchr(traceState, ':');
-        if (s) {
-            s++;
-            while (s && *s && isspace(*s))
-                s++;
-        }
-        else
-            s = traceState;
-
-        if (s && strlen(s) > 0)
-            strncpy(ot_ctx->otTraceState, s, RBUS_OPEN_TELEMETRY_DATA_MAX - 1);
-
+        strncpy(ot_ctx->otTraceState, traceState, RBUS_OPEN_TELEMETRY_DATA_MAX - 1);
         ot_ctx->otTraceState[RBUS_OPEN_TELEMETRY_DATA_MAX - 1] = '\0';
     }
     else
