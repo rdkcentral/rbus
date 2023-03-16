@@ -1216,7 +1216,7 @@ static int _event_subscribe_callback_handler(
 
     rbusRunnableQueue_PushBack(&rbus->eventQueue, r);
 
-    rtError err = rtFuture_Wait(ctx.future, 10000);
+    rtError err = rtFuture_Wait(ctx.future, RT_TIMEOUT_INFINITE);
     if (err == RT_OK) {
       ret = RTPTR_TO_INT( rtFuture_GetValue(ctx.future) );
     }
@@ -2694,6 +2694,7 @@ rbusError_t rbusHandle_New(rbusHandle_t* handle, rbusOptions_t const *opts)
     rtVector_Create(&tmpHandle->eventSubs);
     rtVector_Create(&tmpHandle->messageCallbacks);
     rbusValueChange_Init(&tmpHandle->valueChangeDetector);
+    tmpHandle->reentrancyGuard = 0;
 
     if (opts->use_event_loop)
       rbusRunnableQueue_Init(&tmpHandle->eventQueue);
@@ -5380,6 +5381,14 @@ rbusHandle_Run(rbusHandle_t rbus)
   rbusRunnable_t* curr;
   rbusRunnable_t* next;
 
+  // being very cautious about applications calling rbusHandle_Run from a callback
+  // that's being invoked from this context.
+  int depth = rtAtomicFetchAdd(&rbus->reentrancyGuard, 1);
+  if (depth > 0) {
+    RBUSLOG_ERROR("re-entrancy problem. rbusHandle_Run was called from Run or RunOne.");
+    abort();
+  }
+
   pthread_mutex_lock(&rbus->eventQueue.mutex);
   curr = rbus->eventQueue.head;
   rbus->eventQueue.head = NULL;
@@ -5400,12 +5409,22 @@ rbusHandle_Run(rbusHandle_t rbus)
     curr = next;
   }
 
+  rtAtomicFetchSub(&rbus->reentrancyGuard, 1);
+
   return RBUS_ERROR_SUCCESS;
 }
 
 rbusError_t
 rbusHandle_RunOne(rbusHandle_t rbus)
 {
+    // being very cautious about applications calling rbusHandle_Run from a callback
+    // that's being invoked from this context.
+    int depth = rtAtomicFetchAdd(&rbus->reentrancyGuard, 1);
+    if (depth > 0) {
+      RBUSLOG_ERROR("re-entrancy problem. rbusHandle_RunOne was called from Run or RunOne.");
+      abort();
+    }
+
     rbusRunnable_t* r = rbusRunnableQueue_PopFront(&rbus->eventQueue);
     if (r)
     {
@@ -5418,8 +5437,11 @@ rbusHandle_RunOne(rbusHandle_t rbus)
             r->cleanup(r->argp);
         }
         rt_free(r);
+        rtAtomicFetchSub(&rbus->reentrancyGuard, 1);
         return RBUS_ERROR_SUCCESS;
     }
+
+    rtAtomicFetchSub(&rbus->reentrancyGuard, 1);
     return RBUS_ERROR_TIMEOUT;
 }
 
