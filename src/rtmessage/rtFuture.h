@@ -25,6 +25,8 @@
 
 #include <rtError.h>
 
+#define RT_TIMEOUT_INFINITE (-1)
+
 struct rtFuture;
 typedef struct rtFuture rtFuture_t;
 
