@@ -2590,7 +2590,7 @@ rbusError_t rbus_close(rbusHandle_t handle)
     }
 
     componentName = handleInfo->componentName;
-
+    handleInfo->componentName=NULL;
     rbusHandleList_Remove(handleInfo);
 
     if(rbusHandleList_IsEmpty())
@@ -2635,6 +2635,7 @@ rbusError_t rbus_regDataElements(
     struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
 
     VERIFY_NULL(handleInfo);
+    VERIFY_NULL(handleInfo->componentName);
     VERIFY_NULL(elements);
     VERIFY_ZERO(numDataElements);
 
