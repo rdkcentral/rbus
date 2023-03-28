@@ -64,6 +64,7 @@ int main()
 //  rtConnection_Create(&con, "APP2", "unix:///tmp/rtrouted");
   rtConnection_AddListener(con, "A.*.C", onMessage, NULL);
   rtConnection_AddListener(con, "A.B.C.*", onMessage, NULL);
+  rtConnection_AddListener(con, "A.B.C", onMessage, NULL);
 
   pause();
 

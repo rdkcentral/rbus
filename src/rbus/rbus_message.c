@@ -102,7 +102,7 @@ rbusError_t rbusMessage_AddListener(
 {
     VERIFY_NULL(handle);
     VERIFY_NULL(expression);
-    rtConnection con = ((struct _rbusHandle*)handle)->connection;
+    rtConnection con = ((struct _rbusHandle*)handle)->m_connection;
 
     rbusMessageHandlerContext_t* ctx = rt_malloc(sizeof(rbusMessageHandlerContext_t));
     ctx->handle = handle;
@@ -127,7 +127,7 @@ rbusError_t rbusMessage_RemoveListener(
     char const* expression)
 {
     VERIFY_NULL(handle);
-    rtConnection con = ((struct _rbusHandle*)handle)->connection;
+    rtConnection con = ((struct _rbusHandle*)handle)->m_connection;
 
     rtVector_RemoveItemByCompare(handle->messageCallbacks, expression, compareContextExpression, cleanupContext);
 
@@ -145,7 +145,7 @@ rbusError_t rbusMessage_RemoveAllListeners(
     rbusHandle_t handle)
 {
     VERIFY_NULL(handle);
-    rtConnection con = ((struct _rbusHandle*)handle)->connection;
+    rtConnection con = ((struct _rbusHandle*)handle)->m_connection;
     int i, n;
 
     for (i = 0, n = rtVector_Size(handle->messageCallbacks); i < n; ++i)
@@ -169,7 +169,7 @@ rbusError_t rbusMessage_Send(
     rbusMessageSendOptions_t opts)
 {
     VERIFY_NULL(handle);
-    rtConnection con = ((struct _rbusHandle*)handle)->connection;
+    rtConnection con = ((struct _rbusHandle*)handle)->m_connection;
 
     VERIFY_NULL(message);
     if (opts & RBUS_MESSAGE_CONFIRM_RECEIPT)

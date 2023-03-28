@@ -131,11 +131,11 @@ static void valueChangeHandler(
     if(oldValue)
         printf("  Old Value: %s\n", rbusValue_GetString(oldValue, NULL));
 
-    printf("  My user data: %s\n", (char*)subscription->userData);
 
-    PRINT_EVENT(event, subscription);
+//    PRINT_EVENT(event, subscription);
 
     (void)handle;
+    (void)subscription;
 }
 
 int main(int argc, char *argv[])
@@ -145,6 +145,7 @@ int main(int argc, char *argv[])
 
     int rc = RBUS_ERROR_SUCCESS;
     rbusHandle_t handle;
+    rbusHandle_t handle2;
     char* data[2] = { "My Data 1", "My Data2" };
     rbusEventSubscription_t subscriptions[3] = {
         {"Device.Provider1.Event1!", NULL, 0, 0, generalEvent1Handler, data[0], NULL, NULL, false},
@@ -152,8 +153,10 @@ int main(int argc, char *argv[])
         {"Device.Provider1.Prop1", NULL, 0, 0, generalEvent1Handler, data[1], NULL, NULL, true}
     };
 
+    (void) subscriptions;
     printf("constumer: start\n");
 
+    rbus_setLogLevel(RBUS_LOG_DEBUG);
     rc = rbus_open(&handle, "EventConsumer");
     if(rc != RBUS_ERROR_SUCCESS)
     {
@@ -161,11 +164,18 @@ int main(int argc, char *argv[])
         goto exit4;
     }
 
-#if TEST_VALUE_CHANGE
+    rc = rbus_open(&handle2, "EventConsumerTesting");
+    if(rc != RBUS_ERROR_SUCCESS)
+    {
+        printf("consumer: rbus_open failed: %d\n", rc);
+        goto exit4;
+    }
 
+    rbusHandle_t  lolHandle2 = NULL;
+    rbus_openDirect(handle, &lolHandle2, "Device.SampleProvider.AllTypes.StringData");
     rc = rbusEvent_Subscribe(
         handle,
-        "Device.Provider1.Param1",
+        "Device.SampleProvider.AllTypes.StringData",
         valueChangeHandler,
         NULL,
         0);
@@ -178,14 +188,11 @@ int main(int argc, char *argv[])
 
     sleep(loopFor/4);
     
-#endif
-
-#if TEST_SUBSCRIBE
     rc = rbusEvent_Subscribe(
-        handle,
-        "Device.Provider1.Event1!",
-        generalEvent1Handler,
-        data[0],
+        handle2,
+        "Device.SampleProvider.AllTypes.StringData",
+        valueChangeHandler,
+        NULL,
         0);
 
     if(rc != RBUS_ERROR_SUCCESS)
@@ -194,49 +201,14 @@ int main(int argc, char *argv[])
         goto exit3;
     }
 
-    rc = rbusEvent_Subscribe(
-        handle,
-        "Device.Provider1.Event2!",
-        generalEvent2Handler,
-        data[1],
-        0);
-
-    if(rc != RBUS_ERROR_SUCCESS)
-    {
-        printf("consumer: rbusEvent_Subscribe 2 failed: %d\n", rc);
-        goto exit2;
-    }
-
-    sleep(loopFor/4);
-    printf("Unsubscribing from Event2\n");
-    rbusEvent_Unsubscribe(handle, "Device.Provider1.Event2!");
-    sleep(loopFor/4);
-    printf("Unsubscribing from Event1\n");
-    rbusEvent_Unsubscribe(handle, "Device.Provider1.Event1!");
-#endif
-
-#if TEST_SUBSCRIBE_EX
-    rc = rbusEvent_SubscribeEx(handle, subscriptions, 3, 0);
-
-    if(rc != RBUS_ERROR_SUCCESS)
-    {
-        printf("consumer: rbusEvent_Subscribe 1 failed: %d\n", rc);
-        goto exit3;
-    }
-
-    sleep(loopFor/4);
-
-    rbusEvent_UnsubscribeEx(handle, subscriptions, 3);
-#endif
-    goto exit3;
-
-exit2:
-#if TEST_SUBSCRIBE
-    rbusEvent_Unsubscribe(handle, "Device.Provider1.Event1");
-#endif
+    pause();
+    rbus_closeDirect(lolHandle2);
+    rbusEvent_Unsubscribe(handle, "Device.SampleProvider.AllTypes.StringData"); 
+    rbusEvent_Unsubscribe(handle2, "Device.SampleProvider.AllTypes.StringData"); 
 
 exit3:
     rbus_close(handle);
+    rbus_close(handle2);
 
 exit4:
     printf("consumer: exit\n");

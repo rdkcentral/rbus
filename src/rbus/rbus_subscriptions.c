@@ -132,7 +132,12 @@ rbusSubscription_t* rbusSubscriptions_addSubscription(rbusSubscriptions_t subscr
     sub = rt_malloc(sizeof(rbusSubscription_t));
 
     sub->listener = strdup(listener);
-    sub->eventName = strdup(eventName);
+    if(strchr(eventName, '['))
+        sub->eventName = strdup(registryElem->fullName);
+    else
+        sub->eventName = strdup(eventName);
+
+    printf("@@@@@ eventname:%s----new eventName:%s---\n", eventName, sub->eventName);
     sub->componentId = componentId;
     sub->filter = filter;
     if(sub->filter)

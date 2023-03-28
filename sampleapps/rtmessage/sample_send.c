@@ -53,7 +53,7 @@ int main()
 
     rtMessage_Release(m);
     sleep(1);
-
+#if 0
     rtMessage_Create(&m);
     rtMessage_SetString(m, "description", "message sent to A.B.C.FOO.BAR");
     rtMessage_SetInt32(m, "field1", 1234);
@@ -63,6 +63,7 @@ int main()
 
     rtMessage_Release(m);
     sleep(1);
+#endif
   }
 
   rtConnection_Destroy(con);

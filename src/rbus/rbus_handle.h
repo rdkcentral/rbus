@@ -39,6 +39,13 @@ extern "C" {
     46 additional listeners which can be used by the rbus_message api, other rtConnection clients or for rbus future requirements
 */
 #define RBUS_MAX_HANDLES 16
+typedef enum _rbusHandleType
+{
+    RBUS_HWDL_TYPE_REGULAR = 0xE0E0,
+    RBUS_HWDL_TYPE_DIRECT = 0xF0F0,
+    RBUS_HWDL_TYPE_UNKNOWN
+} rbusHandleType_t;
+
 
 struct _rbusHandle
 {
@@ -54,7 +61,8 @@ struct _rbusHandle
   rbusSubscriptions_t   subscriptions; 
 
   rtVector              messageCallbacks;
-  rtConnection          connection;
+  rtConnection          m_connection;
+  rbusHandleType_t      m_handleType;
 };
 
 void rbusHandleList_Add(struct _rbusHandle* handle);

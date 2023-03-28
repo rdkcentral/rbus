@@ -1706,6 +1706,23 @@ rbusError_t rbus_registerLogHandler(
 
 rbusError_t rbus_setLogLevel(rbusLogLevel_t level);
 
+/** @fn rbusError_t rbus_openDirect(
+ *          rbusHandle_t handle,
+ *          rbusHandle_t* myDirectHandle,
+ *          char const* parameterName)
+ *
+ *  @brief  Component use this API to open Direct Connection to the provider
+ *
+ *  Used by: Component that wants to use private connection to provider and avoid RBUS Daemon.
+ *
+ *  @param level        Log level
+ *  @return RBus error code as defined by rbusError_t.
+ */
+
+
+rbusError_t rbus_openDirect(rbusHandle_t handle, rbusHandle_t* myDirectHandle, char const* parameterName);
+
+rbusError_t rbus_closeDirect(rbusHandle_t handle);
 /** @} */
 
 #ifdef __cplusplus

@@ -57,7 +57,6 @@ static void rbus_init_open_telemeetry_thread_specific_key()
   pthread_key_create(&_open_telemetry_key, free);
 }
 
-
 static void rbus_releaseOpenTelemetryContext();
 /* Begin rbus_server */
 
@@ -92,6 +91,12 @@ typedef struct _server_object
     rbus_event_subscribe_callback_t subscribe_handler_override;
     void* subscribe_handler_data;
 } *server_object_t;
+
+/////////////
+extern char* __progname;
+static void _freePrivateServer(void* p);
+int rbuscore_FindServerPrivateConnection(const char *pParameterName, const char *pConsumerName);
+/////
 
 void server_method_create(server_method_t* meth, char const* name, rbus_callback_t callback, void* data)
 {
@@ -313,6 +318,8 @@ static char g_daemon_address[MAX_DAEMON_ADDRESS_LEN] = "unix:///tmp/rtrouted";
 static rtConnection g_connection = NULL;
 static rtVector g_server_objects; /*server_object_t list*/
 static pthread_mutex_t g_mutex;
+static pthread_mutex_t g_directCliMutex;
+static pthread_mutex_t g_directServMutex;
 static int g_mutex_init = 0;
 static bool g_run_event_client_dispatch = false;
 static rtVector g_event_subscriptions_for_client; /*client_subscription_t list. Used by the subscriber to track all active subscriptions. */
@@ -322,11 +329,32 @@ static rtVector g_queued_requests; /*list of queued_request */
 static bool g_advisory_listener_installed = false;
 static rbus_client_disconnect_callback_t g_client_disconnect_callback = NULL;
 
+static rtVector gListOfServerDirectDMLs;
+static rtVector gListOfClientDirectDMLs;
+
 rbus_event_callback_t g_master_event_callback = NULL;
 void* g_master_event_user_data = NULL;
 
 /* End global variables*/
+static int directServerLock()
+{
+	return pthread_mutex_lock(&g_directServMutex);
+}
 
+static int directServerUnlock()
+{
+	return pthread_mutex_unlock(&g_directServMutex);
+}
+
+static int directClientLock()
+{
+	return pthread_mutex_lock(&g_directCliMutex);
+}
+
+static int directClientUnlock()
+{
+	return pthread_mutex_unlock(&g_directCliMutex);
+}
 static int lock()
 {
 	return pthread_mutex_lock(&g_mutex);
@@ -339,11 +367,15 @@ static int unlock()
 
 static rbusCoreError_t send_subscription_request(const char * object_name, const char * event_name, bool activate, const rbusMessage payload, int* providerError, int timeout, bool publishOnSubscribe, rbusMessage *response);
 
+static void _destroy_clientPrivate_connections();
+
 static void perform_init()
 {
     RBUSCORELOG_DEBUG("Performing init");
     rtVector_Create(&g_server_objects);
     rtVector_Create(&g_event_subscriptions_for_client);
+    rtVector_Create(&gListOfServerDirectDMLs);
+    rtVector_Create(&gListOfClientDirectDMLs);
 }
 
 static void perform_cleanup()
@@ -355,6 +387,10 @@ static void perform_cleanup()
     lock();
 
     rtVector_Destroy(g_server_objects, server_object_destroy);
+
+    rtVector_Destroy(gListOfServerDirectDMLs, _freePrivateServer);
+    _destroy_clientPrivate_connections();
+    rtVector_Destroy(gListOfClientDirectDMLs, rtVector_Cleanup_Free);
 
     sz = rtVector_Size(g_event_subscriptions_for_client);
     if(sz>0)
@@ -580,6 +616,8 @@ rbusCoreError_t rbus_openBrokerConnection2(const char * component_name, const ch
 		pthread_mutexattr_init(&attr);
 		pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_ERRORCHECK);
 		pthread_mutex_init(&g_mutex, &attr);
+		pthread_mutex_init(&g_directServMutex, &attr);
+		pthread_mutex_init(&g_directCliMutex, &attr);
 		g_mutex_init = 1;
 	}
 
@@ -605,7 +643,7 @@ rbusCoreError_t rbus_openBrokerConnection2(const char * component_name, const ch
 	length = strlen (component_name);
 	pTempBuff = (char*)rt_calloc (1, length + 10);
 
-	sprintf (pTempBuff, "rbus.%s", component_name);
+	sprintf (pTempBuff, "%s", component_name);
 
 	perform_init();
 	result = rtConnection_Create(&g_connection, pTempBuff, broker_address);
@@ -646,6 +684,8 @@ rbusCoreError_t rbus_closeBrokerConnection()
     unlock();
 
     pthread_mutex_destroy(&g_mutex);
+    pthread_mutex_destroy(&g_directServMutex);
+    pthread_mutex_destroy(&g_directCliMutex);
     g_mutex_init = 0;
 
     RBUSCORELOG_INFO("Destroyed connection.");
@@ -1055,6 +1095,11 @@ static rtError rbus_sendRequest(rtConnection con, rbusMessage req, char const* t
 
 rbusCoreError_t rbus_invokeRemoteMethod(const char * object_name, const char *method, rbusMessage out, int timeout_millisecs, rbusMessage *in)
 {
+    return rbus_invokeRemoteMethod2(g_connection, object_name, method, out, timeout_millisecs, in);
+}
+
+rbusCoreError_t rbus_invokeRemoteMethod2(rtConnection myConn, const char * object_name, const char *method, rbusMessage out, int timeout_millisecs, rbusMessage *in)
+{
     rtError err = RT_OK;
     rbusCoreError_t ret = RBUSCORE_SUCCESS;
 
@@ -1063,7 +1108,7 @@ rbusCoreError_t rbus_invokeRemoteMethod(const char * object_name, const char *me
 
     rbus_getOpenTelemetryContext(&traceParent, &traceState);
 
-    if(NULL == g_connection)
+    if(NULL == myConn)
     {
         RBUSCORELOG_ERROR("Not connected.");
         return RBUSCORE_ERROR_INVALID_STATE;
@@ -1081,7 +1126,7 @@ rbusCoreError_t rbus_invokeRemoteMethod(const char * object_name, const char *me
 
     _rbusMessage_SetMetaInfo(out, method, traceParent, traceState);
 
-    err = rbus_sendRequest(g_connection, out, object_name, in, timeout_millisecs);
+    err = rbus_sendRequest(myConn, out, object_name, in, timeout_millisecs);
     if(RT_OK != err)
     {
         if(RT_OBJECT_NO_LONGER_AVAILABLE == err)
@@ -1102,7 +1147,6 @@ rbusCoreError_t rbus_invokeRemoteMethod(const char * object_name, const char *me
     }
     else
     {
-
         method = NULL;
         rbusMessage_BeginMetaSectionRead(*in);
 		    rbusMessage_GetString(*in, &method);
@@ -1765,19 +1809,34 @@ rbusCoreError_t rbus_publishSubscriberEvent(const char* object_name,  const char
     rbusMessage_SetString(out, object_name); 
     rbusMessage_SetInt32(out, 1);/*is rbus 2.0*/ 
     rbusMessage_EndMetaSectionWrite(out);
-    lock();
-    server_object_t obj = get_object(object_name);
-    if(NULL == obj)
+
+
+    //FIXME::: If there is a directConnection exist, send message to that thread; not to the external connection
+    if (1 == rbuscore_FindServerPrivateConnection (event_name, listener))
     {
-        /*Object not present yet. Register it now.*/
-        RBUSCORELOG_ERROR("Could not find object %s", object_name);
-        ret = RBUSCORE_ERROR_INVALID_PARAM;
+        RBUSCORELOG_WARN("######### SEND DIRECTLY.....\n");
     }
-    if(rbus_sendMessage(out, listener, object_name) != RBUSCORE_SUCCESS)
+    else
     {
-       RBUSCORELOG_ERROR("Couldn't send event %s::%s to %s.", object_name, event_name, listener);
+        lock();
+        server_object_t obj = get_object(object_name);
+        if(NULL == obj)
+        {
+            /*Object not present yet. Register it now.*/
+            RBUSCORELOG_ERROR("Could not find object %s", object_name);
+            ret = RBUSCORE_ERROR_INVALID_PARAM;
+        }
+
+
+        RBUSCORELOG_ERROR("object_name = %s--- event_name = %s--- listener = %s----", object_name, event_name, listener);
+
+
+        if(rbus_sendMessage(out, listener, object_name) != RBUSCORE_SUCCESS)
+        {
+           RBUSCORELOG_ERROR("Couldn't send event %s::%s to %s.", object_name, event_name, listener);
+        }
+        unlock();
     }
-    unlock();
     return ret;
 }
 
@@ -2358,5 +2417,426 @@ void rbus_setOpenTelemetryContext(const char *traceParent, const char *traceStat
     else
         ot_ctx->otTraceState[0] = '\0';
 }
+
+#include "rtrouteBase.h"
+
+typedef struct _rbusServerDMLList 
+{
+    char            m_privConnAddress[MAX_OBJECT_NAME_LENGTH+1];
+    char            m_consumerName[MAX_OBJECT_NAME_LENGTH+1];
+    char            m_privateDML [MAX_OBJECT_NAME_LENGTH+1];
+    pthread_t       m_pid;
+    rbus_callback_t m_fnCallbackHandler;
+    void*           m_fnCallbackuserData;
+} rbusServerDMLList_t;
+
+typedef struct _server_directHandler
+{
+    char                  m_privConnAddress[MAX_OBJECT_NAME_LENGTH+1];
+  //  int                   m_inFD;
+    rtDriectClientHandler m_fnRouteCallback;
+} rbusServerDirectHandler_t;
+
+typedef struct _rbusClientDMLList
+{
+    char          m_privateDML[MAX_OBJECT_NAME_LENGTH+1];
+    char          m_providerName[MAX_OBJECT_NAME_LENGTH+1];
+    char          m_consumerName[MAX_OBJECT_NAME_LENGTH+1];
+    rtConnection  m_privConn;
+} rbusClientDMLList_t;
+
+
+
+
+/////// Server Side ///////
+static int _findPrivateServer(const void* left, const void* right)
+{
+    return strncmp(((rbusServerDMLList_t*)left)->m_privConnAddress, (char*)right, MAX_OBJECT_NAME_LENGTH);
+}
+
+static int _findPrivateServerDML(const void* left, const void* right)
+{
+    return strncmp(((rbusServerDMLList_t*)left)->m_privateDML, (char*)right, MAX_OBJECT_NAME_LENGTH);
+}
+
+static void _freePrivateServer(void* p)
+{
+    rbusServerDMLList_t *pTmp = p;
+    if (pTmp->m_pid)
+        printf ("Cancel the thread..\n"); //FIXME
+    free(pTmp);
+}
+
+int rbuscore_FindServerPrivateConnection(const char *pParameterName, const char *pConsumerName)
+{
+    rbusServerDMLList_t* pDmlObj = NULL;
+    int ret = 0;
+
+    if (pParameterName && pConsumerName)
+    {
+        size_t sz = 0, i = 0;
+
+        directServerLock();
+        sz = rtVector_Size(gListOfServerDirectDMLs);
+        if(sz > 0)
+        {
+            for(i = 0; i < sz; ++i)
+            {
+                pDmlObj = rtVector_At(gListOfServerDirectDMLs, i);
+            
+                if ((0 == strncmp(pDmlObj->m_privateDML, pParameterName, MAX_OBJECT_NAME_LENGTH)) &&
+                    (0 == strncmp(pDmlObj->m_consumerName, pConsumerName, MAX_OBJECT_NAME_LENGTH)))
+                {
+                    ret = 1;
+                }
+            }
+        }
+        directServerUnlock();
+    }
+
+    return ret;
+}
+
+void* rbuscore_PrivateThreadFunc (void* ptr)
+{
+    RBUSCORELOG_DEBUG ("$$$$$$$$$$$ Entry of %s $$$$$$$$$", __FUNCTION__);
+    rbusServerDirectHandler_t *pInstance = (rbusServerDirectHandler_t *) ptr; 
+    rtRouted_StartDirectRouting(pInstance->m_privConnAddress, pInstance->m_fnRouteCallback);
+
+    rbusServerDMLList_t *pSubObj;
+    directServerLock();
+    pSubObj = rtVector_Find(gListOfServerDirectDMLs, pInstance->m_privConnAddress, _findPrivateServer);
+    while(pSubObj != NULL)
+    {
+        rtVector_RemoveItem(gListOfServerDirectDMLs, pSubObj, rtVector_Cleanup_Free);
+        pSubObj = rtVector_Find(gListOfServerDirectDMLs, pInstance->m_privConnAddress, _findPrivateServer);
+    }
+    directServerUnlock();
+
+
+    free (pInstance);
+    return NULL;
+}
+
+static rtError _onDirectMessage(rtMessageHeader* hdr, uint8_t const* pInBuff, int inLength, uint8_t** pOutBuff, uint32_t* pOutLength)
+{
+    char* pStr= NULL;
+    uint32_t pStrLength = 0;
+    rbusMessage msg = NULL;
+    rbusMessage_FromBytes(&msg, pInBuff, inLength);
+
+    rbusMessage_ToDebugString(msg, &pStr, &pStrLength);
+
+    const char* method_name = NULL;
+    const char* traceParent = NULL;
+    const char* traceState = NULL;
+
+    /* Fetch the context that was sent with the message */
+     _rbusMessage_GetMetaInfo(msg, &method_name, &traceParent, &traceState);
+    RBUSCORELOG_DEBUG("**** @ Core 1 ***********************************\n");
+    RBUSCORELOG_DEBUG("%s\n", pStr);
+    RBUSCORELOG_DEBUG("**** @ Core 2 ***********************************\n");
+    RBUSCORELOG_DEBUG("%s\n", method_name);
+    RBUSCORELOG_DEBUG("**** @ Core 3 ***********************************\n");
+    free(pStr);
+
+    rbusMessage response;
+    rbusServerDMLList_t *pSubObj;
+    directServerLock();
+    pSubObj = rtVector_Find(gListOfServerDirectDMLs, hdr->topic, _findPrivateServerDML);
+    directServerUnlock();
+    if(pSubObj)
+    {
+        pSubObj->m_fnCallbackHandler(hdr->topic, method_name, msg, pSubObj->m_fnCallbackuserData, &response, hdr);
+    }
+    else
+    {
+        rbusMessage_Init(&response);
+        rbusMessage_SetInt32(response, RBUSCORE_ERROR_UNSUPPORTED_METHOD);
+        RBUSCORELOG_WARN("..... Could not find the DML in Private Connection List..");
+    }
+
+    _rbusMessage_SetMetaInfo(response, METHOD_RESPONSE, NULL, NULL);
+    rbusMessage_ToBytes(response, pOutBuff, pOutLength);
+
+    return RT_OK;
+}
+
+void rbuscore_startPrivateListener(const char* pPrivateConnAddress, const char* pConsumerName, const char *pDMLName, rbus_callback_t handler, void * user_data)
+{
+    rbusServerDMLList_t *obj = NULL;
+    int err = 0;
+    pthread_t pid;
+
+    RBUSCORELOG_DEBUG ("$$$$$$$$$$$ Entry of %s $$$$$$$$$", __FUNCTION__);
+    if (pDMLName && pPrivateConnAddress && handler)
+    {
+        directServerLock();
+        obj = rtVector_Find(gListOfServerDirectDMLs, pPrivateConnAddress, _findPrivateServer);
+        directServerUnlock();
+        if (!obj)
+        {
+            rbusServerDirectHandler_t *pInstance = rt_malloc(sizeof(rbusServerDirectHandler_t));
+            strcpy(pInstance->m_privConnAddress, pPrivateConnAddress);
+            pInstance->m_fnRouteCallback = _onDirectMessage;
+            if((err = pthread_create(&pid, NULL, rbuscore_PrivateThreadFunc, pInstance)) != 0)
+            {
+                RBUSCORELOG_ERROR("%s pthread_create failed: err=%d", __FUNCTION__, err);
+                return;
+            }
+
+            if((err = pthread_detach(pid)) != 0)
+            {
+                RBUSCORELOG_ERROR("%s pthread_detach failed: err=%d", __FUNCTION__, err);
+            }
+        }
+        else
+        {
+            RBUSCORELOG_DEBUG("Already we have private session for this consumer(%s)", pPrivateConnAddress);
+            pid = obj->m_pid;
+        }
+
+        // Update the DMLs
+        directServerLock();
+        {
+            rbusServerDMLList_t *pTemp = rt_malloc(sizeof(rbusServerDMLList_t));
+            strcpy(pTemp->m_privConnAddress, pPrivateConnAddress);
+            strcpy(pTemp->m_consumerName, pConsumerName);
+            strcpy(pTemp->m_privateDML, pDMLName);
+            pTemp->m_pid = pid;
+            pTemp->m_fnCallbackHandler = handler;
+            pTemp->m_fnCallbackuserData = user_data;
+            rtVector_PushBack(gListOfServerDirectDMLs, pTemp);
+        }
+        directServerUnlock();
+    }
+}
+
+
+
+/////// CLIENT SIDE ///////
+static int _findClientPrivateConnection(const void* left, const void* right)
+{
+    return strncmp(((rbusClientDMLList_t*)left)->m_providerName, (char*)right, MAX_OBJECT_NAME_LENGTH);
+}
+
+static int _findClientPrivateDML(const void* left, const void* right)
+{
+    return strncmp(((rbusClientDMLList_t*)left)->m_privateDML, (char*)right, MAX_OBJECT_NAME_LENGTH);
+}
+
+static void _destroy_clientPrivate_connections()
+{
+    rbusClientDMLList_t *obj = NULL;
+    char* pTmpProvider = NULL;
+
+    directClientLock();
+
+    while(rtVector_Size(gListOfClientDirectDMLs) > 0)
+    {
+        obj = rtVector_At(gListOfClientDirectDMLs, 0);
+        rtConnection_Destroy(obj->m_privConn);
+        pTmpProvider = strdup(obj->m_providerName);
+        rtVector_RemoveItem(gListOfClientDirectDMLs, obj, rtVector_Cleanup_Free);
+
+        while(rtVector_Size(gListOfClientDirectDMLs) > 0)
+        {
+            rtVector_RemoveItemByCompare(gListOfClientDirectDMLs, pTmpProvider, _findClientPrivateConnection, rtVector_Cleanup_Free);
+        }
+
+        free(pTmpProvider);
+    }
+
+    directClientUnlock();
+}
+
+
+//// Client Side ///
+rtConnection rbuscore_FindClientPrivateConnection(const char *pParameterName)
+{
+    rbusClientDMLList_t* pDmlObj = NULL;
+    rtConnection myConn = NULL;
+
+    if (pParameterName)
+    {
+        directClientLock();
+        pDmlObj = rtVector_Find(gListOfClientDirectDMLs, pParameterName, _findClientPrivateDML);
+        if (pDmlObj)
+        {
+            RBUSCORELOG_DEBUG("Already we have private session for this DML(%s) for this consumer", pParameterName);
+            myConn = pDmlObj->m_privConn;
+        }
+        directClientUnlock();
+    }
+    return myConn;
+}
+
+rtConnection rbuscore_FindClientPrivateConnection2(const char *pParameterName, const char *pConsumerName)
+{
+    rbusClientDMLList_t* pDmlObj = NULL;
+    rtConnection myConn = NULL;
+
+    if (pParameterName && pConsumerName)
+    {
+        size_t sz = 0, i = 0;
+
+        directClientLock();
+        sz = rtVector_Size(gListOfClientDirectDMLs);
+        if(sz > 0)
+        {
+            for(i = 0; i < sz; ++i)
+            {
+                pDmlObj = rtVector_At(gListOfClientDirectDMLs, i);
+            
+                if ((0 == strncmp(pDmlObj->m_privateDML, pParameterName, MAX_OBJECT_NAME_LENGTH)) &&
+                    (0 == strncmp(pDmlObj->m_consumerName, pConsumerName, MAX_OBJECT_NAME_LENGTH)))
+                {
+                    myConn = pDmlObj->m_privConn;
+                }
+            }
+        }
+        directClientUnlock();
+    }
+
+    return myConn;
+}
+
+void rbuscore_openPrivateConnectionToProvider(rtConnection *pPrivateConn, const char* pParameterName, const char *pPrivateConnAddress, const char *pProviderName)
+{
+    rtError       err;
+    rtMessage     config;
+    rtConnection  connection;
+    rbusClientDMLList_t *obj = NULL;
+
+    if (pPrivateConn && pPrivateConnAddress)
+    {
+        directClientLock();
+        obj = rtVector_Find(gListOfClientDirectDMLs, pProviderName, _findClientPrivateConnection);
+        directClientUnlock();
+        if (!obj)
+        {
+            RBUSCORELOG_DEBUG("Connection does not exist; create new");
+
+            rtMessage_Create(&config);
+            rtMessage_SetString(config, "appname", __progname);
+            rtMessage_SetString(config, "uri", pPrivateConnAddress);
+            rtMessage_SetInt32(config, "start_router", 0);
+
+            err = rtConnection_CreateWithConfig(&connection, config);
+            if (err != RT_OK)
+            {
+                RBUSCORELOG_ERROR("failed to create connection to router %s. %s", pPrivateConnAddress, rtStrError(err));
+            }
+            *pPrivateConn = connection;
+
+            RBUSCORELOG_WARN("pPrivateConn new = %p", connection);
+            rtMessage_Release(config);
+        }
+        else
+        {
+            *pPrivateConn = connection = obj->m_privConn;
+            RBUSCORELOG_WARN("pPrivateConn found = %p", obj->m_privConn);
+        }
+
+        /* Add an entry to the list */
+        {
+            rbusClientDMLList_t *pNewObj = NULL;
+            /* Update the Vector to avoid multiple connections */
+            pNewObj = rt_malloc(sizeof(rbusClientDMLList_t));
+
+            strcpy(pNewObj->m_privateDML, pParameterName);
+            strcpy(pNewObj->m_providerName, pProviderName);
+            pNewObj->m_privConn = connection;
+
+            directClientLock();
+            rtVector_PushBack(gListOfClientDirectDMLs, pNewObj);
+            directClientUnlock();
+    
+        }
+    }
+}
+
+rbusCoreError_t rbuscore_createPrivateConnection(const char *pParameterName, rtConnection *pPrivateConn)
+{
+    rbusCoreError_t err;
+    rbusMessage request, response;
+    rbusMessage_Init(&request);
+    //rbusMessage_SetString(request, __progname);
+    rbusMessage_SetString(request, rtConnection_GetReturnAddress(g_connection));
+    rbusMessage_SetInt32(request, (int32_t)getpid());
+    rbusMessage_SetString(request,  pParameterName);
+    rbusMessage_SetString(request,  g_daemon_address);
+
+    err = rbus_invokeRemoteMethod(pParameterName, METHOD_OPENDIRECT_CONN, request, 5000, &response);
+    if(RBUSCORE_SUCCESS == err)
+    {
+        rbusMessage_GetInt32(response, (int32_t*)&err);
+        RBUSCORELOG_DEBUG("Response from the remote method is [%d]!", err);
+
+        if (err == RBUSCORE_SUCCESS)
+        {
+            RBUSCORELOG_DEBUG("Received valid response!");
+            const char* pDaemonAddress = NULL;
+            const char* pProviderName = NULL;
+            rbusMessage_GetString(response, &pProviderName);
+            rbusMessage_GetString(response, &pDaemonAddress);
+
+            rbuscore_openPrivateConnectionToProvider(pPrivateConn, pParameterName, pDaemonAddress, pProviderName);
+        }
+        rbusMessage_Release(response);
+    }
+    return err;
+}
+
+rbusCoreError_t rbuscore_closePrivateConnection(const char *pParameterName)
+{
+    rbusCoreError_t err;
+    rbusClientDMLList_t *obj = NULL;
+    rtConnection  connection = NULL;
+    rbusMessage request, response;
+
+    rbusMessage_Init(&request);
+    //rbusMessage_SetString(request, __progname);
+    rbusMessage_SetString(request, rtConnection_GetReturnAddress(g_connection));
+    rbusMessage_SetString(request, pParameterName);
+
+    err = rbus_invokeRemoteMethod(pParameterName, METHOD_CLOSEDIRECT_CONN, request, 5000, &response);
+    if(RBUSCORE_SUCCESS != err)
+    {
+        RBUSCORELOG_ERROR("Received error %d from RBUS Daemon for the object (%s)", err, pParameterName);
+    }
+    else
+    {
+        rbusMessage_GetInt32(response, (int32_t*)&err);
+        RBUSCORELOG_DEBUG("Response from the remote method is [%d]!", err);
+
+        if (RBUSCORE_SUCCESS == err)
+        {
+            directClientLock();
+        
+            obj = rtVector_Find(gListOfClientDirectDMLs, pParameterName, _findClientPrivateDML);
+            if (obj)
+            {
+                connection = obj->m_privConn;
+                rtVector_RemoveItem(gListOfClientDirectDMLs, obj, rtVector_Cleanup_Free);
+            }
+            //rtVector_RemoveItemByCompare(gListOfClientDirectDMLs, pParameterName, _findClientPrivateDML, rtVector_Cleanup_Free);
+            directClientUnlock();
+        }
+        rbusMessage_Release(response);
+    }
+
+    if ((rtVector_Size(gListOfClientDirectDMLs) < 1) && (NULL != connection))
+    {
+        rtError ret = rtConnection_Destroy(connection);
+        if(RT_OK != ret)
+        {
+            RBUSCORELOG_ERROR("Could not destroy connection. Error: 0x%x.", ret);
+            return RBUSCORE_ERROR_GENERAL;
+        }
+    }
+    return err;
+}
+
 
 /* End of File */

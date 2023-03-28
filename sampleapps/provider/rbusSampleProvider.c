@@ -38,6 +38,7 @@
 #define TotalParams   13
 
 rbusHandle_t        rbusHandle;
+rbusHandle_t        rbusHandle2;
 int                 loopFor = 60;
 char                componentName[20] = "rbusSampleProvider";
 
@@ -281,7 +282,8 @@ rbusError_t SampleProvider_SampleDataGetHandler(rbusHandle_t handle, rbusPropert
 
     if(strcmp(name, "Device.SampleProvider.SampleData.IntData") == 0)
     {
-        printf("Called get handler for [%s]\n", name);
+        gTestInfo.m_intData += 101;
+        printf("Called get handler for [%s] & value is %d\n", name, gTestInfo.m_intData);
         rbusValue_SetInt32(value, gTestInfo.m_intData);
     }
     else if(strcmp(name, "Device.SampleProvider.SampleData.BoolData") == 0)
@@ -480,6 +482,7 @@ int main(int argc, char *argv[])
     /* Sample Case for Build Response APIs that are proposed */
     _prepare_object_for_future_query();
 
+    rbus_setLogLevel(RBUS_LOG_DEBUG);
     while (retryCount--)
     {
         rc = rbus_regDataElements(rbusHandle, TotalParams, dataElements);
@@ -494,7 +497,8 @@ int main(int argc, char *argv[])
     retryCount = 80;
     while (retryCount--)
     {
-        rc = rbus_regDataElements(rbusHandle, 14, allTypeDataElements);
+        rc = rbus_open(&rbusHandle2, "Testing2Open");
+        rc = rbus_regDataElements(rbusHandle2, 14, allTypeDataElements);
         if(rc == RBUS_ERROR_SUCCESS)
         {
             printf("provider: rbus_regDataElements Successful:\n");
@@ -509,6 +513,7 @@ int main(int argc, char *argv[])
         goto exit1;
     }
 
+    pause();
     while(loopFor--)
     {
         printf("provider: exiting in %d seconds\n", loopFor);
@@ -516,13 +521,15 @@ int main(int argc, char *argv[])
     }
 
     rbus_unregDataElements(rbusHandle, TotalParams, dataElements);
-    rbus_unregDataElements(rbusHandle, 14, allTypeDataElements);
+    rbus_unregDataElements(rbusHandle2, 14, allTypeDataElements);
 
 exit1:
     /* Sample Case for freeing the Response that was prebuilt */
     _release_object_for_future_query();
 
     rbus_close(rbusHandle);
+    if (rbusHandle != rbusHandle2)
+        rbus_close(rbusHandle2);
 
 exit2:
     printf("provider: exit\n");
