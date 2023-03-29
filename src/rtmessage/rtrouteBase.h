@@ -54,6 +54,13 @@ typedef struct
   rtConnectedClient* client;
 } rtSubscription;
 
+typedef struct
+{
+  int   clientFD;
+  int   clientID;
+  char  clientTopic[RTMSG_HEADER_MAX_TOPIC_LENGTH];
+} rtPrivateClientInfo;
+
 typedef rtError (*rtRouteMessageHandler)(rtConnectedClient* sender, rtMessageHeader* hdr,
   uint8_t const* buff, int n, rtSubscription* subscription);
 
@@ -70,8 +77,10 @@ typedef struct
   struct sockaddr_storage local_endpoint;
 } rtListener;
 
-typedef rtError (*rtDriectClientHandler) (rtMessageHeader* hdr, uint8_t const* pInbuff, int inLength, uint8_t** pOutBuff, uint32_t* pOutLength);
+typedef rtError (*rtDriectClientHandler) (uint8_t isClientRequest, rtMessageHeader* hdr, uint8_t const* pInbuff, int inLength, uint8_t** pOutBuff, uint32_t* pOutLength);
 
 rtError rtRouteBase_BindListener(char const* socket_name, int no_delay, int indefinite_retry, rtListener **pListener);
-rtError rtRouted_StartDirectRouting(const char* socket_name, rtDriectClientHandler messageHandler);
+rtError rtRouteDirect_StartInstance(const char* socket_name, rtDriectClientHandler messageHandler);
+rtError rtDirectRouted_SendMessage(const rtPrivateClientInfo* pClient, uint8_t const* pInBuff, int inLength);
+
 #endif /* __RTROUTEBASE_H__ */

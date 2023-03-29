@@ -124,7 +124,7 @@ int main(int argc, char *argv[])
         goto exit1;
     }
 
-    rbus_setLogLevel(RBUS_LOG_DEBUG);
+    //rbus_setLogLevel(RBUS_LOG_DEBUG);
     {
         rbusValue_t value;
         printf("calling rbus get for [%s]\n", "Device.SampleProvider.SampleData.IntData");
@@ -136,16 +136,14 @@ int main(int argc, char *argv[])
 
 
         sleep(2);
-        rbusHandle_t  lolHandle = NULL;
-        rbusHandle_t  lolHandle2 = NULL;
+        rbusHandle_t  directHNDL = NULL;
+        rbusHandle_t  directHNDL2 = NULL;
         printf ("###############   OPEN DIRECT ################################################\n");
-        rbus_openDirect(handle, &lolHandle, "Device.SampleProvider.SampleData.IntData");
+        rbus_openDirect(handle, &directHNDL, "Device.SampleProvider.SampleData.IntData");
 
         sleep(2);
-        rbus_openDirect(handle, &lolHandle, "Device.SampleProvider.SampleData.IntData");
-
-        sleep(2);
-        rbus_openDirect(handle, &lolHandle2, "Device.SampleProvider.AllTypes.StringData");
+        printf ("###############   OPEN DIRECT 2 ################################################\n");
+        rbus_openDirect(handle, &directHNDL2, "Device.SampleProvider.AllTypes.StringData");
 
         sleep(5);
         printf ("###############   GET 2 #####################################################\n");
@@ -159,9 +157,10 @@ int main(int argc, char *argv[])
         rbusValue_fwrite(value, 0, stdout); printf("\n");
         rbusValue_Release(value);
 
-        rbus_closeDirect(lolHandle);
+        sleep(15);
+        rbus_closeDirect(directHNDL);
         sleep(1);
-        rbus_closeDirect(lolHandle2);
+        rbus_closeDirect(directHNDL2);
 
         sleep(3);
         printf ("###############   GET 4 #####################################################\n");
@@ -175,13 +174,15 @@ int main(int argc, char *argv[])
         rbusValue_Release(value);
         sleep(2);
         printf ("###############   OPEN DIRECT AGAIN  #####################################################\n");
-        rbus_openDirect(handle, &lolHandle, "Device.SampleProvider.SampleData.IntData");
+        rbus_openDirect(handle, &directHNDL, "Device.SampleProvider.SampleData.IntData");
         printf ("###############   GET 6 #####################################################\n");
         rc = rbus_get(handle, "Device.SampleProvider.SampleData.IntData", &value);
         rbusValue_fwrite(value, 0, stdout); printf("\n");
         rbusValue_Release(value);
-    (void) lolHandle;
-    (void) lolHandle2;
+
+        rbus_closeDirect(directHNDL);
+    (void) directHNDL;
+    (void) directHNDL2;
     }
 
     //pause();

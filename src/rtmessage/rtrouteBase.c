@@ -38,9 +38,20 @@
 static pthread_once_t _rtDirectRoute_once = PTHREAD_ONCE_INIT;
 static pthread_key_t  _rtDirectRoute_key;
 
+rtError
+rtRouteBase_CloseListener(rtListener *pListener)
+{
+    if (pListener)
+    {
+        shutdown(pListener->fd, SHUT_RDWR);
+        close(pListener->fd);
+        rtLog_Warn("Shutdown the connection");
+    }
+    return RT_OK;
+}
+
 
 rtError
-//rtRouted_BindListener(char const* socket_name, int no_delay, int indefinite_retry, rtListener **pListener)
 rtRouteBase_BindListener(char const* socket_name, int no_delay, int indefinite_retry, rtListener **pListener)
 {
   int ret;
@@ -63,7 +74,8 @@ rtRouteBase_BindListener(char const* socket_name, int no_delay, int indefinite_r
   if (listener->fd == -1)
   {
     rtLog_Fatal("socket:%s", rtStrError(errno));
-    exit(1);
+    free(listener);
+    return RT_FAIL;
   }
 
   rtSocketStorage_GetLength(&listener->local_endpoint, &socket_length);
@@ -95,7 +107,9 @@ rtRouteBase_BindListener(char const* socket_name, int no_delay, int indefinite_r
         if(0 == --num_retries)
         {
           rtLog_Warn("exiting app on bind socket failure");
-          exit(1);
+          rtRouteBase_CloseListener(listener);
+          free(listener); 
+          return RT_FAIL;
         }
         else
           sleep(10);
@@ -108,7 +122,9 @@ rtRouteBase_BindListener(char const* socket_name, int no_delay, int indefinite_r
   if (ret == -1)
   {
     rtLog_Warn("failed to set socket to listen mode. %s", rtStrError(errno));
-    exit(1);
+    rtRouteBase_CloseListener(listener);
+    free(listener); 
+    return RT_FAIL;
   }
 
   *pListener = listener;
@@ -116,22 +132,53 @@ rtRouteBase_BindListener(char const* socket_name, int no_delay, int indefinite_r
 }
 
 
-rtError rtRouteBase_CloseListener(rtListener *pListener)
+static rtError reply_to_client(rtConnectedClient* client, rtMessageHeader * request_hdr, const uint8_t* rspData, uint32_t rspDataLength)
 {
-    (void) pListener;
+    rtError ret = RT_OK;
+    ssize_t bytes_sent;
+    request_hdr->payload_length = rspDataLength;
 
-    if (pListener)
+    rtLog_Debug("SendMessage topic=%s expression...", request_hdr->topic);
+
+    rtMessageHeader_Encode(request_hdr, client->send_buffer);
+    struct iovec send_vec[] = {{client->send_buffer, request_hdr->header_length}, {(void *)rspData, rspDataLength}};
+    struct msghdr send_hdr = {NULL, 0, send_vec, 2, NULL, 0, 0};
+    do
     {
-        shutdown(pListener->fd, SHUT_RDWR);
-        close(pListener->fd);
-        rtLog_Warn("Shutdown the connection");
-    }
-    return RT_OK;
+      bytes_sent = sendmsg(client->fd, &send_hdr, MSG_NOSIGNAL);
+      if (bytes_sent == -1)
+      {
+        if (errno == EBADF)
+          ret = rtErrorFromErrno(errno);
+        else
+        {
+          rtLog_Warn("error forwarding message to client. %d %s", errno, strerror(errno));
+          ret = RT_FAIL;
+        }
+        break;
+      }
+    } while(0);
+    return ret;
 }
 
-#define RTROUTER_DIRECT_DIAG_DESTINATION "_DIRECTROUTE.INBOX.DIAG"
+static void prep_reply_header_from_request(rtMessageHeader *reply, const rtMessageHeader *request)
+{
 
-static void rtRouted_OnMessageHello(rtConnectedClient* sender, rtMessageHeader* hdr, uint8_t const* buff, int n)
+  rtMessageHeader_Init(reply);
+  reply->version = request->version;
+  reply->header_length = request->header_length;
+  reply->sequence_number = request->sequence_number;
+  reply->flags = rtMessageFlags_Response;
+  reply->control_data = 0;//subscription->id;
+
+  strncpy(reply->topic, request->reply_topic, RTMSG_HEADER_MAX_TOPIC_LENGTH-1);
+  strncpy(reply->reply_topic, request->topic, RTMSG_HEADER_MAX_TOPIC_LENGTH-1);
+  reply->topic_length = request->reply_topic_length;
+  reply->reply_topic_length = request->topic_length;
+}
+
+#if 0
+static void rtRouteDirect_OnMessageSubscribe(rtConnectedClient* sender, rtMessageHeader* hdr, uint8_t const* buff, int n)
 {
   rtMessage m;
 
@@ -155,78 +202,40 @@ static void rtRouted_OnMessageHello(rtConnectedClient* sender, rtMessageHeader* 
   
   (void)hdr;
 }
-
-static void rtRouted_OnMessageSubscribe(rtConnectedClient* sender, rtMessageHeader* hdr, uint8_t const* buff, int n)
-{
-    rtRouted_OnMessageHello(sender, hdr, buff, n);
-}
-
-static rtError reply_to_client(rtConnectedClient* client, rtMessageHeader * request_hdr, uint8_t* rspData, uint32_t rspDataLength)
-{
-    rtError ret = RT_OK;
-    ssize_t bytes_sent;
-    request_hdr->payload_length = rspDataLength;
-
-    if(1)
-    {
-        rtLog_Debug("SendMessage topic=%s expression...", request_hdr->topic);
-
-        rtMessageHeader_Encode(request_hdr, client->send_buffer);
-        struct iovec send_vec[] = {{client->send_buffer, request_hdr->header_length}, {(void *)rspData, rspDataLength}};
-        struct msghdr send_hdr = {NULL, 0, send_vec, 2, NULL, 0, 0};
-        do
-        {
-          bytes_sent = sendmsg(client->fd, &send_hdr, MSG_NOSIGNAL);
-          if (bytes_sent == -1)
-          {
-            if (errno == EBADF)
-              ret = rtErrorFromErrno(errno);
-            else
-            {
-              rtLog_Warn("error forwarding message to client. %d %s", errno, strerror(errno));
-              ret = RT_FAIL;
-            }
-            break;
-          }
-
-        } while(0);
-    }
-    return ret;
-}
-
-static void prep_reply_header_from_request(rtMessageHeader *reply, const rtMessageHeader *request)
-{
-
-  rtMessageHeader_Init(reply);
-  reply->version = request->version;
-  reply->header_length = request->header_length;
-  reply->sequence_number = request->sequence_number;
-  reply->flags = rtMessageFlags_Response;
-  reply->control_data = 0;//subscription->id;
-
-  strncpy(reply->topic, request->reply_topic, RTMSG_HEADER_MAX_TOPIC_LENGTH-1);
-  strncpy(reply->reply_topic, request->topic, RTMSG_HEADER_MAX_TOPIC_LENGTH-1);
-  reply->topic_length = request->reply_topic_length;
-  reply->reply_topic_length = request->topic_length;
-#ifdef MSG_ROUNDTRIP_TIME
-  reply->T1 = request->T1;
-  reply->T2 = request->T2;
-  reply->T3 = request->T3;
-  reply->T4 = request->T4;
-  reply->T5 = request->T5;
 #endif
-}
 
-static rtError rtRouted_OnMessage(rtConnectedClient* sender, rtMessageHeader* hdr, uint8_t const* buff, int n, rtSubscription* mySubs)
+static rtError rtRouteDirect_OnMessage(rtConnectedClient* sender, rtMessageHeader* hdr, uint8_t const* buff, int n, rtSubscription* mySubs)
 {
   (void) mySubs;
   if (strcmp(hdr->topic, "_RTROUTED.INBOX.SUBSCRIBE") == 0)
   {
-    rtRouted_OnMessageSubscribe(sender, hdr, buff, n);
-  }
-  else if (strcmp(hdr->topic, RTROUTER_DIRECT_DIAG_DESTINATION) == 0)
-  {
-    rtRouted_OnMessageHello(sender, hdr, buff, n);
+    rtMessage m;
+    char const* expression = NULL;
+    uint32_t route_id = 0;
+    int32_t add_subscrption = 0;
+
+    rtMessage_FromBytes(&m, buff, n);
+    if((RT_OK == rtMessage_GetInt32(m, "add", &add_subscrption)) &&
+       (RT_OK == rtMessage_GetString(m, "topic", &expression)) &&
+       (RT_OK == rtMessage_GetInt32(m, "route_id", (int32_t *)&route_id)))
+    {
+      if(1 == add_subscrption)
+      {
+          rtLog_Debug("####### route_id = %d #####", route_id);
+          rtLog_Debug("####### sender inbox = %s #####", sender->inbox);
+          rtPrivateClientInfo temp;
+          temp.clientID = route_id;
+          temp.clientFD = sender->fd;
+          snprintf(temp.clientTopic, RTMSG_HEADER_MAX_TOPIC_LENGTH, "%s", expression);
+
+          rtDriectClientHandler dr_ctx = (rtDriectClientHandler) pthread_getspecific(_rtDirectRoute_key);
+          if (dr_ctx)
+          {
+              dr_ctx(0, hdr, (const uint8_t *) &temp, sizeof(temp), NULL, NULL);
+          }
+      }
+    }
+    rtMessage_Release(m);
   }
   else
   {
@@ -237,7 +246,7 @@ static rtError rtRouted_OnMessage(rtConnectedClient* sender, rtMessageHeader* hd
     {
         uint8_t* rspData = NULL;
         uint32_t rspDataLength = 0;
-        dr_ctx(hdr, buff, n, &rspData, &rspDataLength);
+        dr_ctx(1, hdr, buff, n, &rspData, &rspDataLength);
 
         rtMessageHeader new_header;
         prep_reply_header_from_request(&new_header, hdr);
@@ -305,7 +314,7 @@ static void rtRouterBase_DispatchMessageFromClient(rtConnectedClient* clnt, rtRo
       if (err == rtErrorFromErrno(EBADF))
       {
         //FIXME: KARUNA:: when a client closed the connection, we get error out here..
-        //rtRouted_ClearClientRoutes(clnt);
+        rtLog_Warn("client (%s) exited and the connection does not exist anymore", clnt->header.topic);
       }
     }
   }
@@ -497,8 +506,58 @@ static void _rtdirect_route_thread_specific_key()
   pthread_key_create(&_rtDirectRoute_key, NULL);
 }
 
+rtError rtDirectRouted_SendMessage(const rtPrivateClientInfo* pClient, uint8_t const* pInBuff, int inLength)
+{
+    rtError ret = RT_OK;
+    rtMessageHeader new_header;
+    ssize_t bytes_sent;
 
-rtError rtRouted_StartDirectRouting(const char* socket_name, rtDriectClientHandler messageHandler)
+    if (pClient && pInBuff && (inLength > 0))
+    {
+        rtMessageHeader_Init(&new_header);
+        new_header.sequence_number = 1;
+        new_header.flags = rtMessageFlags_RawBinary;
+        new_header.control_data = pClient->clientID;
+     
+        strncpy(new_header.topic, pClient->clientTopic, RTMSG_HEADER_MAX_TOPIC_LENGTH-1);
+        new_header.topic_length = strlen(pClient->clientTopic);
+
+        new_header.reply_topic[0] = '\0';
+        new_header.reply_topic_length = 0;
+      
+        new_header.payload_length = inLength;
+
+
+        rtLog_Debug("SendMessage topic=%s expression...", new_header.topic);
+        static uint8_t buffer[RTMSG_CLIENT_READ_BUFFER_SIZE];
+
+        memset(buffer, 0,RTMSG_CLIENT_READ_BUFFER_SIZE); 
+        rtMessageHeader_Encode(&new_header, buffer);
+        struct iovec send_vec[] = {{buffer, new_header.header_length}, {(void *)pInBuff, inLength}};
+        struct msghdr send_hdr = {NULL, 0, send_vec, 2, NULL, 0, 0};
+        do
+        {
+          bytes_sent = sendmsg(pClient->clientFD, &send_hdr, MSG_NOSIGNAL);
+          if (bytes_sent == -1)
+          {
+            if (errno == EBADF)
+              ret = rtErrorFromErrno(errno);
+            else
+            {
+              rtLog_Warn("error forwarding message to client. %d %s", errno, strerror(errno));
+              ret = RT_FAIL;
+            }
+            break;
+          }
+        } while(0);
+    }
+    else
+        ret = RT_ERROR;
+
+    return ret;
+}
+
+rtError rtRouteDirect_StartInstance(const char* socket_name, rtDriectClientHandler messageHandler)
 {
   int ret;
   rtRouteEntry* route = NULL;
@@ -514,13 +573,13 @@ rtError rtRouted_StartDirectRouting(const char* socket_name, rtDriectClientHandl
   pthread_once(&_rtDirectRoute_once, &_rtdirect_route_thread_specific_key);
   pthread_setspecific(_rtDirectRoute_key, messageHandler);
 
-
-  rtRouteBase_BindListener(socket_name, 1, 1, &myDirectListener);
+  if (RT_OK != rtRouteBase_BindListener(socket_name, 1, 1, &myDirectListener))
+      return RT_FAIL;
 
   route = (rtRouteEntry *)rt_malloc(sizeof(rtRouteEntry));
   route->subscription = NULL;
   strncpy(route->expression, "_RTDIRECT>", RTMSG_MAX_EXPRESSION_LEN-1);
-  route->message_handler = rtRouted_OnMessage;
+  route->message_handler = rtRouteDirect_OnMessage;
 
   int ltIsrunning = 1;
   while (ltIsrunning)
@@ -536,6 +595,7 @@ rtError rtRouted_StartDirectRouting(const char* socket_name, rtDriectClientHandl
     timeout.tv_sec = 10;
     timeout.tv_usec = 0;
 
+    rtLog_Warn("Thread (%s) is alive..", socket_name);
     if (myDirectListener)
     {
       rtRouted_PushFd(&read_fds, myDirectListener->fd, &max_fd);
@@ -575,6 +635,12 @@ rtError rtRouted_StartDirectRouting(const char* socket_name, rtDriectClientHandl
     }
   }
 
+  free(myDirectClient->read_buffer);
+  free(myDirectClient->send_buffer);
+  free(myDirectClient);
+
+  free(route);
   rtRouteBase_CloseListener(myDirectListener);
+  free(myDirectListener);
   return RT_OK;
 }

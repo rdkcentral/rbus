@@ -39,7 +39,7 @@
 
 rbusHandle_t        rbusHandle;
 rbusHandle_t        rbusHandle2;
-int                 loopFor = 60;
+int                 loopFor = 100;
 char                componentName[20] = "rbusSampleProvider";
 
 rbusError_t SampleProvider_DeviceGetHandler(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t* opts);
@@ -472,6 +472,11 @@ int main(int argc, char *argv[])
     int retryCount = 80;
     printf("provider: start\n");
 
+    if(argc == 2)
+    {
+        loopFor = atoi(argv[1]);
+    }
+
     rc = rbus_open(&rbusHandle, componentName);
     if(rc != RBUS_ERROR_SUCCESS)
     {
@@ -482,7 +487,7 @@ int main(int argc, char *argv[])
     /* Sample Case for Build Response APIs that are proposed */
     _prepare_object_for_future_query();
 
-    rbus_setLogLevel(RBUS_LOG_DEBUG);
+    //rbus_setLogLevel(RBUS_LOG_DEBUG);
     while (retryCount--)
     {
         rc = rbus_regDataElements(rbusHandle, TotalParams, dataElements);
@@ -513,7 +518,7 @@ int main(int argc, char *argv[])
         goto exit1;
     }
 
-    pause();
+    //pause();
     while(loopFor--)
     {
         printf("provider: exiting in %d seconds\n", loopFor);

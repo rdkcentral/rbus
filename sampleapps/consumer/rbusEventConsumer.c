@@ -115,6 +115,7 @@ static void generalEvent2Handler(
     (void)handle;
 }
 
+static int lol = 0;
 static void valueChangeHandler(
     rbusHandle_t handle,
     rbusEvent_t const* event,
@@ -136,6 +137,7 @@ static void valueChangeHandler(
 
     (void)handle;
     (void)subscription;
+    lol += 1;
 }
 
 int main(int argc, char *argv[])
@@ -156,7 +158,7 @@ int main(int argc, char *argv[])
     (void) subscriptions;
     printf("constumer: start\n");
 
-    rbus_setLogLevel(RBUS_LOG_DEBUG);
+    //rbus_setLogLevel(RBUS_LOG_DEBUG);
     rc = rbus_open(&handle, "EventConsumer");
     if(rc != RBUS_ERROR_SUCCESS)
     {
@@ -173,6 +175,8 @@ int main(int argc, char *argv[])
 
     rbusHandle_t  lolHandle2 = NULL;
     rbus_openDirect(handle, &lolHandle2, "Device.SampleProvider.AllTypes.StringData");
+
+    sleep(5);
     rc = rbusEvent_Subscribe(
         handle,
         "Device.SampleProvider.AllTypes.StringData",
@@ -201,8 +205,13 @@ int main(int argc, char *argv[])
         goto exit3;
     }
 
-    pause();
+    while (3 > lol)
+       sleep(1);
+
+
+    sleep(5);
     rbus_closeDirect(lolHandle2);
+    pause();
     rbusEvent_Unsubscribe(handle, "Device.SampleProvider.AllTypes.StringData"); 
     rbusEvent_Unsubscribe(handle2, "Device.SampleProvider.AllTypes.StringData"); 
 

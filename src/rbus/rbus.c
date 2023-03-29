@@ -2411,7 +2411,7 @@ static void _create_direct_connection_callback_handler (rbusHandle_t handle, rbu
     {
         if (0 == strncmp(consumerToBrokerConf, "unix", 4))
         {
-            snprintf (daemonAddress, RBUS_DAEMON_CONF_LENGTH, "unix:///tmp/.direct_%s_%s.%d", __progname, consumerName, consumerPID);
+            snprintf (daemonAddress, RBUS_DAEMON_CONF_LENGTH, "unix:///tmp/.direct_%s_%s", __progname, consumerName);
         }
         else
         {
@@ -2428,7 +2428,7 @@ static void _create_direct_connection_callback_handler (rbusHandle_t handle, rbu
                 strncpy(ip, consumerToBrokerConf, (p - consumerToBrokerConf));
                 RBUSLOG_DEBUG ("parsing ip address:%s", ip);
             
-                snprintf (daemonAddress, RBUS_DAEMON_CONF_LENGTH, "%s:%d", ip, consumerPID);
+                snprintf (daemonAddress, RBUS_DAEMON_CONF_LENGTH, "%s:%d", ip, (consumerPID%50000));
             }
         }
     }
@@ -2441,7 +2441,10 @@ static void _create_direct_connection_callback_handler (rbusHandle_t handle, rbu
     rbusMessage_SetInt32(*response, ret);
     if (RBUSCORE_SUCCESS == ret)
     {
-        rbuscore_startPrivateListener(daemonAddress, consumerName, paramName, _callback_handler, handle);
+        bool isCreated = false;
+        rbuscore_startPrivateListener(daemonAddress, consumerName, paramName, _callback_handler, handle, &isCreated);
+
+        (void) isCreated;
         rbusMessage_SetString(*response, __progname);
         rbusMessage_SetString(*response, daemonAddress);
 
@@ -2693,7 +2696,6 @@ rbusError_t rbus_openDirect(rbusHandle_t handle, rbusHandle_t* myDirectHandle, c
 
     if ((handle) && (myDirectHandle) && (pParameterName))
     {
-        //if (rbuscore_FindClientPrivateConnection2(pParameterName, handleInfo->componentName))
         if (rbuscore_FindClientPrivateConnection(pParameterName))
         {
             RBUSLOG_ERROR("Private Connection Already Exist for this Parameter(%s) for this consumer(%s)", pParameterName, handleInfo->componentName);
@@ -2712,6 +2714,8 @@ rbusError_t rbus_openDirect(rbusHandle_t handle, rbusHandle_t* myDirectHandle, c
                 tmpHandle->m_handleType = RBUS_HWDL_TYPE_DIRECT;
                 *myDirectHandle = tmpHandle;
             }
+            else
+                *myDirectHandle = NULL;
         }
     }
     else
