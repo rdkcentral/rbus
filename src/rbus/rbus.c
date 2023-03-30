@@ -1121,7 +1121,7 @@ static int _event_subscribe_callback_handler(char const* object,  char const* ev
     }
     else
     {
-        RBUSLOG_WARN("event subscribe callback: unexpected! element not found");
+        RBUSLOG_WARN("event subscribe callback: element not found for [%s] event", eventName);
         err = RBUSCORE_ERROR_UNSUPPORTED_EVENT;
     }
     return err;
