@@ -2404,7 +2404,6 @@ static void _create_direct_connection_callback_handler (rbusHandle_t handle, rbu
 
     rbusMessage_Init(response);
 
-    RBUSLOG_DEBUG ("$$$$$$$$$$$ Entry of %s $$$$$$$$$", __FUNCTION__);
     el = retrieveInstanceElement(handleInfo->elementRoot, paramName);
 
     if (el)
@@ -2428,7 +2427,10 @@ static void _create_direct_connection_callback_handler (rbusHandle_t handle, rbu
                 strncpy(ip, consumerToBrokerConf, (p - consumerToBrokerConf));
                 RBUSLOG_DEBUG ("parsing ip address:%s", ip);
             
-                snprintf (daemonAddress, RBUS_DAEMON_CONF_LENGTH, "%s:%d", ip, (consumerPID%50000));
+                //FIXME :: The port must be within 65535 and unique to the consumer. Need to have some logic as PID may not be within 65535
+                // May be we must engage session manager to generate unique number free of 20, 21, 22, 80, 53, 123, 443, 8080, 10001(or actual rbus daemon port), etc
+                snprintf (daemonAddress, RBUS_DAEMON_CONF_LENGTH, "%s:%d", ip, 9998);
+                //snprintf (daemonAddress, RBUS_DAEMON_CONF_LENGTH, "%s:%d", ip, (consumerPID%20000));
             }
         }
     }
@@ -2441,16 +2443,10 @@ static void _create_direct_connection_callback_handler (rbusHandle_t handle, rbu
     rbusMessage_SetInt32(*response, ret);
     if (RBUSCORE_SUCCESS == ret)
     {
-        bool isCreated = false;
-        rbuscore_startPrivateListener(daemonAddress, consumerName, paramName, _callback_handler, handle, &isCreated);
+        rbuscore_startPrivateListener(daemonAddress, consumerName, paramName, _callback_handler, handle);
 
-        (void) isCreated;
         rbusMessage_SetString(*response, __progname);
         rbusMessage_SetString(*response, daemonAddress);
-
-        ELM_PRIVATE_LOCK(el);
-        el->hasPrivateCon += 1;
-        ELM_PRIVATE_UNLOCK(el);
     }
 }
 
@@ -2465,16 +2461,12 @@ static void _close_direct_connection_callback_handler (rbusHandle_t handle, rbus
     rbusMessage_GetString(request, &paramName);
 
     rbusMessage_Init(response);
-    RBUSLOG_DEBUG ("$$$$$$$$$$$ Entry of %s $$$$$$$$$", __FUNCTION__);
 
     el = retrieveInstanceElement(handleInfo->elementRoot, paramName);
     if (el)
     {
         rbusMessage_SetInt32(*response, RBUSCORE_SUCCESS);
-        ELM_PRIVATE_LOCK(el);
-        if (el->hasPrivateCon > 1)
-            el->hasPrivateCon -= 1;
-        ELM_PRIVATE_UNLOCK(el);
+        rbuscore_updatePrivateListener(consumerName, paramName);
     }
     else
         rbusMessage_SetInt32(*response, RBUSCORE_ERROR_INVALID_PARAM);

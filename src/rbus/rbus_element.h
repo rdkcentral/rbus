@@ -71,7 +71,6 @@ typedef struct elementNode
     char*                   changeComp;     /* For properties, the last component to set the value */
     rtTime_t                changeTime;     /* For properties, the time the value was last set*/
     pthread_mutex_t         elmMutex;       /* To protect if there is a direct/private connection */
-    uint32_t                hasPrivateCon;  /* To decide to use mutex to protect if there is a direct/private connection */
 } elementNode;
 
 

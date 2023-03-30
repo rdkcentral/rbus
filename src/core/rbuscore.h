@@ -208,7 +208,8 @@ rtConnection rbuscore_FindClientPrivateConnection(const char *pParameterName);
 rbusCoreError_t rbuscore_createPrivateConnection(const char *pParameterName, rtConnection *pPrivateConn);
 rbusCoreError_t rbuscore_closePrivateConnection(const char *pParameterName);
 
-void rbuscore_startPrivateListener(const char* pPrivateConnAddress, const char* pConsumerName, const char *pDMLName, rbus_callback_t handler, void * user_data, bool *pIsCreated);
+rbusCoreError_t rbuscore_startPrivateListener(const char* pPrivateConnAddress, const char* pConsumerName, const char *pDMLName, rbus_callback_t handler, void * user_data);
+rbusCoreError_t rbuscore_updatePrivateListener(const char* pConsumerName, const char *pDMLName);
 
 
 #ifdef __cplusplus

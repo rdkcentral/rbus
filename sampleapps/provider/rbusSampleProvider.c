@@ -27,6 +27,7 @@
 #include <string.h>
 #include <getopt.h>
 #include <rbus.h>
+#include <rtLog.h>
 
 #define UNUSED1(a)              (void)(a)
 #define UNUSED2(a,b)            UNUSED1(a),UNUSED1(b)
@@ -487,7 +488,7 @@ int main(int argc, char *argv[])
     /* Sample Case for Build Response APIs that are proposed */
     _prepare_object_for_future_query();
 
-    //rbus_setLogLevel(RBUS_LOG_DEBUG);
+    rtLog_SetOption(RT_USE_RTLOGGER);
     while (retryCount--)
     {
         rc = rbus_regDataElements(rbusHandle, TotalParams, dataElements);

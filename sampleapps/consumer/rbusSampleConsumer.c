@@ -27,6 +27,7 @@
 #include <string.h>
 #include <getopt.h>
 #include <rbus.h>
+#include <rtLog.h>
 
 #define     TotalParams   6
 
@@ -124,7 +125,7 @@ int main(int argc, char *argv[])
         goto exit1;
     }
 
-    //rbus_setLogLevel(RBUS_LOG_DEBUG);
+    rtLog_SetOption(RT_USE_RTLOGGER);
     {
         rbusValue_t value;
         printf("calling rbus get for [%s]\n", "Device.SampleProvider.SampleData.IntData");

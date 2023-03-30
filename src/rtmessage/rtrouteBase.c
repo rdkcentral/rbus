@@ -131,8 +131,8 @@ rtRouteBase_BindListener(char const* socket_name, int no_delay, int indefinite_r
   return RT_OK;
 }
 
-
-static rtError reply_to_client(rtConnectedClient* client, rtMessageHeader * request_hdr, const uint8_t* rspData, uint32_t rspDataLength)
+static rtError
+_rtdirect_send_reply_to_client(rtConnectedClient* client, rtMessageHeader * request_hdr, const uint8_t* rspData, uint32_t rspDataLength)
 {
     rtError ret = RT_OK;
     ssize_t bytes_sent;
@@ -161,7 +161,8 @@ static rtError reply_to_client(rtConnectedClient* client, rtMessageHeader * requ
     return ret;
 }
 
-static void prep_reply_header_from_request(rtMessageHeader *reply, const rtMessageHeader *request)
+static void
+_rtdirect_prepare_reply_from_request(rtMessageHeader *reply, const rtMessageHeader *request)
 {
 
   rtMessageHeader_Init(reply);
@@ -177,34 +178,14 @@ static void prep_reply_header_from_request(rtMessageHeader *reply, const rtMessa
   reply->reply_topic_length = request->topic_length;
 }
 
-#if 0
-static void rtRouteDirect_OnMessageSubscribe(rtConnectedClient* sender, rtMessageHeader* hdr, uint8_t const* buff, int n)
+static void
+_rtdirect_route_thread_specific_key()
 {
-  rtMessage m;
-
-  if(RT_OK != rtMessage_FromBytes(&m, buff, n))
-  {
-    rtLog_Warn("Bad Hello message");
-    rtLog_Warn("Sender %s", sender->ident);
-    return;
-  }
-
-  {
-    char* buff = NULL;
-    uint32_t buff_length = 0;
-
-    rtMessage_ToString(m, &buff, &buff_length);
-    rtLog_Info("Message Received =>:%.*s", buff_length, buff);
-    free(buff);
-  }
-
-  rtMessage_Release(m);
-  
-  (void)hdr;
+  pthread_key_create(&_rtDirectRoute_key, NULL);
 }
-#endif
 
-static rtError rtRouteDirect_OnMessage(rtConnectedClient* sender, rtMessageHeader* hdr, uint8_t const* buff, int n, rtSubscription* mySubs)
+static rtError
+_rtdirect_OnMessage(rtConnectedClient* sender, rtMessageHeader* hdr, uint8_t const* buff, int n, rtSubscription* mySubs)
 {
   (void) mySubs;
   if (strcmp(hdr->topic, "_RTROUTED.INBOX.SUBSCRIBE") == 0)
@@ -221,8 +202,6 @@ static rtError rtRouteDirect_OnMessage(rtConnectedClient* sender, rtMessageHeade
     {
       if(1 == add_subscrption)
       {
-          rtLog_Debug("####### route_id = %d #####", route_id);
-          rtLog_Debug("####### sender inbox = %s #####", sender->inbox);
           rtPrivateClientInfo temp;
           temp.clientID = route_id;
           temp.clientFD = sender->fd;
@@ -249,8 +228,8 @@ static rtError rtRouteDirect_OnMessage(rtConnectedClient* sender, rtMessageHeade
         dr_ctx(1, hdr, buff, n, &rspData, &rspDataLength);
 
         rtMessageHeader new_header;
-        prep_reply_header_from_request(&new_header, hdr);
-        if(RT_OK != reply_to_client(sender, &new_header, rspData, rspDataLength))
+        _rtdirect_prepare_reply_from_request(&new_header, hdr);
+        if(RT_OK != _rtdirect_send_reply_to_client(sender, &new_header, rspData, rspDataLength))
           rtLog_Info("%s() Response couldn't be sent.", __func__);
     }
     else
@@ -259,7 +238,8 @@ static rtError rtRouteDirect_OnMessage(rtConnectedClient* sender, rtMessageHeade
   return RT_OK;
 }
 
-static void rtRouted_PushFd(fd_set* fds, int fd, int* maxFd)
+static void
+_rtdirect_pushFd(fd_set* fds, int fd, int* maxFd)
 {
   if (fd != RTMSG_INVALID_FD)
   {
@@ -269,28 +249,8 @@ static void rtRouted_PushFd(fd_set* fds, int fd, int* maxFd)
   }
 }
 
-
-static void rtConnectedClient_Init(rtConnectedClient* clnt, int fd, struct sockaddr_storage* remote_endpoint)
-{
-  clnt->fd = fd;
-  clnt->state = rtConnectionState_ReadHeaderPreamble;
-  clnt->bytes_read = 0;
-  clnt->bytes_to_read = RTMESSAGEHEADER_PREAMBLE_LENGTH;
-  clnt->read_buffer = (uint8_t *) rt_malloc(RTMSG_CLIENT_READ_BUFFER_SIZE);
-  clnt->send_buffer = (uint8_t *) rt_malloc(RTMSG_CLIENT_READ_BUFFER_SIZE);
-  memcpy(&clnt->endpoint, remote_endpoint, sizeof(struct sockaddr_storage));
-  memset(clnt->read_buffer, 0, RTMSG_CLIENT_READ_BUFFER_SIZE);
-  memset(clnt->send_buffer, 0, RTMSG_CLIENT_READ_BUFFER_SIZE);
-  clnt->read_buffer_capacity = RTMSG_CLIENT_READ_BUFFER_SIZE;
-#ifdef WITH_SPAKE2
-  clnt->cipher = NULL;
-  clnt->encryption_key = NULL;
-  clnt->encryption_buffer = NULL;
-#endif
-  rtMessageHeader_Init(&clnt->header);
-}
-
-static void rtRouterBase_DispatchMessageFromClient(rtConnectedClient* clnt, rtRouteEntry* pDirectRoute)
+static void
+_rtdirect_dispatch_message_from_client(rtConnectedClient* clnt, rtRouteEntry* pDirectRoute)
 {
   rtRouteEntry * route;
 #ifdef MSG_ROUNDTRIP_TIME
@@ -320,7 +280,29 @@ static void rtRouterBase_DispatchMessageFromClient(rtConnectedClient* clnt, rtRo
   }
 }
 
-static inline void rtConnectedClient_Reset(rtConnectedClient *clnt)
+static void
+rtConnectedClient_Init(rtConnectedClient* clnt, int fd, struct sockaddr_storage* remote_endpoint)
+{
+  clnt->fd = fd;
+  clnt->state = rtConnectionState_ReadHeaderPreamble;
+  clnt->bytes_read = 0;
+  clnt->bytes_to_read = RTMESSAGEHEADER_PREAMBLE_LENGTH;
+  clnt->read_buffer = (uint8_t *) rt_malloc(RTMSG_CLIENT_READ_BUFFER_SIZE);
+  clnt->send_buffer = (uint8_t *) rt_malloc(RTMSG_CLIENT_READ_BUFFER_SIZE);
+  memcpy(&clnt->endpoint, remote_endpoint, sizeof(struct sockaddr_storage));
+  memset(clnt->read_buffer, 0, RTMSG_CLIENT_READ_BUFFER_SIZE);
+  memset(clnt->send_buffer, 0, RTMSG_CLIENT_READ_BUFFER_SIZE);
+  clnt->read_buffer_capacity = RTMSG_CLIENT_READ_BUFFER_SIZE;
+#ifdef WITH_SPAKE2
+  clnt->cipher = NULL;
+  clnt->encryption_key = NULL;
+  clnt->encryption_buffer = NULL;
+#endif
+  rtMessageHeader_Init(&clnt->header);
+}
+
+static inline void
+rtConnectedClient_Reset(rtConnectedClient *clnt)
 {
   clnt->bytes_to_read = RTMESSAGEHEADER_PREAMBLE_LENGTH;
   clnt->bytes_read = 0;
@@ -328,7 +310,8 @@ static inline void rtConnectedClient_Reset(rtConnectedClient *clnt)
   rtMessageHeader_Init(&clnt->header);
 }
 
-static rtError rtConnectedClient_Read(rtConnectedClient* clnt, rtRouteEntry* myDirectRoute)
+static rtError
+rtConnectedClient_Read(rtConnectedClient* clnt, rtRouteEntry* myDirectRoute)
 {
   ssize_t bytes_read;
   int bytes_to_read = (clnt->bytes_to_read - clnt->bytes_read);
@@ -430,7 +413,7 @@ static rtError rtConnectedClient_Read(rtConnectedClient* clnt, rtRouteEntry* myD
     {
       if (clnt->bytes_read == clnt->bytes_to_read)
       {
-        rtRouterBase_DispatchMessageFromClient(clnt, myDirectRoute);
+        _rtdirect_dispatch_message_from_client(clnt, myDirectRoute);
 #ifdef ENABLE_ROUTER_BENCHMARKING
         if(clnt->header.flags & rtMessageFlags_Tainted)
         {
@@ -459,7 +442,8 @@ static rtError rtConnectedClient_Read(rtConnectedClient* clnt, rtRouteEntry* myD
 }
 
 
-static rtConnectedClient* rtRouted_RegisterNewClient(int fd, struct sockaddr_storage* remote_endpoint)
+static rtConnectedClient*
+rtRouteDirect_RegisterNewClient(int fd, struct sockaddr_storage* remote_endpoint)
 {
   char remote_address[108];
   uint16_t remote_port;
@@ -479,7 +463,8 @@ static rtConnectedClient* rtRouted_RegisterNewClient(int fd, struct sockaddr_sto
   return new_client;
 }
 
-static rtConnectedClient* rtRouted_AcceptClientConnection(rtListener* listener)
+static rtConnectedClient*
+rtRouteDirect_AcceptClientConnection(rtListener* listener)
 {
   int                       fd;
   socklen_t                 socket_length;
@@ -498,15 +483,11 @@ static rtConnectedClient* rtRouted_AcceptClientConnection(rtListener* listener)
   uint32_t one = 1;
   setsockopt(fd, SOL_TCP, TCP_NODELAY, &one, sizeof(one));
 
-  return rtRouted_RegisterNewClient(fd, &remote_endpoint);
+  return rtRouteDirect_RegisterNewClient(fd, &remote_endpoint);
 }
 
-static void _rtdirect_route_thread_specific_key()
-{
-  pthread_key_create(&_rtDirectRoute_key, NULL);
-}
-
-rtError rtDirectRouted_SendMessage(const rtPrivateClientInfo* pClient, uint8_t const* pInBuff, int inLength)
+rtError
+rtRouteDirect_SendMessage(const rtPrivateClientInfo* pClient, uint8_t const* pInBuff, int inLength)
 {
     rtError ret = RT_OK;
     rtMessageHeader new_header;
@@ -557,7 +538,8 @@ rtError rtDirectRouted_SendMessage(const rtPrivateClientInfo* pClient, uint8_t c
     return ret;
 }
 
-rtError rtRouteDirect_StartInstance(const char* socket_name, rtDriectClientHandler messageHandler)
+rtError
+rtRouteDirect_StartInstance(const char* socket_name, rtDriectClientHandler messageHandler)
 {
   int ret;
   rtRouteEntry* route = NULL;
@@ -579,7 +561,7 @@ rtError rtRouteDirect_StartInstance(const char* socket_name, rtDriectClientHandl
   route = (rtRouteEntry *)rt_malloc(sizeof(rtRouteEntry));
   route->subscription = NULL;
   strncpy(route->expression, "_RTDIRECT>", RTMSG_MAX_EXPRESSION_LEN-1);
-  route->message_handler = rtRouteDirect_OnMessage;
+  route->message_handler = _rtdirect_OnMessage;
 
   int ltIsrunning = 1;
   while (ltIsrunning)
@@ -598,14 +580,14 @@ rtError rtRouteDirect_StartInstance(const char* socket_name, rtDriectClientHandl
     rtLog_Warn("Thread (%s) is alive..", socket_name);
     if (myDirectListener)
     {
-      rtRouted_PushFd(&read_fds, myDirectListener->fd, &max_fd);
-      rtRouted_PushFd(&err_fds, myDirectListener->fd, &max_fd);
+      _rtdirect_pushFd(&read_fds, myDirectListener->fd, &max_fd);
+      _rtdirect_pushFd(&err_fds, myDirectListener->fd, &max_fd);
     }
 
     if (myDirectClient)
     {
-      rtRouted_PushFd(&read_fds, myDirectClient->fd, &max_fd);
-      rtRouted_PushFd(&err_fds, myDirectClient->fd, &max_fd);
+      _rtdirect_pushFd(&read_fds, myDirectClient->fd, &max_fd);
+      _rtdirect_pushFd(&err_fds, myDirectClient->fd, &max_fd);
     }
 
     ret = select(max_fd + 1, &read_fds, NULL, &err_fds, &timeout);
@@ -621,7 +603,7 @@ rtError rtRouteDirect_StartInstance(const char* socket_name, rtDriectClientHandl
     if (FD_ISSET(myDirectListener->fd, &read_fds))
     {
       rtLog_Error("This should be called only once as there should be only one client");
-      myDirectClient = rtRouted_AcceptClientConnection(myDirectListener);
+      myDirectClient = rtRouteDirect_AcceptClientConnection(myDirectListener);
     }
 
     if (FD_ISSET(myDirectClient->fd, &read_fds))
@@ -642,5 +624,9 @@ rtError rtRouteDirect_StartInstance(const char* socket_name, rtDriectClientHandl
   free(route);
   rtRouteBase_CloseListener(myDirectListener);
   free(myDirectListener);
+
+  if (strncmp(socket_name, "unix://", 7) == 0)
+    remove(socket_name);
+
   return RT_OK;
 }

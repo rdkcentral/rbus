@@ -44,9 +44,11 @@ int main(int argc, char *argv[])
 
     int rc = RBUS_ERROR_SUCCESS;
     rbusHandle_t handle;
+    rbusHandle_t directHandle = NULL;
 
     printf("constumer: start\n");
 
+    rtLog_SetOption(RT_USE_RTLOGGER);
     rc = rbus_open(&handle, "EventConsumer");
     if(rc != RBUS_ERROR_SUCCESS)
     {
@@ -54,16 +56,39 @@ int main(int argc, char *argv[])
         goto exit4;
     }
 
-    rc = rbusEvent_Subscribe(handle, "Device.SampleProvider.BigData", bigDataEventHandler, NULL, 0);
 
+    rc = rbusEvent_Subscribe(handle, "Device.SampleProvider.BigData", bigDataEventHandler, NULL, 0);
     if(rc != RBUS_ERROR_SUCCESS)
     {
         printf("consumer: rbusEvent_Subscribe Param1 failed: %d\n", rc);
         goto exit3;
     }
 
-    pause();
-    rbusEvent_Unsubscribe(handle, "Device.Provider1.Event2!");
+    while(1)
+    {
+        if ((0 == access("/tmp/rbus_csi_test", F_OK)) && (directHandle == NULL))
+        {
+            rc = rbus_openDirect(handle, &directHandle, "Device.SampleProvider.BigData");
+            if(rc != RBUS_ERROR_SUCCESS)
+            {
+                printf("consumer: openDirect failed: %d\n", rc);
+                goto exit3;
+            }
+        }
+        else if ((0 != access("/tmp/rbus_csi_test", F_OK)) && (directHandle != NULL))
+        {
+            rc = rbus_closeDirect(directHandle);
+            if(rc != RBUS_ERROR_SUCCESS)
+            {
+                printf("consumer: closeDirect failed: %d\n", rc);
+                goto exit3;
+            }
+        }
+
+        sleep(1);
+    }
+
+    rbusEvent_Unsubscribe(handle, "Device.SampleProvider.BigData");
 
 exit3:
     rbus_close(handle);
