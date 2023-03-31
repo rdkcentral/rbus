@@ -1115,8 +1115,6 @@ rbusCoreError_t rbus_invokeRemoteMethod2(rtConnection myConn, const char * objec
     char const *traceParent = NULL;
     char const *traceState = NULL;
 
-    rbus_getOpenTelemetryContext(&traceParent, &traceState);
-
     if(NULL == myConn)
     {
         RBUSCORELOG_ERROR("Not connected.");
@@ -1128,6 +1126,8 @@ rbusCoreError_t rbus_invokeRemoteMethod2(rtConnection myConn, const char * objec
         RBUSCORELOG_ERROR("Object name is too long.");
         return RBUSCORE_ERROR_INVALID_PARAM;
     }
+
+    rbus_getOpenTelemetryContext(&traceParent, &traceState);
 
     *in = NULL;
     if(NULL == out)
@@ -1181,6 +1181,7 @@ rbusCoreError_t rbus_invokeRemoteMethod2(rtConnection myConn, const char * objec
         rbusMessage_Release(*in);
         *in = NULL;
     }
+    rbus_releaseOpenTelemetryContext();
     return ret;
 }
 
