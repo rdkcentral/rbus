@@ -158,29 +158,42 @@ int main(int argc, char *argv[])
         rbusValue_fwrite(value, 0, stdout); printf("\n");
         rbusValue_Release(value);
 
+        printf ("###############   Close Direct (after 15sec) #####################################################\n");
         sleep(15);
         rbus_closeDirect(directHNDL);
-        sleep(1);
+        sleep(3);
         rbus_closeDirect(directHNDL2);
 
         sleep(3);
         printf ("###############   GET 4 #####################################################\n");
         rc = rbus_get(handle, "Device.SampleProvider.SampleData.IntData", &value);
-        rbusValue_fwrite(value, 0, stdout); printf("\n");
-        rbusValue_Release(value);
+        if (rc == RBUS_ERROR_SUCCESS)
+        {
+            rbusValue_fwrite(value, 0, stdout); printf("\n");
+            rbusValue_Release(value);
+        }
 
         printf ("###############   GET 5 #####################################################\n");
         rc = rbus_get(handle, "Device.SampleProvider.AllTypes.BoolData", &value);
-        rbusValue_fwrite(value, 0, stdout); printf("\n");
-        rbusValue_Release(value);
+        if (rc == RBUS_ERROR_SUCCESS)
+        {
+            rbusValue_fwrite(value, 0, stdout); printf("\n");
+            rbusValue_Release(value);
+        }
+
         sleep(2);
+
         printf ("###############   OPEN DIRECT AGAIN  #####################################################\n");
         rbus_openDirect(handle, &directHNDL, "Device.SampleProvider.SampleData.IntData");
         printf ("###############   GET 6 #####################################################\n");
         rc = rbus_get(handle, "Device.SampleProvider.SampleData.IntData", &value);
-        rbusValue_fwrite(value, 0, stdout); printf("\n");
-        rbusValue_Release(value);
+        if (rc == RBUS_ERROR_SUCCESS)
+        {
+            rbusValue_fwrite(value, 0, stdout); printf("\n");
+            rbusValue_Release(value);
+        }
 
+        sleep(15);
         rbus_closeDirect(directHNDL);
     (void) directHNDL;
     (void) directHNDL2;

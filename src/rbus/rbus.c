@@ -2445,7 +2445,7 @@ static void _create_direct_connection_callback_handler (rbusHandle_t handle, rbu
     {
         rbuscore_startPrivateListener(daemonAddress, consumerName, paramName, _callback_handler, handle);
 
-        rbusMessage_SetString(*response, __progname);
+        rbusMessage_SetString(*response, rtConnection_GetReturnAddress(handleInfo->m_connection));
         rbusMessage_SetString(*response, daemonAddress);
     }
 }

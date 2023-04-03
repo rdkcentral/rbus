@@ -231,6 +231,9 @@ _rtdirect_OnMessage(rtConnectedClient* sender, rtMessageHeader* hdr, uint8_t con
         _rtdirect_prepare_reply_from_request(&new_header, hdr);
         if(RT_OK != _rtdirect_send_reply_to_client(sender, &new_header, rspData, rspDataLength))
           rtLog_Info("%s() Response couldn't be sent.", __func__);
+
+        if (rspData)
+            free(rspData);
     }
     else
         rtLog_Error("no callback handler found :%s", hdr->topic);
@@ -556,7 +559,12 @@ rtRouteDirect_StartInstance(const char* socket_name, rtDriectClientHandler messa
   pthread_setspecific(_rtDirectRoute_key, messageHandler);
 
   if (RT_OK != rtRouteBase_BindListener(socket_name, 1, 1, &myDirectListener))
-      return RT_FAIL;
+  {
+    if (strncmp(socket_name, "unix://", 7) == 0)
+      remove(&socket_name[7]);
+
+    return RT_FAIL;
+  }
 
   route = (rtRouteEntry *)rt_malloc(sizeof(rtRouteEntry));
   route->subscription = NULL;
@@ -626,7 +634,7 @@ rtRouteDirect_StartInstance(const char* socket_name, rtDriectClientHandler messa
   free(myDirectListener);
 
   if (strncmp(socket_name, "unix://", 7) == 0)
-    remove(socket_name);
+      remove(&socket_name[7]);
 
   return RT_OK;
 }

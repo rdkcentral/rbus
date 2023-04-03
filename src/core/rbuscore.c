@@ -2551,6 +2551,7 @@ static void _rbuscore_directconnection_load_from_cache()
         int numOfEntries = 0;
         rbusMessage_GetInt32(msg, &numOfEntries);
         RBUSCORELOG_DEBUG("Number of Entries...%d", numOfEntries);
+        rbusMessage_Release(msg);
     }
 
     fclose(file);
@@ -2698,9 +2699,23 @@ static rtError _onDirectMessage(uint8_t isClientRequest, rtMessageHeader* hdr, u
             rbusMessage_SetInt32(response, RBUSCORE_ERROR_UNSUPPORTED_METHOD);
             RBUSCORELOG_WARN("Could not find the DML in Private Connection List..");
         }
-
         _rbusMessage_SetMetaInfo(response, METHOD_RESPONSE, NULL, NULL);
-        rbusMessage_ToBytes(response, pOutBuff, pOutLength);
+        uint8_t* pData = NULL;
+        uint32_t dataLength = 0;
+        rbusMessage_ToBytes(response, &pData, &dataLength);
+        if ((pData) && (0 != dataLength))
+        {
+            *pOutLength = dataLength;
+            *pOutBuff = rt_malloc(dataLength);
+            memcpy(*pOutBuff, pData, dataLength);
+
+        }
+        else
+        {
+            *pOutBuff = NULL;
+            *pOutLength = 0;
+        }
+
         rbusMessage_Release(msg);
         rbusMessage_Release(response);
     }
@@ -2846,6 +2861,42 @@ rtConnection rbuscore_FindClientPrivateConnection(const char *pParameterName)
     return myConn;
 }
 
+
+static void rbuscore_private_connection_advisory_callback(rtMessageHeader const* hdr, uint8_t const* data, uint32_t dataLen, void* closure)
+{
+    rtMessage msg;
+    (void)hdr;
+    (void)closure;
+    int32_t advisory_event;
+
+    RBUSCORELOG_ERROR("got event from advisory msg");
+    rtMessage_FromBytes(&msg, data, dataLen);
+    if(rtMessage_GetInt32(msg, RTMSG_ADVISE_EVENT, &advisory_event) == RT_OK)
+    {
+        if(advisory_event == rtAdviseClientDisconnect)
+        {
+            const char* listener;
+            if(rtMessage_GetString(msg, RTMSG_ADVISE_INBOX, &listener) == RT_OK)
+            {
+                RBUSCORELOG_DEBUG("Advisory event: client disconnect %s", listener);
+                rbuscore_terminatePrivateConnection(listener);
+            }
+            else
+            {
+                RBUSCORELOG_ERROR("Failed to get inbox from advisory msg");
+            }
+        }
+    }
+    else
+    {
+        RBUSCORELOG_ERROR("Failed to get event from advisory msg");
+    }
+
+    rtMessage_Release(msg);
+
+    return;
+}
+
 rbusCoreError_t rbuscore_openPrivateConnectionToProvider(rtConnection *pPrivateConn, const char* pParameterName, const char *pPrivateConnAddress, const char *pProviderName)
 {
     rtError       err;
@@ -2858,15 +2909,14 @@ rbusCoreError_t rbuscore_openPrivateConnectionToProvider(rtConnection *pPrivateC
     {
         directClientLock();
         obj = rtVector_Find(gListOfClientDirectDMLs, pProviderName, _findClientPrivateConnection);
-        directClientUnlock();
         if (!obj)
         {
-            RBUSCORELOG_WARN("Connection does not exist; create new");
+            RBUSCORELOG_WARN("Connection does not exist; create new **** PROVIDER NAME = %s", pProviderName);
 
             rtMessage_Create(&config);
             rtMessage_SetString(config, "appname", "rbus");
             rtMessage_SetString(config, "uri", pPrivateConnAddress);
-            rtMessage_SetInt32(config, "max_retries", 25);
+            rtMessage_SetInt32(config, "max_retries", 5);
             rtMessage_SetInt32(config, "start_router", 0);
 
             err = rtConnection_CreateWithConfig(&connection, config);
@@ -2879,13 +2929,14 @@ rbusCoreError_t rbuscore_openPrivateConnectionToProvider(rtConnection *pPrivateC
             *pPrivateConn = connection;
 
             rtConnection_AddDefaultListener(connection, master_event_callback, NULL);
-            RBUSCORELOG_WARN("pPrivateConn new = %p", connection);
+            rtConnection_AddListener(g_connection, RTMSG_ADVISORY_TOPIC, &rbuscore_private_connection_advisory_callback, NULL);
+            RBUSCORELOG_INFO("pPrivateConn new = %p", connection);
             rtMessage_Release(config);
         }
         else
         {
             *pPrivateConn = connection = obj->m_privConn;
-            RBUSCORELOG_WARN("pPrivateConn found = %p", obj->m_privConn);
+            RBUSCORELOG_INFO("pPrivateConn found = %p", obj->m_privConn);
         }
 
         /* Add an entry to the list */
@@ -2898,11 +2949,10 @@ rbusCoreError_t rbuscore_openPrivateConnectionToProvider(rtConnection *pPrivateC
             strcpy(pNewObj->m_providerName, pProviderName);
             pNewObj->m_privConn = connection;
 
-            directClientLock();
             rtVector_PushBack(gListOfClientDirectDMLs, pNewObj);
-            directClientUnlock();
     
         }
+        directClientUnlock();
     }
     else
         ret = RBUSCORE_ERROR_INVALID_PARAM;
@@ -2947,47 +2997,82 @@ rbusCoreError_t rbuscore_closePrivateConnection(const char *pParameterName)
     rbusClientDMLList_t *obj = NULL;
     rtConnection  connection = NULL;
     rbusMessage request, response;
+    char providerName[MAX_OBJECT_NAME_LENGTH+1] = "";
 
-    rbusMessage_Init(&request);
-    rbusMessage_SetString(request, rtConnection_GetReturnAddress(g_connection));
-    rbusMessage_SetString(request, pParameterName);
-
-    err = rbus_invokeRemoteMethod(pParameterName, METHOD_CLOSEDIRECT_CONN, request, 5000, &response);
-    if(RBUSCORE_SUCCESS != err)
+    if (pParameterName)
     {
-        RBUSCORELOG_ERROR("Received error %d from RBUS Daemon for the object (%s)", err, pParameterName);
-    }
-    else
-    {
-        rbusMessage_GetInt32(response, (int32_t*)&err);
-        RBUSCORELOG_DEBUG("Response from the remote method is [%d]!", err);
-
-        if (RBUSCORE_SUCCESS == err)
+        directClientLock();
+        obj = rtVector_Find(gListOfClientDirectDMLs, pParameterName, _findClientPrivateDML);
+        if (!obj)
         {
-            directClientLock();
-        
-            obj = rtVector_Find(gListOfClientDirectDMLs, pParameterName, _findClientPrivateDML);
-            if (obj)
-            {
-                connection = obj->m_privConn;
-                rtVector_RemoveItem(gListOfClientDirectDMLs, obj, rtVector_Cleanup_Free);
-            }
+            RBUSCORELOG_DEBUG("Private Connection Does Not Exist anymore for (%s)", pParameterName);
             directClientUnlock();
-        }
-        rbusMessage_Release(response);
-    }
-
-    if ((rtVector_Size(gListOfClientDirectDMLs) < 1) && (NULL != connection))
-    {
-        rtError ret = rtConnection_Destroy(connection);
-        if(RT_OK != ret)
-        {
-            RBUSCORELOG_ERROR("Could not destroy connection. Error: 0x%x.", ret);
+            /* Possibly the Provider Exited and we removed it as part of Advisory message */
             return RBUSCORE_ERROR_GENERAL;
         }
+
+        /* You are here only becoz you have valid connection */
+        rbusMessage_Init(&request);
+        rbusMessage_SetString(request, rtConnection_GetReturnAddress(g_connection));
+        rbusMessage_SetString(request, pParameterName);
+
+        err = rbus_invokeRemoteMethod(pParameterName, METHOD_CLOSEDIRECT_CONN, request, 5000, &response);
+        if(RBUSCORE_SUCCESS != err)
+        {
+            RBUSCORELOG_ERROR("Received error %d from RBUS Daemon for the object (%s)", err, pParameterName);
+        }
+        else
+        {
+            rbusMessage_GetInt32(response, (int32_t*)&err);
+            RBUSCORELOG_DEBUG("Response from the remote method is [%d]!", err);
+
+            if (RBUSCORE_SUCCESS == err)
+            {
+                connection = obj->m_privConn;
+                memcpy(providerName, obj->m_providerName, MAX_OBJECT_NAME_LENGTH);
+                providerName[MAX_OBJECT_NAME_LENGTH] = '\0';
+                rtVector_RemoveItem(gListOfClientDirectDMLs, obj, rtVector_Cleanup_Free);
+                obj = NULL;
+            }
+            rbusMessage_Release(response);
+        }
+
+        obj = rtVector_Find(gListOfClientDirectDMLs, providerName, _findClientPrivateConnection);
+        if (!obj)
+        {
+            RBUSCORELOG_DEBUG("No more DML for this provider, so lets destroy the connection.");
+            rtConnection_Destroy(connection);
+        }
+        directClientUnlock();
     }
+    else
+        err = RBUSCORE_ERROR_INVALID_PARAM;
+
     return err;
 }
+
+rbusCoreError_t rbuscore_terminatePrivateConnection(const char *pProviderName)
+{
+    rbusCoreError_t err = RBUSCORE_SUCCESS;
+    rbusClientDMLList_t *obj = NULL;
+    rtConnection  connection = NULL;
+
+    directClientLock();
+
+    obj = rtVector_Find(gListOfClientDirectDMLs, pProviderName, _findClientPrivateConnection);
+    if (obj)
+    {
+        connection = obj->m_privConn;
+        rtConnection_Destroy(connection);
+        rtVector_RemoveItem(gListOfClientDirectDMLs, obj, rtVector_Cleanup_Free);
+        while ((obj = rtVector_Find(gListOfClientDirectDMLs, pProviderName, _findClientPrivateConnection)) != NULL)
+            rtVector_RemoveItem(gListOfClientDirectDMLs, obj, rtVector_Cleanup_Free);
+    }
+    directClientUnlock();
+
+    return err;
+}
+
 
 
 /* End of File */
