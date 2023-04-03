@@ -402,12 +402,17 @@ void rbusAsyncSubscribe_RemoveSubscription(rbusEventSubscription_t* subscription
 rbusEventSubscription_t* rbusAsyncSubscribe_GetSubscription(rbusHandle_t handle, char const* eventName, rbusFilter_t filter)
 {
     rbusEventSubscription_t sub = {0};
+    rbusEventSubscription_t* EventSub = {0};
+
     if(!gRetrier)
         return NULL;
     sub.handle = handle;
     sub.eventName = eventName;
     sub.filter = filter;
-    return rtList_Find(gRetrier->items, &sub, rbusAsyncSubscribeRetrier_CompareSubscription);
+    LOCK();
+    EventSub = rtList_Find(gRetrier->items, &sub, rbusAsyncSubscribeRetrier_CompareSubscription);
+    UNLOCK();
+    return EventSub;
 }
 
 void rbusAsyncSubscribe_CloseHandle(rbusHandle_t handle)
