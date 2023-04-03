@@ -2678,6 +2678,7 @@ exit_error0:
     return ret;
 }
 
+static bool sDisConnHandler = false;
 
 rbusError_t rbus_openDirect(rbusHandle_t handle, rbusHandle_t* myDirectHandle, char const* pParameterName)
 {
@@ -2705,6 +2706,11 @@ rbusError_t rbus_openDirect(rbusHandle_t handle, rbusHandle_t* myDirectHandle, c
                 tmpHandle->m_connection = myDirectCon;
                 tmpHandle->m_handleType = RBUS_HWDL_TYPE_DIRECT;
                 *myDirectHandle = tmpHandle;
+                if (!sDisConnHandler)
+                {
+                    rbus_registerClientDisconnectHandler(_client_disconnect_callback_handler);
+                    sDisConnHandler = true;
+                }
             }
             else
                 *myDirectHandle = NULL;
@@ -2838,7 +2844,6 @@ rbusError_t rbus_regDataElements(
     int numDataElements,
     rbusDataElement_t *elements)
 {
-    static bool sDisConnHandler = false;
     int i;
     rbusError_t rc = RBUS_ERROR_SUCCESS;
     rbusCoreError_t err = RBUSCORE_SUCCESS;

@@ -115,7 +115,7 @@ static void generalEvent2Handler(
     (void)handle;
 }
 
-static int lol = 0;
+static int localTesting = 0;
 static void valueChangeHandler(
     rbusHandle_t handle,
     rbusEvent_t const* event,
@@ -137,7 +137,25 @@ static void valueChangeHandler(
 
     (void)handle;
     (void)subscription;
-    lol += 1;
+    localTesting += 1;
+}
+
+rbusError_t getHandler(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t* options)
+{
+    char const* name = rbusProperty_GetName(property);
+    (void)handle;
+    (void)options;
+    rbusValue_t value;
+    rbusValue_Init(&value);
+
+    printf ("Received GET for %s\n", name);
+    rbusValue_SetString(value, name);
+
+    rbusProperty_SetValue(property, value);
+
+    rbusValue_Release(value);
+
+    return RBUS_ERROR_SUCCESS;
 }
 
 int main(int argc, char *argv[])
@@ -157,6 +175,10 @@ int main(int argc, char *argv[])
 
     (void) subscriptions;
     printf("constumer: start\n");
+    rbusDataElement_t dataElements[1] = {
+        {"Device.EventProvider.StrData", RBUS_ELEMENT_TYPE_PROPERTY, {getHandler, NULL, NULL, NULL, NULL, NULL}}
+    };
+
 
     //rbus_setLogLevel(RBUS_LOG_DEBUG);
     rc = rbus_open(&handle, "EventConsumer");
@@ -173,8 +195,10 @@ int main(int argc, char *argv[])
         goto exit4;
     }
 
-    rbusHandle_t  lolHandle2 = NULL;
-    rbus_openDirect(handle, &lolHandle2, "Device.SampleProvider.AllTypes.StringData");
+    rc = rbus_regDataElements(handle, 1, dataElements);
+
+    rbusHandle_t  directHandle = NULL;
+    rbus_openDirect(handle, &directHandle, "Device.SampleProvider.AllTypes.StringData");
 
     sleep(5);
     rc = rbusEvent_Subscribe(
@@ -205,17 +229,19 @@ int main(int argc, char *argv[])
         goto exit3;
     }
 
-    while (3 > lol)
+    while (3 > localTesting)
        sleep(1);
 
 
     sleep(5);
-    rbus_closeDirect(lolHandle2);
+    rbus_closeDirect(directHandle);
     pause();
     rbusEvent_Unsubscribe(handle, "Device.SampleProvider.AllTypes.StringData"); 
     rbusEvent_Unsubscribe(handle2, "Device.SampleProvider.AllTypes.StringData"); 
 
 exit3:
+    if (directHandle)
+        rbus_closeDirect(directHandle);
     rbus_close(handle);
     rbus_close(handle2);
 

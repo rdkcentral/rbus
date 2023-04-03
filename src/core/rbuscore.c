@@ -2422,7 +2422,6 @@ typedef struct _rbusServerDMLList
 typedef struct _server_directHandler
 {
     char                  m_privConnAddress[MAX_OBJECT_NAME_LENGTH+1];
-  //  int                   m_inFD;
     rtDriectClientHandler m_fnRouteCallback;
 } rbusServerDirectHandler_t;
 
@@ -2453,7 +2452,11 @@ static void _freePrivateServer(void* p)
 {
     rbusServerDMLList_t *pTmp = p;
     if (pTmp->m_pid)
+    {
+        pthread_cancel(pTmp->m_pid);
+        pthread_join(pTmp->m_pid, NULL);
         printf ("Cancel the thread..\n"); //FIXME
+    }
     free(pTmp);
 }
 
@@ -2472,7 +2475,7 @@ static void _rbuscore_directconnection_save_to_cache()
     }
     else
     {
-        rbusMessage t;
+        rbusMessage tmp;
         uint8_t* pBuff = NULL;
         uint32_t length = 0;
         rbusServerDMLList_t* pDmlObj = NULL;
@@ -2484,8 +2487,8 @@ static void _rbuscore_directconnection_save_to_cache()
             return;
         }
 
-        rbusMessage_Init(&t);
-        rbusMessage_SetInt32(t, sz);
+        rbusMessage_Init(&tmp);
+        rbusMessage_SetInt32(tmp, sz);
         for(i = 0; i < sz; ++i)
         {
             rbusMessage m;
@@ -2493,15 +2496,15 @@ static void _rbuscore_directconnection_save_to_cache()
             pDmlObj = rtVector_At(gListOfServerDirectDMLs, i);
             rbusMessage_SetString(m, pDmlObj->m_privateDML);
             rbusMessage_SetString(m, pDmlObj->m_consumerName);
-            rbusMessage_SetMessage(t, m);
+            rbusMessage_SetMessage(tmp, m);
             rbusMessage_Release(m);
         }
 
-        rbusMessage_ToBytes(t, &pBuff, &length);
+        rbusMessage_ToBytes(tmp, &pBuff, &length);
 
         fwrite(pBuff, 1, length, file);
         fclose(file);
-        rbusMessage_Release(t);
+        rbusMessage_Release(tmp);
     }
 }
 
@@ -2551,6 +2554,8 @@ static void _rbuscore_directconnection_load_from_cache()
         int numOfEntries = 0;
         rbusMessage_GetInt32(msg, &numOfEntries);
         RBUSCORELOG_DEBUG("Number of Entries...%d", numOfEntries);
+
+        //TODO : How to notify the consumer that the provider is up and request to re-establish the connection
         rbusMessage_Release(msg);
     }
 
@@ -2756,20 +2761,16 @@ rbusCoreError_t rbuscore_startPrivateListener(const char* pPrivateConnAddress, c
     {
         directServerLock();
         obj = rtVector_Find(gListOfServerDirectDMLs, pPrivateConnAddress, _findPrivateServer);
-        directServerUnlock();
         if (!obj)
         {
             rbusServerDirectHandler_t *pInstance = rt_malloc(sizeof(rbusServerDirectHandler_t));
             strcpy(pInstance->m_privConnAddress, pPrivateConnAddress);
             pInstance->m_fnRouteCallback = _onDirectMessage;
 
-            pthread_attr_t attrib;
-            pthread_attr_init(&attrib);
-            pthread_attr_setdetachstate(&attrib, PTHREAD_CREATE_DETACHED);
-
-            if((err = pthread_create(&pid, &attrib, rbuscore_PrivateThreadFunc, pInstance)) != 0)
+            if((err = pthread_create(&pid, NULL, rbuscore_PrivateThreadFunc, pInstance)) != 0)
             {
                 RBUSCORELOG_ERROR("%s pthread_create failed: err=%d", __FUNCTION__, err);
+                directServerUnlock();
                 return RBUSCORE_ERROR_GENERAL;
             }
         }
@@ -2781,21 +2782,18 @@ rbusCoreError_t rbuscore_startPrivateListener(const char* pPrivateConnAddress, c
         }
 
         // Update the DMLs
-        directServerLock();
-        {
-            rbusServerDMLList_t *pTemp = rt_malloc(sizeof(rbusServerDMLList_t));
-            strcpy(pTemp->m_privConnAddress, pPrivateConnAddress);
-            strcpy(pTemp->m_consumerName, pConsumerName);
-            strcpy(pTemp->m_privateDML, pDMLName);
-            memcpy(&pTemp->m_consumerInfo, &privConsInfo, sizeof(rtPrivateClientInfo));
-            pTemp->m_pid = pid;
-            pTemp->m_fnCallbackHandler = handler;
-            pTemp->m_fnCallbackuserData = user_data;
-            rtVector_PushBack(gListOfServerDirectDMLs, pTemp);
+        rbusServerDMLList_t *pTemp = rt_malloc(sizeof(rbusServerDMLList_t));
+        strcpy(pTemp->m_privConnAddress, pPrivateConnAddress);
+        strcpy(pTemp->m_consumerName, pConsumerName);
+        strcpy(pTemp->m_privateDML, pDMLName);
+        memcpy(&pTemp->m_consumerInfo, &privConsInfo, sizeof(rtPrivateClientInfo));
+        pTemp->m_pid = pid;
+        pTemp->m_fnCallbackHandler = handler;
+        pTemp->m_fnCallbackuserData = user_data;
+        rtVector_PushBack(gListOfServerDirectDMLs, pTemp);
 
-            /* write to cache */
-            _rbuscore_directconnection_save_to_cache();
-        }
+        /* write to cache */
+        _rbuscore_directconnection_save_to_cache();
         directServerUnlock();
     }
     else
@@ -2861,7 +2859,7 @@ rtConnection rbuscore_FindClientPrivateConnection(const char *pParameterName)
     return myConn;
 }
 
-
+#if 0
 static void rbuscore_private_connection_advisory_callback(rtMessageHeader const* hdr, uint8_t const* data, uint32_t dataLen, void* closure)
 {
     rtMessage msg;
@@ -2896,6 +2894,7 @@ static void rbuscore_private_connection_advisory_callback(rtMessageHeader const*
 
     return;
 }
+#endif
 
 rbusCoreError_t rbuscore_openPrivateConnectionToProvider(rtConnection *pPrivateConn, const char* pParameterName, const char *pPrivateConnAddress, const char *pProviderName)
 {
@@ -2929,7 +2928,6 @@ rbusCoreError_t rbuscore_openPrivateConnectionToProvider(rtConnection *pPrivateC
             *pPrivateConn = connection;
 
             rtConnection_AddDefaultListener(connection, master_event_callback, NULL);
-            rtConnection_AddListener(g_connection, RTMSG_ADVISORY_TOPIC, &rbuscore_private_connection_advisory_callback, NULL);
             RBUSCORELOG_INFO("pPrivateConn new = %p", connection);
             rtMessage_Release(config);
         }
