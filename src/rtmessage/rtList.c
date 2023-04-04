@@ -274,7 +274,10 @@ rtError rtList_RemoveItemByCompare(rtList list, const void* comparison, rtList_C
     }
     item = item->next;
   }
-  return RT_OK;
+  if(item == NULL)
+    return RT_ERROR;
+  else
+    return RT_OK;
 }
 
 rtError rtList_RemoveAllItems(rtList list, rtList_Cleanup destroyer)

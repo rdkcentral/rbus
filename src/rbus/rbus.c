@@ -4489,17 +4489,16 @@ rbusError_t rbusEvent_UnsubscribeEx(
         }
         else
         {
-            bool sub_exist = rbusAsyncSubscribe_GetSubscription(handle, subscription[i].eventName, subscription[i].filter);
-            if(sub_exist)
+            rbusEventSubscription_t sub = {0};
+            bool sub_removed = false;
+            sub.handle = handle;
+            sub.eventName = subscription[i].eventName;
+            sub.filter = subscription[i].filter;
+
+            sub_removed = rbusAsyncSubscribe_RemoveSubscription(&sub);
+            if(sub_removed)
             {
-                rbusEventSubscription_t sub = {0};
-                sub.handle = handle;
-                sub.eventName = subscription[i].eventName;
-                sub.filter = subscription[i].filter;
-
                 RBUSLOG_INFO("%s: %s removed pending async subscription", __FUNCTION__, sub.eventName);
-
-                rbusAsyncSubscribe_RemoveSubscription(&sub);
             }
             else
             {

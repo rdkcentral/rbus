@@ -212,6 +212,31 @@ static void eventReceiveHandler(
     printf("User data: %s\n", (char*)subscription->userData);
 }
 
+static void eventReceiveHandler1(
+        rbusHandle_t handle,
+        rbusEvent_t const* event,
+        rbusEventSubscription_t* subscription)
+{
+    (void)handle;
+    printf("\n => ReceiveHandlerConsumer: %s\n", __FUNCTION__);
+    printf(" Consumer receiver Value event for param %s\n", event->name);
+}
+
+static void eventReceiveHandler2(
+        rbusHandle_t handle,
+        rbusEvent_t const* event,
+        rbusEventSubscription_t* subscription)
+{
+    (void)handle;
+    printf("\n => ReceiveHandlerConsumer: %s\n", __FUNCTION__);
+    printf("Consumer receiver Value event for param %s\n", event->name);
+    if (event->type == 6)
+    {
+        printf("\nConsumer received duration complete event\n");
+        printf("*******************************************\n");
+    }
+}
+
 static void asyncMethodHandler(
     rbusHandle_t handle,
     char const* methodName,
@@ -259,8 +284,12 @@ int rbusConsumer(rbusGtest_t test, pid_t pid, int runtime)
   char *consumerName = NULL;
   static pid_t pid_arr[3] = {0};
   const char* event_param = "Device.rbusProvider.Param1";
+  char* data[2] = { "My Data1", "My Data2"};
   rbusEventSubscription_t subscription = {event_param, NULL, 0, 0, (void *)eventReceiveHandler, NULL, 0};
-
+  rbusEventSubscription_t sub[] = {
+      {"Device.rbusProvider.Param1", NULL, 2, 0, (void *)eventReceiveHandler1, data[0], NULL, NULL, false},
+      {"Device.rbusProvider.Param2", NULL, 2, 5, (void *)eventReceiveHandler2, data[1], NULL, NULL, false}
+  };
   if(RBUS_GTEST_GET_EXT2 == test)
   {
     int i = 0;
@@ -382,6 +411,16 @@ int rbusConsumer(rbusGtest_t test, pid_t pid, int runtime)
         EXPECT_EQ(rc,RBUS_ERROR_SUCCESS);
 
         sleep(runtime);
+      }
+      break;
+    case RBUS_GTEST_INTERVAL_SUB1:
+      {
+        rc = rbusEvent_SubscribeEx(handle, sub, 2, 0);
+        EXPECT_EQ(rc,RBUS_ERROR_SUCCESS);
+
+        sleep(runtime);
+        rc = rbusEvent_UnsubscribeEx(handle, sub, 1);
+        EXPECT_EQ(rc, RBUS_ERROR_SUCCESS);
       }
       break;
     case RBUS_GTEST_SET1:
