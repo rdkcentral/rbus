@@ -23,7 +23,6 @@
 #include <unistd.h>
 #include <rbus.h>
 #include "rbusProviderConsumer.h"
-
 static void exec_func_test(rbusGtest_t test)
 {
   int runtime = 0;
@@ -41,6 +40,7 @@ static void exec_func_test(rbusGtest_t test)
       break;
     }
     case RBUS_GTEST_FILTER2:
+    case RBUS_GTEST_INTERVAL_SUB1:
     case RBUS_GTEST_ASYNC_SUB4:
     {
       runtime = 15;
@@ -475,6 +475,11 @@ TEST(rbusApiValueChangeTest, test1)
 TEST(rbusApiValueChangeTest, test2)
 {
   exec_func_test(RBUS_GTEST_FILTER2);
+}
+
+TEST(rbusApiIntervalSubTest, test1)
+{
+  exec_func_test(RBUS_GTEST_INTERVAL_SUB1);
 }
 
 TEST(rbusAsyncSubTest, test1)
