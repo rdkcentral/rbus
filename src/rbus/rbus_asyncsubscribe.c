@@ -388,26 +388,42 @@ void rbusAsyncSubscribe_AddSubscription(rbusEventSubscription_t* subscription, r
     (void)rc;
 }
 
-void rbusAsyncSubscribe_RemoveSubscription(rbusEventSubscription_t* subscription)
+bool rbusAsyncSubscribe_RemoveSubscription(rbusEventSubscription_t* subscription)
 {
-    if(!gRetrier)
-        return;
-    VERIFY_NULL(subscription);
+    rtError err = RT_OK;
+    bool sub_removed = false;
+    if(!gRetrier || subscription == NULL)
+        return false;
     LOCK();
-    rtList_RemoveItemByCompare(gRetrier->items, subscription, 
+    err = rtList_RemoveItemByCompare(gRetrier->items, subscription,
         rbusAsyncSubscribeRetrier_CompareSubscription, rbusAsyncSubscribeRetrier_FreeSubscription);
+    if(err == RT_OK)
+        sub_removed = true;
     UNLOCK();
+    return sub_removed;
 }
 
-rbusEventSubscription_t* rbusAsyncSubscribe_GetSubscription(rbusHandle_t handle, char const* eventName, rbusFilter_t filter)
+bool rbusAsyncSubscribe_GetSubscription(rbusHandle_t handle, char const* eventName, rbusFilter_t filter)
 {
     rbusEventSubscription_t sub = {0};
+    bool sub_exist = false;
+
     if(!gRetrier)
-        return NULL;
+        return sub_exist;
     sub.handle = handle;
     sub.eventName = eventName;
     sub.filter = filter;
-    return rtList_Find(gRetrier->items, &sub, rbusAsyncSubscribeRetrier_CompareSubscription);
+    LOCK();
+    if(rtList_Find(gRetrier->items, &sub, rbusAsyncSubscribeRetrier_CompareSubscription) != NULL)
+    {
+        sub_exist = true;
+    }
+    else
+    {
+        sub_exist = false;
+    }
+    UNLOCK();
+    return sub_exist;
 }
 
 void rbusAsyncSubscribe_CloseHandle(rbusHandle_t handle)
