@@ -585,7 +585,6 @@ rtRouteDirect_StartInstance(const char* socket_name, rtDriectClientHandler messa
     timeout.tv_sec = 10;
     timeout.tv_usec = 0;
 
-    rtLog_Warn("Thread (%s) is alive..", socket_name);
     if (myDirectListener)
     {
       _rtdirect_pushFd(&read_fds, myDirectListener->fd, &max_fd);

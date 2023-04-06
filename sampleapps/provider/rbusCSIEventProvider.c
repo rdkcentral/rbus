@@ -32,18 +32,17 @@
 #define RBUS_BIGDATA_SIZE    (56 * 1024)
 
 rbusHandle_t        rbusHandle;
-char                componentName[20] = "rbusSampleProvider";
+char                componentName[] = "Sample-CSI-Event-Provider";
 int loop = 1;
 
 rbusError_t SampleProvider_SampleDataGetHandler(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t* opts);
 rbusError_t eventSubHandler(rbusHandle_t handle, rbusEventSubAction_t action, const char* eventName, rbusFilter_t filter, int32_t interval, bool* autoPublish);
 
 rbusDataElement_t dataElements[TotalParams] = {
-    {"Device.SampleProvider.IntData", RBUS_ELEMENT_TYPE_PROPERTY, {SampleProvider_SampleDataGetHandler, NULL, NULL, NULL, eventSubHandler, NULL}},
+    {"Device.WiFi.X_RDK_CSI.1.data", RBUS_ELEMENT_TYPE_PROPERTY, {SampleProvider_SampleDataGetHandler, NULL, NULL, NULL, eventSubHandler, NULL}},
     {"Device.SampleProvider.BigData", RBUS_ELEMENT_TYPE_PROPERTY, {SampleProvider_SampleDataGetHandler, NULL, NULL, NULL, eventSubHandler, NULL}}
 };
 
-int m_intData = 0;
 char m_bigdata[RBUS_BIGDATA_SIZE] = "ABCD";
 
 
@@ -77,21 +76,8 @@ rbusError_t SampleProvider_SampleDataGetHandler(rbusHandle_t handle, rbusPropert
     rbusValue_Init(&value);
     name = rbusProperty_GetName(property);
 
-    if(strcmp(name, "Device.SampleProvider.IntData") == 0)
-    {
-        printf("Called get handler for [%s]\n", name);
-        rbusValue_SetInt32(value, m_intData);
-    }
-    else if (strcmp(name, "Device.SampleProvider.BigData") == 0)
-    {
-        printf("Called get handler for [%s]\n", name);
-        rbusValue_SetString(value, m_bigdata);
-    }
-    else
-    {
-        printf("Cant Handle [%s]\n", name);
-        return RBUS_ERROR_INVALID_INPUT;
-    }
+    printf("Called get handler for [%s]\n", name);
+    rbusValue_SetString(value, m_bigdata);
 
     rbusProperty_SetValue(property, value);
     rbusValue_Release(value);
@@ -145,14 +131,14 @@ int main(int argc, char *argv[])
     rbusObject_Init(&data, NULL);
     rbusObject_SetValue(data, "someText", value);
 
-    event.name = dataElements[1].name;
+    event.name = dataElements[0].name;
     event.data = data;
     event.type = RBUS_EVENT_GENERAL;
 
     printf("publishing Event1\n");
     while(loop)
     {
-        usleep(250000);
+        usleep(100000);
         rc = rbusEvent_Publish(rbusHandle, &event);
         rc = rbusEvent_Publish(rbusHandle, &event);
         rc = rbusEvent_Publish(rbusHandle, &event);

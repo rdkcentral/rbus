@@ -40,7 +40,7 @@
 
 rbusHandle_t        rbusHandle;
 rbusHandle_t        rbusHandle2;
-int                 loopFor = 100;
+int                 loopFor = 150;
 char                componentName[20] = "rbusSampleProvider";
 
 rbusError_t SampleProvider_DeviceGetHandler(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t* opts);
@@ -340,7 +340,7 @@ typedef struct sample_all_types_t {
     double m_double;
     rbusDateTime_t m_timeval;
     char m_string[251];
-    unsigned char m_bytes[16];
+    unsigned char m_bytes[8*1024];
 } sampleDataTypes_t;
 
 sampleDataTypes_t gTestSampleVal = {
@@ -357,7 +357,7 @@ sampleDataTypes_t gTestSampleVal = {
             3.141592653589793,
             {{0},{0}},
             "AllTypes",
-            {0}
+            {1,2,3,4,5,6,7,8,9,10,11,12}
             };
 
 rbusError_t SampleProvider_allTypesSetHandler(rbusHandle_t handle, rbusProperty_t prop, rbusSetHandlerOptions_t* opts)
@@ -446,13 +446,14 @@ rbusError_t SampleProvider_allTypesGetHandler(rbusHandle_t handle, rbusProperty_
     else if (strcmp(name, "Device.SampleProvider.AllTypes.UInt64Data") == 0)
         rbusValue_SetUInt64(value, gTestSampleVal.m_uint64);
     else if (strcmp(name, "Device.SampleProvider.AllTypes.SingleData") == 0)
+    {
+        gTestSampleVal.m_float /= 0.03;
         rbusValue_SetSingle(value, gTestSampleVal.m_float);
+    }
     else if (strcmp(name, "Device.SampleProvider.AllTypes.DoubleData") == 0)
         rbusValue_SetDouble(value, gTestSampleVal.m_double);
     else if (strcmp(name, "Device.SampleProvider.AllTypes.DateTimeData") == 0)
-    {
         rbusValue_SetTime(value, &(gTestSampleVal.m_timeval));
-    }
     else if (strcmp(name, "Device.SampleProvider.AllTypes.StringData") == 0)
         rbusValue_SetString(value, gTestSampleVal.m_string);
     else if (strcmp(name, "Device.SampleProvider.AllTypes.BytesData") == 0)
@@ -470,7 +471,7 @@ int main(int argc, char *argv[])
 
     (void)argc;
     (void)argv;
-    int retryCount = 80;
+    int retryCount = 25;
     printf("provider: start\n");
 
     if(argc == 2)
@@ -489,6 +490,8 @@ int main(int argc, char *argv[])
     _prepare_object_for_future_query();
 
     rtLog_SetOption(RT_USE_RTLOGGER);
+
+    //having the retryCount in loop is to verify the duplicate data model registraion thro rbuscli..
     while (retryCount--)
     {
         rc = rbus_regDataElements(rbusHandle, TotalParams, dataElements);
@@ -500,10 +503,10 @@ int main(int argc, char *argv[])
         sleep (1);
     }
 
-    retryCount = 80;
+    retryCount = 25;
     while (retryCount--)
     {
-        rc = rbus_open(&rbusHandle2, "Testing2Open");
+        rc = rbus_open(&rbusHandle2, "Second-Provider-for-Sample");
         rc = rbus_regDataElements(rbusHandle2, 14, allTypeDataElements);
         if(rc == RBUS_ERROR_SUCCESS)
         {
@@ -519,7 +522,6 @@ int main(int argc, char *argv[])
         goto exit1;
     }
 
-    //pause();
     while(loopFor--)
     {
         printf("provider: exiting in %d seconds\n", loopFor);
@@ -534,8 +536,7 @@ exit1:
     _release_object_for_future_query();
 
     rbus_close(rbusHandle);
-    if (rbusHandle != rbusHandle2)
-        rbus_close(rbusHandle2);
+    rbus_close(rbusHandle2);
 
 exit2:
     printf("provider: exit\n");

@@ -2439,7 +2439,6 @@ typedef struct _rbusClientDMLList
 /////// Server Side ///////
 static int _findPrivateServer(const void* left, const void* right)
 {
-    RBUSCORELOG_DEBUG("_findPrivateServer  (%s) vs (%s)", ((rbusServerDMLList_t*)left)->m_privConnAddress, (char*)right);
     return strncmp(((rbusServerDMLList_t*)left)->m_privConnAddress, (char*)right, MAX_OBJECT_NAME_LENGTH);
 }
 
@@ -2460,18 +2459,20 @@ static void _freePrivateServer(void* p)
     free(pTmp);
 }
 
-#define RBUS_DIRECT_FILE_CACHE "/tmp/.rbus_direct.cache"
+#define RBUS_DIRECT_FILE_CACHE "/tmp/.rbus_%s_direct.cache"
 #define RBUS_DIRECT_ROW_CACHE_LENGTH 512
 static void _rbuscore_directconnection_save_to_cache()
 {
     FILE* file;
     size_t sz = 0, i = 0;
+    char cacheFileName[256] = "";
+    snprintf(cacheFileName, 256, RBUS_DIRECT_FILE_CACHE, __progname);
 
     sz = rtVector_Size(gListOfServerDirectDMLs);
     if(0 == sz)
     {
         RBUSCORELOG_DEBUG("no direct connection exist, so removing cache file");
-        remove(RBUS_DIRECT_FILE_CACHE);
+        remove(cacheFileName);
     }
     else
     {
@@ -2480,10 +2481,10 @@ static void _rbuscore_directconnection_save_to_cache()
         uint32_t length = 0;
         rbusServerDMLList_t* pDmlObj = NULL;
 
-        file = fopen(RBUS_DIRECT_FILE_CACHE, "wb");
+        file = fopen(cacheFileName, "wb");
         if(!file)
         {
-            RBUSCORELOG_ERROR("failed to open %s", RBUS_DIRECT_FILE_CACHE);
+            RBUSCORELOG_ERROR("failed to open %s", cacheFileName);
             return;
         }
 
@@ -2514,19 +2515,22 @@ static void _rbuscore_directconnection_load_from_cache()
     long size;
     FILE* file = NULL;
     uint8_t* pBuff = NULL;
+    char cacheFileName[256] = "";
+
+    snprintf(cacheFileName, 256, RBUS_DIRECT_FILE_CACHE, __progname); 
 
     RBUSCORELOG_DEBUG("Entry of %s", __FUNCTION__);
 
-    if(stat(RBUS_DIRECT_FILE_CACHE, &st) != 0)
+    if(stat(cacheFileName, &st) != 0)
     {
         RBUSCORELOG_DEBUG("file doesn't exist");
         return;
     }
 
-    file = fopen(RBUS_DIRECT_FILE_CACHE, "rb");
+    file = fopen(cacheFileName, "rb");
     if(!file)
     {
-        RBUSCORELOG_ERROR("failed to open file %s", RBUS_DIRECT_FILE_CACHE);
+        RBUSCORELOG_ERROR("failed to open file %s", cacheFileName);
         goto invalidFile;
     }
 
@@ -2534,7 +2538,7 @@ static void _rbuscore_directconnection_load_from_cache()
     size = ftell(file);
     if(size <= 0)
     {
-        RBUSCORELOG_DEBUG("file is empty %s", RBUS_DIRECT_FILE_CACHE);
+        RBUSCORELOG_DEBUG("file is empty %s", cacheFileName);
         goto invalidFile;
     }
 
@@ -2555,7 +2559,20 @@ static void _rbuscore_directconnection_load_from_cache()
         rbusMessage_GetInt32(msg, &numOfEntries);
         RBUSCORELOG_DEBUG("Number of Entries...%d", numOfEntries);
 
-        //TODO : How to notify the consumer that the provider is up and request to re-establish the connection
+        for (int i = 0; i < numOfEntries; i++)
+        {
+            rbusMessage tmpMsg = NULL;
+            const char* pDMLName = NULL;
+            const char* pConsumerName = NULL;
+            rbusMessage_GetMessage(msg, &tmpMsg);
+            rbusMessage_GetString(tmpMsg, &pDMLName);
+            rbusMessage_GetString(tmpMsg, &pConsumerName);
+            RBUSCORELOG_INFO("Direct Connection Existed for DML (%s) for this client(%s)", pDMLName, pConsumerName);
+
+            //TODO
+            /* Add it to vector and when add_element is called, start a listener */
+            //if the PID is running and if the closeDirect was not called yet, means the consumer is still waiting..
+        }
         rbusMessage_Release(msg);
     }
 
@@ -2570,7 +2587,7 @@ static void _rbuscore_directconnection_load_from_cache()
 
 invalidFile:
 
-    RBUSCORELOG_WARN("removing corrupted file %s", RBUS_DIRECT_FILE_CACHE);
+    RBUSCORELOG_WARN("removing corrupted file %s", cacheFileName);
 
     if(file)
         fclose(file);
@@ -2578,7 +2595,7 @@ invalidFile:
     if(pBuff)
         free(pBuff);
 
-    remove(RBUS_DIRECT_FILE_CACHE);
+    remove(cacheFileName);
 }
 
 rbusServerDMLList_t* rbuscore_FindServerPrivateClient (const char *pParameterName, const char *pConsumerName)
@@ -2910,7 +2927,7 @@ rbusCoreError_t rbuscore_openPrivateConnectionToProvider(rtConnection *pPrivateC
         obj = rtVector_Find(gListOfClientDirectDMLs, pProviderName, _findClientPrivateConnection);
         if (!obj)
         {
-            RBUSCORELOG_WARN("Connection does not exist; create new **** PROVIDER NAME = %s", pProviderName);
+            RBUSCORELOG_INFO("Connection does not exist; create new");
 
             rtMessage_Create(&config);
             rtMessage_SetString(config, "appname", "rbus");
@@ -2928,13 +2945,13 @@ rbusCoreError_t rbuscore_openPrivateConnectionToProvider(rtConnection *pPrivateC
             *pPrivateConn = connection;
 
             rtConnection_AddDefaultListener(connection, master_event_callback, NULL);
-            RBUSCORELOG_INFO("pPrivateConn new = %p", connection);
+            RBUSCORELOG_DEBUG("pPrivateConn new = %p", connection);
             rtMessage_Release(config);
         }
         else
         {
             *pPrivateConn = connection = obj->m_privConn;
-            RBUSCORELOG_INFO("pPrivateConn found = %p", obj->m_privConn);
+            RBUSCORELOG_DEBUG("pPrivateConn found = %p", obj->m_privConn);
         }
 
         /* Add an entry to the list */

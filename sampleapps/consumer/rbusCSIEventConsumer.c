@@ -32,7 +32,7 @@ static void bigDataEventHandler(
     (void) subscription;
     rtTime_t t;
     char timebuf[200] = "";
-    rtLog_Warn("Consumer receiver big event for param %s :: %s", rtTime_ToString (rtTime_Now(&t), timebuf),event->name);
+    rtLog_Info ("Consumer received %s event at %s", event->name, rtTime_ToString (rtTime_Now(&t), timebuf));
 
     (void)handle;
 }
@@ -46,21 +46,20 @@ int main(int argc, char *argv[])
     rbusHandle_t handle;
     rbusHandle_t directHandle = NULL;
 
-    printf("constumer: start\n");
-
     rtLog_SetOption(RT_USE_RTLOGGER);
-    rc = rbus_open(&handle, "EventConsumer");
+    rc = rbus_open(&handle, "WiFi-CSIEvent-Consumer");
     if(rc != RBUS_ERROR_SUCCESS)
     {
         printf("consumer: rbus_open failed: %d\n", rc);
         goto exit4;
     }
 
+    rbusEventSubscription_t subscription = {"Device.WiFi.X_RDK_CSI.1.data", NULL, 100, 0, bigDataEventHandler, NULL, NULL, NULL, 0};
 
-    rc = rbusEvent_Subscribe(handle, "Device.SampleProvider.BigData", bigDataEventHandler, NULL, 0);
+    rc = rbusEvent_SubscribeEx(handle, &subscription, 1, 0);
     if(rc != RBUS_ERROR_SUCCESS)
     {
-        printf("consumer: rbusEvent_Subscribe Param1 failed: %d\n", rc);
+        printf("consumer: rbusEvent_Subscribe failed: %d\n", rc);
         goto exit3;
     }
 
@@ -68,7 +67,7 @@ int main(int argc, char *argv[])
     {
         if ((0 == access("/tmp/rbus_csi_test", F_OK)) && (directHandle == NULL))
         {
-            rc = rbus_openDirect(handle, &directHandle, "Device.SampleProvider.BigData");
+            rc = rbus_openDirect(handle, &directHandle, "Device.WiFi.X_RDK_CSI.1.data");
             if(rc != RBUS_ERROR_SUCCESS)
             {
                 printf("consumer: openDirect failed: %d\n", rc);
@@ -87,8 +86,6 @@ int main(int argc, char *argv[])
 
         sleep(1);
     }
-
-    rbusEvent_Unsubscribe(handle, "Device.SampleProvider.BigData");
 
 exit3:
     rbus_close(handle);

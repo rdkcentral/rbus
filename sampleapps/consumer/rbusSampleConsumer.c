@@ -27,7 +27,6 @@
 #include <string.h>
 #include <getopt.h>
 #include <rbus.h>
-#include <rtLog.h>
 
 #define     TotalParams   6
 
@@ -39,84 +38,18 @@ char const*     paramNames[TotalParams] = {
     "Device.DeviceInfo.SampleProvider.SoftwareVersion",
     "Device.SampleProvider.SampleData.IntData",
     "Device.SampleProvider.SampleData.BoolData",
-    "Device.SampleProvider.SampleData.UIntData"/*,
-    "Device.SampleProvider.NestedObject1.TestParam",
-    "Device.SampleProvider.NestedObject1.AnotherTestParam",
-    "Device.SampleProvider.NestedObject2.TestParam",
-    "Device.SampleProvider.NestedObject2.AnotherTestParam"*/
-};
-
-rbusValueType_t getDataType_fromString(const char* pType)
-{
-    rbusValueType_t rc = RBUS_NONE;
-
-    if (strncasecmp ("boolean", pType, 4) == 0)
-        rc = RBUS_BOOLEAN;
-    else if (strncasecmp("char", pType, 4) == 0)
-        rc = RBUS_CHAR;
-    else if (strncasecmp("byte", pType, 4) == 0)
-        rc = RBUS_BYTE;
-    else if (strncasecmp("int8", pType, 4) == 0)
-        rc = RBUS_INT8;
-    else if (strncasecmp("uint8", pType, 5) == 0)
-        rc = RBUS_UINT8;
-    else if (strncasecmp("int16", pType, 5) == 0)
-        rc = RBUS_INT16;
-    else if (strncasecmp("uint16", pType, 6) == 0)
-        rc = RBUS_UINT16;
-    else if (strncasecmp("int32", pType, 5) == 0)
-        rc = RBUS_INT32;
-    else if (strncasecmp("uint32", pType, 6) == 0)
-        rc = RBUS_UINT32;
-    else if (strncasecmp("int64", pType, 5) == 0)
-        rc = RBUS_INT64;
-    else if (strncasecmp("uint64", pType, 6) == 0)
-        rc = RBUS_UINT64;
-    else if (strncasecmp("single", pType, 5) == 0)
-        rc = RBUS_SINGLE;
-    else if (strncasecmp("double", pType, 6) == 0)
-        rc = RBUS_DOUBLE;
-    else if (strncasecmp("datetime", pType, 4) == 0)
-        rc = RBUS_DATETIME;
-    else if (strncasecmp("string", pType, 6) == 0)
-        rc = RBUS_STRING;
-    else if (strncasecmp("bytes", pType, 3) == 0)
-        rc = RBUS_BYTES;
-    /* Risk handling, if the user types just int, lets consider int32; same for unsigned too  */
-    else if (strncasecmp("int", pType, 3) == 0)
-        rc = RBUS_INT32;
-    else if (strncasecmp("uint", pType, 4) == 0)
-        rc = RBUS_UINT32;
-
-    return rc;
-}
+    "Device.SampleProvider.SampleData.UIntData"
+    };
 
 int main(int argc, char *argv[])
 {
     int rc;
+    int count;
 
     (void)argc;
     (void)argv;
 
     printf("constumer: start\n");
-
-    if(argv[1] != NULL && argc == 2)
-    {
-        if((strcmp(argv[1], "--help")==0) || (strcmp(argv[1], "-h")==0))
-        {
-            printf("rbusSampleConsumer [OPTIONS] \n");
-            printf("[OPTIONS]");
-            printf("-h/--help: to display help\n");
-            printf("\t\t**********************************************************************\n\
-                *************************  rbus_set testing  *************************\n\
-                **********************************************************************\n\
-                Please pass the arguments for testing in below order\n\
-                rbusSampleConsumer <data model> <data type> <data value>\n\
-                For Ex: rbusSampleConsumer Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.Telemetry.MessageBusSource.Enable boolean true\n\
-                caution: If invalid data model, data type or data value is passed this case is expected to be failed\n");
-            return 0;
-        }
-    }
 
     rc = rbus_open(&handle, componentName);
     if(rc != RBUS_ERROR_SUCCESS)
@@ -125,85 +58,95 @@ int main(int argc, char *argv[])
         goto exit1;
     }
 
-    rtLog_SetOption(RT_USE_RTLOGGER);
+    for(count=0; count < TotalParams; count++)
     {
         rbusValue_t value;
-        printf("calling rbus get for [%s]\n", "Device.SampleProvider.SampleData.IntData");
+        printf("calling rbus get for [%s]\n", paramNames[count]);
 
-        printf ("###############   GET 1 #####################################################\n");
-        rc = rbus_get(handle, "Device.SampleProvider.SampleData.IntData", &value);
-        rbusValue_fwrite(value, 0, stdout); printf("\n");
-        rbusValue_Release(value);
+        rc = rbus_get(handle, paramNames[count], &value);
 
-
-        sleep(2);
-        rbusHandle_t  directHNDL = NULL;
-        rbusHandle_t  directHNDL2 = NULL;
-        printf ("###############   OPEN DIRECT ################################################\n");
-        rbus_openDirect(handle, &directHNDL, "Device.SampleProvider.SampleData.IntData");
-
-        sleep(2);
-        printf ("###############   OPEN DIRECT 2 ################################################\n");
-        rbus_openDirect(handle, &directHNDL2, "Device.SampleProvider.AllTypes.StringData");
-
-        sleep(5);
-        printf ("###############   GET 2 #####################################################\n");
-        rc = rbus_get(handle, "Device.SampleProvider.SampleData.IntData", &value);
-        rbusValue_fwrite(value, 0, stdout); printf("\n");
-        rbusValue_Release(value);
-
-        sleep(4);
-        printf ("###############   GET 3 #####################################################\n");
-        rc = rbus_get(handle, "Device.SampleProvider.AllTypes.StringData", &value);
-        rbusValue_fwrite(value, 0, stdout); printf("\n");
-        rbusValue_Release(value);
-
-        printf ("###############   Close Direct (after 15sec) #####################################################\n");
-        sleep(15);
-        rbus_closeDirect(directHNDL);
-        sleep(3);
-        rbus_closeDirect(directHNDL2);
-
-        sleep(3);
-        printf ("###############   GET 4 #####################################################\n");
-        rc = rbus_get(handle, "Device.SampleProvider.SampleData.IntData", &value);
-        if (rc == RBUS_ERROR_SUCCESS)
+        if(rc != RBUS_ERROR_SUCCESS)
         {
-            rbusValue_fwrite(value, 0, stdout); printf("\n");
-            rbusValue_Release(value);
+            printf ("rbus_get failed for [%s] with error [%d]\n", paramNames[count], rc);
+            continue;
         }
 
-        printf ("###############   GET 5 #####################################################\n");
-        rc = rbus_get(handle, "Device.SampleProvider.AllTypes.BoolData", &value);
-        if (rc == RBUS_ERROR_SUCCESS)
+        switch(count)
         {
-            rbusValue_fwrite(value, 0, stdout); printf("\n");
-            rbusValue_Release(value);
+            case 0:
+                printf("Manufacturer name = [%s]\n", rbusValue_GetString(value, NULL));
+                break;
+            case 1:
+                printf("Model name = [%s]\n", rbusValue_GetString(value, NULL));
+                break;
+            case 2:
+                printf("Software Version = [%f]\n", rbusValue_GetSingle(value));
+                break;
+            case 3:
+                printf("The value is = [%d]\n", rbusValue_GetInt32(value));
+                break;
+            case 4:
+                printf("The value is = [%d]\n", rbusValue_GetBoolean(value));
+                break;
+            case 5:
+                printf("The value is = [%u]\n", rbusValue_GetUInt32(value));
+                break;
         }
 
-        sleep(2);
-
-        printf ("###############   OPEN DIRECT AGAIN  #####################################################\n");
-        rbus_openDirect(handle, &directHNDL, "Device.SampleProvider.SampleData.IntData");
-        printf ("###############   GET 6 #####################################################\n");
-        rc = rbus_get(handle, "Device.SampleProvider.SampleData.IntData", &value);
-        if (rc == RBUS_ERROR_SUCCESS)
-        {
-            rbusValue_fwrite(value, 0, stdout); printf("\n");
-            rbusValue_Release(value);
-        }
-
-        sleep(15);
-        rbus_closeDirect(directHNDL);
-    (void) directHNDL;
-    (void) directHNDL2;
+        rbusValue_Release(value);
     }
 
-    //pause();
+    int numOfOutVals = 0;
+    rbusProperty_t outputVals = NULL;
+    const char* input[] =  {"Device.SampleProvider."}; 
 
-    sleep(10);
+    rc = rbus_getExt(handle, 1, input, &numOfOutVals, &outputVals);
+    if(rc != RBUS_ERROR_SUCCESS)
+    {
+        printf ("rbus_get failed for [%s] with error [%d]\n", "Device.SampleProvider.", rc);
+    }
+    else
+    {
+        rbusProperty_fwrite(outputVals, 0, stdout);
+        rbusProperty_Release(outputVals);
+    }
+
+    {
+        int loop = 0;
+        struct timeval tv1, tv2;
+        char tmpBuff[25] = "";
+        rbusValue_t value;
+        printf ("Get 8 KB of Data for every 250ms over 100 times n check the latency\n");
+        while (loop < 100)
+        {
+            loop++;
+
+            gettimeofday(&tv1, NULL);
+            rc = rbus_get(handle, "Device.SampleProvider.AllTypes.BytesData" ,&value);
+            gettimeofday(&tv2, NULL);
+            if(RBUS_ERROR_SUCCESS != rc)
+            {
+                printf ("Failed to get the Bytes Data\n");
+                continue;
+            }
+            rbusValue_Release(value);
+
+            strftime(tmpBuff, 25, "%T", localtime(&tv1.tv_sec));
+            printf ("StartTime : %s.%06ld\t", tmpBuff, tv1.tv_usec);
+
+            strftime(tmpBuff, 25, "%T", localtime(&tv2.tv_sec));
+            printf ("EndTime: %s.%06ld\t", tmpBuff, tv2.tv_usec);
+
+            /* As we expecting only millisecond latency, */
+            if(tv1.tv_usec > tv2.tv_usec)
+                tv2.tv_usec += 1000000;
+
+            printf ("Latency is, %f ms\n", (tv2.tv_usec - tv1.tv_usec)/1000.f);
+            usleep (250000);
+        }
+    }
+    
     rbus_close(handle);
-
 exit1:
     printf("consumer: exit\n");
     return 0;
