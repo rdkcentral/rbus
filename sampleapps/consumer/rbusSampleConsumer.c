@@ -107,7 +107,22 @@ int main(int argc, char *argv[])
     }
     else
     {
-        rbusProperty_fwrite(outputVals, 0, stdout);
+        rbusProperty_t next = outputVals;
+        printf ("List of params\n\r");
+        for (int i = 0; i < numOfOutVals; i++)
+        {
+            rbusValue_t val = rbusProperty_GetValue(next);
+            char *pStrVal = rbusValue_ToString(val,NULL,0);
+
+            printf ("\tProp  : %s\n", rbusProperty_GetName(next));
+            printf ("\tValue : %s\n\n", pStrVal);
+
+            if(pStrVal)
+                free(pStrVal);
+
+            next = rbusProperty_GetNext(next);
+        }
+        /* Free the memory */
         rbusProperty_Release(outputVals);
     }
 

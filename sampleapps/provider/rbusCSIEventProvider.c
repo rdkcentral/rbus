@@ -39,7 +39,7 @@ rbusError_t SampleProvider_SampleDataGetHandler(rbusHandle_t handle, rbusPropert
 rbusError_t eventSubHandler(rbusHandle_t handle, rbusEventSubAction_t action, const char* eventName, rbusFilter_t filter, int32_t interval, bool* autoPublish);
 
 rbusDataElement_t dataElements[TotalParams] = {
-    {"Device.WiFi.X_RDK_CSI.1.data", RBUS_ELEMENT_TYPE_PROPERTY, {SampleProvider_SampleDataGetHandler, NULL, NULL, NULL, eventSubHandler, NULL}},
+    {"Device.WiFi.X_RDK_CSI.1.sampleData", RBUS_ELEMENT_TYPE_PROPERTY, {SampleProvider_SampleDataGetHandler, NULL, NULL, NULL, eventSubHandler, NULL}},
     {"Device.SampleProvider.BigData", RBUS_ELEMENT_TYPE_PROPERTY, {SampleProvider_SampleDataGetHandler, NULL, NULL, NULL, eventSubHandler, NULL}}
 };
 

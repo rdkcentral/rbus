@@ -37,10 +37,13 @@ static void bigDataEventHandler(
     (void)handle;
 }
 
+const char * pDMLName[] = {"Device.WiFi.X_RDK_CSI.1.data", "Device.WiFi.X_RDK_CSI.1.sampleData"};
+
 int main(int argc, char *argv[])
 {
     (void)(argc);
     (void)(argv);
+    int index = 0;
 
     int rc = RBUS_ERROR_SUCCESS;
     rbusHandle_t handle;
@@ -54,7 +57,18 @@ int main(int argc, char *argv[])
         goto exit4;
     }
 
-    rbusEventSubscription_t subscription = {"Device.WiFi.X_RDK_CSI.1.data", NULL, 100, 0, bigDataEventHandler, NULL, NULL, NULL, 0};
+    if (argc == 1)
+    {
+        index = 0;
+        printf ("Trying to subscribe to actual DML (%s) that WIFI publishes..\n", pDMLName[index]);
+    }
+    else
+    {
+        index = 1;
+        printf ("Trying to subscribe to CSI Sample Provider's DML (%s) which posts 56K of data in every 35ms interval\n", pDMLName[index]);
+    }
+
+    rbusEventSubscription_t subscription = {pDMLName[index], NULL, 100, 0, bigDataEventHandler, NULL, NULL, NULL, 0};
 
     rc = rbusEvent_SubscribeEx(handle, &subscription, 1, 0);
     if(rc != RBUS_ERROR_SUCCESS)
@@ -67,7 +81,7 @@ int main(int argc, char *argv[])
     {
         if ((0 == access("/tmp/rbus_csi_test", F_OK)) && (directHandle == NULL))
         {
-            rc = rbus_openDirect(handle, &directHandle, "Device.WiFi.X_RDK_CSI.1.data");
+            rc = rbus_openDirect(handle, &directHandle, pDMLName[index]);
             if(rc != RBUS_ERROR_SUCCESS)
             {
                 printf("consumer: openDirect failed: %d\n", rc);
@@ -82,6 +96,7 @@ int main(int argc, char *argv[])
                 printf("consumer: closeDirect failed: %d\n", rc);
                 goto exit3;
             }
+            directHandle = NULL;
         }
 
         sleep(1);
