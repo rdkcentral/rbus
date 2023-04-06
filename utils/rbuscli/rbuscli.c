@@ -27,6 +27,7 @@
 #include <inttypes.h>
 #include <rbus.h>
 #include <rtList.h>
+#include <rtHashMap.h>
 #include <rtTime.h>
 #include <rtMemory.h>
 #include <linenoise.h>
@@ -58,6 +59,7 @@ rbusHandle_t   g_busHandle = 0;
 rtList g_registeredProps = NULL;
 rtList g_subsribeUserData = NULL;
 rtList g_messageUserData = NULL;
+rtHashMap gDirectHandlesHash = NULL;
 
 bool g_isInteractive = false;
 bool g_logEvents = true;
@@ -1055,12 +1057,43 @@ void validate_and_execute_open_n_close_direct_cmd(int argc, char *argv[], bool i
         return;
     }
 
+    rbusHandle_t directHandle = NULL;
     if (isOpen)
     {
-        rbusHandle_t directHandle = NULL;
+        if(!gDirectHandlesHash)
+            rtHashMap_Create(&gDirectHandlesHash);
+
         rc = rbus_openDirect(g_busHandle, &directHandle, pInputParam[0]);
         if (RBUS_ERROR_SUCCESS != rc)
+        {
             printf ("Failed to open direct connection to %s\n\r", pInputParam[0]);
+        }
+        else
+        {
+            rtHashMap_Set(gDirectHandlesHash, pInputParam[0], directHandle);
+        }
+    }
+    else
+    {
+        if(gDirectHandlesHash)
+            directHandle = rtHashMap_Get(gDirectHandlesHash, pInputParam[0]);
+
+        if (directHandle)
+        {
+            rc = rbus_closeDirect(directHandle);
+            if (RBUS_ERROR_SUCCESS != rc)
+            {
+                printf ("Failed to close direct connection to %s\n\r", pInputParam[0]);
+            }
+            else
+            {
+                rtHashMap_Remove(gDirectHandlesHash, pInputParam[0]);
+            }
+        }
+        else
+        {
+            printf ("Failed to find direct connection to %s\n\r", pInputParam[0]);
+        }
     }
     return;
 }
@@ -2924,6 +2957,12 @@ int main( int argc, char *argv[] )
     }
 
     /* Close the handle if it is not interative */
+    if (gDirectHandlesHash)
+    {
+        runSteps = __LINE__;
+        rtHashMap_Destroy(gDirectHandlesHash);
+    }
+
     if (g_busHandle)
     {
         runSteps = __LINE__;

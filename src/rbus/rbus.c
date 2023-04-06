@@ -2713,7 +2713,10 @@ rbusError_t rbus_openDirect(rbusHandle_t handle, rbusHandle_t* myDirectHandle, c
                 }
             }
             else
+            {
                 *myDirectHandle = NULL;
+                ret = RBUS_ERROR_COMPONENT_DOES_NOT_EXIST;
+            }
         }
     }
     else

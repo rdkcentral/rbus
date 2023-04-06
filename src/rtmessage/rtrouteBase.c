@@ -45,7 +45,7 @@ rtRouteBase_CloseListener(rtListener *pListener)
     {
         shutdown(pListener->fd, SHUT_RDWR);
         close(pListener->fd);
-        rtLog_Warn("Shutdown the connection");
+        rtLog_Debug("Shutdown the connection");
     }
     return RT_OK;
 }
@@ -218,7 +218,7 @@ _rtdirect_OnMessage(rtConnectedClient* sender, rtMessageHeader* hdr, uint8_t con
   }
   else
   {
-    rtLog_Info("default handler for message:%s", hdr->topic);
+    rtLog_Debug("default handler for message:%s", hdr->topic);
 
     rtDriectClientHandler dr_ctx = (rtDriectClientHandler) pthread_getspecific(_rtDirectRoute_key);
     if (dr_ctx)
@@ -609,7 +609,7 @@ rtRouteDirect_StartInstance(const char* socket_name, rtDriectClientHandler messa
 
     if (FD_ISSET(myDirectListener->fd, &read_fds))
     {
-      rtLog_Error("This should be called only once as there should be only one client");
+      rtLog_Debug("This should be called only once as there should be only one client");
       myDirectClient = rtRouteDirect_AcceptClientConnection(myDirectListener);
     }
 
@@ -618,7 +618,7 @@ rtRouteDirect_StartInstance(const char* socket_name, rtDriectClientHandler messa
       rtError err = rtConnectedClient_Read(myDirectClient, route);
       if (err != RT_OK)
       {
-        rtLog_Warn("Client Exited..\n");
+        rtLog_Info("Private Client Exited. Lets shutdown the session");
         break;
       }
     }
