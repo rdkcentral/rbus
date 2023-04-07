@@ -777,6 +777,7 @@ rtConnection_Destroy(rtConnection con)
     }
     rtList_Destroy(con->pending_requests_list,NULL);
     rtList_Destroy(con->callback_message_list, rtMessageInfo_ListItemFree);
+    con->pending_requests_list = NULL;
     pthread_mutex_unlock(&con->mutex);
     if(0 != found_pending_requests)
     {
