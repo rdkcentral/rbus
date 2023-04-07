@@ -1127,7 +1127,7 @@ static int _event_subscribe_callback_handler(char const* object,  char const* ev
     }
     else
     {
-        RBUSLOG_WARN("event subscribe callback: unexpected! element not found");
+        RBUSLOG_WARN("event subscribe callback: element not found for [%s] event", eventName);
         err = RBUSCORE_ERROR_UNSUPPORTED_EVENT;
     }
     return err;
@@ -2804,7 +2804,7 @@ rbusError_t rbus_close(rbusHandle_t handle)
     }
 
     componentName = handleInfo->componentName;
-
+    handleInfo->componentName=NULL;
     rbusHandleList_Remove(handleInfo);
 
     if(rbusHandleList_IsEmpty())
@@ -2848,6 +2848,7 @@ rbusError_t rbus_regDataElements(
     struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
 
     VERIFY_NULL(handleInfo);
+    VERIFY_NULL(handleInfo->componentName);
     VERIFY_NULL(elements);
     VERIFY_ZERO(numDataElements);
 
@@ -4651,11 +4652,16 @@ rbusError_t rbusEvent_UnsubscribeEx(
         }
         else
         {
-            rbusEventSubscription_t* sub = rbusAsyncSubscribe_GetSubscription(handle, subscription[i].eventName, subscription[i].filter);
-            if(sub)
+            rbusEventSubscription_t sub = {0};
+            bool sub_removed = false;
+            sub.handle = handle;
+            sub.eventName = subscription[i].eventName;
+            sub.filter = subscription[i].filter;
+
+            sub_removed = rbusAsyncSubscribe_RemoveSubscription(&sub);
+            if(sub_removed)
             {
-                RBUSLOG_INFO("%s: %s removed pending async subscription", __FUNCTION__, sub->eventName);
-                rbusAsyncSubscribe_RemoveSubscription(sub);
+                RBUSLOG_INFO("%s: %s removed pending async subscription", __FUNCTION__, sub.eventName);
             }
             else
             {
