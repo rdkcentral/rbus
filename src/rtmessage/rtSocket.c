@@ -177,8 +177,6 @@ rtSocketStorage_FromString(struct sockaddr_storage* ss, char const* addr)
     struct sockaddr_un* un = (struct sockaddr_un*) ss;
     un->sun_family = AF_UNIX;
     strncpy(un->sun_path, addr + 7, (sizeof(un->sun_path)-1));
-
-    /* for non-root consumers */
     //chmod(un->sun_path, S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH|S_IWOTH);
 
     return RT_OK;

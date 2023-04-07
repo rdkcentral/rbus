@@ -29,9 +29,8 @@
 #include <rbus.h>
 #include <rtLog.h>
 
-#define     TotalParams   6
-
-char            componentName[] = "rbusSampleConsumer";
+#define TotalParams   6
+char componentName[] = "rbusDirectConsumer";
 
 static void valueChangeHandler(
     rbusHandle_t handle,
@@ -60,24 +59,6 @@ int main(int argc, char *argv[])
     (void)argv;
 
     printf("constumer: start\n");
-
-    if(argv[1] != NULL && argc == 2)
-    {
-        if((strcmp(argv[1], "--help")==0) || (strcmp(argv[1], "-h")==0))
-        {
-            printf("rbusSampleConsumer [OPTIONS] \n");
-            printf("[OPTIONS]");
-            printf("-h/--help: to display help\n");
-            printf("\t\t**********************************************************************\n\
-                *************************  rbus_set testing  *************************\n\
-                **********************************************************************\n\
-                Please pass the arguments for testing in below order\n\
-                rbusSampleConsumer <data model> <data type> <data value>\n\
-                For Ex: rbusSampleConsumer Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.Telemetry.MessageBusSource.Enable boolean true\n\
-                caution: If invalid data model, data type or data value is passed this case is expected to be failed\n");
-            return 0;
-        }
-    }
 
     rc = rbus_open(&handle, componentName);
     if(rc != RBUS_ERROR_SUCCESS)

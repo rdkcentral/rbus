@@ -60,11 +60,9 @@ int main()
   rtConnection con;
 
   rtLog_SetLevel(RT_LOG_DEBUG);
-  rtConnection_Create(&con, "APP2", "tcp://127.0.0.1:10001");
-//  rtConnection_Create(&con, "APP2", "unix:///tmp/rtrouted");
+  rtConnection_Create(&con, "APP2", "unix:///tmp/rtrouted");
   rtConnection_AddListener(con, "A.*.C", onMessage, NULL);
   rtConnection_AddListener(con, "A.B.C.*", onMessage, NULL);
-  rtConnection_AddListener(con, "A.B.C", onMessage, NULL);
 
   pause();
 

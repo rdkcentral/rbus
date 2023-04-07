@@ -1504,7 +1504,6 @@ rtConnection_Read(rtConnection con, int32_t timeout)
 
     if (err == RT_ERROR_TIMEOUT)
     {
-        rtLog_Debug("Read Timeoput..");
         rtMessageInfo_Release(msginfo); 
         return err;
     }
@@ -1518,7 +1517,6 @@ rtConnection_Read(rtConnection con, int32_t timeout)
     }
     else
     {
-      rtLog_Debug("Reader thread read failure..");
       /* Read failed. If this is due to a connection termination initiated by us, break and return. Retry if anything else.*/
       int run_thread = GetRunThreadsSync(con);
       if (0 == run_thread)

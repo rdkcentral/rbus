@@ -98,8 +98,9 @@ typedef struct _server_object
 /////////////
 extern char* __progname;
 static void _freePrivateServer(void* p);
-const rtPrivateClientInfo* rbuscore_FindServerPrivateConnection(const char *pParameterName, const char *pConsumerName);
 static void _rbuscore_directconnection_load_from_cache();
+static void _rbuscore_destroy_clientPrivate_connections();
+const rtPrivateClientInfo* _rbuscore_find_server_privateconnection(const char *pParameterName, const char *pConsumerName);
 /////
 
 void server_method_create(server_method_t* meth, char const* name, rbus_callback_t callback, void* data)
@@ -371,8 +372,6 @@ static int unlock()
 
 static rbusCoreError_t send_subscription_request(const char * object_name, const char * event_name, bool activate, const rbusMessage payload, int* providerError, int timeout, bool publishOnSubscribe, rbusMessage *response);
 
-static void _destroy_clientPrivate_connections();
-
 static void perform_init()
 {
     RBUSCORELOG_DEBUG("Performing init");
@@ -394,7 +393,7 @@ static void perform_cleanup()
     rtVector_Destroy(g_server_objects, server_object_destroy);
 
     rtVector_Destroy(gListOfServerDirectDMLs, _freePrivateServer);
-    _destroy_clientPrivate_connections();
+    _rbuscore_destroy_clientPrivate_connections();
     rtVector_Destroy(gListOfClientDirectDMLs, rtVector_Cleanup_Free);
 
     sz = rtVector_Size(g_event_subscriptions_for_client);
@@ -1804,7 +1803,7 @@ rbusCoreError_t rbus_publishSubscriberEvent(const char* object_name,  const char
     rbusMessage_SetInt32(out, 1);/*is rbus 2.0*/ 
     rbusMessage_EndMetaSectionWrite(out);
 
-    const rtPrivateClientInfo *pPrivCliInfo = rbuscore_FindServerPrivateConnection (event_name, listener);
+    const rtPrivateClientInfo *pPrivCliInfo = _rbuscore_find_server_privateconnection (event_name, listener);
     if(pPrivCliInfo)
     {
         uint8_t* data;
@@ -2628,7 +2627,7 @@ rbusServerDMLList_t* rbuscore_FindServerPrivateClient (const char *pParameterNam
     return NULL;
 }
 
-const rtPrivateClientInfo* rbuscore_FindServerPrivateConnection(const char *pParameterName, const char *pConsumerName)
+const rtPrivateClientInfo* _rbuscore_find_server_privateconnection(const char *pParameterName, const char *pConsumerName)
 {
     rbusServerDMLList_t *pObj = NULL;
 
@@ -2832,7 +2831,7 @@ static int _findClientPrivateDML(const void* left, const void* right)
     return strncmp(((rbusClientDMLList_t*)left)->m_privateDML, (char*)right, MAX_OBJECT_NAME_LENGTH);
 }
 
-static void _destroy_clientPrivate_connections()
+static void _rbuscore_destroy_clientPrivate_connections()
 {
     rbusClientDMLList_t *obj = NULL;
     char* pTmpProvider = NULL;

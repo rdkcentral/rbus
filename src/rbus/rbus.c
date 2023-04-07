@@ -104,26 +104,6 @@ extern char* __progname;
 //******************************* GLOBALS *****************************************//
 static pthread_mutex_t gMutex = PTHREAD_MUTEX_INITIALIZER;
 
-#if 0
-#define ELM_PRIVATE_LOCK(ELM)      \
-{                                                                         \
-  int err;                                                                \
-  if((err=pthread_mutex_lock(ELM->elmMutex) != 0))                        \
-  {                                                                       \
-    RBUSLOG_ERROR("Error @ mutex lock.. Err=%d:%s ", err, strerror(err)); \
-  }                                                                       \
-}
-
-#define ELM_PRIVATE_UNLOCK(ELM)      \
-{                                                                           \
-  int err;                                                                  \
-  if((err=pthread_mutex_unlock(ELM->elmMutex) != 0))                        \
-  {                                                                         \
-    RBUSLOG_ERROR("Error @ mutex unlock.. Err=%d:%s ", err, strerror(err)); \
-  }                                                                         \
-}
-#endif
-
 //********************************************************************************//
 
 static int _callback_handler(char const* destination, char const* method, rbusMessage request, void* userData, rbusMessage* response, const rtMessageHeader* hdr);
@@ -2427,10 +2407,25 @@ static void _create_direct_connection_callback_handler (rbusHandle_t handle, rbu
                 strncpy(ip, consumerToBrokerConf, (p - consumerToBrokerConf));
                 RBUSLOG_DEBUG ("parsing ip address:%s", ip);
             
-                //FIXME :: The port must be within 65535 and unique to the consumer. Need to have some logic as PID may not be within 65535
-                // May be we must engage session manager to generate unique number free of 20, 21, 22, 80, 53, 123, 443, 8080, 10001(or actual rbus daemon port), etc
-                snprintf (daemonAddress, RBUS_DAEMON_CONF_LENGTH, "%s:%d", ip, 9998);
-                //snprintf (daemonAddress, RBUS_DAEMON_CONF_LENGTH, "%s:%d", ip, (consumerPID%20000));
+                //FIXME :: The port must be within 65535 and unique to the consumer.
+                // PID is something unique  but the same client can have direct connection to two different providers and that could lead to failure.
+
+                // ex: if the consumer pid is 12345;
+                //          Provider1 may open a private session on 127.0.0.1:12345
+                //          Provider2 should not (could not) open private session on same address as 127.0.0.1:12345.
+                // Provider 2 have to come up with some other logic
+
+                // Note: On 32 Bit Linux, the max pid is 32768
+                // Note: On 64 Bit Linux, the max pid is 4194303
+                // Also, unique number free of 20, 21, 22, 80, 53, 123, 443, 8080, 10001(or actual rbus daemon port has to be arrived.
+                // May be we must engage session manager to generate
+                srand(time(NULL));
+                uint32_t port = 0;
+                do {
+                    port =  rand() % 65535;
+                } while (port < 8080);
+
+                snprintf (daemonAddress, RBUS_DAEMON_CONF_LENGTH, "%s:%u", ip, port);
             }
         }
     }

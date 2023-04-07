@@ -82,7 +82,6 @@ add_library(
       rtHashMap.c
       rtMemory.c
       rtrouteBase.c
-      rtDebug.c
       local_benchmarking.c)
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})

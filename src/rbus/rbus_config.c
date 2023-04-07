@@ -30,8 +30,8 @@
 #define RBUS_SUBSCRIBE_TIMEOUT   600000     /*subscribe retry timeout in miliseconds*/
 #define RBUS_SUBSCRIBE_MAXWAIT   60000      /*subscribe retry max wait between retries in miliseconds*/
 #define RBUS_VALUECHANGE_PERIOD  2000       /*polling period for valuechange detector*/
-#define RBUS_GET_DEFAULT_TIMEOUT 5000     /* default timeout in miliseconds for GET API */
-#define RBUS_SET_DEFAULT_TIMEOUT 5000      /* default timeout in miliseconds for SET API */
+#define RBUS_GET_DEFAULT_TIMEOUT 5000       /* default timeout in miliseconds for GET API */
+#define RBUS_SET_DEFAULT_TIMEOUT 5000       /* default timeout in miliseconds for SET API */
 #define RBUS_GET_TIMEOUT_OVERRIDE "/tmp/rbus_timeout_get"
 #define RBUS_SET_TIMEOUT_OVERRIDE "/tmp/rbus_timeout_set"
 
