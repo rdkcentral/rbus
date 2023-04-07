@@ -123,6 +123,7 @@ rtError rtList_Destroy(rtList list, rtList_Cleanup destroyer)
     }while(item);
   }
   free(list);
+  list = NULL;
   return RT_OK;
 }
 rtError rtList_PushFront(rtList list, void* data, rtListItem* pitem)
