@@ -1706,6 +1706,33 @@ rbusError_t rbus_registerLogHandler(
 
 rbusError_t rbus_setLogLevel(rbusLogLevel_t level);
 
+/** @fn rbusError_t rbus_openDirect(
+ *          rbusHandle_t handle,
+ *          rbusHandle_t* myDirectHandle,
+ *          char const* parameterName)
+ *
+ *  @brief  Component use this API to open direct connection to the provider
+ *
+ *  Used by: Component that wants to use private connection to provider and avoid RBUS Daemon.
+ *
+ *  @param handle           Current active rbus handle
+ *  @param myDirectHandle   Direct handle that is created
+ *  @param parameterName    Direct connection for the given parameter
+ *  @return RBus error code as defined by rbusError_t.
+ */
+rbusError_t rbus_openDirect(rbusHandle_t handle, rbusHandle_t* myDirectHandle, char const* parameterName);
+
+/** @fn rbusError_t rbus_closeDirect(
+ *          rbusHandle_t myDirectHandle)
+ *
+ *  @brief  Component use this API to close existing direct connection to the provider for the given DML
+ *
+ *  Used by: Component that is no more need the direct connection and wants to switch to RBUS Daemon
+ *
+ *  @param myDirectHandle   Direct handle that is created
+ *  @return RBus error code as defined by rbusError_t.
+ */
+rbusError_t rbus_closeDirect(rbusHandle_t handle);
 /** @} */
 
 #ifdef __cplusplus

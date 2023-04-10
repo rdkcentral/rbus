@@ -26,10 +26,32 @@
 #include <rtVector.h>
 #include <rtTime.h>
 #include "rbus_log.h"
+#include <pthread.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+#define ELM_PRIVATE_LOCK(ELM)      \
+{                                                                         \
+  int err;                                                                \
+  elementNode *pTmp = (elementNode*) ELM;                                 \
+  if((err = pthread_mutex_lock(&pTmp->elmMutex)) != 0)                    \
+  {                                                                       \
+    RBUSLOG_ERROR("Error @ mutex lock.. Err=%d:%s ", err, strerror(err)); \
+  }                                                                       \
+}
+
+#define ELM_PRIVATE_UNLOCK(ELM)      \
+{                                                                           \
+  int err;                                                                  \
+  elementNode *pTmp = (elementNode*) ELM;                                   \
+  if((err = pthread_mutex_unlock(&pTmp->elmMutex)) != 0)                    \
+  {                                                                         \
+    RBUSLOG_ERROR("Error @ mutex unlock.. Err=%d:%s ", err, strerror(err)); \
+  }                                                                         \
+}
+
 
 /******************************** STRUCTURES **********************************/
 typedef struct elementNode elementNode;
@@ -49,6 +71,7 @@ typedef struct elementNode
     char*                   alias;          /* For table rows */
     char*                   changeComp;     /* For properties, the last component to set the value */
     rtTime_t                changeTime;     /* For properties, the time the value was last set*/
+    pthread_mutex_t         elmMutex;       /* To protect if there is a direct/private connection */
 } elementNode;
 
 

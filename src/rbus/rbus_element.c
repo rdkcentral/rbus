@@ -25,7 +25,6 @@
 #include "rbus_element.h"
 #include "rbus_subscriptions.h"
 #include <rtMemory.h>
-#include <pthread.h>
 
 #define VERIFY_NULL(T) if(NULL == T){ return; }
 #define DEBUG_ELEMENTS 0
@@ -64,9 +63,14 @@ char const* getTypeString(rbusElementType_t type)
 elementNode* getEmptyElementNode(void)
 {
     elementNode* node;
+    pthread_mutexattr_t attrib;
 
     node = (elementNode *) rt_calloc(1, sizeof(elementNode));
     node->type = 0;//default of zero means OBJECT and if this gets used as a leaf, it will get update to be a either parameter, event, or method
+    ERROR_CHECK(pthread_mutexattr_init(&attrib));
+    ERROR_CHECK(pthread_mutexattr_settype(&attrib, PTHREAD_MUTEX_ERRORCHECK));
+    ERROR_CHECK(pthread_mutex_init(&node->elmMutex, &attrib));
+
     return node;
 }
 

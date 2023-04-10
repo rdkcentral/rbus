@@ -27,6 +27,7 @@
 #include <inttypes.h>
 #include <rbus.h>
 #include <rtList.h>
+#include <rtHashMap.h>
 #include <rtTime.h>
 #include <rtMemory.h>
 #include <linenoise.h>
@@ -58,6 +59,7 @@ rbusHandle_t   g_busHandle = 0;
 rtList g_registeredProps = NULL;
 rtList g_subsribeUserData = NULL;
 rtList g_messageUserData = NULL;
+rtHashMap gDirectHandlesHash = NULL;
 
 bool g_isInteractive = false;
 bool g_logEvents = true;
@@ -415,6 +417,26 @@ void show_menu(const char* command)
             printf ("\t\tlog fatal\n\r");
             printf ("\n\r");
         }
+        else if(matchCmd(command, 5, "opendirect"))
+        {
+            printf ("\e[1mopend\e[0mirect \e[4mpath\e[0m\n\r");
+            printf ("Opens direct connection to the DML.\n\r");
+            printf ("Args:\n\r");
+            printf ("\t%-20sThe name of a parameter \n\r", "path");
+            printf ("Examples:\n\r");
+            printf ("\topendirect Example.Prop1\n\r");
+            printf ("\n\r");
+        }
+        else if(matchCmd(command, 5, "closedirect"))
+        {
+            printf ("\e[1mclosed\e[0mirect \e[4mpath\e[0m\n\r");
+            printf ("closes direct connection to the DML.\n\r");
+            printf ("Args:\n\r");
+            printf ("\t%-20sThe name of a parameter \n\r", "path");
+            printf ("Examples:\n\r");
+            printf ("\tclosedirect Example.Prop1\n\r");
+            printf ("\n\r");
+        }
         else if(matchCmd(command, 4, "quit"))
         {
             printf ("\t\e[1mquit\e[0m\n\r");
@@ -440,6 +462,8 @@ void show_menu(const char* command)
             printf ("\n\r");
             printf ("Commands:\n\r");
         }
+        printf ("\t\e[1mopen\e[0mdirect \e[4mpath\e[0m\n\r");
+        printf ("\t\e[1mclose\e[0mdirect \e[4mpath\e[0m\n\r");
         printf ("\t\e[1mget\e[0mvalues \e[4mpath\e[0m [\e[4mpath\e[0m \e[4m...\e[0m]\n\r");
         printf ("\t\e[1mset\e[0mvalues \e[4mparameter\e[0m \e[4mtype\e[0m \e[4mvalue\e[0m [[\e[4mparameter\e[0m \e[4mtype\e[0m \e[4mvalue\e[0m] \e[4m...\e[0m] [commit]\n\r");
         printf ("\t\e[1madd\e[0mrow \e[4mtable\e[0m [alias]\n\r");
@@ -1007,6 +1031,71 @@ void execute_discover_wildcard_dests_cmd(int argc, char* argv[])
     {
         printf ("Failed to discover components. Error Code = %d\n\r", rc);
     }
+}
+
+void validate_and_execute_open_n_close_direct_cmd(int argc, char *argv[], bool isOpen)
+{
+    rbusError_t rc = RBUS_ERROR_SUCCESS;
+    int numOfInputParams = argc - 2;
+    const char *pInputParam[RBUS_CLI_MAX_PARAM] = {0, 0};
+
+    if (numOfInputParams != 1)
+    {
+        printf ("Invalid arguments. Please see the help\n\r");
+        return;
+    }
+
+    if (!verify_rbus_open())
+        return;
+
+    runSteps = __LINE__;
+    pInputParam[0] = argv[2];
+
+    if(pInputParam[0][strlen(pInputParam[0])-1] == '.' || strchr(pInputParam[0], '*'))
+    {
+        printf ("Invalid arguments. Please see the help\n\r");
+        return;
+    }
+
+    rbusHandle_t directHandle = NULL;
+    if (isOpen)
+    {
+        if(!gDirectHandlesHash)
+            rtHashMap_Create(&gDirectHandlesHash);
+
+        rc = rbus_openDirect(g_busHandle, &directHandle, pInputParam[0]);
+        if (RBUS_ERROR_SUCCESS != rc)
+        {
+            printf ("Failed to open direct connection to %s\n\r", pInputParam[0]);
+        }
+        else
+        {
+            rtHashMap_Set(gDirectHandlesHash, pInputParam[0], directHandle);
+        }
+    }
+    else
+    {
+        if(gDirectHandlesHash)
+            directHandle = rtHashMap_Get(gDirectHandlesHash, pInputParam[0]);
+
+        if (directHandle)
+        {
+            rc = rbus_closeDirect(directHandle);
+            if (RBUS_ERROR_SUCCESS != rc)
+            {
+                printf ("Failed to close direct connection to %s\n\r", pInputParam[0]);
+            }
+            else
+            {
+                rtHashMap_Remove(gDirectHandlesHash, pInputParam[0]);
+            }
+        }
+        else
+        {
+            printf ("Failed to find direct connection to %s\n\r", pInputParam[0]);
+        }
+    }
+    return;
 }
 
 void validate_and_execute_get_cmd (int argc, char *argv[])
@@ -2369,6 +2458,14 @@ int handle_cmds (int argc, char *argv[])
             }
         }
     }
+    else if (matchCmd(command, 5, "opendirect"))
+    {
+        validate_and_execute_open_n_close_direct_cmd(argc, argv, true);
+    }
+    else if (matchCmd(command, 5, "closedirect"))
+    {
+        validate_and_execute_open_n_close_direct_cmd(argc, argv, false);
+    }
     else if (matchCmd(command, 4, "quit"))
     {
         return 1;
@@ -2477,7 +2574,7 @@ void completion(const char *buf, linenoiseCompletions *lc) {
         runSteps = __LINE__;
         completion = find_completion(tokens[0], 14, "get", "set", "add", "del", "getr", "getn", "disca", "discc", "disce",
                 "discw", "sub", "subint", "unsub", "unsubint", "asub", "method_no", "method_na", "method_va", "reg", "unreg", "pub",
-                "addl", "reml", "send", "log", "quit", "help");
+                "addl", "reml", "send", "log", "quit", "opend", "closed", "help");
     }
     else if(num == 2)
     {
@@ -2646,6 +2743,14 @@ char *hints(const char *buf, int *color, int *bold) {
         else if(strcmp(tokens[0], "log") == 0)
         {
             hint = " level(debug|info|warn|error|fatal|event)";
+        }
+        else if(strcmp(tokens[0], "opend") == 0)
+        {
+            hint = " path";
+        }
+        else if(strcmp(tokens[0], "closed") == 0)
+        {
+            hint = " path";
         }
         else if(strcmp(tokens[0], "help") == 0)
         {
@@ -2852,6 +2957,12 @@ int main( int argc, char *argv[] )
     }
 
     /* Close the handle if it is not interative */
+    if (gDirectHandlesHash)
+    {
+        runSteps = __LINE__;
+        rtHashMap_Destroy(gDirectHandlesHash);
+    }
+
     if (g_busHandle)
     {
         runSteps = __LINE__;

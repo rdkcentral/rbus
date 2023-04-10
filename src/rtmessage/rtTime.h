@@ -34,7 +34,7 @@ typedef struct timespec rtTimespec_t;
  *  @brief Get the current time
  *  @param  result  resulting time
  */
-void rtTime_Now(rtTime_t* result);
+rtTime_t* rtTime_Now(rtTime_t* result);
 
 /** @fn void rtTime_Later (rtTime_t* from, int ms, rtTime_t* result)
  *  @brief Get a the time 'ms' miliseconds from time 'from'

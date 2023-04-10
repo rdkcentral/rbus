@@ -33,6 +33,7 @@
 #include "rtrouter_diag.h"
 #include "rtRoutingTree.h"
 #include "rtMemory.h"
+#include "rtrouteBase.h"
 #include "rtm_discovery_api.h"
 #include "local_benchmarking.h"
 #include <arpa/inet.h>
@@ -66,73 +67,14 @@
 #endif
 #endif
 
-#ifndef SOL_TCP
-#define SOL_TCP 6
-#endif
-#define RTMSG_MAX_CONNECTED_CLIENTS 64
-#define RTMSG_CLIENT_MAX_TOPICS 64
-#ifdef  RDKC_BUILD
-#define RTMSG_CLIENT_READ_BUFFER_SIZE (1024 * 8)
-#else
-#define RTMSG_CLIENT_READ_BUFFER_SIZE (1024 * 64)
-#endif /* RDKC_BUILD */
-#define RTMSG_INVALID_FD -1
-#define RTMSG_MAX_EXPRESSION_LEN 128
-#define RTMSG_ADDR_MAX 128
-#define RTMSG_MAX_LISTENING_SOCKETS 5
 
-typedef struct
-{
-  int                       fd;
-  struct sockaddr_storage   endpoint;
-  char                      ident[RTMSG_ADDR_MAX];
-  char                      inbox[RTMSG_HEADER_MAX_TOPIC_LENGTH];
-  uint8_t*                  read_buffer;
-  uint8_t*                  send_buffer;
-  rtConnectionState         state;
-  int                       bytes_read;
-  int                       bytes_to_read;
-  int                       read_buffer_capacity;
-  rtMessageHeader           header;
-#ifdef WITH_SPAKE2
-  rtCipher*                 cipher;
-  uint8_t*                  encryption_key;
-  uint8_t*                  encryption_buffer;
-#endif
-} rtConnectedClient;
-
-typedef struct
-{
-  uint32_t id;
-  rtConnectedClient* client;
-} rtSubscription;
-
-typedef rtError (*rtRouteMessageHandler)(rtConnectedClient* sender, rtMessageHeader* hdr,
-  uint8_t const* buff, int n, rtSubscription* subscription);
-
-typedef struct
-{
-  rtSubscription*       subscription;
-  rtRouteMessageHandler message_handler;
-  char                  expression[RTMSG_MAX_EXPRESSION_LEN];
-} rtRouteEntry;
-
-typedef struct
-{
-  int fd;
-  struct sockaddr_storage local_endpoint;
-} rtListener;
-
-rtVector clients;
-rtVector listeners;
-rtVector routes;
-rtRoutingTree routingTree;
+rtVector gClients;
+rtVector gListeners;
+rtVector gRoutes;
+rtRoutingTree gRoutingTree;
 rtList g_discovery_result = NULL;
 int g_enable_traffic_monitor = 0;
 int is_running = 1;
-
-//rtListener        listeners[RTMSG_MAX_LISTENERS];
-//rtRouteEntry      routes[RTMSG_MAX_ROUTES];
 
 #ifdef ENABLE_ROUTER_BENCHMARKING
 #define MAX_TIMESTAMP_ENTRIES 2000
@@ -144,9 +86,6 @@ static int g_timestamp_index;
 char* g_spake2_L = NULL;
 char* g_spake2_w0 = NULL;
 #endif
-
-static rtError
-rtRouted_BindListener(char const* socket_name, int no_delay);
 
 static void
 rtRouted_SendAdvisoryMessage(rtConnectedClient* clnt, rtAdviseEvent event);
@@ -249,9 +188,9 @@ rtRouted_PrintClientInfo(rtConnectedClient* clnt)
     return;
   }
 
-  for (i = 0; i < rtVector_Size(routes);)
+  for (i = 0; i < rtVector_Size(gRoutes);)
   {
-    rtRouteEntry* route = (rtRouteEntry *) rtVector_At(routes, i);
+    rtRouteEntry* route = (rtRouteEntry *) rtVector_At(gRoutes, i);
     if (route->subscription && route->subscription->client == clnt)
     {
       rtLog_Warn("client identity:%s name:%s", clnt->ident,route->expression);
@@ -342,6 +281,7 @@ rtRouted_ParseConfig(char const* fname)
     listeners = cJSON_GetObjectItem(json, "listeners");
     if (listeners)
     {
+      int indefinite_retry = 0;
       for (i = 0, n = cJSON_GetArraySize(listeners); i < n; ++i)
       {
         cJSON* item = cJSON_GetArrayItem(listeners, i);
@@ -349,7 +289,12 @@ rtRouted_ParseConfig(char const* fname)
         {
           cJSON* uri = cJSON_GetObjectItem(item, "uri");
           if (uri)
-            rtRouted_BindListener(uri->valuestring, 1);
+          {
+            rtListener* listener = NULL;
+            rtRouteBase_BindListener(uri->valuestring, 1, indefinite_retry, &listener);
+            rtVector_PushBack(gListeners, listener);
+            indefinite_retry  = 1;
+          }
         }
       }
     }
@@ -434,9 +379,9 @@ rtRouted_AddRoute(rtRouteMessageHandler handler, char const* exp, rtSubscription
   route->subscription = subscription;
   route->message_handler = handler;
   strncpy(route->expression, exp, RTMSG_MAX_EXPRESSION_LEN);
-  rtVector_PushBack(routes, route);
+  rtVector_PushBack(gRoutes, route);
   rtLog_Debug("AddRoute route=[%p] address=[%s] expression=[%s]", route, subscription->client->ident, exp);
-  rtRoutingTree_AddTopicRoute(routingTree, exp, (void *)route, 0/*ignfore duplicate entry*/);
+  rtRoutingTree_AddTopicRoute(gRoutingTree, exp, (void *)route, 0/*ignfore duplicate entry*/);
   return RT_OK;
 }
 
@@ -475,7 +420,7 @@ rtRouted_AddAlias(char const* exp, rtRouteEntry * route)
 {
   rtError rc = RT_OK;
   rtLog_Debug("AddAlias route=[%p] address=[%s] expression=[%s] alias=[%s]", route, route->subscription->client->ident, route->expression, exp);
-  rc = rtRoutingTree_AddTopicRoute(routingTree, exp, (void *)route, 1/*error if duplicate entry*/);
+  rc = rtRoutingTree_AddTopicRoute(gRoutingTree, exp, (void *)route, 1/*error if duplicate entry*/);
   if (RT_ERROR_DUPLICATE_ENTRY == rc)
       if (rtRouted_ShouldLimitLog(exp))
           rtLog_Warn("Rejecting Duplicate Registration of [%s] by [%s] thro [%s]", exp, route->expression, route->subscription->client->ident);
@@ -486,10 +431,10 @@ rtRouted_AddAlias(char const* exp, rtRouteEntry * route)
   static rtError
 rtRouted_ClearRoute(rtRouteEntry * route)
 {
-  rtVector_RemoveItem(routes, route, NULL);
+  rtVector_RemoveItem(gRoutes, route, NULL);
   free(route->subscription);
   rtLog_Debug("Clearing route %s", route->expression);
-  rtRoutingTree_RemoveRoute(routingTree, (void*)route);
+  rtRoutingTree_RemoveRoute(gRoutingTree, (void*)route);
   free(route);
   return RT_OK;
 }
@@ -498,9 +443,9 @@ static rtError
 rtRouted_ClearClientRoutes(rtConnectedClient* clnt)
 {
   size_t i;
-  for (i = 0; i < rtVector_Size(routes);)
+  for (i = 0; i < rtVector_Size(gRoutes);)
   {
-    rtRouteEntry* route = (rtRouteEntry *) rtVector_At(routes, i);
+    rtRouteEntry* route = (rtRouteEntry *) rtVector_At(gRoutes, i);
     if (route->subscription && route->subscription->client == clnt)
       rtRouted_ClearRoute(route);
     else
@@ -553,7 +498,7 @@ rtRouted_SendMessage(rtMessageHeader * request_hdr, rtMessage message, rtConnect
 
   /*Find the route to populate control_id field.*/
   rtRouteEntry *route = NULL;
-  rtRoutingTree_GetTopicRoutes(routingTree, request_hdr->topic, &list);
+  rtRoutingTree_GetTopicRoutes(gRoutingTree, request_hdr->topic, &list);
   if(list)
   {
     rtList_GetFront(list, &item);
@@ -758,7 +703,7 @@ rtRouted_ForwardMessage(rtConnectedClient* sender, rtMessageHeader* hdr, uint8_t
 
   rtMessageHeader_Encode(&new_header, subscription->client->send_buffer);
 
-  // rtDebug_PrintBuffer("fwd header", subscription->client->send_buffer, new_header.length);
+  //rtDebug_PrintBuffer("fwd header", (uint8_t*) buff, n);
   struct iovec send_vec[] = {{subscription->client->send_buffer, new_header.header_length}, {(void *)buff, (size_t)n}};
   struct msghdr send_hdr = {NULL, 0, send_vec, 2, NULL, 0, 0};
 
@@ -826,16 +771,16 @@ rtRouted_OnMessageSubscribe(rtConnectedClient* sender, rtMessageHeader* hdr, uin
     {
       if(1 == add_subscrption)
       {
-        for (i = 0; i < rtVector_Size(routes); i++)
+        for (i = 0; i < rtVector_Size(gRoutes); i++)
         {
-          rtRouteEntry* route = (rtRouteEntry *) rtVector_At(routes, i);
+          rtRouteEntry* route = (rtRouteEntry *) rtVector_At(gRoutes, i);
           if (route->subscription && (route->subscription->client == sender) && (route->subscription->id == route_id))
           {
             rc = rtRouted_AddAlias(expression, route);
             break;
           }
         }
-        if(i == rtVector_Size(routes))
+        if(i == rtVector_Size(gRoutes))
         {
           rtSubscription* subscription = (rtSubscription *) rt_malloc(sizeof(rtSubscription));
           subscription->id = route_id;
@@ -853,9 +798,9 @@ rtRouted_OnMessageSubscribe(rtConnectedClient* sender, rtMessageHeader* hdr, uin
       else
       {
         int route_removed = 0;
-        for (i = 0; i < rtVector_Size(routes); i++)
+        for (i = 0; i < rtVector_Size(gRoutes); i++)
         {
-          rtRouteEntry* route = (rtRouteEntry *) rtVector_At(routes, i);
+          rtRouteEntry* route = (rtRouteEntry *) rtVector_At(gRoutes, i);
 
           if((route->subscription) && (0 == strncmp(route->expression, expression, RTMSG_MAX_EXPRESSION_LEN)) && (route->subscription->client == sender))
           {
@@ -868,7 +813,7 @@ rtRouted_OnMessageSubscribe(rtConnectedClient* sender, rtMessageHeader* hdr, uin
         {
           //Not a route. Is it an alias?
           rtLog_Debug("Removing alias %s", expression);
-          rtRoutingTree_RemoveTopic(routingTree, expression);
+          rtRoutingTree_RemoveTopic(gRoutingTree, expression);
         }
       }
     }
@@ -961,9 +906,9 @@ rtRouted_OnMessageDiscoverRegisteredComponents(rtConnectedClient* sender, rtMess
       int counter = 0, pass = 0;
       for (pass = 0; pass <= 1; pass ++)
       {
-          for (i = 0; i < rtVector_Size(routes); i++)
+          for (i = 0; i < rtVector_Size(gRoutes); i++)
           {
-              rtRouteEntry* route = (rtRouteEntry *) rtVector_At(routes, i);
+              rtRouteEntry* route = (rtRouteEntry *) rtVector_At(gRoutes, i);
               if((route) && (strcmp(route->expression, "")) && ('_' != route->expression[0]))
               {
                   if(pass == 0)
@@ -1014,7 +959,7 @@ rtRouted_OnMessageDiscoverWildcardDestinations(rtConnectedClient* sender, rtMess
       size_t count = 0;
       rtListItem item;
       rtMessage_SetInt32(response, RTM_DISCOVERY_RESULT, RT_OK);
-      rtRoutingTree_ResolvePartialPath(routingTree, expression, g_discovery_result);
+      rtRoutingTree_ResolvePartialPath(gRoutingTree, expression, g_discovery_result);
       rtList_GetSize(g_discovery_result, &count);
       rtMessage_SetInt32(response, RTM_DISCOVERY_COUNT, (int32_t)count);
       rtList_GetFront(g_discovery_result, &item);
@@ -1073,13 +1018,13 @@ rtRouted_OnMessageDiscoverObjectElements(rtConnectedClient* sender, rtMessageHea
       int found = 0;
       rtRouteEntry* route = NULL;
       rtLog_Debug("ElementEnumeration expression=%s", expression);
-      for (i = 0; i < rtVector_Size(routes); i++)
+      for (i = 0; i < rtVector_Size(gRoutes); i++)
       {
-        route = (rtRouteEntry *) rtVector_At(routes, i);
+        route = (rtRouteEntry *) rtVector_At(gRoutes, i);
         if(0 == strncmp(expression, route->expression, RTMSG_MAX_EXPRESSION_LEN))
         {
           //rtLog_Debug("ElementEnumeration found route for expression=%s", expression);
-          rtRoutingTree_GetRouteTopics(routingTree, (void *)route, &list);
+          rtRoutingTree_GetRouteTopics(gRoutingTree, (void *)route, &list);
           //rtLog_Debug("ElementEnumeration route has %s", expression);
           found = 1;
           break;
@@ -1150,7 +1095,7 @@ rtRouted_OnMessageDiscoverElementObjects(rtConnectedClient* sender, rtMessageHea
           rtList routes;
           rtListItem item;
           int set = 0;
-          rtRoutingTree_GetTopicRoutes(routingTree, expression, &routes);
+          rtRoutingTree_GetTopicRoutes(gRoutingTree, expression, &routes);
           if(routes)
           {
             size_t count;
@@ -1229,11 +1174,11 @@ rtRouted_OnMessageDiagnostics(rtConnectedClient* sender, rtMessageHeader* hdr, u
   else if(0 == strncmp(RTROUTER_DIAG_CMD_DISABLE_VERBOSE_LOGS, cmd, sizeof(RTROUTER_DIAG_CMD_DISABLE_VERBOSE_LOGS)))
     rtLog_SetLevel(RT_LOG_INFO);
   else if(0 == strncmp(RTROUTER_DIAG_CMD_LOG_ROUTING_STATS, cmd, sizeof(RTROUTER_DIAG_CMD_LOG_ROUTING_STATS)))
-    rtRoutingTree_LogStats(routingTree);
+    rtRoutingTree_LogStats(gRoutingTree);
   else if(0 == strncmp(RTROUTER_DIAG_CMD_LOG_ROUTING_TOPICS, cmd, sizeof(RTROUTER_DIAG_CMD_LOG_ROUTING_TOPICS)))
-    rtRoutingTree_LogTopicTree(routingTree);
+    rtRoutingTree_LogTopicTree(gRoutingTree);
   else if(0 == strncmp(RTROUTER_DIAG_CMD_LOG_ROUTING_ROUTES, cmd, sizeof(RTROUTER_DIAG_CMD_LOG_ROUTING_ROUTES)))
-    rtRoutingTree_LogRouteList(routingTree);
+    rtRoutingTree_LogRouteList(gRoutingTree);
   else if(0 == strncmp(RTROUTER_DIAG_CMD_ENABLE_TRAFFIC_MONITOR, cmd, sizeof(RTROUTER_DIAG_CMD_ENABLE_TRAFFIC_MONITOR)))
     g_enable_traffic_monitor = 1;
   else if(0 == strncmp(RTROUTER_DIAG_CMD_DISABLE_TRAFFIC_MONITOR, cmd, sizeof(RTROUTER_DIAG_CMD_DISABLE_TRAFFIC_MONITOR)))
@@ -1459,7 +1404,7 @@ rtRouter_DispatchMessageFromClient(rtConnectedClient* clnt)
   START_TRACKING();
 dispatch:
 
-  rtRoutingTree_GetTopicRoutes(routingTree, clnt->header.topic, &list);
+  rtRoutingTree_GetTopicRoutes(gRoutingTree, clnt->header.topic, &list);
   if(list)
   {
     rtList_GetFront(list, &item);
@@ -1533,11 +1478,11 @@ static char*
 rtRouted_GetClientName(rtConnectedClient* clnt)
 {
   size_t i;
-  i = rtVector_Size(routes);
+  i = rtVector_Size(gRoutes);
   char *clnt_name = NULL;
   while(i--)
   {
-    rtRouteEntry* route = (rtRouteEntry *) rtVector_At(routes, i);
+    rtRouteEntry* route = (rtRouteEntry *) rtVector_At(gRoutes, i);
     if(route && (route->subscription) && (route->subscription->client)) {
       if(strcmp( route->subscription->client->ident, clnt->ident ) == 0) {
         clnt_name = route->expression;
@@ -1707,7 +1652,7 @@ rtRouted_RegisterNewClient(int fd, struct sockaddr_storage* remote_endpoint)
   rtConnectedClient_Init(new_client, fd, remote_endpoint);
   rtSocketStorage_ToString(&new_client->endpoint, remote_address, sizeof(remote_address), &remote_port);
   snprintf(new_client->ident, RTMSG_ADDR_MAX, "%s:%d/%d", remote_address, remote_port, fd);
-  rtVector_PushBack(clients, new_client);
+  rtVector_PushBack(gClients, new_client);
 
   rtLog_Debug("new client:%s", new_client->ident);
 }
@@ -1733,94 +1678,6 @@ rtRouted_AcceptClientConnection(rtListener* listener)
   setsockopt(fd, SOL_TCP, TCP_NODELAY, &one, sizeof(one));
 
   rtRouted_RegisterNewClient(fd, &remote_endpoint);
-}
-
-static rtError
-rtRouted_BindListener(char const* socket_name, int no_delay)
-{
-  int ret, n;
-  rtError err;
-  socklen_t socket_length;
-  rtListener* listener;
-  unsigned int num_retries = 1;
-  int i = 0;
-  int indefinite_retry = 0;
-
-  /* Setting indefinite_retry variable only when there are morethan one socket fd in listeners */
-  for (i = 0, n = rtVector_Size(listeners); i < n; ++i)
-  {
-      rtListener* listener_history = (rtListener *) rtVector_At(listeners, i);
-      if (listener_history)
-      {
-        indefinite_retry = 1;
-        break;
-      }
-  }
-
-  listener = (rtListener *)rt_malloc(sizeof(rtListener));
-  listener->fd = -1;
-  memset(&listener->local_endpoint, 0, sizeof(struct sockaddr_storage));
-
-  err = rtSocketStorage_FromString(&listener->local_endpoint, socket_name);
-  if (err != RT_OK)
-    return err;
-
-  rtLog_Debug("binding listener:%s", socket_name);
-
-  listener->fd = socket(listener->local_endpoint.ss_family, SOCK_STREAM, 0);
-  if (listener->fd == -1)
-  {
-    rtLog_Fatal("socket:%s", rtStrError(errno));
-    exit(1);
-  }
-
-  rtSocketStorage_GetLength(&listener->local_endpoint, &socket_length);
-
-  if (listener->local_endpoint.ss_family != AF_UNIX)
-  {
-    uint32_t one = 1;
-    if (no_delay)
-      setsockopt(listener->fd, SOL_TCP, TCP_NODELAY, &one, sizeof(one));
-
-    setsockopt(listener->fd, SOL_SOCKET, SO_REUSEADDR, (char *)&one, sizeof(one));
-    if(indefinite_retry == 1)
-    {
-      /* assigning maximum value of unsigned integer(0xFFFFFFFF - 4294967295) to num_retries */
-      num_retries = 0;
-      num_retries = ~num_retries;
-    }
-    else
-      num_retries = 18; //Special handling for TCP sockets: keep retrying for 3 minutes, 10s after each failure. This helps if networking is slow to come up.
-  }
-
-    while(0 != num_retries)
-    {
-      ret = bind(listener->fd, (struct sockaddr *)&listener->local_endpoint, socket_length);
-      if (ret == -1)
-      {
-        rtError err = rtErrorFromErrno(errno);
-        rtLog_Warn("failed to bind socket. %s.  num_retries=%u", rtStrError(err), num_retries);
-        if(0 == --num_retries)
-        {
-          rtLog_Warn("exiting app on bind socket failure");
-          exit(1);
-        }
-        else
-          sleep(10);
-      }
-      else
-        break;
-    }
-
-  ret = listen(listener->fd, 4);
-  if (ret == -1)
-  {
-    rtLog_Warn("failed to set socket to listen mode. %s", rtStrError(errno));
-    exit(1);
-  }
-
-  rtVector_PushBack(listeners, listener);
-  return RT_OK;
 }
 
 
@@ -1872,10 +1729,10 @@ int main(int argc, char* argv[])
 
   rtLog_SetLevel(RT_LOG_INFO);
 
-  rtVector_Create(&clients);
-  rtVector_Create(&listeners);
-  rtVector_Create(&routes);
-  rtRoutingTree_Create(&routingTree);
+  rtVector_Create(&gClients);
+  rtVector_Create(&gListeners);
+  rtVector_Create(&gRoutes);
+  rtRoutingTree_Create(&gRoutingTree);
   rtList_Create(&g_discovery_result);
 
   FILE* pid_file = fopen("/tmp/rtrouted.pid", "w");
@@ -1906,18 +1763,18 @@ int main(int argc, char* argv[])
     route->subscription = NULL;
     strncpy(route->expression, "_RTROUTED.>", RTMSG_MAX_EXPRESSION_LEN-1);
     route->message_handler = rtRouted_OnMessage;
-    rtVector_PushBack(routes, route);
-    rtRoutingTree_AddTopicRoute(routingTree, "_RTROUTED.INBOX.SUBSCRIBE", (void *)route, 0);
-    rtRoutingTree_AddTopicRoute(routingTree, RTM_DISCOVER_WILDCARD_DESTINATIONS, (void *)route, 0);
-    rtRoutingTree_AddTopicRoute(routingTree, RTM_DISCOVER_REGISTERED_COMPONENTS, (void *)route, 0);
-    rtRoutingTree_AddTopicRoute(routingTree, RTM_DISCOVER_OBJECT_ELEMENTS, (void *)route, 0);
-    rtRoutingTree_AddTopicRoute(routingTree, RTM_DISCOVER_ELEMENT_OBJECTS, (void *)route, 0);
-    rtRoutingTree_AddTopicRoute(routingTree, RTROUTER_DIAG_DESTINATION, (void *)route, 0);
+    rtVector_PushBack(gRoutes, route);
+    rtRoutingTree_AddTopicRoute(gRoutingTree, "_RTROUTED.INBOX.SUBSCRIBE", (void *)route, 0);
+    rtRoutingTree_AddTopicRoute(gRoutingTree, RTM_DISCOVER_WILDCARD_DESTINATIONS, (void *)route, 0);
+    rtRoutingTree_AddTopicRoute(gRoutingTree, RTM_DISCOVER_REGISTERED_COMPONENTS, (void *)route, 0);
+    rtRoutingTree_AddTopicRoute(gRoutingTree, RTM_DISCOVER_OBJECT_ELEMENTS, (void *)route, 0);
+    rtRoutingTree_AddTopicRoute(gRoutingTree, RTM_DISCOVER_ELEMENT_OBJECTS, (void *)route, 0);
+    rtRoutingTree_AddTopicRoute(gRoutingTree, RTROUTER_DIAG_DESTINATION, (void *)route, 0);
 #ifdef WITH_SPAKE2
-    rtRoutingTree_AddTopicRoute(routingTree, RTROUTED_KEY_EXCHANGE, (void *)route, 0);
+    rtRoutingTree_AddTopicRoute(gRoutingTree, RTROUTED_KEY_EXCHANGE, (void *)route, 0);
 #endif
 #ifdef MSG_ROUNDTRIP_TIME
-    rtRoutingTree_AddTopicRoute(routingTree, RTROUTED_TRANSACTION_TIME_INFO, (void *)route, 0);
+    rtRoutingTree_AddTopicRoute(gRoutingTree, RTROUTED_TRANSACTION_TIME_INFO, (void *)route, 0);
 #endif
   }
 
@@ -1966,7 +1823,7 @@ int main(int argc, char* argv[])
         route->subscription = NULL;
         route->message_handler = &rtRouted_TrafficMonitorLog;
         strncpy(route->expression, ">", RTMSG_MAX_EXPRESSION_LEN-1);
-        rtVector_PushBack(routes, route);
+        rtVector_PushBack(gRoutes, route);
       }
       case '?':
         break;
@@ -2012,9 +1869,13 @@ int main(int argc, char* argv[])
 	    num_listeners = 1;
     }
 
+    int indefinite_retry = 0;
     for(i = 0; i < num_listeners; i++)
     {
-	    rtRouted_BindListener(socket_name[i], use_no_delay);
+        rtListener* listener = NULL;
+	    rtRouteBase_BindListener(socket_name[i], use_no_delay, indefinite_retry, &listener);
+        rtVector_PushBack(gListeners, listener);
+        indefinite_retry  = 1;
     }
   }
 
@@ -2035,9 +1896,9 @@ int main(int argc, char* argv[])
     timeout.tv_sec = 10;
     timeout.tv_usec = 0;
 
-    for (i = 0, n = rtVector_Size(listeners); i < n; ++i)
+    for (i = 0, n = rtVector_Size(gListeners); i < n; ++i)
     {
-      rtListener* listener = (rtListener *) rtVector_At(listeners, i);
+      rtListener* listener = (rtListener *) rtVector_At(gListeners, i);
       if (listener)
       {
         rtRouted_PushFd(&read_fds, listener->fd, &max_fd);
@@ -2045,9 +1906,9 @@ int main(int argc, char* argv[])
       }
     }
 
-    for (i = 0, n = rtVector_Size(clients); i < n; ++i)
+    for (i = 0, n = rtVector_Size(gClients); i < n; ++i)
     {
-      rtConnectedClient* clnt = (rtConnectedClient *) rtVector_At(clients, i);
+      rtConnectedClient* clnt = (rtConnectedClient *) rtVector_At(gClients, i);
       if (clnt)
       {
         rtRouted_PushFd(&read_fds, clnt->fd, &max_fd);
@@ -2065,22 +1926,22 @@ int main(int argc, char* argv[])
       continue;
     }
 
-    for (i = 0, n = rtVector_Size(listeners); i < n; ++i)
+    for (i = 0, n = rtVector_Size(gListeners); i < n; ++i)
     {
-      rtListener* listener = (rtListener *) rtVector_At(listeners, i);
+      rtListener* listener = (rtListener *) rtVector_At(gListeners, i);
       if (FD_ISSET(listener->fd, &read_fds))
         rtRouted_AcceptClientConnection(listener);
     }
 
-    for (i = 0, n = rtVector_Size(clients); i < n;)
+    for (i = 0, n = rtVector_Size(gClients); i < n;)
     {
-      rtConnectedClient* clnt = (rtConnectedClient *) rtVector_At(clients, i);
+      rtConnectedClient* clnt = (rtConnectedClient *) rtVector_At(gClients, i);
       if (FD_ISSET(clnt->fd, &read_fds))
       {
         rtError err = rtConnectedClient_Read(clnt);
         if (err != RT_OK)
         {
-          rtVector_RemoveItem(clients, clnt, NULL);
+          rtVector_RemoveItem(gClients, clnt, NULL);
           rtRouted_SendAdvisoryMessage(clnt, rtAdviseClientDisconnect);
           rtConnectedClient_Destroy(clnt);
           n--;
@@ -2091,10 +1952,10 @@ int main(int argc, char* argv[])
     }
   }
 
-  rtVector_Destroy(listeners, freeListener);
-  rtVector_Destroy(clients, freeClient);
-  rtVector_Destroy(routes, freeRoute);
-  rtRoutingTree_Destroy(routingTree);
+  rtVector_Destroy(gListeners, freeListener);
+  rtVector_Destroy(gClients, freeClient);
+  rtVector_Destroy(gRoutes, freeRoute);
+  rtRoutingTree_Destroy(gRoutingTree);
   rtList_Destroy(g_discovery_result, NULL);
   fclose(pid_file);
 #if WITH_SPAKE2

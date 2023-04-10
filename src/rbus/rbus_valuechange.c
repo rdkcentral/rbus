@@ -167,7 +167,9 @@ static void* rbusValueChange_pollingThreadFunc(void *userData)
             memset(&opts, 0, sizeof(rbusGetHandlerOptions_t));
             opts.requestingComponent = "valueChangePollThread";
 
+            ELM_PRIVATE_LOCK(rec->node);
             int result = rec->node->cbTable.getHandler(rec->handle, property, &opts);
+            ELM_PRIVATE_UNLOCK(rec->node);
 
             if(result != RBUS_ERROR_SUCCESS)
             {
@@ -293,7 +295,9 @@ void rbusValueChange_AddPropertyNode(rbusHandle_t handle, elementNode* propNode)
         opts.requestingComponent = "valueChangePollThread";
         /*get and cache the current value
           the polling thread will periodically re-get and compare to detect value changes*/
+        ELM_PRIVATE_LOCK(propNode);
         int result = propNode->cbTable.getHandler(handle, rec->property, &opts);
+        ELM_PRIVATE_UNLOCK(propNode);
 
         if(result != RBUS_ERROR_SUCCESS)
         {
