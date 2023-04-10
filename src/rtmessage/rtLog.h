@@ -24,10 +24,6 @@
 #define RT_LOG_H_
 #include <stdint.h>
 
-#ifdef ENABLE_RDKLOGGER
-#include "rdk_debug.h"
-#endif
-
 #ifdef __APPLE__
 typedef uint64_t rtThreadId;
 #define RT_THREADID_FMT PRIu64

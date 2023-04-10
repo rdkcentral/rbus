@@ -102,6 +102,7 @@ rbusCoreError_t rbus_unregisterMethodTable(const char * object_name, rbus_method
  * from the remote recipient, or times out after 'timeout_milliseconds'. rbus will release 'out' internally. If call is successful, it's caller's responsibility
  * to release 'in'. */
 rbusCoreError_t rbus_invokeRemoteMethod(const char * object_name, const char *method, rbusMessage out, int timeout_millisecs, rbusMessage *in);
+rbusCoreError_t rbus_invokeRemoteMethod2(rtConnection conn, const char * object_name, const char *method, rbusMessage out, int timeout_millisecs, rbusMessage *in);
 
 /* Invoke a remote procedure call 'method' on a destination/object object_name. 'out' has the input arguments necessary for the RPC. This function does not block for response
  * from the remote end. It returns immediately after the outbound message is dispatched. 'callback' is invoked when it receives the response to the RPC call, or if it times out 
@@ -196,12 +197,35 @@ rbusCoreError_t rbus_discoverElementObjects(const char* element, int * count, ch
 /*same as above but for multiple elements*/
 rbusCoreError_t rbus_discoverElementsObjects(int numElements, const char** elements, int * count, char *** objects);
 
+/* Finds out all the registered application that is running with RBUS at any given point in time */
 rbusCoreError_t rbus_discoverRegisteredComponents(int * count, char *** components);
 
 /* Get the rbus status; to find out whether the rbus is enabled or not. The application can take action (ex: registration of events) based on this return value. */
 rbuscore_bus_status_t rbuscore_checkBusStatus(void);
 
+/* Sends reply response to the GET/SET and other methods */
 rbusCoreError_t rbus_sendResponse(const rtMessageHeader* hdr, rbusMessage response);
+
+
+
+/* The Consumer application to identify whether any private connection exist for the given DML */
+rtConnection rbuscore_FindClientPrivateConnection(const char *pParameterName);
+
+/* The Consumer application to request to create a private connection to the Provider for the given DML */
+rbusCoreError_t rbuscore_createPrivateConnection(const char *pParameterName, rtConnection *pPrivateConn);
+
+/* The Consumer application to request to close the private connection to the Provider for the given DML */
+rbusCoreError_t rbuscore_closePrivateConnection(const char *pParameterName);
+
+/* The Consumer application to request to terminate the private connection to the Provider for ALL the DMLs of the provider */
+rbusCoreError_t rbuscore_terminatePrivateConnection(const char *pProviderName);
+
+/* The Provider application to request to start the instance of rtrouted in the given socket name; for the given DML */
+rbusCoreError_t rbuscore_startPrivateListener(const char* pPrivateConnAddress, const char* pConsumerName, const char *pDMLName, rbus_callback_t handler, void * user_data);
+
+/* The Provider application to request to remove/close the instance of rtrouted in the given DML */
+rbusCoreError_t rbuscore_updatePrivateListener(const char* pConsumerName, const char *pDMLName);
+
 
 #ifdef __cplusplus
 }

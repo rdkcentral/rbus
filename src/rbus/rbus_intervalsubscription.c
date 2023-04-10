@@ -137,7 +137,9 @@ static void* PublishingThreadFunc(void* rec)
         memset(&opts, 0, sizeof(rbusGetHandlerOptions_t));
         opts.requestingComponent = "IntervalThread";
 
+        ELM_PRIVATE_LOCK(sub_rec->node);
         int result = sub_rec->node->cbTable.getHandler(sub_rec->handle, property, &opts);
+        ELM_PRIVATE_UNLOCK(sub_rec->node);
         if(result != RBUS_ERROR_SUCCESS)
         {
             RBUSLOG_ERROR("%s: failed to get value of %s", __FUNCTION__, rbusProperty_GetName(property));
