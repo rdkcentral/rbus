@@ -1613,9 +1613,9 @@ static rbusError_t _get_recursive_wildcard_handler (rbusHandle_t handle, char co
             rbusError_t result;
             rbusProperty_t tmpProperties;
             rbusProperty_Init(&tmpProperties, instanceName, NULL);
-            ELM_PRIVATE_LOCK(el);
+            ELM_PRIVATE_LOCK(child);
             result = child->cbTable.getHandler(handle, tmpProperties, &options);
-            ELM_PRIVATE_UNLOCK(el);
+            ELM_PRIVATE_UNLOCK(child);
             if (result == RBUS_ERROR_SUCCESS)
             {
                 rbusProperty_Append(properties, tmpProperties);
