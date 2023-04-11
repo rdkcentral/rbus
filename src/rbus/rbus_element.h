@@ -35,7 +35,7 @@ extern "C" {
 {                                                                         \
   int err;                                                                \
   elementNode *pTmp = (elementNode*) ELM;                                 \
-  if((err=pthread_mutex_lock(&pTmp->elmMutex) != 0))                      \
+  if((err = pthread_mutex_lock(&pTmp->elmMutex)) != 0)                    \
   {                                                                       \
     RBUSLOG_ERROR("Error @ mutex lock.. Err=%d:%s ", err, strerror(err)); \
   }                                                                       \
@@ -45,7 +45,7 @@ extern "C" {
 {                                                                           \
   int err;                                                                  \
   elementNode *pTmp = (elementNode*) ELM;                                   \
-  if((err=pthread_mutex_unlock(&pTmp->elmMutex) != 0))                      \
+  if((err = pthread_mutex_unlock(&pTmp->elmMutex)) != 0)                    \
   {                                                                         \
     RBUSLOG_ERROR("Error @ mutex unlock.. Err=%d:%s ", err, strerror(err)); \
   }                                                                         \
