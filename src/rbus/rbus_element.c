@@ -25,7 +25,6 @@
 #include "rbus_element.h"
 #include "rbus_subscriptions.h"
 #include <rtMemory.h>
-#include <pthread.h>
 
 #define VERIFY_NULL(T) if(NULL == T){ return; }
 #define DEBUG_ELEMENTS 0
