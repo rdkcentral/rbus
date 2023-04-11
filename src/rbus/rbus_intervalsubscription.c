@@ -117,6 +117,8 @@ static void* PublishingThreadFunc(void* rec)
     while(sub_rec->running)
     {
         int err;
+        int actualCount = 0;
+        int result = 0;
         rtTime_t timeout;
         rtTimespec_t ts;
         rtTime_Later(NULL, (sub->interval*1000), &timeout);
@@ -130,45 +132,22 @@ static void* PublishingThreadFunc(void* rec)
         }
         
         rbusProperty_t properties = NULL;
-        rbusValue_t val;
-        int actualCount = 0;
-        int result = 0;
-        /* wildcard event name */
-        char *tmpptr = strstr(sub->eventName, "*");
-        if (tmpptr)
-        {
-            rbusProperty_t tmpProperties = NULL;
-            rbusProperty_Init(&tmpProperties, "tmpProp", NULL);
-            result = get_recursive_wildcard_handler(handleInfo, sub->eventName,
-                    "IntervalThread", tmpProperties, &actualCount);
-            rbusValue_Init(&val);
-            rbusValue_SetInt32(val, actualCount);
-            rbusProperty_Init(&properties, "numberOfEntries", val);
-            rbusProperty_Append(properties, rbusProperty_GetNext(tmpProperties));
-            rbusProperty_Release(tmpProperties);
-            rbusValue_Release(val);
-        }
-        else
-        {
-            rbusProperty_Init(&properties,rbusProperty_GetName(sub_rec->property), NULL);
-            rbusGetHandlerOptions_t opts;
-            memset(&opts, 0, sizeof(rbusGetHandlerOptions_t));
-            opts.requestingComponent = "IntervalThread";
-            ELM_PRIVATE_LOCK(sub_rec->node);
-            result = sub_rec->node->cbTable.getHandler(sub_rec->handle, properties, &opts);
-            ELM_PRIVATE_UNLOCK(sub_rec->node);
-        }
+        rbusProperty_Init(&properties,rbusProperty_GetName(sub_rec->property), NULL);
+        rbusObject_t data;
+        rbusObject_Init(&data, NULL);
+        result = get_recursive_wildcard_handler(handleInfo, sub->eventName,
+                "IntervalThread", properties, &actualCount);
+        rbusObject_SetProperty(data, rbusProperty_GetNext(properties));
+        rbusProperty_Release(properties);
 
         if(result != RBUS_ERROR_SUCCESS)
         {
             RBUSLOG_ERROR("%s: failed to get details of %s", __FUNCTION__, sub->eventName);
+            rbusObject_Release(data);
             continue;
         }
 
         rbusEvent_t event = {0};
-        rbusObject_t data;
-        rbusObject_Init(&data, NULL);
-        rbusObject_SetProperty(data, properties);
         event.name = sub->eventName;
         event.data = data;
         event.type = RBUS_EVENT_INTERVAL;
@@ -197,7 +176,6 @@ static void* PublishingThreadFunc(void* rec)
 
         rbusMessage_Release(msg);
         rbusObject_Release(data);
-        rbusProperty_Release(properties);
         if(error != RBUSCORE_SUCCESS)
         {
             RBUSLOG_ERROR("%s: rbusEvent_Publish failed with result=%d", __FUNCTION__, result);
