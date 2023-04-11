@@ -2923,6 +2923,7 @@ rbusCoreError_t rbuscore_openPrivateConnectionToProvider(rtConnection *pPrivateC
             {
                 RBUSCORELOG_ERROR("failed to create connection to router %s. %s", pPrivateConnAddress, rtStrError(err));
                 rtMessage_Release(config);
+                directClientUnlock();
                 return RBUSCORE_ERROR_GENERAL;
             }
             *pPrivateConn = connection;
