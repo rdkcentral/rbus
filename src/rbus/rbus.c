@@ -1534,7 +1534,7 @@ static void _get_recursive_partialpath_handler(elementNode* node, char const* qu
     }
 }
 
-static rbusError_t _get_recursive_wildcard_handler (rbusHandle_t handle, char const *parameterName, const char* pRequestingComp, rbusProperty_t properties, int *pCount)
+rbusError_t get_recursive_wildcard_handler (rbusHandle_t handle, char const *parameterName, const char* pRequestingComp, rbusProperty_t properties, int *pCount)
 {
     struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
     rbusError_t result = RBUS_ERROR_SUCCESS;
@@ -1579,7 +1579,7 @@ static rbusError_t _get_recursive_wildcard_handler (rbusHandle_t handle, char co
             if(strcmp(child->name, "{i}") != 0)
             {
                 snprintf (wildcardName, RBUS_MAX_NAME_LENGTH, "%s%s%s", instanceName, child->name, tmpPtr);
-                result = _get_recursive_wildcard_handler(handle, wildcardName, pRequestingComp, properties, pCount);
+                result = get_recursive_wildcard_handler(handle, wildcardName, pRequestingComp, properties, pCount);
                 if (result != RBUS_ERROR_SUCCESS)
                 {
                     RBUSLOG_WARN("Something went wrong while retriving the datamodel value...");
@@ -1720,7 +1720,7 @@ static void _get_callback_handler (rbusHandle_t handle, rbusMessage request, rbu
                     rbusValue_SetString(xtmp, "tmpValue");
                     rbusProperty_Init(&xproperties, "tmpProp", xtmp);
                     rbusValue_Release(xtmp);
-                    result = _get_recursive_wildcard_handler(handle, parameterName, pCompName, xproperties, &count);
+                    result = get_recursive_wildcard_handler(handle, parameterName, pCompName, xproperties, &count);
                     rbusMessage_Init(response);
                     rbusMessage_SetInt32(*response, (int) result);
                     if (result == RBUS_ERROR_SUCCESS)
