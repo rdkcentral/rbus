@@ -2617,12 +2617,6 @@ rbusError_t rbus_open(rbusHandle_t* handle, char const* componentName)
     tmpHandle = rt_calloc(1, sizeof(struct _rbusHandle));
 
     tmpHandle->m_handleType = RBUS_HWDL_TYPE_REGULAR;
-    if((err = rbus_registerObj(componentName, _callback_handler, tmpHandle)) != RBUSCORE_SUCCESS)
-    {
-        /*This will fail if the same name was previously registered (by another rbus_open or ccsp msg bus init)*/
-        RBUSLOG_ERROR("%s(%s): rbus_registerObj error %d", __FUNCTION__, componentName, err);
-        goto exit_error2;
-    }
 
     tmpHandle->componentName = strdup(componentName);
     tmpHandle->componentId = ++sLastComponentId;
@@ -2643,7 +2637,6 @@ rbusError_t rbus_open(rbusHandle_t* handle, char const* componentName)
     if((err = rbus_unregisterObj(componentName)) != RBUSCORE_SUCCESS)
         RBUSLOG_ERROR("%s(%s): rbus_unregisterObj error %d", __FUNCTION__, componentName, err);
 
-exit_error2:
 
     if(rbus_getConnection() && rbusHandleList_IsEmpty())
         if((err = rbus_unregisterClientDisconnectHandler()) != RBUSCORE_SUCCESS)
@@ -2854,6 +2847,14 @@ rbusError_t rbus_regDataElements(
 
     if (handleInfo->m_handleType != RBUS_HWDL_TYPE_REGULAR)
         return RBUS_ERROR_INVALID_HANDLE;
+
+    if((err = rbus_registerObj(handleInfo->componentName, _callback_handler, handleInfo)) != RBUSCORE_SUCCESS)
+    {
+        /*This will fail if the same name was previously registered (by another rbus_open or ccsp msg bus init)*/
+        RBUSLOG_ERROR("%s(%s): rbus_registerObj error %d", __FUNCTION__, handleInfo->componentName, err);
+        rc = RBUS_ERROR_BUS_ERROR;
+        return rc;
+    }
 
     for(i=0; i<numDataElements; ++i)
     {
