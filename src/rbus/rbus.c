@@ -2862,6 +2862,9 @@ rbusError_t rbus_regDataElements(
     VERIFY_NULL(elements);
     VERIFY_ZERO(numDataElements);
 
+    if (handleInfo->m_handleType != RBUS_HWDL_TYPE_REGULAR)
+        return RBUS_ERROR_INVALID_HANDLE;
+
     for(i=0; i<numDataElements; ++i)
     {
         char* name = elements[i].name;
@@ -2946,6 +2949,9 @@ rbusError_t rbus_unregDataElements(
     VERIFY_NULL(elements);
     VERIFY_ZERO(numDataElements);
 
+    if (handleInfo->m_handleType != RBUS_HWDL_TYPE_REGULAR)
+        return RBUS_ERROR_INVALID_HANDLE;
+
     for(i=0; i<numDataElements; ++i)
     {
         char const* name = elements[i].name;
@@ -3028,6 +3034,9 @@ rbusError_t rbus_get(rbusHandle_t handle, char const* name, rbusValue_t* value)
     struct _rbusHandle* handleInfo = (struct _rbusHandle*) handle;
 
     VERIFY_NULL(handleInfo);
+
+    if (handleInfo->m_handleType != RBUS_HWDL_TYPE_REGULAR)
+        return RBUS_ERROR_INVALID_HANDLE;
 
     /* Is it a valid Query */
     if (!_is_valid_get_query(name))
@@ -3182,6 +3191,9 @@ rbusError_t rbus_getExt(rbusHandle_t handle, int paramCount, char const** pParam
     VERIFY_NULL(numValues);
     VERIFY_NULL(retProperties);
     VERIFY_ZERO(paramCount);
+
+    if (handleInfo->m_handleType != RBUS_HWDL_TYPE_REGULAR)
+        return RBUS_ERROR_INVALID_HANDLE;
 
     if ((1 == paramCount) && (_is_wildcard_query(pParamNames[0])))
     {
@@ -3491,6 +3503,9 @@ rbusError_t rbus_set(rbusHandle_t handle, char const* name,rbusValue_t value, rb
     VERIFY_NULL(name);
     VERIFY_NULL(value);
 
+    if (handleInfo->m_handleType != RBUS_HWDL_TYPE_REGULAR)
+        return RBUS_ERROR_INVALID_HANDLE;
+
     if (RBUS_NONE == rbusValue_GetType(value))
     {
         return errorcode;
@@ -3565,6 +3580,9 @@ rbusError_t rbus_setMulti(rbusHandle_t handle, int numProps, rbusProperty_t prop
     rbusProperty_t current;
 
     VERIFY_NULL(handle);
+
+    if (handleInfo->m_handleType != RBUS_HWDL_TYPE_REGULAR)
+        return RBUS_ERROR_INVALID_HANDLE;
 
     if (numProps > 0 && properties != NULL)
     {
@@ -3825,6 +3843,9 @@ rbusError_t rbusTable_addRow(
     VERIFY_NULL(handle);
     VERIFY_NULL(tableName);
 
+    if (handleInfo->m_handleType != RBUS_HWDL_TYPE_REGULAR)
+        return RBUS_ERROR_INVALID_HANDLE;
+
     RBUSLOG_DEBUG("%s: %s %s", __FUNCTION__, tableName, aliasName);
 
     if(tableName[strlen(tableName)-1] != dot)
@@ -3900,6 +3921,9 @@ rbusError_t rbusTable_removeRow(
     VERIFY_NULL(handle);
     VERIFY_NULL(rowName);
 
+    if (handleInfo->m_handleType != RBUS_HWDL_TYPE_REGULAR)
+        return RBUS_ERROR_INVALID_HANDLE;
+
     RBUSLOG_DEBUG("%s: %s", __FUNCTION__, rowName);
 
     rbusMessage_Init(&request);
@@ -3959,6 +3983,9 @@ rbusError_t rbusTable_registerRow(
     VERIFY_NULL(handleInfo);
     VERIFY_NULL(tableName);
 
+    if (handleInfo->m_handleType != RBUS_HWDL_TYPE_REGULAR)
+        return RBUS_ERROR_INVALID_HANDLE;
+
     rc = snprintf(rowName, RBUS_MAX_NAME_LENGTH, "%s%d", tableName, instNum);
     if(rc < 0 || rc >= RBUS_MAX_NAME_LENGTH)
     {
@@ -3995,6 +4022,9 @@ rbusError_t rbusTable_unregisterRow(
     VERIFY_NULL(handleInfo);
     VERIFY_NULL(rowName);
 
+    if (handleInfo->m_handleType != RBUS_HWDL_TYPE_REGULAR)
+        return RBUS_ERROR_INVALID_HANDLE;
+
     elementNode* rowInstElem = retrieveInstanceElement(handleInfo->elementRoot, rowName);
 
     if(!rowInstElem)
@@ -4018,6 +4048,9 @@ rbusError_t rbusTable_getRowNames(
     struct _rbusHandle* handleInfo = (struct _rbusHandle*) handle;
 
     VERIFY_NULL(handle);
+
+    if (handleInfo->m_handleType != RBUS_HWDL_TYPE_REGULAR)
+        return RBUS_ERROR_INVALID_HANDLE;
 
     *rowNames = NULL;
 
@@ -4145,6 +4178,9 @@ rbusError_t rbusElementInfo_get(
     *elemInfo = NULL;
 
     VERIFY_NULL(handleInfo);
+
+    if (handleInfo->m_handleType != RBUS_HWDL_TYPE_REGULAR)
+        return RBUS_ERROR_INVALID_HANDLE;
 
     if(abs(depth) > RBUS_MAX_NAME_DEPTH)
     {
@@ -4431,10 +4467,14 @@ rbusError_t  rbusEvent_Subscribe(
     int                 timeout)
 {
     rbusError_t errorcode;
+    struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
 
     VERIFY_NULL(handle);
     VERIFY_NULL(eventName);
     VERIFY_NULL(handler);
+
+    if (handleInfo->m_handleType != RBUS_HWDL_TYPE_REGULAR)
+        return RBUS_ERROR_INVALID_HANDLE;
 
     RBUSLOG_DEBUG("%s: %s", __FUNCTION__, eventName);
 
@@ -4452,11 +4492,15 @@ rbusError_t  rbusEvent_SubscribeAsync(
     int                             timeout)
 {
     rbusError_t errorcode;
+    struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
 
     VERIFY_NULL(handle);
     VERIFY_NULL(eventName);
     VERIFY_NULL(handler);
     VERIFY_NULL(subscribeHandler);
+
+    if (handleInfo->m_handleType != RBUS_HWDL_TYPE_REGULAR)
+        return RBUS_ERROR_INVALID_HANDLE;
 
     RBUSLOG_DEBUG("%s: %s", __FUNCTION__, eventName);
 
@@ -4474,6 +4518,9 @@ rbusError_t rbusEvent_Unsubscribe(
 
     VERIFY_NULL(handle);
     VERIFY_NULL(eventName);
+
+    if (handleInfo->m_handleType != RBUS_HWDL_TYPE_REGULAR)
+        return RBUS_ERROR_INVALID_HANDLE;
 
     RBUSLOG_DEBUG("%s: %s", __FUNCTION__, eventName);
 
@@ -4526,11 +4573,15 @@ rbusError_t rbusEvent_SubscribeEx(
     int                         timeout)
 {
     rbusError_t errorcode = RBUS_ERROR_SUCCESS;
+    struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
     int i;
 
     VERIFY_NULL(handle);
     VERIFY_NULL(subscription);
     VERIFY_ZERO(numSubscriptions); 
+
+    if (handleInfo->m_handleType != RBUS_HWDL_TYPE_REGULAR)
+        return RBUS_ERROR_INVALID_HANDLE;
 
     for(i = 0; i < numSubscriptions; ++i)
     {
@@ -4567,12 +4618,16 @@ rbusError_t rbusEvent_SubscribeExAsync(
     int                             timeout)
 {
     rbusError_t errorcode = RBUS_ERROR_SUCCESS;
+    struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
     int i;
 
     VERIFY_NULL(handle);
     VERIFY_NULL(subscription);
     VERIFY_NULL(subscribeHandler);
     VERIFY_ZERO(numSubscriptions);
+
+    if (handleInfo->m_handleType != RBUS_HWDL_TYPE_REGULAR)
+        return RBUS_ERROR_INVALID_HANDLE;
 
     for(i = 0; i < numSubscriptions; ++i)
     {
@@ -4605,12 +4660,15 @@ rbusError_t rbusEvent_UnsubscribeEx(
     int                         numSubscriptions)
 {
     rbusError_t errorcode = RBUS_ERROR_SUCCESS;
+    struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
 
     VERIFY_NULL(handle);
     VERIFY_NULL(subscription);
     VERIFY_ZERO(numSubscriptions);
 
-    struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
+    if (handleInfo->m_handleType != RBUS_HWDL_TYPE_REGULAR)
+        return RBUS_ERROR_INVALID_HANDLE;
+
     int i;
 
     //TODO we will call unsubscribe for every sub in list
@@ -4697,6 +4755,9 @@ rbusError_t  rbusEvent_Publish(
 
     VERIFY_NULL(handle);
     VERIFY_NULL(eventData);
+
+    if (handleInfo->m_handleType != RBUS_HWDL_TYPE_REGULAR)
+        return RBUS_ERROR_INVALID_HANDLE;
 
     RBUSLOG_DEBUG("%s: %s", __FUNCTION__, eventData->name);
 
@@ -4885,8 +4946,13 @@ rbusError_t rbusMethod_Invoke(
     rbusObject_t inParams, 
     rbusObject_t* outParams)
 {
+    struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
     VERIFY_NULL(handle);
     VERIFY_NULL(methodName);
+
+    if (handleInfo->m_handleType != RBUS_HWDL_TYPE_REGULAR)
+        return RBUS_ERROR_INVALID_HANDLE;
+
     return rbusMethod_InvokeInternal(handle, methodName, inParams, outParams, rbusConfig_ReadSetTimeout());
 }
 
@@ -4931,6 +4997,7 @@ rbusError_t rbusMethod_InvokeAsync(
     rbusMethodAsyncRespHandler_t callback, 
     int timeout)
 {
+    struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
     pthread_t pid;
     rbusMethodInvokeAsyncData_t* data;
     int err = 0;
@@ -4938,6 +5005,9 @@ rbusError_t rbusMethod_InvokeAsync(
     VERIFY_NULL(handle);
     VERIFY_NULL(methodName);
     VERIFY_NULL(callback);
+
+    if (handleInfo->m_handleType != RBUS_HWDL_TYPE_REGULAR)
+        return RBUS_ERROR_INVALID_HANDLE;
 
     rbusObject_Retain(inParams);
 
