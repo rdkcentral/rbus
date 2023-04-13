@@ -2268,12 +2268,22 @@ static void _subscribe_callback_handler (rbusHandle_t handle, rbusMessage reques
                 elementNode* el = NULL;
                 rbusEvent_t event = {0};
                 rbusObject_t data = NULL;
+                char *tmpptr = NULL;
                 rbusProperty_t tmpProperties = NULL;
                 rbusError_t err = RBUS_ERROR_SUCCESS;
-
+                int actualCount = 0;
                 rbusObject_Init(&data, NULL);
                 el = retrieveInstanceElement(handleInfo->elementRoot, event_name);
-                if(el->type == RBUS_ELEMENT_TYPE_TABLE)
+                /* wildcard */
+                tmpptr= strchr(event_name, '*');
+                if(tmpptr)
+                {
+                    rbusProperty_Init(&tmpProperties,event_name, NULL);
+                    get_recursive_wildcard_handler(handleInfo, event_name,
+                            "initialValue", tmpProperties, &actualCount);
+                    rbusObject_SetProperty(data, rbusProperty_GetNext(tmpProperties));
+                }
+                else if(el->type == RBUS_ELEMENT_TYPE_TABLE)
                 {
                     rbusMessage tableRequest = NULL;
                     rbusMessage tableResponse = NULL;
