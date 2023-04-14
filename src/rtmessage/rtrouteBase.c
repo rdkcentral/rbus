@@ -97,26 +97,33 @@ rtRouteBase_BindListener(char const* socket_name, int no_delay, int indefinite_r
       num_retries = 18; //Special handling for TCP sockets: keep retrying for 3 minutes, 10s after each failure. This helps if networking is slow to come up.
   }
 
-    while(0 != num_retries)
+  while(0 != num_retries)
+  {
+    ret = bind(listener->fd, (struct sockaddr *)&listener->local_endpoint, socket_length);
+    if (ret == -1)
     {
-      ret = bind(listener->fd, (struct sockaddr *)&listener->local_endpoint, socket_length);
-      if (ret == -1)
+      rtError err = rtErrorFromErrno(errno);
+      rtLog_Warn("failed to bind socket. %s.  num_retries=%u", rtStrError(err), num_retries);
+      if(0 == --num_retries)
       {
-        rtError err = rtErrorFromErrno(errno);
-        rtLog_Warn("failed to bind socket. %s.  num_retries=%u", rtStrError(err), num_retries);
-        if(0 == --num_retries)
-        {
-          rtLog_Warn("exiting app on bind socket failure");
-          rtRouteBase_CloseListener(listener);
-          free(listener); 
-          return RT_FAIL;
-        }
-        else
-          sleep(10);
+        rtLog_Warn("exiting app on bind socket failure");
+        rtRouteBase_CloseListener(listener);
+        free(listener);
+        return RT_FAIL;
       }
       else
-        break;
+        sleep(10);
     }
+    else
+      break;
+  }
+
+  if (listener->local_endpoint.ss_family == AF_UNIX)
+  {
+    //skip the 7 letters from socket name as it points to `unix://`
+    if (chmod(&socket_name[7], S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH) < 0)
+      rtLog_Warn("Failed to change socket's write permission for non-root listener");
+  }
 
   ret = listen(listener->fd, 4);
   if (ret == -1)
