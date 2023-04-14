@@ -80,7 +80,13 @@ rtRouteBase_BindListener(char const* socket_name, int no_delay, int indefinite_r
 
   rtSocketStorage_GetLength(&listener->local_endpoint, &socket_length);
 
-  if (listener->local_endpoint.ss_family != AF_UNIX)
+  if (listener->local_endpoint.ss_family == AF_UNIX)
+  {
+    //skip the 7 letters from socket name as it points to `unix://`
+    if (chmod(&socket_name[7], S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH) < 0)
+      rtLog_Warn("Failed to change socket's write permission for non-root listener");
+  }
+  else if (listener->local_endpoint.ss_family != AF_UNIX)
   {
     uint32_t one = 1;
     if (no_delay)
