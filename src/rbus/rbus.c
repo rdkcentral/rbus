@@ -2278,14 +2278,11 @@ static void _subscribe_callback_handler (rbusHandle_t handle, rbusMessage reques
                 tmpptr= strchr(event_name, '*');
                 if(tmpptr)
                 {
-                    rbusProperty_t properties = NULL;
-                    rbusProperty_Init(&properties, "tmpProp", NULL);
-                    get_recursive_wildcard_handler(handleInfo, event_name,
-                            "initialValue", properties, &actualCount);
+                    rbusProperty_t tmpProperties = NULL;
                     rbusProperty_Init(&tmpProperties, "numberOfEntries", NULL);
+                    get_recursive_wildcard_handler(handleInfo, event_name,
+                            "initialValue", tmpProperties, &actualCount);
                     rbusProperty_SetInt32(tmpProperties, actualCount);
-                    rbusProperty_Append(tmpProperties, rbusProperty_GetNext(properties));
-                    rbusProperty_Release(properties);
                     rbusObject_SetProperty(data, tmpProperties);
                 }
                 else if(el->type == RBUS_ELEMENT_TYPE_TABLE)

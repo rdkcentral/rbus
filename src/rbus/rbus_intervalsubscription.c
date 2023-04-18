@@ -131,18 +131,13 @@ static void* PublishingThreadFunc(void* rec)
             RBUSLOG_ERROR("Error %d:%s running command pthread_cond_timedwait", err, strerror(err));
         }
 
-        rbusProperty_t tmpProperties = NULL;
         rbusProperty_t properties = NULL;
-        rbusProperty_Init(&tmpProperties,rbusProperty_GetName(sub_rec->property), NULL);
         rbusObject_t data;
         rbusObject_Init(&data, NULL);
-        result = get_recursive_wildcard_handler(handleInfo, sub->eventName,
-                "IntervalThread", tmpProperties, &actualCount);
-
         rbusProperty_Init(&properties, "numberOfEntries", NULL);
+        result = get_recursive_wildcard_handler(handleInfo, sub->eventName,
+                "IntervalThread", properties, &actualCount);
         rbusProperty_SetInt32(properties, actualCount);
-        rbusProperty_Append(properties, rbusProperty_GetNext(tmpProperties));
-        rbusProperty_Release(tmpProperties);
         rbusObject_SetProperty(data, properties);
         rbusProperty_Release(properties);
 
