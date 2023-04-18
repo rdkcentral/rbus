@@ -2278,10 +2278,15 @@ static void _subscribe_callback_handler (rbusHandle_t handle, rbusMessage reques
                 tmpptr= strchr(event_name, '*');
                 if(tmpptr)
                 {
-                    rbusProperty_Init(&tmpProperties,event_name, NULL);
+                    rbusProperty_t properties = NULL;
+                    rbusProperty_Init(&properties, "tmpProp", NULL);
                     get_recursive_wildcard_handler(handleInfo, event_name,
-                            "initialValue", tmpProperties, &actualCount);
-                    rbusObject_SetProperty(data, rbusProperty_GetNext(tmpProperties));
+                            "initialValue", properties, &actualCount);
+                    rbusProperty_Init(&tmpProperties, "numberOfEntries", NULL);
+                    rbusProperty_SetInt32(tmpProperties, actualCount);
+                    rbusProperty_Append(tmpProperties, rbusProperty_GetNext(properties));
+                    rbusProperty_Release(properties);
+                    rbusObject_SetProperty(data, tmpProperties);
                 }
                 else if(el->type == RBUS_ELEMENT_TYPE_TABLE)
                 {
@@ -2299,32 +2304,22 @@ static void _subscribe_callback_handler (rbusHandle_t handle, rbusMessage reques
                     rbusMessage_GetInt32(tableResponse, &tableRet);
                     rbusMessage_GetInt32(tableResponse, &count);
                     rbusProperty_Init(&tmpProperties, "numberOfEntries", NULL);
-                    if(count != 0)
+                    rbusProperty_SetInt32(tmpProperties, count);
+                    for(i = 0; i < count; ++i)
                     {
-                        for(i = 0; i < count; ++i)
-                        {
-                            int32_t instNum = 0;
-                            char fullName[RBUS_MAX_NAME_LENGTH] = {0};
-                            char row_instance[RBUS_MAX_NAME_LENGTH] = {0};
-                            char const* alias = NULL;
+                        int32_t instNum = 0;
+                        char fullName[RBUS_MAX_NAME_LENGTH] = {0};
+                        char row_instance[RBUS_MAX_NAME_LENGTH] = {0};
+                        char const* alias = NULL;
 
-                            rbusMessage_GetInt32(tableResponse, &instNum);
-                            rbusMessage_GetString(tableResponse, &alias);
-                            snprintf(fullName, RBUS_MAX_NAME_LENGTH, "%s%d.", event_name, instNum);
-                            if(i == 0)
-                            {
-                                rbusProperty_SetInt32(tmpProperties, count);
-                            }
-                            snprintf(row_instance, RBUS_MAX_NAME_LENGTH, "path%d", instNum);
-                            rbusProperty_AppendString(tmpProperties, row_instance, fullName);
-                        }
-                        rbusMessage_Release(tableRequest);
-                        rbusMessage_Release(tableResponse);
+                        rbusMessage_GetInt32(tableResponse, &instNum);
+                        rbusMessage_GetString(tableResponse, &alias);
+                        snprintf(fullName, RBUS_MAX_NAME_LENGTH, "%s%d.", event_name, instNum);
+                        snprintf(row_instance, RBUS_MAX_NAME_LENGTH, "path%d", instNum);
+                        rbusProperty_AppendString(tmpProperties, row_instance, fullName);
                     }
-                    else
-                    {
-                        rbusProperty_SetInt32(tmpProperties, count);
-                    }
+                    rbusMessage_Release(tableRequest);
+                    rbusMessage_Release(tableResponse);
                     rbusObject_SetProperty(data, tmpProperties);
                 }
                 else
