@@ -146,8 +146,7 @@ static void* PublishingThreadFunc(void* rec)
         }
         else
         {
-            rbusObject_SetProperty(data, rbusProperty_GetNext(properties));
-
+            rbusObject_SetProperty(data, rbusProperty_GetNext(properties)); /*"numberOfEntries" property not requried for normal event*/
         }
         rbusProperty_Release(properties);
         if(result != RBUS_ERROR_SUCCESS)
