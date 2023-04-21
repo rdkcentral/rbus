@@ -926,6 +926,11 @@ int subscribeHandlerImpl(
 
     if(added)
     {
+        if (interval && eventName[strlen(eventName)-1] == '.')
+        {
+            RBUSLOG_ERROR("rbus interval subscription not supported for this event %s\n", eventName);
+            return RBUSCORE_ERROR_INVALID_PARAM;
+        }
         subscription = rbusSubscriptions_addSubscription(handleInfo->subscriptions, listener, eventName, componentId, filter, interval, duration, autoPublish, el);
 
         if(!subscription)

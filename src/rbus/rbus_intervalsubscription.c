@@ -119,6 +119,7 @@ static void* PublishingThreadFunc(void* rec)
         int err;
         int actualCount = 0;
         int result = 0;
+        char *tmpptr = NULL;
         rtTime_t timeout;
         rtTimespec_t ts;
         rtTime_Later(NULL, (sub->interval*1000), &timeout);
@@ -138,9 +139,17 @@ static void* PublishingThreadFunc(void* rec)
         result = get_recursive_wildcard_handler(handleInfo, sub->eventName,
                 "IntervalThread", properties, &actualCount);
         rbusProperty_SetInt32(properties, actualCount);
-        rbusObject_SetProperty(data, properties);
-        rbusProperty_Release(properties);
+        tmpptr = strchr(sub->eventName, '*');
+        if (tmpptr)
+        {
+            rbusObject_SetProperty(data, properties);
+        }
+        else
+        {
+            rbusObject_SetProperty(data, rbusProperty_GetNext(properties));
 
+        }
+        rbusProperty_Release(properties);
         if(result != RBUS_ERROR_SUCCESS)
         {
             RBUSLOG_ERROR("%s: failed to get details of %s", __FUNCTION__, sub->eventName);
