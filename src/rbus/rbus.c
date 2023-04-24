@@ -926,6 +926,11 @@ int subscribeHandlerImpl(
 
     if(added)
     {
+        if (interval && eventName[strlen(eventName)-1] == '.')
+        {
+            RBUSLOG_ERROR("rbus interval subscription not supported for this event %s\n", eventName);
+            return RBUSCORE_ERROR_INVALID_PARAM;
+        }
         subscription = rbusSubscriptions_addSubscription(handleInfo->subscriptions, listener, eventName, componentId, filter, interval, duration, autoPublish, el);
 
         if(!subscription)
@@ -1534,7 +1539,7 @@ static void _get_recursive_partialpath_handler(elementNode* node, char const* qu
     }
 }
 
-static rbusError_t _get_recursive_wildcard_handler (rbusHandle_t handle, char const *parameterName, const char* pRequestingComp, rbusProperty_t properties, int *pCount)
+rbusError_t get_recursive_wildcard_handler (rbusHandle_t handle, char const *parameterName, const char* pRequestingComp, rbusProperty_t properties, int *pCount)
 {
     struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
     rbusError_t result = RBUS_ERROR_SUCCESS;
@@ -1579,7 +1584,7 @@ static rbusError_t _get_recursive_wildcard_handler (rbusHandle_t handle, char co
             if(strcmp(child->name, "{i}") != 0)
             {
                 snprintf (wildcardName, RBUS_MAX_NAME_LENGTH, "%s%s%s", instanceName, child->name, tmpPtr);
-                result = _get_recursive_wildcard_handler(handle, wildcardName, pRequestingComp, properties, pCount);
+                result = get_recursive_wildcard_handler(handle, wildcardName, pRequestingComp, properties, pCount);
                 if (result != RBUS_ERROR_SUCCESS)
                 {
                     RBUSLOG_WARN("Something went wrong while retriving the datamodel value...");
@@ -1720,7 +1725,7 @@ static void _get_callback_handler (rbusHandle_t handle, rbusMessage request, rbu
                     rbusValue_SetString(xtmp, "tmpValue");
                     rbusProperty_Init(&xproperties, "tmpProp", xtmp);
                     rbusValue_Release(xtmp);
-                    result = _get_recursive_wildcard_handler(handle, parameterName, pCompName, xproperties, &count);
+                    result = get_recursive_wildcard_handler(handle, parameterName, pCompName, xproperties, &count);
                     rbusMessage_Init(response);
                     rbusMessage_SetInt32(*response, (int) result);
                     if (result == RBUS_ERROR_SUCCESS)
@@ -2268,12 +2273,24 @@ static void _subscribe_callback_handler (rbusHandle_t handle, rbusMessage reques
                 elementNode* el = NULL;
                 rbusEvent_t event = {0};
                 rbusObject_t data = NULL;
+                char *tmpptr = NULL;
                 rbusProperty_t tmpProperties = NULL;
                 rbusError_t err = RBUS_ERROR_SUCCESS;
-
+                int actualCount = 0;
                 rbusObject_Init(&data, NULL);
                 el = retrieveInstanceElement(handleInfo->elementRoot, event_name);
-                if(el->type == RBUS_ELEMENT_TYPE_TABLE)
+                /* wildcard */
+                tmpptr= strchr(event_name, '*');
+                if(tmpptr)
+                {
+                    rbusProperty_t tmpProperties = NULL;
+                    rbusProperty_Init(&tmpProperties, "numberOfEntries", NULL);
+                    get_recursive_wildcard_handler(handleInfo, event_name,
+                            "initialValue", tmpProperties, &actualCount);
+                    rbusProperty_SetInt32(tmpProperties, actualCount);
+                    rbusObject_SetProperty(data, tmpProperties);
+                }
+                else if(el->type == RBUS_ELEMENT_TYPE_TABLE)
                 {
                     rbusMessage tableRequest = NULL;
                     rbusMessage tableResponse = NULL;
@@ -2289,32 +2306,22 @@ static void _subscribe_callback_handler (rbusHandle_t handle, rbusMessage reques
                     rbusMessage_GetInt32(tableResponse, &tableRet);
                     rbusMessage_GetInt32(tableResponse, &count);
                     rbusProperty_Init(&tmpProperties, "numberOfEntries", NULL);
-                    if(count != 0)
+                    rbusProperty_SetInt32(tmpProperties, count);
+                    for(i = 0; i < count; ++i)
                     {
-                        for(i = 0; i < count; ++i)
-                        {
-                            int32_t instNum = 0;
-                            char fullName[RBUS_MAX_NAME_LENGTH] = {0};
-                            char row_instance[RBUS_MAX_NAME_LENGTH] = {0};
-                            char const* alias = NULL;
+                        int32_t instNum = 0;
+                        char fullName[RBUS_MAX_NAME_LENGTH] = {0};
+                        char row_instance[RBUS_MAX_NAME_LENGTH] = {0};
+                        char const* alias = NULL;
 
-                            rbusMessage_GetInt32(tableResponse, &instNum);
-                            rbusMessage_GetString(tableResponse, &alias);
-                            snprintf(fullName, RBUS_MAX_NAME_LENGTH, "%s%d.", event_name, instNum);
-                            if(i == 0)
-                            {
-                                rbusProperty_SetInt32(tmpProperties, count);
-                            }
-                            snprintf(row_instance, RBUS_MAX_NAME_LENGTH, "path%d", instNum);
-                            rbusProperty_AppendString(tmpProperties, row_instance, fullName);
-                        }
-                        rbusMessage_Release(tableRequest);
-                        rbusMessage_Release(tableResponse);
+                        rbusMessage_GetInt32(tableResponse, &instNum);
+                        rbusMessage_GetString(tableResponse, &alias);
+                        snprintf(fullName, RBUS_MAX_NAME_LENGTH, "%s%d.", event_name, instNum);
+                        snprintf(row_instance, RBUS_MAX_NAME_LENGTH, "path%d", instNum);
+                        rbusProperty_AppendString(tmpProperties, row_instance, fullName);
                     }
-                    else
-                    {
-                        rbusProperty_SetInt32(tmpProperties, count);
-                    }
+                    rbusMessage_Release(tableRequest);
+                    rbusMessage_Release(tableResponse);
                     rbusObject_SetProperty(data, tmpProperties);
                 }
                 else
