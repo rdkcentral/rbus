@@ -667,6 +667,12 @@ rbusCoreError_t rbus_closeBrokerConnection()
         RBUSCORELOG_INFO("No connection exist to close.");
         return RBUSCORE_ERROR_INVALID_STATE;
     }
+    if(1 < rtVector_Size(g_server_objects))
+    {
+        RBUSCORELOG_ERROR("Should not destroy/close connection when one or more active connection exits.");
+        unlock();
+        return RBUSCORE_SUCCESS;
+    }
     rbus_releaseOpenTelemetryContext();
     perform_cleanup();
     err = rtConnection_Destroy(g_connection);
