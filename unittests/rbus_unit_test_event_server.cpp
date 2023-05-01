@@ -305,6 +305,8 @@ TEST_F(EventServerAPIs, addElementEvent_test1)
     //Neg test passing NULL as obj name
     err = rbus_addElementEvent(NULL,server_event);
     EXPECT_EQ(err, RBUSCORE_ERROR_INVALID_PARAM) << "rbus_addElementEvent failed";
+    err = rbus_unregisterObj(server_obj);
+    EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_unregisterObj failed";
     RBUS_CLOSE_BROKER_CONNECTION(RBUSCORE_SUCCESS);
 
     return;

@@ -399,6 +399,8 @@ TEST_F(TestServer, rbus_registerObjNameCheck_test1)
     /*Registering a new object with different name*/
     err = rbus_registerObj(obj_name, callback, NULL);
     EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_registerObj failed";
+    err = rbus_unregisterObj(obj_name);
+    EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_unregisterObj failed";
     RBUS_CLOSE_BROKER_CONNECTION(RBUSCORE_SUCCESS);
     return;
 }
@@ -414,14 +416,20 @@ TEST_F(TestServer, rbus_registerObjNameCheck_test2)
     CREATE_RBUS_SERVER_REG_OBJECT(counter);
     err = rbus_registerObj(obj_name1, callback, NULL);
     EXPECT_EQ(err, RBUSCORE_ERROR_INVALID_PARAM) << "rbus_registerObj failed";
+    err = rbus_unregisterObj(obj_name1);
+    EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_unregisterObj failed";
     err = rbus_registerObj(obj_name2, callback, NULL);
     EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_registerObj failed";
     err = rbus_registerObj(obj_name2, callback, NULL);
     EXPECT_EQ(err, RBUSCORE_ERROR_INVALID_PARAM) << "rbus_registerObj failed";
     err = rbus_registerObj(obj_name2, callback, NULL);
     EXPECT_EQ(err, RBUSCORE_ERROR_INVALID_PARAM) << "rbus_registerObj failed";
+    err = rbus_unregisterObj(obj_name2);
+    EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_unregisterObj failed";
     err = rbus_registerObj(obj_name3, callback, NULL);
     EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_registerObj failed";
+    err = rbus_unregisterObj(obj_name3);
+    EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_unregisterObj failed";
     RBUS_CLOSE_BROKER_CONNECTION(RBUSCORE_SUCCESS);
     return;
 }
@@ -452,6 +460,8 @@ TEST_F(TestServer, rbus_registerObjNameCheck_test4)
     memset(obj_name, 't', ( sizeof(obj_name) - 1));
     err = rbus_registerObj(obj_name, callback, NULL);
     EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_registerObj failed";
+    err = rbus_unregisterObj(obj_name);
+    EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_unregisterObj failed";
     RBUS_CLOSE_BROKER_CONNECTION(RBUSCORE_SUCCESS);
     return;
 }
@@ -467,6 +477,8 @@ TEST_F(TestServer, rbus_registerObjNameCheck_test5)
     memset(obj_name, 't', ( sizeof(obj_name) - 2));
     err = rbus_registerObj(obj_name, callback, NULL);
     EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_registerObj failed";
+    err = rbus_unregisterObj(obj_name);
+    EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_unregisterObj failed";
     RBUS_CLOSE_BROKER_CONNECTION(RBUSCORE_SUCCESS);
     return;
 }
@@ -501,6 +513,15 @@ TEST_F(TestServer, rbus_registerObjBoundaryPositive_test1)
         err = rbus_registerObj(buffer, callback, NULL);
         EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_registerObj failed";
     }
+    for(i = 2; i <= 63; i++)
+    {
+        memset( buffer, 0, DEFAULT_RESULT_BUFFERSIZE );
+        snprintf(buffer, (sizeof(buffer) - 1), "%s_%d", obj_name, i);
+        //printf("Registering object %s \n", buffer);
+        err = rbus_unregisterObj(buffer);
+        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_unregisterObj failed";
+    }
+
     RBUS_CLOSE_BROKER_CONNECTION(RBUSCORE_SUCCESS);
     return;
 }
@@ -532,6 +553,15 @@ TEST_F(TestServer, rbus_registerObjBoundaryPositive_test2)
     printf("Registering object %s \n", buffer);
     err = rbus_registerObj(buffer, callback, NULL);
     EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_registerObj failed";
+    for(i = 2; i <= 63; i++)
+    {
+        memset( buffer, 0, DEFAULT_RESULT_BUFFERSIZE );
+        snprintf(buffer, (sizeof(buffer) - 1), "%s_%d", obj_name, i);
+        //printf("Registering object %s \n", buffer);
+        err = rbus_unregisterObj(buffer);
+        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_unregisterObj failed";
+    }
+
     RBUS_CLOSE_BROKER_CONNECTION(RBUSCORE_SUCCESS);
     return;
 }
@@ -559,10 +589,19 @@ TEST_F(TestServer, rbus_registerObjBoundaryPositive_test3)
     EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_registerObj failed";
 
     memset( buffer, 0, DEFAULT_RESULT_BUFFERSIZE );
-    snprintf(buffer, (sizeof(buffer) - 1), "%s_%d", obj_name, i);
+    snprintf(buffer, (sizeof(buffer) - 1), "%s_%d", obj_name, (i-1));
     printf("Registering object %s \n", buffer);
     err = rbus_registerObj(buffer, callback, NULL);
     EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_registerObj failed";
+    for(i = 2; i <= 63; i++)
+    {
+        memset( buffer, 0, DEFAULT_RESULT_BUFFERSIZE );
+        snprintf(buffer, (sizeof(buffer) - 1), "%s_%d", obj_name, i);
+        //printf("Registering object %s \n", buffer);
+        err = rbus_unregisterObj(buffer);
+        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_unregisterObj failed";
+    }
+
     RBUS_CLOSE_BROKER_CONNECTION(RBUSCORE_SUCCESS);
     return;
 }
@@ -590,6 +629,15 @@ TEST_F(TestServer, rbus_registerObjBoundaryNegative_test1)
     //printf("Registering object %s \n", buffer);
     err = rbus_registerObj(buffer, callback, NULL);
     EXPECT_EQ(err, RBUSCORE_ERROR_GENERAL) << "rbus_registerObj failed";
+    for(i = 2; i <= 63; i++)
+    {
+       memset( buffer, 0, DEFAULT_RESULT_BUFFERSIZE );
+       snprintf(buffer, (sizeof(buffer) - 1), "%s_%d", obj_name, i);
+       //printf("Registering object %s \n", buffer);
+       err = rbus_unregisterObj(buffer);
+       EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_unregisterObj failed";
+    }
+
     RBUS_CLOSE_BROKER_CONNECTION(RBUSCORE_SUCCESS);
     return;
 }
@@ -611,6 +659,14 @@ TEST_F(TestServer, rbus_registerMethod_test1)
        //printf("Registering method %s \n", buffer);
        err = rbus_registerMethod(obj_name, buffer, handle_set1,NULL);
        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_registerMethod failed";
+    }
+    for(i = 1; i <= MAX_SUPPORTED_METHODS; i++)
+    {
+       memset( buffer, 0, DEFAULT_RESULT_BUFFERSIZE );
+       snprintf(buffer, (sizeof(buffer) - 1), "METHOD_%d", i);
+       //printf("Registering method %s \n", buffer);
+       err = rbus_unregisterMethod(obj_name, buffer);
+       EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_unregisterMethod failed";
     }
 
     RBUS_CLOSE_BROKER_CONNECTION(RBUSCORE_SUCCESS);
@@ -640,6 +696,15 @@ TEST_F(TestServer, rbus_registerMethod_test2)
     printf("Registering method %s \n", buffer);
     err = rbus_registerMethod(obj_name, buffer, handle_set1,NULL);
     EXPECT_EQ(err, RBUSCORE_ERROR_OUT_OF_RESOURCES) << "rbus_registerMethod failed";
+
+    for(i = 1; i <= MAX_SUPPORTED_METHODS; i++)
+    {
+       memset( buffer, 0, DEFAULT_RESULT_BUFFERSIZE );
+       snprintf(buffer, (sizeof(buffer) - 1), "METHOD_%d", i);
+       //printf("Registering method %s \n", buffer);
+       err = rbus_unregisterMethod(obj_name, buffer);
+       EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_unregisterMethod failed";
+    }
 
     RBUS_CLOSE_BROKER_CONNECTION(RBUSCORE_SUCCESS);
     return;
@@ -672,6 +737,8 @@ TEST_F(TestServer, rbus_registerMethod_test3)
     printf("Registering method %s \n", buffer);
     err = rbus_registerMethod(obj_name, buffer, handle_set1,NULL);
     EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_registerMethod failed";
+    err = rbus_unregisterMethod(obj_name, buffer);
+    EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_unregisterMethod failed";
 
     RBUS_CLOSE_BROKER_CONNECTION(RBUSCORE_SUCCESS);
     return;
@@ -705,6 +772,8 @@ TEST_F(TestServer, rbus_registerMethod_test4)
     printf("Registering method %s \n", buffer);
     err = rbus_registerMethod(obj_name, buffer, handle_set1,NULL);
     EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_registerMethod failed";
+    err = rbus_unregisterMethod(obj_name, buffer);
+    EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_unregisterMethod failed";
 
     RBUS_CLOSE_BROKER_CONNECTION(RBUSCORE_SUCCESS);
     return;
