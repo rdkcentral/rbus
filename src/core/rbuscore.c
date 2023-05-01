@@ -669,7 +669,7 @@ rbusCoreError_t rbus_closeBrokerConnection()
     }
     if(1 < rtVector_Size(g_server_objects))
     {
-        RBUSCORELOG_ERROR("Should not destroy/close connection when one or more active connection exits.");
+        RBUSCORELOG_INFO("Should not destroy/close connection when one or more active connection exits.");
         unlock();
         return RBUSCORE_SUCCESS;
     }
