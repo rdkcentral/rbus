@@ -100,11 +100,13 @@ typedef enum _rbus_legacy_returns {
 
 //********************************************************************************//
 
+extern char* __progname;
 //******************************* GLOBALS *****************************************//
 static pthread_mutex_t gMutex = PTHREAD_MUTEX_INITIALIZER;
 
 //********************************************************************************//
 
+static int _callback_handler(char const* destination, char const* method, rbusMessage request, void* userData, rbusMessage* response, const rtMessageHeader* hdr);
 //******************************* INTERNAL FUNCTIONS *****************************//
 static rbusError_t rbusCoreError_to_rbusError(rtError e)
 {
@@ -908,7 +910,11 @@ int subscribeHandlerImpl(
         else
             action = RBUS_EVENT_ACTION_UNSUBSCRIBE;
 
+
+
+        ELM_PRIVATE_LOCK(el);
         err = el->cbTable.eventSubHandler(handle, action, eventName, filter, interval, &autoPublish);
+        ELM_PRIVATE_UNLOCK(el);
 
         if(err != RBUS_ERROR_SUCCESS)
         {
@@ -920,6 +926,11 @@ int subscribeHandlerImpl(
 
     if(added)
     {
+        if (interval && eventName[strlen(eventName)-1] == '.')
+        {
+            RBUSLOG_ERROR("rbus interval subscription not supported for this event %s\n", eventName);
+            return RBUSCORE_ERROR_INVALID_PARAM;
+        }
         subscription = rbusSubscriptions_addSubscription(handleInfo->subscriptions, listener, eventName, componentId, filter, interval, duration, autoPublish, el);
 
         if(!subscription)
@@ -1121,7 +1132,7 @@ static int _event_subscribe_callback_handler(char const* object,  char const* ev
     }
     else
     {
-        RBUSLOG_WARN("event subscribe callback: unexpected! element not found");
+        RBUSLOG_WARN("event subscribe callback: element not found for [%s] event", eventName);
         err = RBUSCORE_ERROR_UNSUPPORTED_EVENT;
     }
     return err;
@@ -1294,7 +1305,9 @@ static void _set_callback_handler (rbusHandle_t handle, rbusMessage request, rbu
                         if(isCommit && loopCnt == numVals -1)
                             opts.commit = true;
 
+                        ELM_PRIVATE_LOCK(el);
                         rc = el->cbTable.setHandler(handle, pProperties[loopCnt], &opts);
+                        ELM_PRIVATE_UNLOCK(el);
                         if (rc != RBUS_ERROR_SUCCESS)
                         {
                             RBUSLOG_WARN("Set Failed for %s; Component Owner returned Error", paramName);
@@ -1460,7 +1473,9 @@ static void _get_recursive_partialpath_handler(elementNode* node, char const* qu
 
             rbusProperty_Init(&tmpProperties, partialPath, NULL);
 
+            ELM_PRIVATE_LOCK(node);
             result = node->cbTable.getHandler(handle, tmpProperties, &options);
+            ELM_PRIVATE_UNLOCK(node);
 
             if (result == RBUS_ERROR_SUCCESS )
             {
@@ -1498,7 +1513,9 @@ static void _get_recursive_partialpath_handler(elementNode* node, char const* qu
                 RBUSLOG_DEBUG("%*s_get_recursive_partialpath_handler calling property getHandler node=%s", level*4, " ", child->fullName);
 
                 rbusProperty_Init(&tmpProperties, query ? _convert_reg_name_to_instance_name(child->fullName, query, instanceName) : child->fullName, NULL);
+                ELM_PRIVATE_LOCK(child);
                 result = child->cbTable.getHandler(handle, tmpProperties, &options);
+                ELM_PRIVATE_UNLOCK(child);
                 if (result == RBUS_ERROR_SUCCESS)
                 {
                     rbusProperty_Append(properties, tmpProperties);
@@ -1522,7 +1539,7 @@ static void _get_recursive_partialpath_handler(elementNode* node, char const* qu
     }
 }
 
-static rbusError_t _get_recursive_wildcard_handler (rbusHandle_t handle, char const *parameterName, const char* pRequestingComp, rbusProperty_t properties, int *pCount)
+rbusError_t get_recursive_wildcard_handler (rbusHandle_t handle, char const *parameterName, const char* pRequestingComp, rbusProperty_t properties, int *pCount)
 {
     struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
     rbusError_t result = RBUS_ERROR_SUCCESS;
@@ -1567,7 +1584,7 @@ static rbusError_t _get_recursive_wildcard_handler (rbusHandle_t handle, char co
             if(strcmp(child->name, "{i}") != 0)
             {
                 snprintf (wildcardName, RBUS_MAX_NAME_LENGTH, "%s%s%s", instanceName, child->name, tmpPtr);
-                result = _get_recursive_wildcard_handler(handle, wildcardName, pRequestingComp, properties, pCount);
+                result = get_recursive_wildcard_handler(handle, wildcardName, pRequestingComp, properties, pCount);
                 if (result != RBUS_ERROR_SUCCESS)
                 {
                     RBUSLOG_WARN("Something went wrong while retriving the datamodel value...");
@@ -1601,7 +1618,9 @@ static rbusError_t _get_recursive_wildcard_handler (rbusHandle_t handle, char co
             rbusError_t result;
             rbusProperty_t tmpProperties;
             rbusProperty_Init(&tmpProperties, instanceName, NULL);
+            ELM_PRIVATE_LOCK(child);
             result = child->cbTable.getHandler(handle, tmpProperties, &options);
+            ELM_PRIVATE_UNLOCK(child);
             if (result == RBUS_ERROR_SUCCESS)
             {
                 rbusProperty_Append(properties, tmpProperties);
@@ -1635,7 +1654,9 @@ static rbusError_t _get_single_dml_handler (rbusHandle_t handle, char const *par
         {
             RBUSLOG_DEBUG("Table and CB exists for [%s], call the CB!", parameterName);
 
+            ELM_PRIVATE_LOCK(el);
             result = el->cbTable.getHandler(handle, properties, &options);
+            ELM_PRIVATE_UNLOCK(el);
 
             if (result != RBUS_ERROR_SUCCESS)
             {
@@ -1704,7 +1725,7 @@ static void _get_callback_handler (rbusHandle_t handle, rbusMessage request, rbu
                     rbusValue_SetString(xtmp, "tmpValue");
                     rbusProperty_Init(&xproperties, "tmpProp", xtmp);
                     rbusValue_Release(xtmp);
-                    result = _get_recursive_wildcard_handler(handle, parameterName, pCompName, xproperties, &count);
+                    result = get_recursive_wildcard_handler(handle, parameterName, pCompName, xproperties, &count);
                     rbusMessage_Init(response);
                     rbusMessage_SetInt32(*response, (int) result);
                     if (result == RBUS_ERROR_SUCCESS)
@@ -2004,7 +2025,9 @@ static void _table_add_row_callback_handler (rbusHandle_t handle, rbusMessage re
         {
             RBUSLOG_INFO("%s calling tableAddRowHandler table [%s] alias [%s]", __FUNCTION__, tableName, aliasName);
 
+            ELM_PRIVATE_LOCK(tableRegElem);
             result = tableRegElem->cbTable.tableAddRowHandler(handle, tableName, aliasName, &instNum);
+            ELM_PRIVATE_UNLOCK(tableRegElem);
 
             if (result == RBUS_ERROR_SUCCESS)
             {
@@ -2060,7 +2083,9 @@ static void _table_remove_row_callback_handler (rbusHandle_t handle, rbusMessage
             {
                 RBUSLOG_INFO("%s calling tableRemoveRowHandler row [%s]", __FUNCTION__, rowName);
 
+                ELM_PRIVATE_LOCK(tableRegElem);
                 result = tableRegElem->cbTable.tableRemoveRowHandler(handle, rowName);
+                ELM_PRIVATE_UNLOCK(tableRegElem);
 
                 if (result == RBUS_ERROR_SUCCESS)
                 {
@@ -2126,7 +2151,9 @@ static int _method_callback_handler(rbusHandle_t handle, rbusMessage request, rb
             rbusMethodAsyncHandle_t asyncHandle = rt_malloc(sizeof(struct _rbusMethodAsyncHandle));
             asyncHandle->hdr = *hdr;
 
+            ELM_PRIVATE_LOCK(methRegElem);
             result = methRegElem->cbTable.methodHandler(handle, methodName, inParams, outParams, asyncHandle);
+            ELM_PRIVATE_UNLOCK(methRegElem);
             
             if (result == RBUS_ERROR_ASYNC_RESPONSE)
             {
@@ -2246,12 +2273,24 @@ static void _subscribe_callback_handler (rbusHandle_t handle, rbusMessage reques
                 elementNode* el = NULL;
                 rbusEvent_t event = {0};
                 rbusObject_t data = NULL;
+                char *tmpptr = NULL;
                 rbusProperty_t tmpProperties = NULL;
                 rbusError_t err = RBUS_ERROR_SUCCESS;
-
+                int actualCount = 0;
                 rbusObject_Init(&data, NULL);
                 el = retrieveInstanceElement(handleInfo->elementRoot, event_name);
-                if(el->type == RBUS_ELEMENT_TYPE_TABLE)
+                /* wildcard */
+                tmpptr= strchr(event_name, '*');
+                if(tmpptr)
+                {
+                    rbusProperty_t tmpProperties = NULL;
+                    rbusProperty_Init(&tmpProperties, "numberOfEntries", NULL);
+                    get_recursive_wildcard_handler(handleInfo, event_name,
+                            "initialValue", tmpProperties, &actualCount);
+                    rbusProperty_SetInt32(tmpProperties, actualCount);
+                    rbusObject_SetProperty(data, tmpProperties);
+                }
+                else if(el->type == RBUS_ELEMENT_TYPE_TABLE)
                 {
                     rbusMessage tableRequest = NULL;
                     rbusMessage tableResponse = NULL;
@@ -2267,32 +2306,22 @@ static void _subscribe_callback_handler (rbusHandle_t handle, rbusMessage reques
                     rbusMessage_GetInt32(tableResponse, &tableRet);
                     rbusMessage_GetInt32(tableResponse, &count);
                     rbusProperty_Init(&tmpProperties, "numberOfEntries", NULL);
-                    if(count != 0)
+                    rbusProperty_SetInt32(tmpProperties, count);
+                    for(i = 0; i < count; ++i)
                     {
-                        for(i = 0; i < count; ++i)
-                        {
-                            int32_t instNum = 0;
-                            char fullName[RBUS_MAX_NAME_LENGTH] = {0};
-                            char row_instance[RBUS_MAX_NAME_LENGTH] = {0};
-                            char const* alias = NULL;
+                        int32_t instNum = 0;
+                        char fullName[RBUS_MAX_NAME_LENGTH] = {0};
+                        char row_instance[RBUS_MAX_NAME_LENGTH] = {0};
+                        char const* alias = NULL;
 
-                            rbusMessage_GetInt32(tableResponse, &instNum);
-                            rbusMessage_GetString(tableResponse, &alias);
-                            snprintf(fullName, RBUS_MAX_NAME_LENGTH, "%s%d.", event_name, instNum);
-                            if(i == 0)
-                            {
-                                rbusProperty_SetInt32(tmpProperties, count);
-                            }
-                            snprintf(row_instance, RBUS_MAX_NAME_LENGTH, "path%d", instNum);
-                            rbusProperty_AppendString(tmpProperties, row_instance, fullName);
-                        }
-                        rbusMessage_Release(tableRequest);
-                        rbusMessage_Release(tableResponse);
+                        rbusMessage_GetInt32(tableResponse, &instNum);
+                        rbusMessage_GetString(tableResponse, &alias);
+                        snprintf(fullName, RBUS_MAX_NAME_LENGTH, "%s%d.", event_name, instNum);
+                        snprintf(row_instance, RBUS_MAX_NAME_LENGTH, "path%d", instNum);
+                        rbusProperty_AppendString(tmpProperties, row_instance, fullName);
                     }
-                    else
-                    {
-                        rbusProperty_SetInt32(tmpProperties, count);
-                    }
+                    rbusMessage_Release(tableRequest);
+                    rbusMessage_Release(tableResponse);
                     rbusObject_SetProperty(data, tmpProperties);
                 }
                 else
@@ -2305,7 +2334,9 @@ static void _subscribe_callback_handler (rbusHandle_t handle, rbusMessage reques
 
                         options.requestingComponent = handleInfo->componentName;
                         rbusProperty_Init(&tmpProperties, event_name, NULL);
+                        ELM_PRIVATE_LOCK(el);
                         err = el->cbTable.getHandler(handle, tmpProperties, &options);
+                        ELM_PRIVATE_UNLOCK(el);
                         val = rbusProperty_GetValue(tmpProperties);
                         rbusObject_SetValue(data, "initialValue", val);
                     }
@@ -2340,11 +2371,122 @@ static void _subscribe_callback_handler (rbusHandle_t handle, rbusMessage reques
     }
 }
 
+#define RBUS_DAEMON_CONF_LENGTH     256
+static void _create_direct_connection_callback_handler (rbusHandle_t handle, rbusMessage request, rbusMessage *response)
+{
+    rbusCoreError_t ret = RBUSCORE_SUCCESS;
+    struct _rbusHandle* handleInfo = handle;
+    elementNode* el = NULL;
+    char const* consumerName = NULL;
+    char const* paramName = NULL;
+    char const* consumerToBrokerConf = NULL;
+    int32_t consumerPID = 0;
+    char daemonAddress[RBUS_DAEMON_CONF_LENGTH] = "";
+
+
+    rbusMessage_GetString(request, &consumerName);
+    rbusMessage_GetInt32(request, &consumerPID);
+    rbusMessage_GetString(request, &paramName);
+    rbusMessage_GetString(request, &consumerToBrokerConf);
+
+    rbusMessage_Init(response);
+
+    el = retrieveInstanceElement(handleInfo->elementRoot, paramName);
+
+    if (el)
+    {
+        if (0 == strncmp(consumerToBrokerConf, "unix", 4))
+        {
+            snprintf (daemonAddress, RBUS_DAEMON_CONF_LENGTH, "unix:///tmp/.direct_%s_%s", __progname, consumerName);
+        }
+        else
+        {
+            char ip[128];
+            // the length of 6 for "tcp://"
+            char const* p = strrchr(consumerToBrokerConf + 6, ':');
+            if (!p)
+            {
+                RBUSLOG_WARN("invalid address string:%s", consumerToBrokerConf);
+                ret = RBUSCORE_ERROR_INVALID_PARAM;
+            }
+            else
+            {
+                strncpy(ip, consumerToBrokerConf, (p - consumerToBrokerConf));
+                RBUSLOG_DEBUG ("parsing ip address:%s", ip);
+            
+                //FIXME :: The port must be within 65535 and unique to the consumer.
+                // PID is something unique  but the same client can have direct connection to two different providers and that could lead to failure.
+
+                // ex: if the consumer pid is 12345;
+                //          Provider1 may open a private session on 127.0.0.1:12345
+                //          Provider2 should not (could not) open private session on same address as 127.0.0.1:12345.
+                // Provider 2 have to come up with some other logic
+
+                // Note: On 32 Bit Linux, the max pid is 32768
+                // Note: On 64 Bit Linux, the max pid is 4194303
+                // Also, unique number free of 20, 21, 22, 80, 53, 123, 443, 8080, 10001(or actual rbus daemon port has to be arrived.
+                // May be we must engage session manager to generate
+                srand(time(NULL));
+                uint32_t port = 0;
+                do {
+                    port =  rand() % 65535;
+                } while (port < 8080);
+
+                snprintf (daemonAddress, RBUS_DAEMON_CONF_LENGTH, "%s:%u", ip, port);
+            }
+        }
+    }
+    else
+    {
+        ret = RBUSCORE_ERROR_ENTRY_NOT_FOUND;
+        RBUSLOG_WARN("invalid parameter name :%s", paramName);
+    }
+
+    rbusMessage_SetInt32(*response, ret);
+    if (RBUSCORE_SUCCESS == ret)
+    {
+        rbuscore_startPrivateListener(daemonAddress, consumerName, paramName, _callback_handler, handle);
+
+        rbusMessage_SetString(*response, rtConnection_GetReturnAddress(handleInfo->m_connection));
+        rbusMessage_SetString(*response, daemonAddress);
+    }
+}
+
+static void _close_direct_connection_callback_handler (rbusHandle_t handle, rbusMessage request, rbusMessage *response)
+{
+    elementNode* el = NULL;
+    struct _rbusHandle* handleInfo = handle;
+    char const* consumerName = NULL;
+    char const* paramName = NULL;
+
+    rbusMessage_GetString(request, &consumerName);
+    rbusMessage_GetString(request, &paramName);
+
+    rbusMessage_Init(response);
+
+    el = retrieveInstanceElement(handleInfo->elementRoot, paramName);
+    if (el)
+    {
+        rbusMessage_SetInt32(*response, RBUSCORE_SUCCESS);
+        rbuscore_updatePrivateListener(consumerName, paramName);
+    }
+    else
+        rbusMessage_SetInt32(*response, RBUSCORE_ERROR_INVALID_PARAM);
+
+    RBUSLOG_DEBUG("Handled the disconnect request from %s for DML(%s)", consumerName, paramName);
+}
+
 static int _callback_handler(char const* destination, char const* method, rbusMessage request, void* userData, rbusMessage* response, const rtMessageHeader* hdr)
 {
     rbusHandle_t handle = (rbusHandle_t)userData;
 
     RBUSLOG_DEBUG("Received callback for [%s]", destination);
+
+    if (!method)
+    {
+        RBUSLOG_DEBUG("Received Direct Message from some sender for one of the DML:: %s", destination);
+        return 0;
+    }
 
     if(!strcmp(method, METHOD_GETPARAMETERVALUES))
     {
@@ -2366,13 +2508,21 @@ static int _callback_handler(char const* destination, char const* method, rbusMe
     {
         _table_remove_row_callback_handler (handle, request, response);
     }
-    else if(!strcmp(method, METHOD_RPC))
-    {
-        return _method_callback_handler (handle, request, response, hdr);
-    }
     else if(!strcmp(method, METHOD_SUBSCRIBE) || !strcmp(method, METHOD_UNSUBSCRIBE))
     {
         _subscribe_callback_handler (handle, request, response, method);
+    }
+    else if(!strcmp(method, METHOD_OPENDIRECT_CONN))
+    {
+        _create_direct_connection_callback_handler(handle, request, response);
+    }
+    else if(!strcmp(method, METHOD_CLOSEDIRECT_CONN))
+    {
+        _close_direct_connection_callback_handler(handle, request, response);
+    }
+    else if(!strcmp(method, METHOD_RPC))
+    {
+        return _method_callback_handler (handle, request, response, hdr);
     }
     else
     {
@@ -2473,6 +2623,7 @@ rbusError_t rbus_open(rbusHandle_t* handle, char const* componentName)
 
     tmpHandle = rt_calloc(1, sizeof(struct _rbusHandle));
 
+    tmpHandle->m_handleType = RBUS_HWDL_TYPE_REGULAR;
     if((err = rbus_registerObj(componentName, _callback_handler, tmpHandle)) != RBUSCORE_SUCCESS)
     {
         /*This will fail if the same name was previously registered (by another rbus_open or ccsp msg bus init)*/
@@ -2482,7 +2633,7 @@ rbusError_t rbus_open(rbusHandle_t* handle, char const* componentName)
 
     tmpHandle->componentName = strdup(componentName);
     tmpHandle->componentId = ++sLastComponentId;
-    tmpHandle->connection = rbus_getConnection();
+    tmpHandle->m_connection = rbus_getConnection();
     rtVector_Create(&tmpHandle->eventSubs);
     rtVector_Create(&tmpHandle->messageCallbacks);
 
@@ -2526,6 +2677,76 @@ exit_error0:
     if(ret == RBUS_ERROR_SUCCESS)
         ret = RBUS_ERROR_BUS_ERROR;
 
+    return ret;
+}
+
+static bool sDisConnHandler = false;
+
+rbusError_t rbus_openDirect(rbusHandle_t handle, rbusHandle_t* myDirectHandle, char const* pParameterName)
+{
+    rtConnection myDirectCon = NULL;
+    rbusError_t ret = RBUS_ERROR_SUCCESS;
+    rbusCoreError_t err = RBUSCORE_SUCCESS;
+    struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
+
+    if ((handle) && (myDirectHandle) && (pParameterName))
+    {
+        if (rbuscore_FindClientPrivateConnection(pParameterName))
+        {
+            RBUSLOG_ERROR("Private Connection Already Exist for this Parameter(%s) for this consumer(%s)", pParameterName, handleInfo->componentName);
+            return RBUS_ERROR_ELEMENT_NAME_DUPLICATE;
+        }
+        else
+        {
+            err = rbuscore_createPrivateConnection(pParameterName, &myDirectCon);
+            if (RBUSCORE_SUCCESS == err)
+            {
+                ret = RBUS_ERROR_SUCCESS;
+                rbusHandle_t tmpHandle = NULL;
+                tmpHandle = rt_calloc(1, sizeof(struct _rbusHandle));
+                tmpHandle->componentName = strdup(pParameterName);
+                tmpHandle->m_connection = myDirectCon;
+                tmpHandle->m_handleType = RBUS_HWDL_TYPE_DIRECT;
+                *myDirectHandle = tmpHandle;
+                if (!sDisConnHandler)
+                {
+                    rbus_registerClientDisconnectHandler(_client_disconnect_callback_handler);
+                    sDisConnHandler = true;
+                }
+            }
+            else
+            {
+                *myDirectHandle = NULL;
+                ret = RBUS_ERROR_COMPONENT_DOES_NOT_EXIST;
+            }
+        }
+    }
+    else
+    {
+        ret = RBUS_ERROR_INVALID_INPUT;
+    }
+
+    return ret;
+}
+
+rbusError_t rbus_closeDirect(rbusHandle_t handle)
+{
+    rbusError_t ret = RBUS_ERROR_SUCCESS;
+    struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
+
+    VERIFY_NULL(handle);
+    if (RBUS_HWDL_TYPE_DIRECT == handleInfo->m_handleType)
+    {
+        rbuscore_closePrivateConnection(handleInfo->componentName);
+        free(handleInfo->componentName);
+        handleInfo->componentName = NULL;
+        handleInfo->m_handleType = RBUS_HWDL_TYPE_UNKNOWN;
+        free(handleInfo);
+    }
+    else
+    {
+        ret = RBUS_ERROR_INVALID_INPUT;
+    }
     return ret;
 }
 
@@ -2590,7 +2811,7 @@ rbusError_t rbus_close(rbusHandle_t handle)
     }
 
     componentName = handleInfo->componentName;
-
+    handleInfo->componentName=NULL;
     rbusHandleList_Remove(handleInfo);
 
     if(rbusHandleList_IsEmpty())
@@ -2628,15 +2849,18 @@ rbusError_t rbus_regDataElements(
     int numDataElements,
     rbusDataElement_t *elements)
 {
-    static bool sDisConnHandler = false;
     int i;
     rbusError_t rc = RBUS_ERROR_SUCCESS;
     rbusCoreError_t err = RBUSCORE_SUCCESS;
     struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
 
     VERIFY_NULL(handleInfo);
+    VERIFY_NULL(handleInfo->componentName);
     VERIFY_NULL(elements);
     VERIFY_ZERO(numDataElements);
+
+    if (handleInfo->m_handleType != RBUS_HWDL_TYPE_REGULAR)
+        return RBUS_ERROR_INVALID_HANDLE;
 
     for(i=0; i<numDataElements; ++i)
     {
@@ -2722,6 +2946,9 @@ rbusError_t rbus_unregDataElements(
     VERIFY_NULL(elements);
     VERIFY_ZERO(numDataElements);
 
+    if (handleInfo->m_handleType != RBUS_HWDL_TYPE_REGULAR)
+        return RBUS_ERROR_INVALID_HANDLE;
+
     for(i=0; i<numDataElements; ++i)
     {
         char const* name = elements[i].name;
@@ -2805,6 +3032,9 @@ rbusError_t rbus_get(rbusHandle_t handle, char const* name, rbusValue_t* value)
 
     VERIFY_NULL(handleInfo);
 
+    if (handleInfo->m_handleType != RBUS_HWDL_TYPE_REGULAR)
+        return RBUS_ERROR_INVALID_HANDLE;
+
     /* Is it a valid Query */
     if (!_is_valid_get_query(name))
     {
@@ -2825,9 +3055,17 @@ rbusError_t rbus_get(rbusHandle_t handle, char const* name, rbusValue_t* value)
     rbusMessage_SetInt32(request, (int32_t)1);
     rbusMessage_SetString(request, name);
 
-    RBUSLOG_DEBUG("Calling rbus_invokeRemoteMethod for [%s]", name);
+    RBUSLOG_DEBUG("Calling rbus_invokeRemoteMethod2 for [%s]", name);
 
-    if((err = rbus_invokeRemoteMethod(name, METHOD_GETPARAMETERVALUES, request, rbusConfig_ReadGetTimeout(), &response)) != RBUSCORE_SUCCESS)
+    /* Find direct connection status */
+    rtConnection myConn = rbuscore_FindClientPrivateConnection(name);
+        
+    if (NULL == myConn)
+        myConn = handleInfo->m_connection;
+
+    err = rbus_invokeRemoteMethod2(myConn, name, METHOD_GETPARAMETERVALUES, request, rbusConfig_ReadGetTimeout(), &response);
+
+    if(err != RBUSCORE_SUCCESS)
     {
         RBUSLOG_ERROR("%s by %s failed; Received error %d from RBUS Daemon for the object %s", __FUNCTION__, handle->componentName, err, name);
         errorcode = rbusCoreError_to_rbusError(err);
@@ -2951,6 +3189,9 @@ rbusError_t rbus_getExt(rbusHandle_t handle, int paramCount, char const** pParam
     VERIFY_NULL(retProperties);
     VERIFY_ZERO(paramCount);
 
+    if (handleInfo->m_handleType != RBUS_HWDL_TYPE_REGULAR)
+        return RBUS_ERROR_INVALID_HANDLE;
+
     if ((1 == paramCount) && (_is_wildcard_query(pParamNames[0])))
     {
         int numDestinations = 0;
@@ -2982,7 +3223,9 @@ rbusError_t rbus_getExt(rbusHandle_t handle, int paramCount, char const** pParam
                     rbusMessage_SetInt32(request, 1);
                     rbusMessage_SetString(request, pParamNames[0]);
                     /* Invoke the method */
-                    if((err = rbus_invokeRemoteMethod(destinations[i], METHOD_GETPARAMETERVALUES, request, rbusConfig_ReadGetTimeout(), &response)) != RBUSCORE_SUCCESS)
+                    err = rbus_invokeRemoteMethod(destinations[i], METHOD_GETPARAMETERVALUES, request, rbusConfig_ReadGetTimeout(), &response);
+
+                    if(err != RBUSCORE_SUCCESS)
                     {
                         RBUSLOG_ERROR("%s by %s failed; Received error %d from RBUS Daemon for the object %s", __FUNCTION__, handle->componentName, err, destinations[i]);
                         errorcode = rbusCoreError_to_rbusError(err);
@@ -3257,6 +3500,9 @@ rbusError_t rbus_set(rbusHandle_t handle, char const* name,rbusValue_t value, rb
     VERIFY_NULL(name);
     VERIFY_NULL(value);
 
+    if (handleInfo->m_handleType != RBUS_HWDL_TYPE_REGULAR)
+        return RBUS_ERROR_INVALID_HANDLE;
+
     if (RBUS_NONE == rbusValue_GetType(value))
     {
         return errorcode;
@@ -3278,8 +3524,13 @@ rbusError_t rbus_set(rbusHandle_t handle, char const* name,rbusValue_t value, rb
 
     /* Set the Commit value; FIXME: Should we use string? */
     rbusMessage_SetString(setRequest, (!opts || opts->commit) ? "TRUE" : "FALSE");
+    /* Find direct connection status */
+    rtConnection myConn = rbuscore_FindClientPrivateConnection(name);
+        
+    if (NULL == myConn)
+        myConn = handleInfo->m_connection;
 
-    if((err = rbus_invokeRemoteMethod(name, METHOD_SETPARAMETERVALUES, setRequest, rbusConfig_ReadSetTimeout(), &setResponse)) != RBUSCORE_SUCCESS)
+    if((err = rbus_invokeRemoteMethod2(myConn, name, METHOD_SETPARAMETERVALUES, setRequest, rbusConfig_ReadSetTimeout(), &setResponse)) != RBUSCORE_SUCCESS)
     {
         RBUSLOG_ERROR("%s by %s failed; Received error %d from RBUS Daemon for the object %s", __FUNCTION__, handle->componentName, err, name);
         errorcode = rbusCoreError_to_rbusError(err);
@@ -3326,6 +3577,9 @@ rbusError_t rbus_setMulti(rbusHandle_t handle, int numProps, rbusProperty_t prop
     rbusProperty_t current;
 
     VERIFY_NULL(handle);
+
+    if (handleInfo->m_handleType != RBUS_HWDL_TYPE_REGULAR)
+        return RBUS_ERROR_INVALID_HANDLE;
 
     if (numProps > 0 && properties != NULL)
     {
@@ -3512,89 +3766,6 @@ rbusError_t rbus_setMulti(rbusHandle_t handle, int numProps, rbusProperty_t prop
     return errorcode;
 }
 
-#if 0
-rbusError_t rbus_setMulti(rbusHandle_t handle, int numValues,
-        char const** valueNames, rbusValue_t* values, rbusSetOptions_t* opts)
-{
-    rbusError_t errorcode = RBUS_ERROR_INVALID_INPUT;
-    rbusCoreError_t err = RBUSCORE_SUCCESS;
-    rbusMessage setRequest, setResponse;
-    int loopCnt = 0;
-    struct _rbusHandle* handleInfo = (struct _rbusHandle*) handle;
-
-    if (values != NULL)
-    {
-        rbusMessage_Init(&setRequest);
-        /* Set the Session ID first */
-        rbusMessage_SetInt32(setRequest, 0);
-        /* Set the Component name that invokes the set */
-        rbusMessage_SetString(setRequest, handleInfo->componentName);
-        /* Set the Size of params */
-        rbusMessage_SetInt32(setRequest, numValues);
-
-        /* Set the params in details */
-        for (loopCnt = 0; loopCnt < numValues; loopCnt++)
-        {
-            rbusValue_appendToMessage(valueNames[loopCnt], values[loopCnt], setRequest);
-        }
-
-        /* Set the Commit value; FIXME: Should we use string? */
-        rbusMessage_SetString(setRequest, (!opts || opts->commit) ? "TRUE" : "FALSE");
-
-        /* TODO: At this point in time, only given Table/Component can be updated with SET/GET..
-         * So, passing the elementname as first arg is not a issue for now..
-         * We must enhance the rbus in such a way that we shd be able to set across components. Lets revist this area at that time.
-         */
-#if 0
-        /* TODO: First step towards the above comment. When we enhace to support acorss components, this following has to be looped or appropriate count will be passed */
-        char const* pElementNames[] = {values[0].name, NULL};
-        char** pComponentName = NULL;
-        err = rbus_discoverElementObjects(pElementNames, 1, &pComponentName);
-        if (err != RBUSCORE_SUCCESS)
-        {
-            RBUSLOG_INFO ("Element not found");
-            errorcode = RBUS_ERROR_ELEMENT_DOES_NOT_EXIST;
-        }
-        else
-        {
-            RBUSLOG_INFO ("Component name is, %s", pComponentName[0]);
-            free (pComponentName[0]);
-        }
-#endif
-        if((err = rbus_invokeRemoteMethod(valueNames[0], METHOD_SETPARAMETERVALUES, setRequest, 6000, &setResponse)) != RBUSCORE_SUCCESS)
-        {
-            RBUSLOG_INFO("%s rbus_invokeRemoteMethod failed with err %d", __FUNCTION__, err);
-            errorcode = RBUS_ERROR_BUS_ERROR;
-        }
-        else
-        {
-            char const* pErrorReason = NULL;
-            rbusLegacyReturn_t legacyRetCode = RBUS_LEGACY_ERR_FAILURE;
-            int ret = -1;
-            rbusMessage_GetInt32(setResponse, &ret);
-
-            RBUSLOG_INFO("Response from the remote method is [%d]!", ret);
-            errorcode = (rbusError_t) ret;
-            legacyRetCode = (rbusLegacyReturn_t) ret;
-
-            if((errorcode == RBUS_ERROR_SUCCESS) || (legacyRetCode == RBUS_LEGACY_ERR_SUCCESS))
-            {
-                errorcode = RBUS_ERROR_SUCCESS;
-                RBUSLOG_INFO("Successfully Set the Value");
-            }
-            else
-            {
-                rbusMessage_GetString(setResponse, &pErrorReason);
-                RBUSLOG_INFO("Failed to Set the Value for %s", pErrorReason);
-            }
-
-            /* Release the reponse message */
-            rbusMessage_Release(setResponse);
-        }
-    }
-    return errorcode;
-}
-#endif
 static rbusError_t rbus_setByType(rbusHandle_t handle, char const* paramName, void const* paramVal, rbusValueType_t type)
 {
     rbusError_t errorcode = RBUS_ERROR_INVALID_INPUT;
@@ -3663,11 +3834,14 @@ rbusError_t rbusTable_addRow(
     int32_t instanceId = 0;
     const char dot = '.';
     rbusMessage request, response;
-    (void)handle;
+    struct _rbusHandle* handleInfo = (struct _rbusHandle*) handle;
     rbusLegacyReturn_t legacyRetCode = RBUS_LEGACY_ERR_FAILURE;
 
     VERIFY_NULL(handle);
     VERIFY_NULL(tableName);
+
+    if (handleInfo->m_handleType != RBUS_HWDL_TYPE_REGULAR)
+        return RBUS_ERROR_INVALID_HANDLE;
 
     RBUSLOG_DEBUG("%s: %s %s", __FUNCTION__, tableName, aliasName);
 
@@ -3679,13 +3853,19 @@ rbusError_t rbusTable_addRow(
 
     rbusMessage_Init(&request);
     rbusMessage_SetInt32(request, 0);/*TODO: this should be the session ID*/
-    rbusMessage_SetString(request, tableName);/*TODO: do we need to append the name as well as pass the name as the 1st arg to rbus_invokeRemoteMethod ?*/
+    rbusMessage_SetString(request, tableName);/*TODO: do we need to append the name as well as pass the name as the 1st arg to rbus_invokeRemoteMethod2 ?*/
     if(aliasName)
         rbusMessage_SetString(request, aliasName);
     else
         rbusMessage_SetString(request, "");
 
-    if((err = rbus_invokeRemoteMethod(
+    /* Find direct connection status */
+    rtConnection myConn = rbuscore_FindClientPrivateConnection(tableName);
+
+    if (NULL == myConn)
+        myConn = handleInfo->m_connection;
+
+    if((err = rbus_invokeRemoteMethod2(myConn,
         tableName, /*as taken from ccsp_base_api.c, this was the destination component ID, but to locate the route, the table name can be used
                      because the broker simlpy looks at the top level nodes that are owned by a component route.  maybe this breaks if the broker changes*/
         METHOD_ADDTBLROW, 
@@ -3705,7 +3885,7 @@ rbusError_t rbusTable_addRow(
         if(instNum)
             *instNum = (uint32_t)instanceId;/*FIXME we need an rbus_PopUInt32 to avoid loosing a bit */
 
-        RBUSLOG_INFO("%s rbus_invokeRemoteMethod success response returnCode:%d instanceId:%d", __FUNCTION__, returnCode, instanceId);
+        RBUSLOG_INFO("%s rbus_invokeRemoteMethod2 success response returnCode:%d instanceId:%d", __FUNCTION__, returnCode, instanceId);
         if((returnCode == RBUS_ERROR_SUCCESS) || (legacyRetCode == RBUS_LEGACY_ERR_SUCCESS))
         {
             returnCode = RBUS_ERROR_SUCCESS;
@@ -3732,19 +3912,27 @@ rbusError_t rbusTable_removeRow(
     rbusCoreError_t err;
     int returnCode = 0;
     rbusMessage request, response;
-    (void)handle;
+    struct _rbusHandle* handleInfo = (struct _rbusHandle*) handle;
     rbusLegacyReturn_t legacyRetCode = RBUS_LEGACY_ERR_FAILURE;
 
     VERIFY_NULL(handle);
     VERIFY_NULL(rowName);
 
+    if (handleInfo->m_handleType != RBUS_HWDL_TYPE_REGULAR)
+        return RBUS_ERROR_INVALID_HANDLE;
+
     RBUSLOG_DEBUG("%s: %s", __FUNCTION__, rowName);
 
     rbusMessage_Init(&request);
     rbusMessage_SetInt32(request, 0);/*TODO: this should be the session ID*/
-    rbusMessage_SetString(request, rowName);/*TODO: do we need to append the name as well as pass the name as the 1st arg to rbus_invokeRemoteMethod ?*/
+    rbusMessage_SetString(request, rowName);/*TODO: do we need to append the name as well as pass the name as the 1st arg to rbus_invokeRemoteMethod2 ?*/
+    /* Find direct connection status */
+    rtConnection myConn = rbuscore_FindClientPrivateConnection(rowName);
+        
+    if (NULL == myConn)
+        myConn = handleInfo->m_connection;
 
-    if((err = rbus_invokeRemoteMethod(
+    if((err = rbus_invokeRemoteMethod2(myConn,
         rowName,
         METHOD_DELETETBLROW, 
         request, 
@@ -3759,7 +3947,7 @@ rbusError_t rbusTable_removeRow(
         rbusMessage_GetInt32(response, &returnCode);
         legacyRetCode = (rbusLegacyReturn_t)returnCode;
 
-        RBUSLOG_INFO("%s rbus_invokeRemoteMethod success response returnCode:%d", __FUNCTION__, returnCode);
+        RBUSLOG_INFO("%s rbus_invokeRemoteMethod2 success response returnCode:%d", __FUNCTION__, returnCode);
         if((returnCode == RBUS_ERROR_SUCCESS) || (legacyRetCode == RBUS_LEGACY_ERR_SUCCESS))
         {
             returnCode = RBUS_ERROR_SUCCESS;
@@ -3791,6 +3979,9 @@ rbusError_t rbusTable_registerRow(
 
     VERIFY_NULL(handleInfo);
     VERIFY_NULL(tableName);
+
+    if (handleInfo->m_handleType != RBUS_HWDL_TYPE_REGULAR)
+        return RBUS_ERROR_INVALID_HANDLE;
 
     rc = snprintf(rowName, RBUS_MAX_NAME_LENGTH, "%s%d", tableName, instNum);
     if(rc < 0 || rc >= RBUS_MAX_NAME_LENGTH)
@@ -3828,6 +4019,9 @@ rbusError_t rbusTable_unregisterRow(
     VERIFY_NULL(handleInfo);
     VERIFY_NULL(rowName);
 
+    if (handleInfo->m_handleType != RBUS_HWDL_TYPE_REGULAR)
+        return RBUS_ERROR_INVALID_HANDLE;
+
     elementNode* rowInstElem = retrieveInstanceElement(handleInfo->elementRoot, rowName);
 
     if(!rowInstElem)
@@ -3848,8 +4042,12 @@ rbusError_t rbusTable_getRowNames(
     rbusError_t errorcode = RBUS_ERROR_SUCCESS;
     rbusCoreError_t err = RBUSCORE_SUCCESS;
     rbusMessage request, response;
+    struct _rbusHandle* handleInfo = (struct _rbusHandle*) handle;
 
     VERIFY_NULL(handle);
+
+    if (handleInfo->m_handleType != RBUS_HWDL_TYPE_REGULAR)
+        return RBUS_ERROR_INVALID_HANDLE;
 
     *rowNames = NULL;
 
@@ -3860,7 +4058,13 @@ rbusError_t rbusTable_getRowNames(
 
     RBUSLOG_DEBUG("%s: %s", __FUNCTION__, tableName);
 
-    if((err = rbus_invokeRemoteMethod(tableName, METHOD_GETPARAMETERNAMES, request, rbusConfig_ReadGetTimeout(), &response)) == RBUSCORE_SUCCESS)
+    /* Find direct connection status */
+    rtConnection myConn = rbuscore_FindClientPrivateConnection(tableName);
+
+    if (NULL == myConn)
+        myConn = handleInfo->m_connection;
+
+    if((err = rbus_invokeRemoteMethod2(myConn, tableName, METHOD_GETPARAMETERNAMES, request, rbusConfig_ReadGetTimeout(), &response)) == RBUSCORE_SUCCESS)
     {
         rbusLegacyReturn_t legacyRetCode = RBUS_LEGACY_ERR_FAILURE;
         int ret = -1;
@@ -3971,6 +4175,9 @@ rbusError_t rbusElementInfo_get(
     *elemInfo = NULL;
 
     VERIFY_NULL(handleInfo);
+
+    if (handleInfo->m_handleType != RBUS_HWDL_TYPE_REGULAR)
+        return RBUS_ERROR_INVALID_HANDLE;
 
     if(abs(depth) > RBUS_MAX_NAME_DEPTH)
     {
@@ -4257,10 +4464,14 @@ rbusError_t  rbusEvent_Subscribe(
     int                 timeout)
 {
     rbusError_t errorcode;
+    struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
 
     VERIFY_NULL(handle);
     VERIFY_NULL(eventName);
     VERIFY_NULL(handler);
+
+    if (handleInfo->m_handleType != RBUS_HWDL_TYPE_REGULAR)
+        return RBUS_ERROR_INVALID_HANDLE;
 
     RBUSLOG_DEBUG("%s: %s", __FUNCTION__, eventName);
 
@@ -4278,11 +4489,15 @@ rbusError_t  rbusEvent_SubscribeAsync(
     int                             timeout)
 {
     rbusError_t errorcode;
+    struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
 
     VERIFY_NULL(handle);
     VERIFY_NULL(eventName);
     VERIFY_NULL(handler);
     VERIFY_NULL(subscribeHandler);
+
+    if (handleInfo->m_handleType != RBUS_HWDL_TYPE_REGULAR)
+        return RBUS_ERROR_INVALID_HANDLE;
 
     RBUSLOG_DEBUG("%s: %s", __FUNCTION__, eventName);
 
@@ -4300,6 +4515,9 @@ rbusError_t rbusEvent_Unsubscribe(
 
     VERIFY_NULL(handle);
     VERIFY_NULL(eventName);
+
+    if (handleInfo->m_handleType != RBUS_HWDL_TYPE_REGULAR)
+        return RBUS_ERROR_INVALID_HANDLE;
 
     RBUSLOG_DEBUG("%s: %s", __FUNCTION__, eventName);
 
@@ -4352,11 +4570,15 @@ rbusError_t rbusEvent_SubscribeEx(
     int                         timeout)
 {
     rbusError_t errorcode = RBUS_ERROR_SUCCESS;
+    struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
     int i;
 
     VERIFY_NULL(handle);
     VERIFY_NULL(subscription);
     VERIFY_ZERO(numSubscriptions); 
+
+    if (handleInfo->m_handleType != RBUS_HWDL_TYPE_REGULAR)
+        return RBUS_ERROR_INVALID_HANDLE;
 
     for(i = 0; i < numSubscriptions; ++i)
     {
@@ -4393,12 +4615,16 @@ rbusError_t rbusEvent_SubscribeExAsync(
     int                             timeout)
 {
     rbusError_t errorcode = RBUS_ERROR_SUCCESS;
+    struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
     int i;
 
     VERIFY_NULL(handle);
     VERIFY_NULL(subscription);
     VERIFY_NULL(subscribeHandler);
     VERIFY_ZERO(numSubscriptions);
+
+    if (handleInfo->m_handleType != RBUS_HWDL_TYPE_REGULAR)
+        return RBUS_ERROR_INVALID_HANDLE;
 
     for(i = 0; i < numSubscriptions; ++i)
     {
@@ -4431,12 +4657,15 @@ rbusError_t rbusEvent_UnsubscribeEx(
     int                         numSubscriptions)
 {
     rbusError_t errorcode = RBUS_ERROR_SUCCESS;
+    struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
 
     VERIFY_NULL(handle);
     VERIFY_NULL(subscription);
     VERIFY_ZERO(numSubscriptions);
 
-    struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
+    if (handleInfo->m_handleType != RBUS_HWDL_TYPE_REGULAR)
+        return RBUS_ERROR_INVALID_HANDLE;
+
     int i;
 
     //TODO we will call unsubscribe for every sub in list
@@ -4488,11 +4717,16 @@ rbusError_t rbusEvent_UnsubscribeEx(
         }
         else
         {
-            rbusEventSubscription_t* sub = rbusAsyncSubscribe_GetSubscription(handle, subscription[i].eventName, subscription[i].filter);
-            if(sub)
+            rbusEventSubscription_t sub = {0};
+            bool sub_removed = false;
+            sub.handle = handle;
+            sub.eventName = subscription[i].eventName;
+            sub.filter = subscription[i].filter;
+
+            sub_removed = rbusAsyncSubscribe_RemoveSubscription(&sub);
+            if(sub_removed)
             {
-                RBUSLOG_INFO("%s: %s removed pending async subscription", __FUNCTION__, sub->eventName);
-                rbusAsyncSubscribe_RemoveSubscription(sub);
+                RBUSLOG_INFO("%s: %s removed pending async subscription", __FUNCTION__, sub.eventName);
             }
             else
             {
@@ -4518,6 +4752,9 @@ rbusError_t  rbusEvent_Publish(
 
     VERIFY_NULL(handle);
     VERIFY_NULL(eventData);
+
+    if (handleInfo->m_handleType != RBUS_HWDL_TYPE_REGULAR)
+        return RBUS_ERROR_INVALID_HANDLE;
 
     RBUSLOG_DEBUG("%s: %s", __FUNCTION__, eventData->name);
 
@@ -4642,6 +4879,7 @@ rbusError_t rbusMethod_InvokeInternal(
     rbusMessage request, response;
     rbusLegacyReturn_t legacyRetCode = RBUS_LEGACY_ERR_FAILURE;
     rbusValue_t value1 = NULL, value2 = NULL;
+    struct _rbusHandle* handleInfo = (struct _rbusHandle*) handle;
 
     VERIFY_NULL(handle);
     VERIFY_NULL(methodName);
@@ -4650,12 +4888,18 @@ rbusError_t rbusMethod_InvokeInternal(
 
     rbusMessage_Init(&request);
     rbusMessage_SetInt32(request, 0);/*TODO: this should be the session ID*/
-    rbusMessage_SetString(request, methodName); /*TODO: do we need to append the name as well as pass the name as the 1st arg to rbus_invokeRemoteMethod ?*/
+    rbusMessage_SetString(request, methodName); /*TODO: do we need to append the name as well as pass the name as the 1st arg to rbus_invokeRemoteMethod2 ?*/
 
     if(inParams)
         rbusObject_appendToMessage(inParams, request);
 
-    if((err = rbus_invokeRemoteMethod(
+    /* Find direct connection status */
+    rtConnection myConn = rbuscore_FindClientPrivateConnection(methodName);
+
+    if (NULL == myConn)
+        myConn = handleInfo->m_connection;
+
+    if((err = rbus_invokeRemoteMethod2(myConn,
         methodName,
         METHOD_RPC, 
         request, 
@@ -4688,7 +4932,7 @@ rbusError_t rbusMethod_InvokeInternal(
 
     rbusMessage_Release(response);
 
-    RBUSLOG_INFO("%s rbus_invokeRemoteMethod success response returnCode:%d", __FUNCTION__, returnCode);
+    RBUSLOG_INFO("%s rbus_invokeRemoteMethod2 success response returnCode:%d", __FUNCTION__, returnCode);
 
     return returnCode;
 }
@@ -4699,8 +4943,13 @@ rbusError_t rbusMethod_Invoke(
     rbusObject_t inParams, 
     rbusObject_t* outParams)
 {
+    struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
     VERIFY_NULL(handle);
     VERIFY_NULL(methodName);
+
+    if (handleInfo->m_handleType != RBUS_HWDL_TYPE_REGULAR)
+        return RBUS_ERROR_INVALID_HANDLE;
+
     return rbusMethod_InvokeInternal(handle, methodName, inParams, outParams, rbusConfig_ReadSetTimeout());
 }
 
@@ -4745,6 +4994,7 @@ rbusError_t rbusMethod_InvokeAsync(
     rbusMethodAsyncRespHandler_t callback, 
     int timeout)
 {
+    struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
     pthread_t pid;
     rbusMethodInvokeAsyncData_t* data;
     int err = 0;
@@ -4752,6 +5002,9 @@ rbusError_t rbusMethod_InvokeAsync(
     VERIFY_NULL(handle);
     VERIFY_NULL(methodName);
     VERIFY_NULL(callback);
+
+    if (handleInfo->m_handleType != RBUS_HWDL_TYPE_REGULAR)
+        return RBUS_ERROR_INVALID_HANDLE;
 
     rbusObject_Retain(inParams);
 

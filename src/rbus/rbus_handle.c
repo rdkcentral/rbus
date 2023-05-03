@@ -18,6 +18,7 @@
 */
 #include "rbus_handle.h"
 #include <string.h>
+#include <rbuscore.h>
 
 static rtVector gHandleList = NULL;
 
@@ -74,6 +75,9 @@ void rbusHandleList_ClientDisconnect(char const* clientListener)
                 rbusSubscriptions_handleClientDisconnect(handle, handle->subscriptions, clientListener);
             }
         }
+
+        /* Update the Direct Connection */
+        rbuscore_terminatePrivateConnection(clientListener);
     }
 }
 

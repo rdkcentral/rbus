@@ -28,7 +28,7 @@
 
 #define RT_CLOCK_ID CLOCK_MONOTONIC
 
-void rtTime_Now(rtTime_t* t)
+rtTime_t* rtTime_Now(rtTime_t* t)
 {
     int rc;
 
@@ -38,7 +38,9 @@ void rtTime_Now(rtTime_t* t)
     {
         rtLog_Error("clock_gettime failed: %s", rtStrError(rtErrorFromErrno(errno)));
     }
+    return t;
 }
+
 
 void rtTime_Later(const rtTime_t* start, int ms, rtTime_t* result)
 {
@@ -121,8 +123,8 @@ const char* rtTime_ToString(const rtTime_t* tm, char* buffer)
     /*localtime may not be thread safe*/
     struct tm* lt = localtime(&tm->tv_sec);
 
-    sprintf(buffer, "%.2d:%.2d:%.2d.%.3ld", 
-        lt->tm_hour, lt->tm_min, lt->tm_sec, tm->tv_nsec / 1000000);
+    sprintf(buffer, "%.2d:%.2d:%.2d.%.6ld",
+        lt->tm_hour, lt->tm_min, lt->tm_sec, tm->tv_nsec / 1000);
 
     return buffer;
 }

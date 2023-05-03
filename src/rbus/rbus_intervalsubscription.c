@@ -58,7 +58,7 @@ typedef struct sRecord
 } sRecord;
 
 void rbusEventData_appendToMessage(rbusEvent_t* event, rbusFilter_t filter, int32_t interval, int32_t duration, int32_t componentId, rbusMessage msg);
-
+extern rbusError_t get_recursive_wildcard_handler (rbusHandle_t handle, char const *parameterName, const char* pRequestingComp, rbusProperty_t properties, int *pCount);
 static void init_thread(sRecord* sub_rec)
 {
     pthread_mutexattr_t attrib;
@@ -117,6 +117,9 @@ static void* PublishingThreadFunc(void* rec)
     while(sub_rec->running)
     {
         int err;
+        int actualCount = 0;
+        int result = 0;
+        char *tmpptr = NULL;
         rtTime_t timeout;
         rtTimespec_t ts;
         rtTime_Later(NULL, (sub->interval*1000), &timeout);
@@ -128,31 +131,33 @@ static void* PublishingThreadFunc(void* rec)
         {
             RBUSLOG_ERROR("Error %d:%s running command pthread_cond_timedwait", err, strerror(err));
         }
-        
-        rbusProperty_t property;
-        rbusValue_t Val;
 
-        rbusProperty_Init(&property,rbusProperty_GetName(sub_rec->property), NULL);
-        rbusGetHandlerOptions_t opts;
-        memset(&opts, 0, sizeof(rbusGetHandlerOptions_t));
-        opts.requestingComponent = "IntervalThread";
-
-        int result = sub_rec->node->cbTable.getHandler(sub_rec->handle, property, &opts);
+        rbusProperty_t properties = NULL;
+        rbusObject_t data;
+        rbusObject_Init(&data, NULL);
+        rbusProperty_Init(&properties, "numberOfEntries", NULL);
+        result = get_recursive_wildcard_handler(handleInfo, sub->eventName,
+                "IntervalThread", properties, &actualCount);
+        rbusProperty_SetInt32(properties, actualCount);
+        tmpptr = strchr(sub->eventName, '*');
+        if (tmpptr)
+        {
+            rbusObject_SetProperty(data, properties);
+        }
+        else
+        {
+            rbusObject_SetProperty(data, rbusProperty_GetNext(properties)); /*"numberOfEntries" property not requried for normal event*/
+        }
+        rbusProperty_Release(properties);
         if(result != RBUS_ERROR_SUCCESS)
         {
-            RBUSLOG_ERROR("%s: failed to get value of %s", __FUNCTION__, rbusProperty_GetName(property));
+            RBUSLOG_ERROR("%s: failed to get details of %s", __FUNCTION__, sub->eventName);
+            rbusObject_Release(data);
             continue;
         }
 
-        /* Get data */
-        Val = rbusProperty_GetValue(property);
-
         rbusEvent_t event = {0};
-        rbusObject_t data;
-
-        rbusObject_Init(&data, NULL);
-        rbusObject_SetValue(data, "value", Val);
-        event.name = rbusProperty_GetName(sub_rec->property);
+        event.name = sub->eventName;
         event.data = data;
         event.type = RBUS_EVENT_INTERVAL;
         /* Handling subscription with duration */
@@ -169,7 +174,6 @@ static void* PublishingThreadFunc(void* rec)
 
         rbusMessage msg;
         rbusMessage_Init(&msg);
-
         rbusEventData_appendToMessage(&event, sub->filter, sub->interval, sub->duration, sub->componentId, msg);
 
         RBUSLOG_DEBUG("rbusEvent_Publish: publishing event %s to listener %s interval %d", sub->eventName, sub->listener, sub->interval);
@@ -180,17 +184,11 @@ static void* PublishingThreadFunc(void* rec)
                 msg);
 
         rbusMessage_Release(msg);
-
         rbusObject_Release(data);
-
         if(error != RBUSCORE_SUCCESS)
         {
             RBUSLOG_ERROR("%s: rbusEvent_Publish failed with result=%d", __FUNCTION__, result);
         }
-
-        /*update the record's property with new value*/
-        rbusProperty_SetValue(sub_rec->property, rbusProperty_GetValue(property));
-        rbusProperty_Release(property);
 
         if (duration_complete)
         {

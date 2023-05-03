@@ -238,13 +238,13 @@ int handle_getLargeBinaryData(const char * destination, const char * method, rbu
     (void) method;
     (void) hdr;
     uint8_t data[1024] = {0};
-    int i = 0;
+    uint8_t i = 0;
     char chunk_name[10] = {0};
 
     rbusMessage_Init(response);
     for(i = 1; i <= binary_data_size; i++)
     {
-        snprintf(chunk_name, 10, "chunk%d", i);
+        snprintf(chunk_name, 10, "chunk%u", i);
         memset(data, (i + '0'), sizeof(data));
         rbusMessage_SetBytes(*response, data, sizeof(data));
     }
