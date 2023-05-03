@@ -278,6 +278,8 @@ exit1:
                 testList[i].name, 
                 testList[i].countPass, 
                 testList[i].countFail);
+            if(testList[i].countFail)
+                rc = RBUS_ERROR_BUS_ERROR;
         }
     }
     printf("#                                                 #\n");
