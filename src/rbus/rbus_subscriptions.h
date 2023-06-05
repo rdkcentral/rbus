@@ -34,6 +34,7 @@ typedef struct _rbusSubscriptions *rbusSubscriptions_t;
  */
 typedef struct _rbusSubscription
 {
+    bool  isEventSubscribed;    /*DEEPAK*/
     char* listener;             /* the subscriber's address to publish to*/
     char* eventName;            /* the event name subscribed to e.g. Device.WiFi.AccessPoint.1.AssociatedDevice.*.SignalStrength */
     int32_t componentId;     /* the id known by the subscriber and unique per listener/process */
