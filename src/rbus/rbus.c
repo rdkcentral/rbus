@@ -2894,8 +2894,10 @@ rbusError_t rbus_regDataElements(
                 rc = RBUS_ERROR_INVALID_NAMESPACE;
             }
             else
+	    {
                 rc = RBUS_ERROR_ELEMENT_NAME_DUPLICATE;
-            break;
+	    }
+	    break;
         }
         else
         {
