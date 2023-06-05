@@ -1386,6 +1386,8 @@ rtConnection_AddAlias(rtConnection con, char const* existing, const char *alias)
             ret = result;
             if(RT_ERROR_DUPLICATE_ENTRY == result)
                 rtLog_Error("Failed to register %s. Duplicate entry", alias);
+            else if (RT_ERROR_PROTOCOL_ERROR == result)
+                rtLog_Error("Failed to register %s because the scaler or table is already registered", alias);
             rtMessage_Release(res);
         }
         rtMessage_Release(m);
