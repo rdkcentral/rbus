@@ -1009,6 +1009,8 @@ rbusCoreError_t rbus_addElement(const char * object_name, const char * element)
         RBUSCORELOG_ERROR("Failed to add element. Error: 0x%x", err);
         if (RT_ERROR_DUPLICATE_ENTRY == err)
             return RBUSCORE_ERROR_DUPLICATE_ENTRY;
+        else if (RT_ERROR_PROTOCOL_ERROR == err)
+            return RBUSCORE_ERROR_UNSUPPORTED_ENTRY;
         else
             return RBUSCORE_ERROR_GENERAL;
     }
