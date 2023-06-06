@@ -159,7 +159,7 @@ static void removeTopicFromRoutes(rtRoutingTree rt, rtTreeTopic* topic)
     }
 }
 
-static rtTreeTopic* getChildByName(rtRoutingTree rt, rtTreeTopic* parent, const char* name, int create, int* created, int remove)
+static rtTreeTopic* getChildByName(rtRoutingTree rt, rtTreeTopic* parent, const char* name, int create, int* created, int *error, int remove)
 {
     rtListItem item;
 
@@ -198,6 +198,15 @@ static rtTreeTopic* getChildByName(rtRoutingTree rt, rtTreeTopic* parent, const 
         {
             /* note that we don't handle the remove flag here because you should never create or remove instance ids themselves in the tree
                however, as a safeguard we only do remove in the above branch when name is an exact match*/
+            return treeTopic;
+        }
+        /* Registration of property element as sibling to a table and vice versa not supported as per TR369/TR181 standard.*/
+        else if (treeTopic->name[0] == '{' || name[0] == '{')
+        {
+            if (error)
+            {
+                *error = 1;
+            }
             return treeTopic;
         }
         rtListItem_GetNext(item, &item);
@@ -457,9 +466,15 @@ rtError rtRoutingTree_AddTopicRoute(rtRoutingTree rt, const char* topicPath, con
     }
 
     int isCreated = 0;
+    int error = 0;
     for(i = 0; i < workTokenCount; ++i)
     {
-       topic = getChildByName(rt, topic, workTokens[i].name, 1/*create missing topic*/, &isCreated, 0);
+        topic = getChildByName(rt, topic, workTokens[i].name, 1/*create missing topic*/, &isCreated, &error, 0);
+        if (error)
+        {
+            rtLog_Debug("Rejecting data registraion as per standard");
+            return RT_ERROR_PROTOCOL_ERROR;
+        }
     }
 
     if (err_on_dup && (0 == isCreated) && (topic->routeList) && (0 != strcmp (topicPath, "_RTROUTED.ADVISORY")))
@@ -495,7 +510,7 @@ void rtRoutingTree_GetTopicRoutes(rtRoutingTree rt, const char* topic, rtList* r
 
     for(i = 0; i < workTokenCount; ++i)
     {
-        treeTopic = getChildByName(rt, treeTopic, workTokens[i].name, 0, NULL, 0);
+        treeTopic = getChildByName(rt, treeTopic, workTokens[i].name, 0, NULL, NULL, 0);
 
         if(!treeTopic)
             return;
@@ -559,7 +574,7 @@ void rtRoutingTree_GetTopicRoutes(rtRoutingTree rt, const char* topic, rtList* r
           However, "Foo" doesn't have the route.  "Foo.{i}" has the route we want.
           So we need to search for the "{i}" child here and use its route.
         */
-        rtTreeTopic* curlyChild = getChildByName(rt, treeTopic, "{i}", 0, NULL, 0);
+        rtTreeTopic* curlyChild = getChildByName(rt, treeTopic, "{i}", 0, NULL, NULL, 0);
         if(curlyChild)
         {
           *routes = curlyChild->routeList;
@@ -616,7 +631,7 @@ void rtRoutingTree_RemoveTopic(rtRoutingTree rt, const char* topic)
 
     for(i = 0; i < workTokenCount; ++i)
     {
-        treeTopic = getChildByName(rt, treeTopic, workTokens[i].name, 0, NULL, i == workTokenCount-1);
+        treeTopic = getChildByName(rt, treeTopic, workTokens[i].name, 0, NULL, NULL, i == workTokenCount-1);
 
         if(!treeTopic)
             return;
@@ -634,7 +649,7 @@ void rtRoutingTree_ResolvePartialPath(rtRoutingTree rt, const char* partialPath,
 
     for(i = 0; i < workTokenCount; ++i)
     {
-        treeTopic = getChildByName(rt, treeTopic, workTokens[i].name, 0, NULL, 0);
+        treeTopic = getChildByName(rt, treeTopic, workTokens[i].name, 0, NULL, NULL, 0);
         
         if(!treeTopic)
             return;
