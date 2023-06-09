@@ -58,7 +58,7 @@ void SetTraceContextFromUser(char *traceparent, char *tracestate)
     memset(buff, '\0', 256);
     memset(traceparent, '\0', RBUS_OPEN_TELEMETRY_DATA_MAX);
     memset(tracestate, '\0', RBUS_OPEN_TELEMETRY_DATA_MAX);
-    printf("Eneter traceparent:");
+    printf("Enter traceparent:");
     scanf("%s", buff);
     snprintf(traceparent, RBUS_OPEN_TELEMETRY_DATA_MAX, "traceparent:%s", buff);
     memset(buff, '\0', 256);
@@ -79,7 +79,7 @@ void run_client()
 
   // sample get
   printf("\n ======================================================== \n");
-  printf(" Eneter sample data for test 'rbus_get' method\n");
+  printf(" Enter sample data for test 'rbus_get' method\n");
   printf(" ======================================================== \n");
   SetTraceContextFromUser(traceparent, tracestate);
   rbusHandle_SetTraceContextFromString(rbus, traceparent, tracestate);
@@ -90,7 +90,7 @@ void run_client()
 
  // sample set
   printf("\n ======================================================== \n");
-  printf(" Eneter sample data for test 'rbus_set' method\n");
+  printf(" Enter sample data for test 'rbus_set' method\n");
   printf(" ======================================================== \n");
   SetTraceContextFromUser(traceparent, tracestate);
   rbusHandle_SetTraceContextFromString(rbus, traceparent, tracestate);
@@ -101,7 +101,7 @@ void run_client()
 
   // sample invoke
   printf("\n ======================================================== \n");
-  printf(" Eneter sample data for test 'rbusMethod_Invoke' method\n");
+  printf(" Enter sample data for test 'rbusMethod_Invoke' method\n");
   printf(" ======================================================== \n");
   SetTraceContextFromUser(traceparent, tracestate);
   rbusHandle_SetTraceContextFromString(rbus, traceparent, tracestate);
