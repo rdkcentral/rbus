@@ -63,6 +63,7 @@ rtHashMap gDirectHandlesHash = NULL;
 
 bool g_isInteractive = false;
 bool g_logEvents = true;
+unsigned int g_curr_sessionId = 0;
 rbusLogLevel_t g_logLevel = RBUS_LOG_WARN;
 
 bool matchCmd(const char* sub, size_t lenmin,  const char* full)
@@ -401,6 +402,28 @@ void show_menu(const char* command)
             printf ("\tSetPSMRecordValue() Deveice.Test.Psm string test_value\n\r");
             printf ("\n\r");
         }
+        else if(matchCmd(command, 10, "create_session"))
+        {
+            printf ("\e[1mcreate_ses\e[0sion\n\r");
+            printf ("Create a session.\n\r");
+            printf ("Examples:\n\r");
+            printf ("\tcreate_session\n\r");
+            printf ("\n\r");
+        }
+        else if(matchCmd(command, 7, "get_session"))
+        {
+            printf ("\e[1mget_ses\e[0sion\n\r");
+            printf ("Get the current session Id value.\n\r");
+            printf ("\tget_session\n\r");
+            printf ("\n\r");
+        }
+        else if(matchCmd(command, 9, "close_session"))
+        {
+            printf ("\e[1mclose_ses\e[0sion\n\r");
+            printf ("Close the current session.\n\r");
+            printf ("\tclose_session\n\r");
+            printf ("\n\r");
+        }
         else if(matchCmd(command, 3, "log"))
         {
             printf ("\t\e[1mlog\e[0m \e[4mlevel\e[0m\n\r");
@@ -494,7 +517,9 @@ void show_menu(const char* command)
         printf ("\t\e[1maddl\e[0mistener \e[4mexpression\e[0m\n\r");
         printf ("\t\e[1mreml\e[0mistener \e[4mexpression\e[0m\n\r");
         printf ("\t\e[1msend\e[0m \e[4mtopic\e[0m [\e[4mdata\e[0m]\n\r");
-        printf ("\t\e[1mlog\e[0m \e[4mlevel\e[0m\n\r");
+        printf ("\t\e[1mcreate_ses\e[0msion\n\r");
+        printf ("\t\e[1mget_ses\e[0msion\n\r");
+        printf ("\t\e[1mclose_ses\e[0msion\n\r");
         printf ("\t\e[1mquit\e[0m\n\r");
         if(g_isInteractive)    
         {
@@ -1240,8 +1265,7 @@ void validate_and_execute_set_cmd (int argc, char *argv[])
     rbusError_t rc = RBUS_ERROR_SUCCESS;
     int i = argc - 2;
     bool isCommit = true;
-    int sessionId = 0;
-    static bool g_pendingCommit = false;
+    unsigned int sessionId = 0;
 
     runSteps = __LINE__;
     /* must have 3 or multiples of 3 parameters.. it could possibliy have 1 extra param which
@@ -1314,27 +1338,12 @@ void validate_and_execute_set_cmd (int argc, char *argv[])
                     else
                         isCommit = true;
 
-                    if (isCommit == false)
-                    {
-                        g_pendingCommit = true;
-                        sessionId = RBUS_CLI_SESSION_ID;
-                    }
-                    else
-                    {
-                        if (g_pendingCommit)
-                            sessionId = RBUS_CLI_SESSION_ID;
-                        else
-                            sessionId = 0;
-                    }
                 }
                 else
                 {
                     isCommit = true;
-                    if (g_pendingCommit)
-                        sessionId = RBUS_CLI_SESSION_ID;
-                    else
-                        sessionId = 0;
                 }
+                sessionId = g_curr_sessionId;
             }
             else
             {
@@ -1342,11 +1351,6 @@ void validate_and_execute_set_cmd (int argc, char *argv[])
                 isCommit = true;
                 sessionId = 0;
             }
-
-            /* Reset the flag */
-            if (isCommit == true)
-                g_pendingCommit = false;
-
 
             rbusSetOptions_t opts = {isCommit,sessionId};
             rc = rbus_setMulti(g_busHandle, paramCnt, properties/*setNames, setVal*/, &opts);
@@ -1392,30 +1396,25 @@ void validate_and_execute_set_cmd (int argc, char *argv[])
                     if (strncasecmp ("true", argv[argc - 1], 4) == 0)
                         isCommit = true;
                     else if (strncasecmp ("false", argv[argc - 1], 5) == 0)
+                    {
                         isCommit = false;
+                        rc = rbus_createSession(g_busHandle, &g_curr_sessionId);
+                        if(rc != RBUS_ERROR_SUCCESS)
+                        {
+                            printf("Session creation failed with err = %d\n", rc);
+                        }
+                        if(g_curr_sessionId == 0)
+                            printf("Can't set the value temporarily with sessionId 0 and commit false\n");
+                    }
                     else
                         isCommit = true;
 
-                    if (isCommit == false)
-                    {
-                        g_pendingCommit = true;
-                        sessionId = RBUS_CLI_SESSION_ID;
-                    }
-                    else
-                    {
-                        if (g_pendingCommit)
-                            sessionId = RBUS_CLI_SESSION_ID;
-                        else
-                            sessionId = 0;
-                    }
+                    sessionId = g_curr_sessionId;
                 }
                 else
                 {
                     isCommit = true;
-                    if (g_pendingCommit)
-                        sessionId = RBUS_CLI_SESSION_ID;
-                    else
-                        sessionId = 0;
+                    sessionId = 0;
                 }
             }
             else
@@ -1425,13 +1424,21 @@ void validate_and_execute_set_cmd (int argc, char *argv[])
                 sessionId = 0;
             }
             (void)sessionId;
-            /* Reset the flag */
-            if (isCommit == true)
-                g_pendingCommit = false;
 
             /* Assume a sessionId as it is going to be single entry thro this cli app; */
             rbusSetOptions_t opts = {isCommit,sessionId};
             rc = rbus_set(g_busHandle, argv[2], setVal, &opts);
+
+            if(!isCommit)
+            {
+                printf("closing the session\n");
+                rc = rbus_closeSession(g_busHandle, g_curr_sessionId);
+                if(rc != RBUS_ERROR_SUCCESS)
+                {
+                    printf("Session close failed with err = %d\n", rc);
+                }
+                g_curr_sessionId = 0;
+            }
 
             /* Free the data pointer that was allocated */
             rbusValue_Release(setVal);
@@ -2283,6 +2290,34 @@ void validate_and_execute_method_names_cmd (int argc, char *argv[])
     execute_method_cmd(argv[1], argv[2], inParams);
 }
 
+void validate_and_execute_create_session_cmd ( )
+{
+    rbusError_t rc = RBUS_ERROR_SUCCESS;
+    rc = rbus_createSession(g_busHandle, &g_curr_sessionId);
+    if(rc != RBUS_ERROR_SUCCESS)
+    {
+        printf("Session creation failed with err = %d\n", rc);
+    }
+}
+
+unsigned int validate_and_execute_get_session_cmd ( )
+{
+    rbus_getCurrentSession(g_busHandle, &g_curr_sessionId);
+    printf ("current sessionID %d\n\r", g_curr_sessionId);
+    return g_curr_sessionId;
+}
+
+void validate_and_execute_close_session_cmd ( )
+{
+    rbusError_t rc = RBUS_ERROR_SUCCESS;
+    rc = rbus_closeSession(g_busHandle, g_curr_sessionId);
+    if(rc != RBUS_ERROR_SUCCESS)
+    {
+        printf("Session close failed with err = %d\n", rc);
+    }
+    g_curr_sessionId = 0;
+}
+
 int handle_cmds (int argc, char *argv[])
 {
     /* Interactive shell; handle the enter key */
@@ -2395,6 +2430,18 @@ int handle_cmds (int argc, char *argv[])
     else if(matchCmd(command, 9, "method_noargs"))
     {
         validate_and_execute_method_noargs_cmd (argc, argv);
+    }
+    else if(matchCmd(command, 10, "create_session"))
+    {
+        validate_and_execute_create_session_cmd (argc, argv);
+    }
+    else if(matchCmd(command, 7, "get_session"))
+    {
+        validate_and_execute_get_session_cmd (argc, argv);
+    }
+    else if(matchCmd(command, 9, "close_session"))
+    {
+        validate_and_execute_close_session_cmd (argc, argv);
     }
     else if(matchCmd(command, 4, "help"))
     {
