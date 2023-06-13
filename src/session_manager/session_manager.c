@@ -43,8 +43,11 @@ static int request_session_id(const char * destination, const char * method, rbu
     rbusMessage_Init(response);
     if(0 == g_current_session_id)
     {
-        g_current_session_id = ++g_counter;
+        g_current_session_id = 1;
+        ++g_counter;
         printf("Creating new session %d\n", g_current_session_id);
+        // For debugging purpose
+        //printf("Total number of times sessions created = %d\n", g_counter);
         rbusMessage_SetInt32(*response, RBUSCORE_SUCCESS);
         rbusMessage_SetInt32(*response, g_current_session_id);
     }
