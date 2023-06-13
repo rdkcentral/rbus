@@ -2328,13 +2328,22 @@ void validate_and_execute_create_session_cmd ( )
 
 void validate_and_execute_get_session_cmd ( )
 {
+    if (!verify_rbus_open())
+        return;
     rbus_getCurrentSession(g_busHandle, &g_curr_sessionId);
     printf ("current sessionID %d\n\r", g_curr_sessionId);
 }
 
-void validate_and_execute_close_session_cmd ( )
+void validate_and_execute_close_session_cmd (int argc, char *argv[])
 {
     rbusError_t rc = RBUS_ERROR_SUCCESS;
+    (void)argc;
+    if (!verify_rbus_open())
+        return;
+    if (strncasecmp ("false", argv[argc - 1], 5) == 0)
+    {
+        /* Todo : Provider need to rollback the changes to actual value that is present before commit field is passed as false*/
+    }
     rbus_getCurrentSession(g_busHandle, &g_curr_sessionId);
     if(g_curr_sessionId != 0)
     {
