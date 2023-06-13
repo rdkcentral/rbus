@@ -1464,7 +1464,6 @@ void validate_and_execute_set_cmd (int argc, char *argv[])
             rbusSetOptions_t opts = {isCommit,sessionId};
             rc = rbus_set(g_busHandle, argv[2], setVal, &opts);
 
-
             /* Free the data pointer that was allocated */
             rbusValue_Release(setVal);
         }
