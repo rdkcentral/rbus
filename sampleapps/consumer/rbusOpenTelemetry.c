@@ -25,7 +25,7 @@
 #define kElementName "Device.Foo"
 #define RBUS_OPEN_TELEMETRY_DATA_MAX 512
 void run_client();
-void run_client1();
+void run_manual_client();
 void run_server();
 
 rbusError_t get_handler(rbusHandle_t rbus, rbusProperty_t prop, rbusGetHandlerOptions_t* opts);
@@ -44,9 +44,9 @@ int main(int argc, char *argv[])
       {
           runtime = atoi(argv[2]);
       }
-      if (strcmp(argv[1], "client1") == 0)
+      if (strcmp(argv[1], "manual") == 0)
       {
-          run_client1();
+          run_manual_client();
       }
       else
       {
@@ -83,7 +83,7 @@ void run_client()
   rbus_open(&rbus, "test-client");
 
   // sample get
-  rbusHandle_SetTraceContextFromString(rbus, "traceparent: 00-foo-bar-011111",
+  rbusHandle_SetTraceContextFromString(rbus, "traceparent: 00-foo-bar-012345",
     "tracestate: congo=t61rcWkgMzE");
   rbus_get(rbus, kElementName, &val);
   rbusValue_ToDebugString(val, buff, sizeof(buff));
@@ -92,7 +92,7 @@ void run_client()
 
 
   // sample set
-  rbusHandle_SetTraceContextFromString(rbus, "traceparent: 00-foo-bar-02222",
+  rbusHandle_SetTraceContextFromString(rbus, "traceparent: 00-foo-bar-0123",
     "tracestate: congo=t61rcWkgMzE");
   rbusValue_SetString(val, "new-value");
   rbus_set(rbus, kElementName, val, NULL);
@@ -100,7 +100,7 @@ void run_client()
   rbusHandle_ClearTraceContext(rbus);
 
   // sample invoke
-  rbusHandle_SetTraceContextFromString(rbus, "traceparent: 00-foo-bar-033",
+  rbusHandle_SetTraceContextFromString(rbus, "traceparent: 00-foo-bar-012345678",
     "tracestate: congo=t61rcWkgMzE");
   rbusObject_t in, out;
   rbusObject_Init(&in, NULL);
@@ -114,7 +114,7 @@ void run_client()
   rbus_close(rbus);
 }
 
-void run_client1()
+void run_manual_client()
 {
   char          buff[256];
   char traceparent[RBUS_OPEN_TELEMETRY_DATA_MAX];
@@ -126,7 +126,7 @@ void run_client1()
 
   // sample get
   printf("\n ======================================================== \n");
-  printf(" Enter sample data for test 'rbus_get' method\n");
+  printf(" Enter test inputs for 'rbus_get' method\n");
   printf(" ======================================================== \n");
   GetTraceContextFromUser(traceparent, tracestate);
   rbusHandle_SetTraceContextFromString(rbus, traceparent, tracestate);
@@ -137,7 +137,7 @@ void run_client1()
 
  // sample set
   printf("\n ======================================================== \n");
-  printf(" Enter sample data for test 'rbus_set' method\n");
+  printf(" Enter test inputs for 'rbus_set' method\n");
   printf(" ======================================================== \n");
   GetTraceContextFromUser(traceparent, tracestate);
   rbusHandle_SetTraceContextFromString(rbus, traceparent, tracestate);
@@ -148,7 +148,7 @@ void run_client1()
 
   // sample invoke
   printf("\n ======================================================== \n");
-  printf(" Enter sample data for test 'rbusMethod_Invoke' method\n");
+  printf(" Enter test inputs for 'rbusMethod_Invoke' method\n");
   printf(" ======================================================== \n");
   GetTraceContextFromUser(traceparent, tracestate);
   rbusHandle_SetTraceContextFromString(rbus, traceparent, tracestate);
