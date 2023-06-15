@@ -40,21 +40,17 @@ int main(int argc, char *argv[])
 
   if (argc > 1)
   {
-      if(argc == 3)
-      {
-          runtime = atoi(argv[2]);
-      }
       if (strcmp(argv[1], "manual") == 0)
       {
           run_manual_client();
       }
       else
       {
-          run_server();
+          run_client();
       }
   }
   else
-      run_client();
+      run_server();
   return 0;
 }
 
