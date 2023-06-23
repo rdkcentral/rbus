@@ -32,7 +32,6 @@
 
 struct _rbusSubscriptions
 {
-    bool isEventSubscribed;
     rbusHandle_t handle;
     elementNode* root;
     char* componentName;
@@ -99,7 +98,7 @@ void rbusSubscriptions_create(rbusSubscriptions_t* subscriptions, rbusHandle_t h
     (*subscriptions)->componentName = strdup(componentName);
     (*subscriptions)->tmpDir = strdup(tmpDir);
     rtList_Create(&(*subscriptions)->subList);
-    rtList_Create(&(*subscriptions)->cacheSubList);//DEEPAK
+    rtList_Create(&(*subscriptions)->cacheSubList);
     rbusSubscriptions_loadCache(*subscriptions);
 }
 
@@ -563,8 +562,7 @@ static void rbusSubscriptions_loadCache(rbusSubscriptions_t subscriptions)
         }
 
         rtList_Create(&sub->instances);
-        //rtList_PushBack(subscriptions->subList, sub, NULL);//DEEPAK
-        rtList_PushBack(subscriptions->cacheSubList, sub, NULL); //DEEPAK
+        rtList_PushBack(subscriptions->cacheSubList, sub, NULL);
 
         RBUSLOG_INFO("%s: loaded %s %s", __FUNCTION__, sub->listener, sub->eventName);
     }
@@ -740,7 +738,7 @@ void rbusSubscriptions_resubscribeElementCache(rbusHandle_t handle, rbusSubscrip
     }
 }
 
-void rbusSubscriptions_resubscribeRowElementCache(rbusHandle_t handle, rbusSubscriptions_t subscriptions, elementNode* rowNode)
+void rbusSubscriptions_resubscribeRowElementCache(rbusHandle_t handle, rbusSubscriptions_t subscriptions, elementNode* rowNode, char const* tableName,char const* aliasName, char *indexTableEventName, char *aliasTableEventName)
 {
     rtListItem item = NULL;
     rbusSubscription_t* sub = NULL;
@@ -752,9 +750,7 @@ void rbusSubscriptions_resubscribeRowElementCache(rbusHandle_t handle, rbusSubsc
 
     if(subscriptions)
     {
-        //DEEPAK rtList_GetFront(subscriptions->subList, &item);
         rtList_GetFront(subscriptions->cacheSubList, &item);
-        //DEEPAK rtList_GetSize(subscriptions->subList, &size);
         rtList_GetSize(subscriptions->cacheSubList, &size);
     }
 
@@ -767,35 +763,28 @@ void rbusSubscriptions_resubscribeRowElementCache(rbusHandle_t handle, rbusSubsc
         {
             rtListItem next = NULL;
             rtListItem_GetNext(item, &next);
-            //if(strncmp(sub->eventName, rowNode->fullName, strlen(rowNode->fullName)) == 0)
-            if(sub->eventName != NULL && rowNode->fullName != NULL) //DEEPAK
-{
-            RBUSLOG_ERROR("DEEPAK %s: resubscribing %s for %s", __FUNCTION__, sub->eventName, rowNode->fullName);
-}
+
+            char aliasEventName[256]="";
+            char indexEventName[256]="";
+            sprintf(aliasEventName,"%s[%s].",tableName,aliasName);
+            sprintf(indexEventName,"%s%s.",tableName,rowNode->name);
+
+            if(strcmp(sub->eventName, tableName) == 0 || strstr(sub->eventName,aliasEventName) || strstr(sub->eventName,indexEventName) || (strcmp(aliasTableEventName,"") && strstr(sub->eventName,aliasTableEventName)) || (strcmp(indexTableEventName,"") && strstr(sub->eventName,indexTableEventName)))
             {
                 el = retrieveInstanceElement(handleInfo->elementRoot, sub->eventName);
                 if(el)
                 {
                     RBUSLOG_INFO("%s: resubscribing %s for %s", __FUNCTION__, sub->eventName, sub->listener);
-                    RBUSLOG_ERROR("DEEPAK After retrieveInstanceElement Success %s: resubscribing %s for %s", __FUNCTION__, sub->eventName, sub->listener);
-                    //rtList_RemoveItem(subscriptions->subList, item, NULL);
-                    //if(subscriptions->isEventSubscribed != 1)
-                    //{
                     err = subscribeHandlerImpl(handle, true, el, sub->eventName, sub->listener, sub->componentId, sub->interval, sub->duration, sub->filter);
-                    if(err == RBUS_ERROR_SUCCESS)//DEEPAK
+                    if(err == RBUS_ERROR_SUCCESS)
                     {
 
-                     RBUSLOG_ERROR("DEEPAK subscribeHandlerImpl returns RBUS_ERROR_SUCCESS %s: rtList_RemoveItem resubscribing %s for %s", __FUNCTION__, sub->eventName, sub->listener);
-                     //subscriptions->isEventSubscribed =1;
-                     rtList_RemoveItem(subscriptions->cacheSubList, item, NULL);
-                    (void)err;
-                    if(sub)
-                    subscriptionFree(sub);
+                        rtList_RemoveItem(subscriptions->cacheSubList, item, NULL);
+                        (void)err;
+                        if(sub)
+                            subscriptionFree(sub);
 
-                    }//DEEPAK
-                    //}
-//                    (void)err;
-//                    subscriptionFree(sub);
+                    }
                 }
             }
 

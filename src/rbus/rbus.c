@@ -1045,16 +1045,38 @@ static void registerTableRow (rbusHandle_t handle, elementNode* tableInstElem, c
         event.data = data;
 
         RBUSLOG_INFO("%s publishing ObjectCreated table=%s rowName=%s", __FUNCTION__, tableName, rowElem->fullName);
+
+        /* Re-subscribe all the child elements of this row */
+        if(handleInfo->subscriptions)
+        {
+            char tableInst_ParentFullName[256] = "";
+            char tableInst_FullName[128] = "";
+            char aliasTableEventName[512] = "";
+            char indexTableEventName[512] = "";
+            sprintf(tableInst_FullName,"%s",tableInstElem->fullName);
+            sprintf(tableInst_ParentFullName,"%s",tableInstElem->parent->fullName);
+            if(tableInstElem->parent->alias && !strchr(tableInst_ParentFullName,'['))
+	    {
+                char tableParentAlias[128] = "";
+                char *p = strrchr(tableInst_ParentFullName,'.');
+                int len_ParentFullName= strlen(tableInst_ParentFullName);
+                p=p+1;
+                *p='\0';
+                sprintf(tableParentAlias,"[%s]",tableInstElem->parent->alias);
+                strcat(tableInst_ParentFullName,tableParentAlias);
+                sprintf(aliasTableEventName,"%s%s.[%s].",tableInst_ParentFullName,(tableInst_FullName+len_ParentFullName),aliasName);
+                sprintf(indexTableEventName,"%s%s.%s.",tableInst_ParentFullName,(tableInst_FullName+len_ParentFullName),rowElem->name);
+
+	    }
+            rbusSubscriptions_resubscribeRowElementCache(handle, handleInfo->subscriptions, rowElem , tableName, aliasName, indexTableEventName, aliasTableEventName);
+        }
+
         respub = rbusEvent_Publish(handle, &event);
 
         if(respub != RBUS_ERROR_SUCCESS && respub != RBUS_ERROR_NOSUBSCRIBERS)
         {
             RBUSLOG_WARN("failed to publish ObjectCreated event err:%d", respub);
         }
-
-        /* Re-subscribe all the child elements of this row */
-        if(handleInfo->subscriptions)
-            rbusSubscriptions_resubscribeRowElementCache(handle, handleInfo->subscriptions, rowElem);
 
         rbusValue_Release(rowNameVal);
         rbusValue_Release(instNumVal);
@@ -2019,6 +2041,7 @@ static void _table_add_row_callback_handler (rbusHandle_t handle, rbusMessage re
     elementNode* tableRegElem = retrieveElement(handleInfo->elementRoot, tableName);
     elementNode* tableInstElem = retrieveInstanceElement(handleInfo->elementRoot, tableName);
 
+
     if(tableRegElem && tableInstElem)
     {
         if(tableRegElem->cbTable.tableAddRowHandler)
@@ -2265,7 +2288,7 @@ static void _subscribe_callback_handler (rbusHandle_t handle, rbusMessage reques
             elementNode* el = NULL;
             el = retrieveInstanceElement(handleInfo->elementRoot, event_name);
 
-            if ((el->type == RBUS_ELEMENT_TYPE_TABLE)  && (event_name[strlen(event_name)-1] != '.'))
+            if (el !=NULL && (el->type == RBUS_ELEMENT_TYPE_TABLE)  && (event_name[strlen(event_name)-1] != '.'))
             {
                 RBUSLOG_ERROR(":%s: Invalid event_name: %s, Element Table Subscription should end with '.'",__FUNCTION__, event_name);
                 return ;

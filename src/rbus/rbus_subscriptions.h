@@ -34,7 +34,6 @@ typedef struct _rbusSubscriptions *rbusSubscriptions_t;
  */
 typedef struct _rbusSubscription
 {
-    bool  isEventSubscribed;    /*DEEPAK*/
     char* listener;             /* the subscriber's address to publish to*/
     char* eventName;            /* the event name subscribed to e.g. Device.WiFi.AccessPoint.1.AssociatedDevice.*.SignalStrength */
     int32_t componentId;     /* the id known by the subscriber and unique per listener/process */
@@ -74,7 +73,7 @@ void rbusSubscriptions_onTableRowRemoved(rbusSubscriptions_t subscriptions, elem
 void rbusSubscriptions_resubscribeElementCache(rbusHandle_t handle, rbusSubscriptions_t subscriptions, char const* elementName, elementNode* el);
 
 /*call when registering row of a table, to resubscribe any listeners that might have been loaded from cache */
-void rbusSubscriptions_resubscribeRowElementCache(rbusHandle_t handle, rbusSubscriptions_t subscriptions, elementNode* rowNode);
+void rbusSubscriptions_resubscribeRowElementCache(rbusHandle_t handle, rbusSubscriptions_t subscriptions, elementNode* rowNode, char const* tableName, char const* aliasName, char *indexTableEventName, char *aliasTableEventName);
 
 /*unsubscribe any client when they disconnect from broker. handles cases where clients don't unsubscribe properly (e.g. because they crashed)*/
 void rbusSubscriptions_handleClientDisconnect(rbusHandle_t handle, rbusSubscriptions_t subscriptions, char const* listener);
