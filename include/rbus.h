@@ -126,7 +126,8 @@ typedef enum _rbusError
     RBUS_ERROR_ASYNC_RESPONSE,                  /**< The method request will be handle asynchronously by provider */
     RBUS_ERROR_INVALID_METHOD,                  /**< Invalid Method           */
     RBUS_ERROR_NOSUBSCRIBERS,                   /**< No subscribers present   */
-    RBUS_ERROR_SUBSCRIPTION_ALREADY_EXIST       /**< The subscription already exists*/
+    RBUS_ERROR_SUBSCRIPTION_ALREADY_EXIST,      /**< The subscription already exists*/
+    RBUS_ERROR_INVALID_NAMESPACE                /**< Invalid namespace as per standard */
 } rbusError_t;
 
 

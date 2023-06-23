@@ -2921,8 +2921,15 @@ rbusError_t rbus_regDataElements(
         if((err = rbus_addElement(handleInfo->componentName, name)) != RBUSCORE_SUCCESS)
         {
             RBUSLOG_ERROR("%s: failed to add element with core [%s] err=%d!!", __FUNCTION__, name, err);
-            rc = RBUS_ERROR_ELEMENT_NAME_DUPLICATE;
-            break;
+            if(err == RBUSCORE_ERROR_UNSUPPORTED_ENTRY)
+            {
+                rc = RBUS_ERROR_INVALID_NAMESPACE;
+            }
+            else
+	    {
+                rc = RBUS_ERROR_ELEMENT_NAME_DUPLICATE;
+	    }
+	    break;
         }
         else
         {
