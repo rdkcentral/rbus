@@ -325,7 +325,42 @@ void show_menu(const char* command)
             printf ("\tasub Example.SomeStrProp = \"Hello\"\n\r");
             printf ("\n\r");
         }
+        else if(matchCmd(command, 3, "nocopysubscribe"))
+        {
+            printf ("\e[1mnocopysub\e[0mscribe \e[4mevent\e[0m [\e[4moperator\e[0m \e[4mvalue\e[0m \e[4minitialValue\e[0m]\n\r");
+            printf ("Subscribe to a single event.\n\r");
+            printf ("Rbus supports general events, value-change events, and table events.\n\r");
+            printf ("And the type depends on that type of element \e[4mevent\e[0m refers to.\n\r");
+            printf ("If the type is a parameter then it is value-change event.\n\r");
+            printf ("If the type is a table then it is table events.\n\r");
+            printf ("If the type is a event then it is a general event.\n\r");
+            printf ("For value-change, an optional filter can be applied using the \e[4moperator\e[0m \e[4mvalue\e[0m parameters.\n\r");
+            printf ("Args:\n\r");
+            printf ("\t%-20sThe name of the event to subscribe to\n\r", "event");
+            printf ("\t%-20sOptional filter relational operator. Supported operators (>, >=, <, <=, =, !=)\n\r", "operator");
+            printf ("\t%-20sOptional filter trigger value\n\r", "value");
+            printf ("\t%-20sTo get initial value of the event being subscribed\n\r", "initialValue");
+            printf ("Examples:\n\r");
+            printf ("\tsub Example.SomeEvent!\n\r");
+            printf ("\tsub Example.SomeTable.\n\r");
+            printf ("\tsub Example.SomeIntProp > 10\n\r");
+            printf ("\tsub Example.SomeStrProp = \"Hello\"\n\r");
+            printf ("\tsub Example.SomeEvent! true\n\r");
+            printf ("\tsub Example.SomeEvent! = \"data\" true\n\r");
+            printf ("\n\r");
+        }
         else if(matchCmd(command, 3, "publish"))
+        {
+            printf ("\e[1mpub\e[0mlish \e[4mevent\e[0m [\e[4mdata\e[0m]\n\r");
+            printf ("Publishes an event which will be sent to all subscribers of this event.\n\r");
+            printf ("Args:\n\r");
+            printf ("\t%-20sThe name of the event to publish\n\r", "event");
+            printf ("\t%-20sThe data to publish with the event (as a string)\n\r", "data");
+            printf ("Examples:\n\r");
+            printf ("\tpub Example.MyEvent! \"Hello World\"\n\r");
+            printf ("\n\r");
+        }
+        else if(matchCmd(command, 3, "nocopypublish"))
         {
             printf ("\e[1mpub\e[0mlish \e[4mevent\e[0m [\e[4mdata\e[0m]\n\r");
             printf ("Publishes an event which will be sent to all subscribers of this event.\n\r");
@@ -804,7 +839,19 @@ rbusError_t event_subscribe_handler(rbusHandle_t handle, rbusEventSubAction_t ac
     return RBUS_ERROR_SUCCESS;
 }
 
-void event_receive_handler(rbusHandle_t handle, rbusEvent_t const* event, rbusEventSubscription_t* subscription)
+void event_receive_handler1(rbusHandle_t handle, rbusEventNoCopy_t const* event, rbusEventSubscription_t* subscription)
+{
+    (void)handle;
+    (void)subscription;
+    runSteps = __LINE__;
+    printf("\nevent_receive_handler1 called\n\r");
+    printf("Event received %s\n\r", event->name);
+    printf("Event data: %s\n\r", (char*)event->raw_data);
+    printf("Event data len: %d\n\r", event->raw_data_len);
+    printf("\n\r");
+}
+
+void event_receive_handler2(rbusHandle_t handle, rbusEvent_t const* event, rbusEventSubscription_t* subscription)
 {
     (void)handle;
     (void)subscription;
@@ -1828,7 +1875,7 @@ int set_publishOnSubscribe(int argc, char *argv[])
     return publishOnSubscribe;
 }
 
-void validate_and_execute_subscribe_cmd (int argc, char *argv[], bool add, bool isAsync)
+void validate_and_execute_subscribe_cmd (int argc, char *argv[], bool add, bool isAsync, bool noCopySub)
 {
     rbusError_t rc = RBUS_ERROR_SUCCESS;
     rbusFilter_t filter = NULL;
@@ -1956,12 +2003,17 @@ exit_error:
         return;
     }
 
-    rbusEventSubscription_t subscription = {argv[2], filter, interval, duration, event_receive_handler, userData, NULL, NULL, publishOnSubscribe};
+    rbusEventSubscription_t subscription_nocopy = {argv[2], filter, interval, duration, event_receive_handler1, userData, NULL, NULL, publishOnSubscribe};
+    rbusEventSubscription_t subscription = {argv[2], filter, interval, duration, event_receive_handler2, userData, NULL, NULL, publishOnSubscribe};
 
     /* Async will be TRUE only when add is TRUE */
     if (isAsync && add)
     {
         rc = rbusEvent_SubscribeExAsync(g_busHandle, &subscription, 1, event_receive_subscription_handler, 0);
+    }
+    else if(add && noCopySub)
+    {
+        rc = rbusEvent_SubscribeExNoCopy(g_busHandle, &subscription_nocopy, 1, 0);
     }
     else if(add)
     {
@@ -2012,10 +2064,9 @@ exit_error:
     }
 }
 
-void validate_and_execute_publish_command(int argc, char *argv[])
+void validate_and_execute_publish_command(int argc, char *argv[], bool noCopyPub)
 {
     rbusError_t rc;
-    rbusEvent_t event = {0};
     rbusObject_t data;
     rbusValue_t value;
 
@@ -2029,23 +2080,38 @@ void validate_and_execute_publish_command(int argc, char *argv[])
         return;    
 
     runSteps = __LINE__;
-    rbusValue_Init(&value);
-    rbusValue_SetString(value, argc < 4 ? "default event data" : argv[3]);
-    rbusObject_Init(&data, NULL);
-    rbusObject_SetValue(data, "value", value);
-
-    event.name = argv[2];
-    event.data = data;
-    event.type = RBUS_EVENT_GENERAL;
-
-    rc = rbusEvent_Publish(g_busHandle, &event);
-
-    rbusValue_Release(value);
-    rbusObject_Release(data);
-
-    if(rc != RBUS_ERROR_SUCCESS)
+    if(noCopyPub)
     {
-        printf("Publish failed err: %d\n\r", rc);
+        rbusEventNoCopy_t event = {0};
+        event.name = argv[2];
+        event.raw_data = argv[3];
+        event.raw_data_len = strlen(argv[3]);
+
+        rc = rbusEvent_PublishNoCopy(g_busHandle, &event);
+        if(rc != RBUS_ERROR_SUCCESS)
+            printf("provider: rbusEvent_Publish Event1 failed: %d\n", rc);
+    }
+    else
+    {
+        rbusEvent_t event = {0};
+        rbusValue_Init(&value);
+        rbusValue_SetString(value, argc < 4 ? "default event data" : argv[3]);
+        rbusObject_Init(&data, NULL);
+        rbusObject_SetValue(data, "value", value);
+
+        event.name = argv[2];
+        event.data = data;
+        event.type = RBUS_EVENT_GENERAL;
+
+        rc = rbusEvent_Publish(g_busHandle, &event);
+
+        rbusValue_Release(value);
+
+        if(rc != RBUS_ERROR_SUCCESS)
+        {
+            printf("Publish failed err: %d\n\r", rc);
+        }
+        rbusObject_Release(data);
     }
 }
 
@@ -2070,6 +2136,8 @@ void validate_and_execute_listen_command(int argc, char *argv[], bool add)
     userData = rt_calloc(1, 256);
     sprintf(userData, "listen %s", argv[2]);
 
+    printf("value of argv[2] = %s\n", argv[2]);
+    printf("value of userData = %s\n", userData);
     if(add)
     {
         rc = rbusMessage_AddListener(g_busHandle, argv[2], message_receive_handler, userData);
@@ -2358,19 +2426,27 @@ int handle_cmds (int argc, char *argv[])
     }
     else if(matchCmd(command, 3, "subscribe") || matchCmd(command, 4, "subinterval"))
     {
-        validate_and_execute_subscribe_cmd (argc, argv, true, false);
+        validate_and_execute_subscribe_cmd (argc, argv, true, false, false);
     }
     else if(matchCmd(command, 5, "unsubscribe") || matchCmd(command, 6, "unsubinterval"))
     {
-        validate_and_execute_subscribe_cmd (argc, argv, false, false);
+        validate_and_execute_subscribe_cmd (argc, argv, false, false, false);
     }
     else if(matchCmd(command, 4, "asubscribe"))
     {
-        validate_and_execute_subscribe_cmd (argc, argv, true, true);
+        validate_and_execute_subscribe_cmd (argc, argv, true, true, false);
+    }
+    else if(matchCmd(command, 4, "nocopysubscribe"))
+    {
+        validate_and_execute_subscribe_cmd (argc, argv, true, false, true);
     }
     else if(matchCmd(command, 3, "publish"))
     {
-        validate_and_execute_publish_command (argc, argv);
+        validate_and_execute_publish_command (argc, argv, false);
+    }
+    else if(matchCmd(command, 3, "nocopypublish"))
+    {
+        validate_and_execute_publish_command (argc, argv, true);
     }
     else if(matchCmd(command, 4, "addlistener"))
     {
