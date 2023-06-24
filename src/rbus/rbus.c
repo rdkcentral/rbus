@@ -4570,6 +4570,21 @@ rbusError_t rbusEvent_Unsubscribe(
     }
 }
 
+void SubscribeExNoCopy_handler(rbusHandle_t handle, rbusMessage_t* msg, void * userData)
+{
+    (void)handle;
+    rbusEventNoCopy_t event = {0};
+
+    event.name = msg->topic;
+    event.raw_data = msg->data;
+    event.raw_data_len = msg->length;
+    if (userData)
+    {
+        rbusEventSubscription_t *ptmp = (rbusEventSubscription_t *)userData;
+        ((rbusEventHandlerNoCopy_t)ptmp->handler)(handle, &event, ptmp);
+    }
+}
+
 rbusError_t rbusEvent_SubscribeEx(
     rbusHandle_t                handle,
     rbusEventSubscription_t*    subscription,
@@ -4598,7 +4613,6 @@ rbusError_t rbusEvent_SubscribeEx(
         errorcode = rbusEvent_SubscribeWithRetries(
             handle, subscription[i].eventName, subscription[i].handler, subscription[i].userData, 
             subscription[i].filter, subscription[i].interval, subscription[i].duration, timeout, NULL, subscription[i].publishOnSubscribe);
-
         if(errorcode != RBUS_ERROR_SUCCESS)
         {
             /*  Treat SubscribeEx like a transaction because
@@ -4608,6 +4622,68 @@ rbusError_t rbusEvent_SubscribeEx(
             if(i > 0)
                 rbusEvent_UnsubscribeEx(handle, subscription, i);
             break;
+        }
+    }
+
+    return errorcode;
+}
+
+rbusError_t rbusEvent_SubscribeExNoCopy(
+    rbusHandle_t                handle,
+    rbusEventSubscription_t*    subscription,
+    int                         numSubscriptions,
+    int                         timeout)
+{
+    rbusError_t errorcode = RBUS_ERROR_SUCCESS;
+    struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
+    int i;
+
+    VERIFY_NULL(handle);
+    VERIFY_NULL(subscription);
+    VERIFY_ZERO(numSubscriptions);
+
+    if (handleInfo->m_handleType != RBUS_HWDL_TYPE_REGULAR)
+        return RBUS_ERROR_INVALID_HANDLE;
+
+    for(i = 0; i < numSubscriptions; ++i)
+    {
+        RBUSLOG_DEBUG ("%s: %s", __FUNCTION__, subscription[i].eventName);
+
+        //FIXME/TODO -- since this is not using async path, this could block and thus block the rest of the subs to come
+        //For rbusEvent_Subscribe, since it a single subscribe, blocking is fine but for rbusEvent_SubscribeEx,
+        //where we can have multiple, we need to actually run all these in parallel.  So we might need to leverage
+        //the asyncsubscribe api to handle this.
+        errorcode = rbusEvent_SubscribeWithRetries(
+            handle, subscription[i].eventName, subscription[i].handler, subscription[i].userData,
+            subscription[i].filter, subscription[i].interval, subscription[i].duration, timeout, NULL, subscription[i].publishOnSubscribe);
+        if(errorcode != RBUS_ERROR_SUCCESS)
+        {
+            /*  Treat SubscribeEx like a transaction because
+                if any subs fails, how will the user know which ones succeeded and which failed ?
+                So, as a transaction, we just undo everything, which are all those from 0 to i-1.
+            */
+            if(i > 0)
+                rbusEvent_UnsubscribeEx(handle, subscription, i);
+            break;
+        }
+        else
+        {
+            rbusError_t rc;
+            char *direct_topic = NULL;
+            direct_topic = (char*)malloc((strlen(subscription[i].eventName) + 1) * sizeof(char));
+            /* Find direct connection status */
+            if(direct_topic != NULL)
+            {
+                snprintf(direct_topic, RBUS_MAX_NAME_LENGTH, "direct.%s", subscription[i].eventName);
+
+                rc = rbusMessage_AddListener(handle, direct_topic, SubscribeExNoCopy_handler, (void *)&subscription[i]);
+                if(rc != RBUS_ERROR_SUCCESS)
+                {
+                    RBUSLOG_ERROR("Listener failed err: %d\n\r", rc);
+                    errorcode = RBUS_ERROR_BUS_ERROR;
+                }
+                free(direct_topic);
+            }
         }
     }
 
@@ -4744,6 +4820,79 @@ rbusError_t rbusEvent_UnsubscribeEx(
     }
 
     return errorcode;
+}
+
+rbusError_t  rbusEvent_PublishNoCopy(
+  rbusHandle_t          handle,
+  rbusEventNoCopy_t*    eventData)
+{
+    struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
+    rbusCoreError_t errOut = RBUSCORE_SUCCESS;
+    rtListItem listItem;
+    rbusSubscription_t* subscription;
+    rbusMessage_t msg;
+    char* direct_topic = NULL;
+
+    rtConnection con = rbuscore_FindClientPrivateConnection(eventData->name);
+
+    if (NULL == con)
+        con = handleInfo->m_connection;
+
+    VERIFY_NULL(handle);
+    VERIFY_NULL(eventData);
+
+    if (handleInfo->m_handleType != RBUS_HWDL_TYPE_REGULAR)
+        return RBUS_ERROR_INVALID_HANDLE;
+
+    RBUSLOG_DEBUG("%s: %s", __FUNCTION__, eventData->name);
+
+    /*get the node and walk its subscriber list,
+      publishing event to each subscriber*/
+    elementNode* el = retrieveInstanceElement(handleInfo->elementRoot, eventData->name);
+
+    if(!el)
+    {
+        RBUSLOG_WARN("rbusEvent_Publish failed: retrieveElement return NULL for %s", eventData->name);
+        return RBUS_ERROR_ELEMENT_DOES_NOT_EXIST;
+    }
+
+    if(!el->subscriptions)/*nobody subscribed yet*/
+    {
+        return RBUS_ERROR_NOSUBSCRIBERS;
+    }
+
+    /*Loop through element's subscriptions*/
+    rtList_GetFront(el->subscriptions, &listItem);
+    while(listItem)
+    {
+        rtListItem_GetData(listItem, (void**)&subscription);
+        if(!subscription || !subscription->eventName || !subscription->listener)
+        {
+            RBUSLOG_INFO("rbusEvent_Publish failed: null subscriber data");
+            if(errOut == RBUSCORE_SUCCESS)
+                errOut = RBUSCORE_ERROR_GENERAL;
+            rtListItem_GetNext(listItem, &listItem);
+        }
+
+        direct_topic = (char*)malloc((eventData->raw_data_len + 1) * sizeof(char));
+        if(direct_topic != NULL)
+        {
+            snprintf(direct_topic, RBUS_MAX_NAME_LENGTH, "direct.%s", eventData->name);
+            msg.topic = direct_topic;
+            msg.data = (uint8_t const*)eventData->raw_data;
+            msg.length = strlen(eventData->raw_data);
+            rtError e = rtConnection_SendBinary(con, msg.data, msg.length, msg.topic);
+            if (e != RT_OK)
+            {
+                RBUSLOG_WARN("rtConnection_SendBinary:%s", rtStrError(e));
+                errOut = RBUS_ERROR_BUS_ERROR;
+            }
+            free(direct_topic);
+        }
+        rtListItem_GetNext(listItem, &listItem);
+    }
+
+    return errOut == RBUSCORE_SUCCESS ? RBUS_ERROR_SUCCESS: RBUS_ERROR_BUS_ERROR;
 }
 
 rbusError_t  rbusEvent_Publish(

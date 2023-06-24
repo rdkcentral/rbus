@@ -225,6 +225,13 @@ typedef struct
     rbusObject_t    data;       /**< The data for the event */
 } rbusEvent_t;
 
+typedef struct
+{
+    char const*     name;           /**< Fully qualified event name */
+    const void*     raw_data;       /**< The raw data for the event */
+    unsigned int    raw_data_len;   /**< The raw data length*/
+} rbusEventNoCopy_t;
+
 typedef struct _rbusEventSubscription rbusEventSubscription_t;
 
 /** @fn typedef void (* rbusSubscribeAsyncRespHandler_t)(
@@ -262,6 +269,12 @@ typedef void (*rbusSubscribeAsyncRespHandler_t)(
 typedef void (*rbusEventHandler_t)(
     rbusHandle_t                handle,
     rbusEvent_t const*          eventData,
+    rbusEventSubscription_t*    subscription
+);
+
+typedef void (*rbusEventHandlerNoCopy_t)(
+    rbusHandle_t                handle,
+    rbusEventNoCopy_t const*    eventData,
     rbusEventSubscription_t*    subscription
 );
 
@@ -1449,6 +1462,12 @@ rbusError_t rbusEvent_SubscribeEx(
     int                       numSubscriptions,
     int                       timeout);
 
+rbusError_t rbusEvent_SubscribeExNoCopy(
+    rbusHandle_t              handle,
+    rbusEventSubscription_t*  subscription,
+    int                       numSubscriptions,
+    int                       timeout);
+
 /** @fn rbusError_t  rbusEvent_SubscribeExAsync (
  *          rbusHandle_t handle,
  *          rbusEventSubscription_t* subscription,
@@ -1531,6 +1550,10 @@ rbusError_t rbusEvent_UnsubscribeEx(
 rbusError_t  rbusEvent_Publish(
     rbusHandle_t handle,
     rbusEvent_t* eventData);
+
+rbusError_t  rbusEvent_PublishNoCopy(
+  rbusHandle_t          handle,
+  rbusEventNoCopy_t*    eventData);
 
 /** @} */
 
