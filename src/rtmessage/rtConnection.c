@@ -276,36 +276,6 @@ rtConnection_ShouldReregister(rtError e)
 }
 
 static rtError
-rtConnection_EnsureRoutingDaemon()
-{
-  rtLog_Debug("ensure rtrouted running");
-  int ret = system("/usr/bin/rtrouted 2> /dev/null");
-
-  // 127 is return from sh -c (@see system manpage) when command is not found in $PATH
-  if (WEXITSTATUS(ret) == 127)
-  {
-    ret = system("/usr/bin/rtrouted 2> /dev/null");
-  }
-  
-  // exit(12) from rtrouted means another instance is already running
-  if (WEXITSTATUS(ret) == 12)
-  {
-    rtLog_Debug("rtrouted already running");
-    return RT_OK;
-  }
-
-  if (ret != 0)
-  {
-    rtLog_Error("Cannot run rtrouted. Code:%d", ret);
-  }
-  else
-  {
-    rtLog_Debug("rtrouted started");
-  }
-  return RT_OK;
-}
-
-static rtError
 rtConnection_ConnectAndRegister(rtConnection con, rtTime_t* reconnect_time)
 {
   int i = 1;
@@ -667,13 +637,6 @@ rtConnection_CreateWithConfig(rtConnection* con, rtMessage const conf)
   rtMessage_GetInt32(conf, "start_router", &start_router);
   rtMessage_GetInt32(conf, "max_retries", &max_retries);
   rtMessage_GetInt32(conf, "check_remote_router",&remote_router);
-
-  if (start_router)
-  {
-    err = rtConnection_EnsureRoutingDaemon();
-    if (err != RT_OK)
-      return err;
-  }
 
   err = rtConnection_CreateInternal(con, application_name, router_config, max_retries);
   #ifdef WITH_SPAKE2
