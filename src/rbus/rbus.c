@@ -4463,6 +4463,62 @@ static rbusError_t rbusEvent_SubscribeWithRetries(
     }
 }
 
+static void _subscribe_nocopy_handler(rbusHandle_t handle, rbusMessage_t* msg, void * userData)
+{
+    rbusEventNoCopy_t event = {0};
+
+    event.name = msg->topic;
+    event.rawData = msg->data;
+    event.rawDataLen = msg->length;
+    if (userData)
+    {
+        rbusEventSubscription_t *ptmp = (rbusEventSubscription_t *)userData;
+        rbusEventHandlerNoCopy_t eventHandlerFuncPtr = ptmp->handler;
+        if(eventHandlerFuncPtr)
+            (eventHandlerFuncPtr)(handle, &event, ptmp);
+        else
+            RBUSLOG_WARN("eventHandlerFuncPtr is NULL");
+    }
+}
+
+rbusError_t  rbusEvent_SubscribeNoCopy(
+    rbusHandle_t        handle,
+    char const*         eventName,
+    rbusEventHandler_t  handler,
+    void*               userData,
+    int                 timeout)
+{
+    rbusError_t errorcode = RBUS_ERROR_SUCCESS;
+    char noCopyTopic[RBUS_MAX_NAME_LENGTH] = {0};
+    rbusEventSubscription_t* sub = NULL;
+    struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
+
+    VERIFY_NULL(handle);
+    VERIFY_NULL(eventName);
+    VERIFY_NULL(handler);
+
+    if (handleInfo->m_handleType != RBUS_HWDL_TYPE_REGULAR)
+        return RBUS_ERROR_INVALID_HANDLE;
+
+    RBUSLOG_DEBUG("%s: %s", __FUNCTION__, eventName);
+
+    errorcode = rbusEvent_SubscribeWithRetries(handle, eventName, handler, userData, NULL, 0, 0 , timeout, NULL, false);
+    if(errorcode != RBUS_ERROR_SUCCESS)
+    {
+        RBUSLOG_ERROR("%s:Subscribe failed err: %d",  __FUNCTION__, errorcode);
+        return errorcode;
+    }
+    sub = rbusEventSubscription_find(handleInfo->eventSubs, eventName, NULL, 0, 0);
+    snprintf(noCopyTopic, RBUS_MAX_NAME_LENGTH, "nocopy.%s", sub->eventName);
+    errorcode = rbusMessage_AddListener(handle, noCopyTopic, _subscribe_nocopy_handler, (void *)sub);
+    if(errorcode != RBUS_ERROR_SUCCESS)
+    {
+        RBUSLOG_ERROR("%s: Listener failed err: %d", __FUNCTION__, errorcode);
+    }
+
+    return errorcode;
+}
+
 rbusError_t  rbusEvent_Subscribe(
     rbusHandle_t        handle,
     char const*         eventName,
@@ -4570,18 +4626,68 @@ rbusError_t rbusEvent_Unsubscribe(
     }
 }
 
-void SubscribeExNoCopy_handler(rbusHandle_t handle, rbusMessage_t* msg, void * userData)
+rbusError_t rbusEvent_UnsubscribeNoCopy(
+    rbusHandle_t        handle,
+    char const*         eventName)
 {
-    (void)handle;
-    rbusEventNoCopy_t event = {0};
+    struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
+    char noCopyTopic[RBUS_MAX_NAME_LENGTH] = {0};
+    rbusEventSubscription_t* sub;
 
-    event.name = msg->topic;
-    event.raw_data = msg->data;
-    event.raw_data_len = msg->length;
-    if (userData)
+    VERIFY_NULL(handle);
+    VERIFY_NULL(eventName);
+
+    if (handleInfo->m_handleType != RBUS_HWDL_TYPE_REGULAR)
+        return RBUS_ERROR_INVALID_HANDLE;
+
+    RBUSLOG_DEBUG("%s: %s", __FUNCTION__, eventName);
+
+    /*the use of rtVector is inefficient here.  I have to loop through the vector to find the sub by name,
+        then call RemoveItem, which loops through again to find the item by address to destroy */
+    sub = rbusEventSubscription_find(handleInfo->eventSubs, eventName, NULL, 0, 0);
+
+    if(sub)
     {
-        rbusEventSubscription_t *ptmp = (rbusEventSubscription_t *)userData;
-        ((rbusEventHandlerNoCopy_t)ptmp->handler)(handle, &event, ptmp);
+        rbusMessage payload = rbusEvent_CreateSubscribePayload(sub, handleInfo->componentId);
+
+        rbusCoreError_t coreerr = rbus_unsubscribeFromEvent(NULL, eventName, payload);
+
+        if(payload)
+        {
+            rbusMessage_Release(payload);
+        }
+
+        rtVector_RemoveItem(handleInfo->eventSubs, sub, rbusEventSubscription_free);
+
+        if(coreerr == RBUSCORE_SUCCESS)
+        {
+            return RBUS_ERROR_SUCCESS;
+        }
+        else
+        {
+            RBUSLOG_INFO("%s: %s failed with core err=%d", __FUNCTION__, eventName, coreerr);
+
+            if(coreerr == RBUSCORE_ERROR_DESTINATION_UNREACHABLE)
+            {
+                return RBUS_ERROR_ELEMENT_DOES_NOT_EXIST;
+            }
+            else
+            {
+                return RBUS_ERROR_BUS_ERROR;
+            }
+        }
+        snprintf(noCopyTopic, RBUS_MAX_NAME_LENGTH, "nocopy.%s", sub->eventName);
+        rbusError_t errorcode = rbusMessage_RemoveListener(handle, noCopyTopic);
+        if(errorcode != RBUS_ERROR_SUCCESS)
+        {
+            RBUSLOG_ERROR("Listener failed err: %d", errorcode);
+            return errorcode;
+        }
+    }
+    else
+    {
+        RBUSLOG_INFO("%s: %s no existing subscription found", __FUNCTION__, eventName);
+        return RBUS_ERROR_INVALID_OPERATION; //TODO - is the the right error to return
     }
 }
 
@@ -4636,6 +4742,9 @@ rbusError_t rbusEvent_SubscribeExNoCopy(
 {
     rbusError_t errorcode = RBUS_ERROR_SUCCESS;
     struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
+    char noCopyTopic[RBUS_MAX_NAME_LENGTH] = {0};
+    rbusError_t rc = RBUS_ERROR_SUCCESS;
+    rbusEventSubscription_t* sub;
     int i;
 
     VERIFY_NULL(handle);
@@ -4668,21 +4777,13 @@ rbusError_t rbusEvent_SubscribeExNoCopy(
         }
         else
         {
-            rbusError_t rc;
-            char *direct_topic = NULL;
-            direct_topic = (char*)malloc((strlen(subscription[i].eventName) + 1) * sizeof(char));
-            /* Find direct connection status */
-            if(direct_topic != NULL)
+            sub = rbusEventSubscription_find(handleInfo->eventSubs, subscription[i].eventName, subscription[i].filter, subscription[i].interval, subscription[i].duration);
+            snprintf(noCopyTopic, RBUS_MAX_NAME_LENGTH, "nocopy.%s", subscription[i].eventName);
+            rc = rbusMessage_AddListener(handle, noCopyTopic, _subscribe_nocopy_handler, (void *)sub);
+            if(rc != RBUS_ERROR_SUCCESS)
             {
-                snprintf(direct_topic, RBUS_MAX_NAME_LENGTH, "direct.%s", subscription[i].eventName);
-
-                rc = rbusMessage_AddListener(handle, direct_topic, SubscribeExNoCopy_handler, (void *)&subscription[i]);
-                if(rc != RBUS_ERROR_SUCCESS)
-                {
-                    RBUSLOG_ERROR("Listener failed err: %d\n\r", rc);
-                    errorcode = RBUS_ERROR_BUS_ERROR;
-                }
-                free(direct_topic);
+                RBUSLOG_ERROR("Listener failed err: %d", rc);
+                errorcode = RBUS_ERROR_BUS_ERROR;
             }
         }
     }
@@ -4732,6 +4833,87 @@ rbusError_t rbusEvent_SubscribeExAsync(
     }
 
     return errorcode;    
+}
+
+rbusError_t rbusEvent_UnsubscribeExNoCopy(
+    rbusHandle_t                handle,
+    rbusEventSubscription_t*    subscription,
+    int                         numSubscriptions)
+{
+    rbusError_t errorcode = RBUS_ERROR_SUCCESS;
+    char noCopyTopic[RBUS_MAX_NAME_LENGTH] = {0};
+    struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
+
+    VERIFY_NULL(handle);
+    VERIFY_NULL(subscription);
+    VERIFY_ZERO(numSubscriptions);
+
+    if (handleInfo->m_handleType != RBUS_HWDL_TYPE_REGULAR)
+        return RBUS_ERROR_INVALID_HANDLE;
+
+    int i;
+
+    //TODO we will call unsubscribe for every sub in list
+    //if any unsubscribe fails below we use RBUS_ERROR_BUS_ERROR for return error
+    //The caller will have no idea which ones failed to unsub and which succeeded (if any)
+    //and unlike SubscribeEx, I don't think we can treat this like a transactions because
+    //its assumed that caller has successfully subscribed before so we need to attempt all
+    //to get as many as possible unsubscribed and off the bus
+
+    for(i = 0; i < numSubscriptions; ++i)
+    {
+        rbusEventSubscription_t* sub;
+
+        RBUSLOG_INFO("%s: %s", __FUNCTION__, subscription[i].eventName);
+
+        /*the use of rtVector is inefficient here.  I have to loop through the vector to find the sub by name,
+            then call RemoveItem, which loops through again to find the item by address to destroy */
+        sub = rbusEventSubscription_find(handleInfo->eventSubs, subscription[i].eventName, subscription[i].filter, subscription[i].interval, subscription[i].duration);
+        if(sub)
+        {
+            rbusCoreError_t coreerr;
+            rbusMessage payload;
+
+            payload = rbusEvent_CreateSubscribePayload(sub, handleInfo->componentId);
+
+            coreerr = rbus_unsubscribeFromEvent(NULL, sub->eventName, payload);
+
+            if(payload)
+            {
+                rbusMessage_Release(payload);
+            }
+
+            rtVector_RemoveItem(handleInfo->eventSubs, sub, rbusEventSubscription_free);
+
+            if(coreerr != RBUSCORE_SUCCESS)
+            {
+                RBUSLOG_INFO("%s: failed with core err=%d", __FUNCTION__, coreerr);
+
+                //FIXME -- we just overwrite any existing error that might have happened in a previous loop
+                if(coreerr == RBUSCORE_ERROR_DESTINATION_UNREACHABLE)
+                {
+                    errorcode = RBUS_ERROR_ELEMENT_DOES_NOT_EXIST;
+                }
+                else
+                {
+                    errorcode = RBUS_ERROR_BUS_ERROR;
+                }
+            }
+            snprintf(noCopyTopic, RBUS_MAX_NAME_LENGTH, "nocopy.%s", subscription[i].eventName);
+            errorcode = rbusMessage_RemoveListener(handle, noCopyTopic);
+            if(errorcode != RBUS_ERROR_SUCCESS)
+            {
+                RBUSLOG_ERROR("Listener failed err: %d", errorcode);
+            }
+        }
+        else
+        {
+            RBUSLOG_INFO("%s: %s no existing subscription found", __FUNCTION__, subscription[i].eventName);
+            errorcode = RBUS_ERROR_INVALID_OPERATION; //TODO - is the the right error to return
+        }
+    }
+
+    return errorcode;
 }
 
 rbusError_t rbusEvent_UnsubscribeEx(
@@ -4827,16 +5009,9 @@ rbusError_t  rbusEvent_PublishNoCopy(
   rbusEventNoCopy_t*    eventData)
 {
     struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
-    rbusCoreError_t errOut = RBUSCORE_SUCCESS;
-    rtListItem listItem;
-    rbusSubscription_t* subscription;
+    rbusError_t rc = RBUS_ERROR_SUCCESS;
     rbusMessage_t msg;
-    char* direct_topic = NULL;
-
-    rtConnection con = rbuscore_FindClientPrivateConnection(eventData->name);
-
-    if (NULL == con)
-        con = handleInfo->m_connection;
+    char noCopyTopic[RBUS_MAX_NAME_LENGTH] = {0};
 
     VERIFY_NULL(handle);
     VERIFY_NULL(eventData);
@@ -4860,39 +5035,17 @@ rbusError_t  rbusEvent_PublishNoCopy(
     {
         return RBUS_ERROR_NOSUBSCRIBERS;
     }
-
-    /*Loop through element's subscriptions*/
-    rtList_GetFront(el->subscriptions, &listItem);
-    while(listItem)
+    snprintf(noCopyTopic, RBUS_MAX_NAME_LENGTH, "nocopy.%s", eventData->name);
+    msg.topic = noCopyTopic;
+    msg.data = (uint8_t const*)eventData->rawData;
+    msg.length = eventData->rawDataLen;
+    rc = rbusMessage_Send(handle, &msg, RBUS_MESSAGE_CONFIRM_RECEIPT);
+    if (rc != RBUS_ERROR_SUCCESS)
     {
-        rtListItem_GetData(listItem, (void**)&subscription);
-        if(!subscription || !subscription->eventName || !subscription->listener)
-        {
-            RBUSLOG_INFO("rbusEvent_Publish failed: null subscriber data");
-            if(errOut == RBUSCORE_SUCCESS)
-                errOut = RBUSCORE_ERROR_GENERAL;
-            rtListItem_GetNext(listItem, &listItem);
-        }
-
-        direct_topic = (char*)malloc((eventData->raw_data_len + 1) * sizeof(char));
-        if(direct_topic != NULL)
-        {
-            snprintf(direct_topic, RBUS_MAX_NAME_LENGTH, "direct.%s", eventData->name);
-            msg.topic = direct_topic;
-            msg.data = (uint8_t const*)eventData->raw_data;
-            msg.length = eventData->raw_data_len;
-            rtError e = rtConnection_SendBinary(con, msg.data, msg.length, msg.topic);
-            if (e != RT_OK)
-            {
-                RBUSLOG_WARN("rtConnection_SendBinary:%s", rtStrError(e));
-                errOut = RBUS_ERROR_BUS_ERROR;
-            }
-            free(direct_topic);
-        }
-        rtListItem_GetNext(listItem, &listItem);
+        RBUSLOG_ERROR("rbusEvent_PublishNoCopy failed: rbusMessage_Send return error %d", rc);
+        return rc;
     }
-
-    return errOut == RBUSCORE_SUCCESS ? RBUS_ERROR_SUCCESS: RBUS_ERROR_BUS_ERROR;
+    return rc;
 }
 
 rbusError_t  rbusEvent_Publish(

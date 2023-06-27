@@ -290,6 +290,19 @@ void show_menu(const char* command)
             printf ("\tunsub Example.SomeStrProp = \"Hello\"\n\r");
             printf ("\n\r");
         }
+        else if(matchCmd(command, 11, "nocopyunsubscribe"))
+        {
+            printf ("\e[1mnocopyunsub\e[0mscribe \e[4mevent\e[0m [\e[4moperator\e[0m \e[4mvalue\e[0m]\n\r");
+            printf ("Unsubscribe from a single event.\n\r");
+            printf ("If a value-change filter was used to subscribe then the same filter must be passed to nocopyunsubscribe.\n\r");
+            printf ("Args:\n\r");
+            printf ("\t%-20sThe name of the event to nocopyunsubscribe from\n\r", "event");
+            printf ("\t%-20sOptional operator that was used when subscribing to this event. Supported operators (>, >=, <, <=, =, !=)\n\r", "operator");
+            printf ("\t%-20sOptional value that was used when subscribing to this event.\n\r", "value");
+            printf ("Examples:\n\r");
+            printf ("\tnocopyunsub Example.SomeEvent!\n\r");
+            printf ("\n\r");
+        }
         else if(matchCmd(command, 6, "unsubinterval"))
         {
             printf ("\e[1munsubi\e[0mnterval \e[4mevent\e[0m \e[4minterval\e[0m [\e[4mduration\e[0m]\n\r");
@@ -522,10 +535,13 @@ void show_menu(const char* command)
         printf ("\t\e[1munreg\e[0mister \e[4mname\e[0m\n\r");
         printf ("\t\e[1msub\e[0mscribe \e[4mevent\e[0m [\e[4moperator\e[0m \e[4mvalue\e[0m] [\e[4minitialValue\e[0m]\n\r");
         printf ("\t\e[1msubi\e[0mnterval \e[4mevent\e[0m \e[4minterval\e[0m [\e[4mduration\e[0m] [\e[4minitialValue\e[0m]\n\r");
+        printf ("\t\e[1mnocopysub\e[0mscribe \e[4mevent\e[0m]\n\r");
         printf ("\t\e[1munsub\e[0mscribe \e[4mevent\e[0m [\e[4moperator\e[0m \e[4mvalue\e[0m]\n\r");
+        printf ("\t\e[1mnocopyunsub\e[0mscribe \e[4mevent\e[0m]\n\r");
         printf ("\t\e[1munsubi\e[0mnterval \e[4mevent\e[0m \e[4minterval\e[0m [\e[4mduration\e[0m] [\e[4minitialValue\e[0m]\n\r");
         printf ("\t\e[1masub\e[0mscribe \e[4mevent\e[0m [\e[4moperator\e[0m \e[4mvalue\e[0m]\n\r");
         printf ("\t\e[1mpub\e[0mlish \e[4mevent\e[0m [\e[4mdata\e[0m]\n\r");
+        printf ("\t\e[1mnocopypub\e[0mlish \e[4mevent\e[0m [\e[4mdata\e[0m]\n\r");
         printf ("\t\e[1maddl\e[0mistener \e[4mexpression\e[0m\n\r");
         printf ("\t\e[1mreml\e[0mistener \e[4mexpression\e[0m\n\r");
         printf ("\t\e[1msend\e[0m \e[4mtopic\e[0m [\e[4mdata\e[0m]\n\r");
@@ -839,15 +855,15 @@ rbusError_t event_subscribe_handler(rbusHandle_t handle, rbusEventSubAction_t ac
     return RBUS_ERROR_SUCCESS;
 }
 
-void event_receive_handler1(rbusHandle_t handle, rbusEventNoCopy_t const* event, rbusEventSubscription_t* subscription)
+static void event_receive_handler1(rbusHandle_t handle, rbusEventNoCopy_t const* event, rbusEventSubscription_t* subscription)
 {
     (void)handle;
     (void)subscription;
     runSteps = __LINE__;
     printf("\nevent_receive_handler1 called\n\r");
     printf("Event received %s\n\r", event->name);
-    printf("Event data: %s\n\r", (char*)event->raw_data);
-    printf("Event data len: %d\n\r", event->raw_data_len);
+    printf("Event data: %s\n\r", (char*)event->rawData);
+    printf("Event data len: %d\n\r", event->rawDataLen);
     printf("\n\r");
 }
 
@@ -2019,6 +2035,10 @@ exit_error:
     {
         rc = rbusEvent_SubscribeEx(g_busHandle, &subscription, 1, 0);
     }
+    else if(noCopySub)
+    {
+        rc = rbusEvent_UnsubscribeExNoCopy(g_busHandle, &subscription, 1);
+    }
     else
     {
         rc = rbusEvent_UnsubscribeEx(g_busHandle, &subscription, 1);
@@ -2084,8 +2104,8 @@ void validate_and_execute_publish_command(int argc, char *argv[], bool noCopyPub
     {
         rbusEventNoCopy_t event = {0};
         event.name = argv[2];
-        event.raw_data = argv[3];
-        event.raw_data_len = strlen(argv[3]);
+        event.rawData = argv[3];
+        event.rawDataLen = strlen(argv[3]);
 
         rc = rbusEvent_PublishNoCopy(g_busHandle, &event);
         if(rc != RBUS_ERROR_SUCCESS)
@@ -2436,9 +2456,13 @@ int handle_cmds (int argc, char *argv[])
     {
         validate_and_execute_subscribe_cmd (argc, argv, true, true, false);
     }
-    else if(matchCmd(command, 4, "nocopysubscribe"))
+    else if(matchCmd(command, 9, "nocopysubscribe"))
     {
         validate_and_execute_subscribe_cmd (argc, argv, true, false, true);
+    }
+    else if(matchCmd(command, 11, "nocopyunsubscribe"))
+    {
+        validate_and_execute_subscribe_cmd (argc, argv, false, false, true);
     }
     else if(matchCmd(command, 3, "publish"))
     {
@@ -2649,7 +2673,7 @@ void completion(const char *buf, linenoiseCompletions *lc) {
     {
         runSteps = __LINE__;
         completion = find_completion(tokens[0], 14, "get", "set", "add", "del", "getr", "getn", "disca", "discc", "disce",
-                "discw", "sub", "subint", "unsub", "unsubint", "asub", "method_no", "method_na", "method_va", "reg", "unreg", "pub",
+                "discw", "sub", "subint", "nocopysub", "nocopyunsub", "unsub", "unsubint", "asub", "method_no", "method_na", "method_va", "reg", "unreg", "pub", "nocopypub",
                 "addl", "reml", "send", "log", "quit", "opend", "closed", "help");
     }
     else if(num == 2)
@@ -2776,6 +2800,14 @@ char *hints(const char *buf, int *color, int *bold) {
         {
             hint = " event interval [duration] [initialValue]";
         }
+        else if(strcmp(tokens[0], "nocopysub") == 0)
+        {
+            hint = " event";
+        }
+        else if(strcmp(tokens[0], "nocopyunsub") == 0)
+        {
+            hint = " event";
+        }
         else if(strcmp(tokens[0], "unsub") == 0)
         {
             hint = " event [operator value]";
@@ -2789,6 +2821,10 @@ char *hints(const char *buf, int *color, int *bold) {
             hint = " event [operator value]";
         }
         else if(strcmp(tokens[0], "pub") == 0)
+        {
+            hint = " event [data]";
+        }
+        else if(strcmp(tokens[0], "nocopypub") == 0)
         {
             hint = " event [data]";
         }
