@@ -2269,7 +2269,7 @@ static void _subscribe_callback_handler (rbusHandle_t handle, rbusMessage reques
                 ret = _event_subscribe_callback_handler(el, event_name, sender, added, componentId, interval, duration, filter, handle);
             rbusMessage_SetInt32(*response, ret);
 
-            if(publishOnSubscribe && ret == RBUSCORE_SUCCESS)
+            if(publishOnSubscribe && ret == RBUS_ERROR_SUCCESS)
             {
                 rbusEvent_t event = {0};
                 rbusObject_t data = NULL;
