@@ -1112,29 +1112,14 @@ static void unregisterTableRow (rbusHandle_t handle, elementNode* rowInstElem)
     }
 }
 //******************************* CALLBACKS *************************************//
-static int _event_subscribe_callback_handler(char const* object,  char const* eventName, char const* listener, int added, int componentId, int interval, int duration, rbusFilter_t filter, void* userData)
+static int _event_subscribe_callback_handler(elementNode* el,  char const* eventName, char const* listener, int added, int componentId, int interval, int duration, rbusFilter_t filter, void* userData)
 {
     rbusHandle_t handle = (rbusHandle_t)userData;
-    struct _rbusHandle* handleInfo = (struct _rbusHandle*)userData;
     rbusCoreError_t err = RBUSCORE_SUCCESS;
 
-    UNUSED1(object);
+    RBUSLOG_DEBUG("%s: event subscribe callback for [%s] event! and element of type %d", __FUNCTION__, eventName, el->type);
 
-    RBUSLOG_DEBUG("%s: event subscribe callback for [%s] event!", __FUNCTION__, eventName);
-
-    elementNode* el = retrieveInstanceElement(handleInfo->elementRoot, eventName);
-
-    if(el)
-    {
-        RBUSLOG_DEBUG("%s: found element of type %d", __FUNCTION__, el->type);
-
-        err = subscribeHandlerImpl(handle, added, el, eventName, listener, componentId, interval, duration, filter);
-    }
-    else
-    {
-        RBUSLOG_WARN("event subscribe callback: element not found for [%s] event", eventName);
-        err = RBUSCORE_ERROR_UNSUPPORTED_EVENT;
-    }
+    err = subscribeHandlerImpl(handle, added, el, eventName, listener, componentId, interval, duration, filter);
     return err;
 }
 
@@ -2263,23 +2248,29 @@ static void _subscribe_callback_handler (rbusHandle_t handle, rbusMessage reques
             }
 
             elementNode* el = NULL;
+            rbusCoreError_t ret = RBUSCORE_SUCCESS;
             el = retrieveInstanceElement(handleInfo->elementRoot, event_name);
 
-            if (el !=NULL && (el->type == RBUS_ELEMENT_TYPE_TABLE)  && (event_name[strlen(event_name)-1] != '.'))
+            if (!el)
+            {
+                RBUSLOG_ERROR(":%s: elementNode Token not found",__FUNCTION__);
+                ret = RBUSCORE_ERROR_UNSUPPORTED_EVENT;
+            }
+            else if(el->type == RBUS_ELEMENT_TYPE_TABLE && event_name[strlen(event_name)-1] != '.')
             {
                 RBUSLOG_ERROR(":%s: Invalid event_name: %s, Element Table Subscription should end with '.'",__FUNCTION__, event_name);
-                return ;
+                ret = RBUSCORE_ERROR_INVALID_PARAM;
             }
 
             int added = strncmp(method, METHOD_SUBSCRIBE, MAX_METHOD_NAME_LENGTH) == 0 ? 1 : 0;
             if(added)
                 rbusMessage_GetInt32(request, &publishOnSubscribe);
-            rbusCoreError_t ret = _event_subscribe_callback_handler(NULL, event_name, sender, added, componentId, interval, duration, filter, handle);
+            if(ret == RBUSCORE_SUCCESS)
+                ret = _event_subscribe_callback_handler(el, event_name, sender, added, componentId, interval, duration, filter, handle);
             rbusMessage_SetInt32(*response, ret);
 
-            if(publishOnSubscribe)
+            if(publishOnSubscribe && ret == RBUSCORE_SUCCESS)
             {
-                elementNode* el = NULL;
                 rbusEvent_t event = {0};
                 rbusObject_t data = NULL;
                 char *tmpptr = NULL;
@@ -2287,7 +2278,6 @@ static void _subscribe_callback_handler (rbusHandle_t handle, rbusMessage reques
                 rbusError_t err = RBUS_ERROR_SUCCESS;
                 int actualCount = 0;
                 rbusObject_Init(&data, NULL);
-                el = retrieveInstanceElement(handleInfo->elementRoot, event_name);
                 /* wildcard */
                 tmpptr= strchr(event_name, '*');
                 if(tmpptr)
@@ -2335,7 +2325,7 @@ static void _subscribe_callback_handler (rbusHandle_t handle, rbusMessage reques
                 }
                 else
                 {
-                    if(ret == RBUSCORE_SUCCESS && el->cbTable.getHandler)
+                    if(el->cbTable.getHandler)
                     {
                         rbusValue_t val = NULL;
                         rbusGetHandlerOptions_t options;
