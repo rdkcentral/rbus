@@ -4680,7 +4680,7 @@ rbusError_t rbusEvent_UnsubscribeNoCopy(
         rbusError_t errorcode = rbusMessage_RemoveListener(handle, noCopyTopic);
         if(errorcode != RBUS_ERROR_SUCCESS)
         {
-            RBUSLOG_ERROR("Listener failed err: %d", errorcode);
+            RBUSLOG_ERROR("%s: Listener failed err: %d", __FUNCTION__, errorcode);
             return errorcode;
         }
     }
@@ -4743,7 +4743,6 @@ rbusError_t rbusEvent_SubscribeExNoCopy(
     rbusError_t errorcode = RBUS_ERROR_SUCCESS;
     struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
     char noCopyTopic[RBUS_MAX_NAME_LENGTH] = {0};
-    rbusError_t rc = RBUS_ERROR_SUCCESS;
     rbusEventSubscription_t* sub;
     int i;
 
@@ -4779,11 +4778,10 @@ rbusError_t rbusEvent_SubscribeExNoCopy(
         {
             sub = rbusEventSubscription_find(handleInfo->eventSubs, subscription[i].eventName, subscription[i].filter, subscription[i].interval, subscription[i].duration);
             snprintf(noCopyTopic, RBUS_MAX_NAME_LENGTH, "nocopy.%s", subscription[i].eventName);
-            rc = rbusMessage_AddListener(handle, noCopyTopic, _subscribe_nocopy_handler, (void *)sub);
-            if(rc != RBUS_ERROR_SUCCESS)
+            errorcode = rbusMessage_AddListener(handle, noCopyTopic, _subscribe_nocopy_handler, (void *)sub);
+            if(errorcode != RBUS_ERROR_SUCCESS)
             {
-                RBUSLOG_ERROR("Listener failed err: %d", rc);
-                errorcode = RBUS_ERROR_BUS_ERROR;
+                RBUSLOG_ERROR("%s: Listener failed err: %d", __FUNCTION__, errorcode);
             }
         }
     }
@@ -4903,7 +4901,7 @@ rbusError_t rbusEvent_UnsubscribeExNoCopy(
             errorcode = rbusMessage_RemoveListener(handle, noCopyTopic);
             if(errorcode != RBUS_ERROR_SUCCESS)
             {
-                RBUSLOG_ERROR("Listener failed err: %d", errorcode);
+                RBUSLOG_ERROR("%s: Listener failed err: %d", __FUNCTION__, errorcode);
             }
         }
         else
@@ -5041,10 +5039,7 @@ rbusError_t  rbusEvent_PublishNoCopy(
     msg.length = eventData->rawDataLen;
     rc = rbusMessage_Send(handle, &msg, RBUS_MESSAGE_CONFIRM_RECEIPT);
     if (rc != RBUS_ERROR_SUCCESS)
-    {
-        RBUSLOG_ERROR("rbusEvent_PublishNoCopy failed: rbusMessage_Send return error %d", rc);
-        return rc;
-    }
+        RBUSLOG_ERROR("%s: rbusMessage_Send failed with return %d", __FUNCTION__, rc);
     return rc;
 }
 
