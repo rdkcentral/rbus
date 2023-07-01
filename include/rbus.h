@@ -230,7 +230,7 @@ typedef struct
     char const*     name;           /**< Fully qualified event name */
     const void*     rawData;       /**< The raw data for the event */
     unsigned int    rawDataLen;   /**< The raw data length*/
-} rbusEventNoCopy_t;
+} rbusEventRawData_t;
 
 typedef struct _rbusEventSubscription rbusEventSubscription_t;
 
@@ -272,9 +272,9 @@ typedef void (*rbusEventHandler_t)(
     rbusEventSubscription_t*    subscription
 );
 
-typedef void (*rbusEventHandlerNoCopy_t)(
+typedef void (*rbusEventHandlerRawData_t)(
     rbusHandle_t                handle,
-    rbusEventNoCopy_t const*    eventData,
+    rbusEventRawData_t const*    eventData,
     rbusEventSubscription_t*    subscription
 );
 
@@ -1373,7 +1373,7 @@ rbusError_t  rbusEvent_Subscribe(
     void*               userData,
     int                 timeout);
 
-/** @fn rbusError_t  rbusEvent_SubscribeNoCopy(
+/** @fn rbusError_t  rbusEvent_SubscribeRawData(
  *          rbusHandle_t        handle,
  *          char const*         eventName,
  *          rbusEventHandler_t  handler,
@@ -1386,7 +1386,7 @@ rbusError_t  rbusEvent_Subscribe(
  * If timeout is positive, internal retries will be attempted if the subscription
  * cannot be routed to an existing provider, and the retries will continue until
  * either a provider is found, an unrecoverable error occurs, or retry timeout reached.
- * A component should call rbusEvent_UnsubscribeNoCopy to stop receiving the event.
+ * A component should call rbusEvent_UnsubscribeRawData to stop receiving the event.
  *  @param      handle          Bus Handle
  *  @param      eventName       The fully qualified name of the event
  *  @param      handler         The event callback handler
@@ -1396,7 +1396,7 @@ rbusError_t  rbusEvent_Subscribe(
  *  Possible values are: RBUS_ERROR_INVALID_EVENT
  *  @ingroup Events
  */
-rbusError_t  rbusEvent_SubscribeNoCopy(
+rbusError_t  rbusEvent_SubscribeRawData(
     rbusHandle_t        handle,
     char const*         eventName,
     rbusEventHandler_t  handler,
@@ -1463,12 +1463,12 @@ rbusError_t rbusEvent_Unsubscribe(
     rbusHandle_t        handle,
     char const*         eventName);
 
-/** @fn rbusError_t  rbusEvent_UnsubscribeNoCopy(
+/** @fn rbusError_t  rbusEvent_UnsubscribeRawData(
  *          rbusHandle_t        handle,
  *          char const*         eventName)
  *  @brief Unsubscribe from a single event.  \n
  *  Used by: Components that need to unsubscribe from an event subscribed using
- *  rbusEvent_SubscribeNoCopy.
+ *  rbusEvent_SubscribeRawData.
  *
  * The eventName should be a name which was previously subscribed 
  * to with either rbusEvent_Subscribe or rbusEvent_SubscribeEx.
@@ -1479,7 +1479,7 @@ rbusError_t rbusEvent_Unsubscribe(
  *  @ingroup Events
  */
 
-rbusError_t rbusEvent_UnsubscribeNoCopy(
+rbusError_t rbusEvent_UnsubscribeRawData(
     rbusHandle_t        handle,
     char const*         eventName);
 
@@ -1512,7 +1512,7 @@ rbusError_t rbusEvent_SubscribeEx(
     int                       numSubscriptions,
     int                       timeout);
 
-/** @fn rbusError_t  rbusEvent_SubscribeExNoCopy (
+/** @fn rbusError_t  rbusEvent_SubscribeExRawData (
  *          rbusHandle_t handle,
  *          rbusEventSubscription_t* subscription,
  *          int numSubscriptions,
@@ -1536,7 +1536,7 @@ rbusError_t rbusEvent_SubscribeEx(
  *  Possible values are: RBUS_ERROR_INVALID_EVENT
  *  @ingroup Events
  */
-rbusError_t rbusEvent_SubscribeExNoCopy(
+rbusError_t rbusEvent_SubscribeExRawData(
     rbusHandle_t              handle,
     rbusEventSubscription_t*  subscription,
     int                       numSubscriptions,
@@ -1600,7 +1600,7 @@ rbusError_t rbusEvent_UnsubscribeEx(
     rbusEventSubscription_t* subscriptions,
     int numSubscriptions);
 
-/** @fn rbusError_t  rbusEvent_UnsubscribeExNoCopy(
+/** @fn rbusError_t  rbusEvent_UnsubscribeExRawData(
  *          rbusHandle_t handle, 
  *          rbusEventSubscription_t* subscriptions,
  *          int numSubscriptions)
@@ -1619,7 +1619,7 @@ rbusError_t rbusEvent_UnsubscribeEx(
  *  Possible values are: RBUS_ERROR_INVALID_EVENT
  *  @ingroup Events
  */
-rbusError_t rbusEvent_UnsubscribeExNoCopy(
+rbusError_t rbusEvent_UnsubscribeExRawData(
     rbusHandle_t                handle,
     rbusEventSubscription_t*    subscription,
     int                         numSubscriptions);
@@ -1649,7 +1649,7 @@ rbusError_t  rbusEvent_Publish(
     rbusHandle_t handle,
     rbusEvent_t* eventData);
 
-/** @fn rbusError_t  rbusEvent_PublishNoCopy (
+/** @fn rbusError_t  rbusEvent_PublishRawData (
  *          rbusHandle_t handle,
  *          rbusEvent_t* eventData)
  *  @brief Publish an event.
@@ -1665,9 +1665,9 @@ rbusError_t  rbusEvent_Publish(
  *  Possible values are: RBUS_ERROR_INVALID_EVENT
  *  @ingroup Events
  */
-rbusError_t  rbusEvent_PublishNoCopy(
+rbusError_t  rbusEvent_PublishRawData(
   rbusHandle_t          handle,
-  rbusEventNoCopy_t*    eventData);
+  rbusEventRawData_t*    eventData);
 
 /** @} */
 

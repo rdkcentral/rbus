@@ -855,7 +855,7 @@ rbusError_t event_subscribe_handler(rbusHandle_t handle, rbusEventSubAction_t ac
     return RBUS_ERROR_SUCCESS;
 }
 
-static void event_receive_handler1(rbusHandle_t handle, rbusEventNoCopy_t const* event, rbusEventSubscription_t* subscription)
+static void event_receive_handler1(rbusHandle_t handle, rbusEventRawData_t const* event, rbusEventSubscription_t* subscription)
 {
     (void)handle;
     (void)subscription;
@@ -1891,7 +1891,7 @@ int set_publishOnSubscribe(int argc, char *argv[])
     return publishOnSubscribe;
 }
 
-void validate_and_execute_subscribe_cmd (int argc, char *argv[], bool add, bool isAsync, bool noCopySub)
+void validate_and_execute_subscribe_cmd (int argc, char *argv[], bool add, bool isAsync, bool rawDataSub)
 {
     rbusError_t rc = RBUS_ERROR_SUCCESS;
     rbusFilter_t filter = NULL;
@@ -2027,17 +2027,17 @@ exit_error:
     {
         rc = rbusEvent_SubscribeExAsync(g_busHandle, &subscription, 1, event_receive_subscription_handler, 0);
     }
-    else if(add && noCopySub)
+    else if(add && rawDataSub)
     {
-        rc = rbusEvent_SubscribeExNoCopy(g_busHandle, &subscription_nocopy, 1, 0);
+        rc = rbusEvent_SubscribeExRawData(g_busHandle, &subscription_nocopy, 1, 0);
     }
     else if(add)
     {
         rc = rbusEvent_SubscribeEx(g_busHandle, &subscription, 1, 0);
     }
-    else if(noCopySub)
+    else if(rawDataSub)
     {
-        rc = rbusEvent_UnsubscribeExNoCopy(g_busHandle, &subscription, 1);
+        rc = rbusEvent_UnsubscribeExRawData(g_busHandle, &subscription, 1);
     }
     else
     {
@@ -2084,7 +2084,7 @@ exit_error:
     }
 }
 
-void validate_and_execute_publish_command(int argc, char *argv[], bool noCopyPub)
+void validate_and_execute_publish_command(int argc, char *argv[], bool rawDataPub)
 {
     rbusError_t rc;
     rbusObject_t data;
@@ -2100,14 +2100,14 @@ void validate_and_execute_publish_command(int argc, char *argv[], bool noCopyPub
         return;    
 
     runSteps = __LINE__;
-    if(noCopyPub)
+    if(rawDataPub)
     {
-        rbusEventNoCopy_t event = {0};
+        rbusEventRawData_t event = {0};
         event.name = argv[2];
         event.rawData = argv[3];
         event.rawDataLen = strlen(argv[3]);
 
-        rc = rbusEvent_PublishNoCopy(g_busHandle, &event);
+        rc = rbusEvent_PublishRawData(g_busHandle, &event);
         if(rc != RBUS_ERROR_SUCCESS)
             printf("provider: rbusEvent_Publish Event1 failed: %d\n", rc);
     }

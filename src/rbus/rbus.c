@@ -4465,7 +4465,7 @@ static rbusError_t rbusEvent_SubscribeWithRetries(
 
 static void _subscribe_nocopy_handler(rbusHandle_t handle, rbusMessage_t* msg, void * userData)
 {
-    rbusEventNoCopy_t event = {0};
+    rbusEventRawData_t event = {0};
 
     event.name = msg->topic;
     event.rawData = msg->data;
@@ -4473,7 +4473,7 @@ static void _subscribe_nocopy_handler(rbusHandle_t handle, rbusMessage_t* msg, v
     if (userData)
     {
         rbusEventSubscription_t *ptmp = (rbusEventSubscription_t *)userData;
-        rbusEventHandlerNoCopy_t eventHandlerFuncPtr = ptmp->handler;
+        rbusEventHandlerRawData_t eventHandlerFuncPtr = ptmp->handler;
         if(eventHandlerFuncPtr)
             (eventHandlerFuncPtr)(handle, &event, ptmp);
         else
@@ -4481,7 +4481,7 @@ static void _subscribe_nocopy_handler(rbusHandle_t handle, rbusMessage_t* msg, v
     }
 }
 
-rbusError_t  rbusEvent_SubscribeNoCopy(
+rbusError_t  rbusEvent_SubscribeRawData(
     rbusHandle_t        handle,
     char const*         eventName,
     rbusEventHandler_t  handler,
@@ -4489,7 +4489,7 @@ rbusError_t  rbusEvent_SubscribeNoCopy(
     int                 timeout)
 {
     rbusError_t errorcode = RBUS_ERROR_SUCCESS;
-    char noCopyTopic[RBUS_MAX_NAME_LENGTH] = {0};
+    char rawDataTopic[RBUS_MAX_NAME_LENGTH] = {0};
     rbusEventSubscription_t* sub = NULL;
     struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
 
@@ -4509,8 +4509,8 @@ rbusError_t  rbusEvent_SubscribeNoCopy(
         return errorcode;
     }
     sub = rbusEventSubscription_find(handleInfo->eventSubs, eventName, NULL, 0, 0);
-    snprintf(noCopyTopic, RBUS_MAX_NAME_LENGTH, "nocopy.%s", sub->eventName);
-    errorcode = rbusMessage_AddListener(handle, noCopyTopic, _subscribe_nocopy_handler, (void *)sub);
+    snprintf(rawDataTopic, RBUS_MAX_NAME_LENGTH, "nocopy.%s", sub->eventName);
+    errorcode = rbusMessage_AddListener(handle, rawDataTopic, _subscribe_nocopy_handler, (void *)sub);
     if(errorcode != RBUS_ERROR_SUCCESS)
     {
         RBUSLOG_ERROR("%s: Listener failed err: %d", __FUNCTION__, errorcode);
@@ -4626,12 +4626,12 @@ rbusError_t rbusEvent_Unsubscribe(
     }
 }
 
-rbusError_t rbusEvent_UnsubscribeNoCopy(
+rbusError_t rbusEvent_UnsubscribeRawData(
     rbusHandle_t        handle,
     char const*         eventName)
 {
     struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
-    char noCopyTopic[RBUS_MAX_NAME_LENGTH] = {0};
+    char rawDataTopic[RBUS_MAX_NAME_LENGTH] = {0};
     rbusEventSubscription_t* sub;
 
     VERIFY_NULL(handle);
@@ -4676,8 +4676,8 @@ rbusError_t rbusEvent_UnsubscribeNoCopy(
                 return RBUS_ERROR_BUS_ERROR;
             }
         }
-        snprintf(noCopyTopic, RBUS_MAX_NAME_LENGTH, "nocopy.%s", sub->eventName);
-        rbusError_t errorcode = rbusMessage_RemoveListener(handle, noCopyTopic);
+        snprintf(rawDataTopic, RBUS_MAX_NAME_LENGTH, "nocopy.%s", sub->eventName);
+        rbusError_t errorcode = rbusMessage_RemoveListener(handle, rawDataTopic);
         if(errorcode != RBUS_ERROR_SUCCESS)
         {
             RBUSLOG_ERROR("%s: Listener failed err: %d", __FUNCTION__, errorcode);
@@ -4734,7 +4734,7 @@ rbusError_t rbusEvent_SubscribeEx(
     return errorcode;
 }
 
-rbusError_t rbusEvent_SubscribeExNoCopy(
+rbusError_t rbusEvent_SubscribeExRawData(
     rbusHandle_t                handle,
     rbusEventSubscription_t*    subscription,
     int                         numSubscriptions,
@@ -4742,7 +4742,7 @@ rbusError_t rbusEvent_SubscribeExNoCopy(
 {
     rbusError_t errorcode = RBUS_ERROR_SUCCESS;
     struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
-    char noCopyTopic[RBUS_MAX_NAME_LENGTH] = {0};
+    char rawDataTopic[RBUS_MAX_NAME_LENGTH] = {0};
     rbusEventSubscription_t* sub;
     int i;
 
@@ -4777,8 +4777,8 @@ rbusError_t rbusEvent_SubscribeExNoCopy(
         else
         {
             sub = rbusEventSubscription_find(handleInfo->eventSubs, subscription[i].eventName, subscription[i].filter, subscription[i].interval, subscription[i].duration);
-            snprintf(noCopyTopic, RBUS_MAX_NAME_LENGTH, "nocopy.%s", subscription[i].eventName);
-            errorcode = rbusMessage_AddListener(handle, noCopyTopic, _subscribe_nocopy_handler, (void *)sub);
+            snprintf(rawDataTopic, RBUS_MAX_NAME_LENGTH, "nocopy.%s", subscription[i].eventName);
+            errorcode = rbusMessage_AddListener(handle, rawDataTopic, _subscribe_nocopy_handler, (void *)sub);
             if(errorcode != RBUS_ERROR_SUCCESS)
             {
                 RBUSLOG_ERROR("%s: Listener failed err: %d", __FUNCTION__, errorcode);
@@ -4833,13 +4833,13 @@ rbusError_t rbusEvent_SubscribeExAsync(
     return errorcode;    
 }
 
-rbusError_t rbusEvent_UnsubscribeExNoCopy(
+rbusError_t rbusEvent_UnsubscribeExRawData(
     rbusHandle_t                handle,
     rbusEventSubscription_t*    subscription,
     int                         numSubscriptions)
 {
     rbusError_t errorcode = RBUS_ERROR_SUCCESS;
-    char noCopyTopic[RBUS_MAX_NAME_LENGTH] = {0};
+    char rawDataTopic[RBUS_MAX_NAME_LENGTH] = {0};
     struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
 
     VERIFY_NULL(handle);
@@ -4897,8 +4897,8 @@ rbusError_t rbusEvent_UnsubscribeExNoCopy(
                     errorcode = RBUS_ERROR_BUS_ERROR;
                 }
             }
-            snprintf(noCopyTopic, RBUS_MAX_NAME_LENGTH, "nocopy.%s", subscription[i].eventName);
-            errorcode = rbusMessage_RemoveListener(handle, noCopyTopic);
+            snprintf(rawDataTopic, RBUS_MAX_NAME_LENGTH, "nocopy.%s", subscription[i].eventName);
+            errorcode = rbusMessage_RemoveListener(handle, rawDataTopic);
             if(errorcode != RBUS_ERROR_SUCCESS)
             {
                 RBUSLOG_ERROR("%s: Listener failed err: %d", __FUNCTION__, errorcode);
@@ -5002,14 +5002,14 @@ rbusError_t rbusEvent_UnsubscribeEx(
     return errorcode;
 }
 
-rbusError_t  rbusEvent_PublishNoCopy(
+rbusError_t  rbusEvent_PublishRawData(
   rbusHandle_t          handle,
-  rbusEventNoCopy_t*    eventData)
+  rbusEventRawData_t*    eventData)
 {
     struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
     rbusError_t rc = RBUS_ERROR_SUCCESS;
     rbusMessage_t msg;
-    char noCopyTopic[RBUS_MAX_NAME_LENGTH] = {0};
+    char rawDataTopic[RBUS_MAX_NAME_LENGTH] = {0};
 
     VERIFY_NULL(handle);
     VERIFY_NULL(eventData);
@@ -5033,8 +5033,8 @@ rbusError_t  rbusEvent_PublishNoCopy(
     {
         return RBUS_ERROR_NOSUBSCRIBERS;
     }
-    snprintf(noCopyTopic, RBUS_MAX_NAME_LENGTH, "nocopy.%s", eventData->name);
-    msg.topic = noCopyTopic;
+    snprintf(rawDataTopic, RBUS_MAX_NAME_LENGTH, "nocopy.%s", eventData->name);
+    msg.topic = rawDataTopic;
     msg.data = (uint8_t const*)eventData->rawData;
     msg.length = eventData->rawDataLen;
     rc = rbusMessage_Send(handle, &msg, RBUS_MESSAGE_CONFIRM_RECEIPT);
