@@ -2254,7 +2254,7 @@ static void _subscribe_callback_handler (rbusHandle_t handle, rbusMessage reques
             if (!el)
             {
                 RBUSLOG_ERROR("%s - Event Not Found", event_name);
-                ret = RBUS_ERROR_INVALID_EVENT;
+                ret = RBUS_ERROR_ELEMENT_DOES_NOT_EXIST;
             }
             else if(el->type == RBUS_ELEMENT_TYPE_TABLE && event_name[strlen(event_name)-1] != '.')
             {
