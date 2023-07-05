@@ -419,8 +419,8 @@ void testSubscribe(rbusHandle_t handle, int* countPass, int* countFail)
 
     /*test subscribing to non-existing rows*/
     /*The path is registered but the row is missing, so the request will reach the provider and the provider will return RBUS_ERROR_INVALID_EVENT*/
-    subscribe(handle, "Device.TestProvider.EventsTable.4.Event", eventsTableHandler, 0, 500, RBUS_ERROR_INVALID_EVENT);
-    subscribe(handle, "Device.TestProvider.EventsTable.4.Prop", eventsTableHandler, 0, 500, RBUS_ERROR_INVALID_EVENT);
+    subscribe(handle, "Device.TestProvider.EventsTable.4.Event", eventsTableHandler, 0, 500, RBUS_ERROR_ELEMENT_DOES_NOT_EXIST);
+    subscribe(handle, "Device.TestProvider.EventsTable.4.Prop", eventsTableHandler, 0, 500, RBUS_ERROR_ELEMENT_DOES_NOT_EXIST);
 
     /*The path is not registered so it will never reach the provider and we should get RBUS_ERROR_TIMEOUT*/
     subscribe(handle, "Device.TestProvider.EventsTable.1.NonExisting", eventsTableHandler, 0, 500, RBUS_ERROR_TIMEOUT);
