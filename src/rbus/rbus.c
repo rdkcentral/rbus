@@ -4633,6 +4633,7 @@ rbusError_t rbusEvent_UnsubscribeRawData(
     struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
     char rawDataTopic[RBUS_MAX_NAME_LENGTH] = {0};
     rbusEventSubscription_t* sub;
+    rbusError_t errorcode = RBUS_ERROR_SUCCESS;
 
     VERIFY_NULL(handle);
     VERIFY_NULL(eventName);
@@ -4659,36 +4660,32 @@ rbusError_t rbusEvent_UnsubscribeRawData(
 
         rtVector_RemoveItem(handleInfo->eventSubs, sub, rbusEventSubscription_free);
 
-        if(coreerr == RBUSCORE_SUCCESS)
+        if(coreerr != RBUSCORE_SUCCESS)
         {
-            return RBUS_ERROR_SUCCESS;
-        }
-        else
-        {
-            RBUSLOG_INFO("%s: %s failed with core err=%d", __FUNCTION__, eventName, coreerr);
+            RBUSLOG_ERROR("%s: %s failed to remove subscription with return code %d", __FUNCTION__, eventName, coreerr);
 
             if(coreerr == RBUSCORE_ERROR_DESTINATION_UNREACHABLE)
             {
-                return RBUS_ERROR_ELEMENT_DOES_NOT_EXIST;
+                errorcode = RBUS_ERROR_ELEMENT_DOES_NOT_EXIST;
             }
             else
             {
-                return RBUS_ERROR_BUS_ERROR;
+                errorcode = RBUS_ERROR_BUS_ERROR;
             }
         }
         snprintf(rawDataTopic, RBUS_MAX_NAME_LENGTH, "rawdata.%s", sub->eventName);
-        rbusError_t errorcode = rbusMessage_RemoveListener(handle, rawDataTopic);
+        errorcode = rbusMessage_RemoveListener(handle, rawDataTopic);
         if(errorcode != RBUS_ERROR_SUCCESS)
         {
-            RBUSLOG_ERROR("%s: Listener failed err: %d", __FUNCTION__, errorcode);
-            return errorcode;
+            RBUSLOG_WARN("%s: Remove listener failed err: %d", __FUNCTION__, errorcode);
         }
     }
     else
     {
         RBUSLOG_INFO("%s: %s no existing subscription found", __FUNCTION__, eventName);
-        return RBUS_ERROR_INVALID_OPERATION; //TODO - is the the right error to return
+        errorcode = RBUS_ERROR_INVALID_OPERATION;
     }
+    return errorcode;
 }
 
 rbusError_t rbusEvent_SubscribeEx(
