@@ -1379,7 +1379,7 @@ rbusError_t  rbusEvent_Subscribe(
  *          rbusEventHandler_t  handler,
  *          void*               userData,
  *          int                 timeout)
- *  @brief Subscribe to a single event using nocopy method, with reduced memory and 
+ *  @brief Subscribe to a single event using rawdata method, with reduced memory and 
  *  cpu footprint.
  *  Used by: Components that need to subscribe to an event.
  * The handler will be called back when the event is generated. 
@@ -1519,7 +1519,7 @@ rbusError_t rbusEvent_SubscribeEx(
  *          int timeout)
  *  @brief  Subscribe to one or more events with the option to add extra attributes
  *          to each subscription through the rbusEventSubscription_t structure\n
- *  Used by: Components that need to subscribe to events using nocopy method, with 
+ *  Used by: Components that need to subscribe to events using rawdata method, with 
  *  reduced memory and cpu footprint.
  * For each rbusEventSubscription_t subscription, the eventName and handler 
  * are required to be set.  Other options may be set to NULL or 0 if not needed.
@@ -1606,7 +1606,7 @@ rbusError_t rbusEvent_UnsubscribeEx(
  *          int numSubscriptions)
  *  @brief  Unsubscribe from one or more events\n
  *          Used by: Components that need to unsubscribe from events subscribed with 
- * nocopy method.
+ * rawdata method.
  * For each rbusEventSubscription_t subscription, the eventName is required to be set.
  * Other options may be set NULL or 0.
  * The subscriptions pointer can be the same as that passed to rbusEvent_SubscribeEx, or it

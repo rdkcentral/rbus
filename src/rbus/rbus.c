@@ -4463,7 +4463,7 @@ static rbusError_t rbusEvent_SubscribeWithRetries(
     }
 }
 
-static void _subscribe_nocopy_handler(rbusHandle_t handle, rbusMessage_t* msg, void * userData)
+static void _subscribe_rawdata_handler(rbusHandle_t handle, rbusMessage_t* msg, void * userData)
 {
     rbusEventRawData_t event = {0};
 
@@ -4509,8 +4509,8 @@ rbusError_t  rbusEvent_SubscribeRawData(
         return errorcode;
     }
     sub = rbusEventSubscription_find(handleInfo->eventSubs, eventName, NULL, 0, 0);
-    snprintf(rawDataTopic, RBUS_MAX_NAME_LENGTH, "nocopy.%s", sub->eventName);
-    errorcode = rbusMessage_AddListener(handle, rawDataTopic, _subscribe_nocopy_handler, (void *)sub);
+    snprintf(rawDataTopic, RBUS_MAX_NAME_LENGTH, "rawdata.%s", sub->eventName);
+    errorcode = rbusMessage_AddListener(handle, rawDataTopic, _subscribe_rawdata_handler, (void *)sub);
     if(errorcode != RBUS_ERROR_SUCCESS)
     {
         RBUSLOG_ERROR("%s: Listener failed err: %d", __FUNCTION__, errorcode);
@@ -4676,7 +4676,7 @@ rbusError_t rbusEvent_UnsubscribeRawData(
                 return RBUS_ERROR_BUS_ERROR;
             }
         }
-        snprintf(rawDataTopic, RBUS_MAX_NAME_LENGTH, "nocopy.%s", sub->eventName);
+        snprintf(rawDataTopic, RBUS_MAX_NAME_LENGTH, "rawdata.%s", sub->eventName);
         rbusError_t errorcode = rbusMessage_RemoveListener(handle, rawDataTopic);
         if(errorcode != RBUS_ERROR_SUCCESS)
         {
@@ -4777,8 +4777,8 @@ rbusError_t rbusEvent_SubscribeExRawData(
         else
         {
             sub = rbusEventSubscription_find(handleInfo->eventSubs, subscription[i].eventName, subscription[i].filter, subscription[i].interval, subscription[i].duration);
-            snprintf(rawDataTopic, RBUS_MAX_NAME_LENGTH, "nocopy.%s", subscription[i].eventName);
-            errorcode = rbusMessage_AddListener(handle, rawDataTopic, _subscribe_nocopy_handler, (void *)sub);
+            snprintf(rawDataTopic, RBUS_MAX_NAME_LENGTH, "rawdata.%s", subscription[i].eventName);
+            errorcode = rbusMessage_AddListener(handle, rawDataTopic, _subscribe_rawdata_handler, (void *)sub);
             if(errorcode != RBUS_ERROR_SUCCESS)
             {
                 RBUSLOG_ERROR("%s: Listener failed err: %d", __FUNCTION__, errorcode);
@@ -4897,7 +4897,7 @@ rbusError_t rbusEvent_UnsubscribeExRawData(
                     errorcode = RBUS_ERROR_BUS_ERROR;
                 }
             }
-            snprintf(rawDataTopic, RBUS_MAX_NAME_LENGTH, "nocopy.%s", subscription[i].eventName);
+            snprintf(rawDataTopic, RBUS_MAX_NAME_LENGTH, "rawdata.%s", subscription[i].eventName);
             errorcode = rbusMessage_RemoveListener(handle, rawDataTopic);
             if(errorcode != RBUS_ERROR_SUCCESS)
             {
@@ -5033,7 +5033,7 @@ rbusError_t  rbusEvent_PublishRawData(
     {
         return RBUS_ERROR_NOSUBSCRIBERS;
     }
-    snprintf(rawDataTopic, RBUS_MAX_NAME_LENGTH, "nocopy.%s", eventData->name);
+    snprintf(rawDataTopic, RBUS_MAX_NAME_LENGTH, "rawdata.%s", eventData->name);
     msg.topic = rawDataTopic;
     msg.data = (uint8_t const*)eventData->rawData;
     msg.length = eventData->rawDataLen;
