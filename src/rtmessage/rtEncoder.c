@@ -24,26 +24,6 @@
 #include <stdio.h>
 
 rtError
-rtEncoder_EncodeInt32(uint8_t** itr, int32_t n)
-{
-  int32_t net = htonl(n);
-  memcpy(*itr, &net, 4);
-  *itr += 4;
-  return RT_OK;
-}
-
-rtError
-rtEncoder_DecodeInt32(uint8_t const** itr, int32_t* n)
-{
-  int32_t host = 0;
-  memcpy(&host, *itr, 4);
-  host = ntohl(host);
-  *n = host;
-  *itr += 4;
-  return RT_OK;
-}
-
-rtError
 rtEncoder_EncodeString(uint8_t** itr, char const* s, uint32_t* n)
 {
   uint32_t len = 0;
@@ -51,7 +31,7 @@ rtEncoder_EncodeString(uint8_t** itr, char const* s, uint32_t* n)
     len = *n;
   else
     len = strlen(s);
-  rtEncoder_EncodeInt32(itr, (int32_t) len);
+  rtEncoder_EncodeUInt32(itr, len);
   memcpy(*itr, s, len);
   *itr += len;
   return RT_OK;
@@ -69,7 +49,7 @@ rtError
 rtEncoder_DecodeString(uint8_t const** itr, char* s, uint32_t* n)
 {
   uint32_t len = 0;
-  rtEncoder_DecodeInt32(itr, (int32_t *) &len);
+  rtEncoder_DecodeUInt32(itr, &len);
   memcpy(s, *itr, len);
   *n = len;
   *itr += len;
@@ -99,11 +79,19 @@ rtEncoder_DecodeUInt16(uint8_t const** itr, uint16_t* n)
 rtError
 rtEncoder_EncodeUInt32(uint8_t** itr, uint32_t n)
 {
-  return rtEncoder_EncodeInt32(itr, (int32_t) n);
+  uint32_t net = htonl(n);
+  memcpy(*itr, &net, 4);
+  *itr += 4;
+  return RT_OK;
 }
 
 rtError
 rtEncoder_DecodeUInt32(uint8_t const** itr, uint32_t* n)
 {
-  return rtEncoder_DecodeInt32(itr, (int32_t *)n);
+  uint32_t host = 0;
+  memcpy(&host, *itr, 4);
+  host = ntohl(host);
+  *n = host;
+  *itr += 4;
+  return RT_OK;
 }
