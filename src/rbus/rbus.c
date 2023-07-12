@@ -4610,7 +4610,7 @@ rbusError_t rbusEvent_Unsubscribe(
             
             if(coreerr == RBUSCORE_ERROR_DESTINATION_UNREACHABLE)
             {
-                return RBUS_ERROR_ELEMENT_DOES_NOT_EXIST;
+                return RBUS_ERROR_DESTINATION_NOT_REACHABLE;
             }
             else
             {
@@ -4665,7 +4665,7 @@ rbusError_t rbusEvent_UnsubscribeRawData(
 
             if(coreerr == RBUSCORE_ERROR_DESTINATION_UNREACHABLE)
             {
-                errorcode = RBUS_ERROR_ELEMENT_DOES_NOT_EXIST;
+                errorcode = RBUS_ERROR_DESTINATION_NOT_REACHABLE;
             }
             else
             {
@@ -4673,8 +4673,7 @@ rbusError_t rbusEvent_UnsubscribeRawData(
             }
         }
         snprintf(rawDataTopic, RBUS_MAX_NAME_LENGTH, "rawdata.%s", sub->eventName);
-        errorcode = rbusMessage_RemoveListener(handle, rawDataTopic);
-        if(errorcode != RBUS_ERROR_SUCCESS)
+        if(RBUS_ERROR_SUCCESS != rbusMessage_RemoveListener(handle, rawDataTopic))
         {
             RBUSLOG_WARN("%s: Remove listener failed err: %d", __FUNCTION__, errorcode);
         }
@@ -4881,12 +4880,12 @@ rbusError_t rbusEvent_UnsubscribeExRawData(
 
             if(coreerr != RBUSCORE_SUCCESS)
             {
-                RBUSLOG_INFO("%s: failed with core err=%d", __FUNCTION__, coreerr);
+                RBUSLOG_ERROR("%s: %s failed to remove subscription with return code %d", __FUNCTION__, eventName, coreerr);
 
                 //FIXME -- we just overwrite any existing error that might have happened in a previous loop
                 if(coreerr == RBUSCORE_ERROR_DESTINATION_UNREACHABLE)
                 {
-                    errorcode = RBUS_ERROR_ELEMENT_DOES_NOT_EXIST;
+                    errorcode = RBUS_ERROR_DESTINATION_NOT_REACHABLE;
                 }
                 else
                 {
@@ -4894,10 +4893,9 @@ rbusError_t rbusEvent_UnsubscribeExRawData(
                 }
             }
             snprintf(rawDataTopic, RBUS_MAX_NAME_LENGTH, "rawdata.%s", subscription[i].eventName);
-            errorcode = rbusMessage_RemoveListener(handle, rawDataTopic);
-            if(errorcode != RBUS_ERROR_SUCCESS)
+            if(RBUS_ERROR_SUCCESS != rbusMessage_RemoveListener(handle, rawDataTopic))
             {
-                RBUSLOG_ERROR("%s: Listener failed err: %d", __FUNCTION__, errorcode);
+                RBUSLOG_WARN("%s: Remove listener failed err: %d", __FUNCTION__, errorcode);
             }
         }
         else
@@ -4966,7 +4964,7 @@ rbusError_t rbusEvent_UnsubscribeEx(
                 //FIXME -- we just overwrite any existing error that might have happened in a previous loop
                 if(coreerr == RBUSCORE_ERROR_DESTINATION_UNREACHABLE)
                 {
-                    errorcode = RBUS_ERROR_ELEMENT_DOES_NOT_EXIST;
+                    errorcode = RBUS_ERROR_DESTINATION_NOT_REACHABLE;
                 }
                 else
                 {
