@@ -4463,6 +4463,62 @@ static rbusError_t rbusEvent_SubscribeWithRetries(
     }
 }
 
+static void _subscribe_rawdata_handler(rbusHandle_t handle, rbusMessage_t* msg, void * userData)
+{
+    rbusEventRawData_t event = {0};
+
+    event.name = msg->topic;
+    event.rawData = msg->data;
+    event.rawDataLen = msg->length;
+    if (userData)
+    {
+        rbusEventSubscription_t *ptmp = (rbusEventSubscription_t *)userData;
+        rbusEventHandlerRawData_t eventHandlerFuncPtr = ptmp->handler;
+        if(eventHandlerFuncPtr)
+            (eventHandlerFuncPtr)(handle, &event, ptmp);
+        else
+            RBUSLOG_WARN("eventHandlerFuncPtr is NULL");
+    }
+}
+
+rbusError_t  rbusEvent_SubscribeRawData(
+    rbusHandle_t        handle,
+    char const*         eventName,
+    rbusEventHandler_t  handler,
+    void*               userData,
+    int                 timeout)
+{
+    rbusError_t errorcode = RBUS_ERROR_SUCCESS;
+    char rawDataTopic[RBUS_MAX_NAME_LENGTH] = {0};
+    rbusEventSubscription_t* sub = NULL;
+    struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
+
+    VERIFY_NULL(handle);
+    VERIFY_NULL(eventName);
+    VERIFY_NULL(handler);
+
+    if (handleInfo->m_handleType != RBUS_HWDL_TYPE_REGULAR)
+        return RBUS_ERROR_INVALID_HANDLE;
+
+    RBUSLOG_DEBUG("%s: %s", __FUNCTION__, eventName);
+
+    errorcode = rbusEvent_SubscribeWithRetries(handle, eventName, handler, userData, NULL, 0, 0 , timeout, NULL, false);
+    if(errorcode != RBUS_ERROR_SUCCESS)
+    {
+        RBUSLOG_ERROR("%s:Subscribe failed err: %d",  __FUNCTION__, errorcode);
+        return errorcode;
+    }
+    sub = rbusEventSubscription_find(handleInfo->eventSubs, eventName, NULL, 0, 0);
+    snprintf(rawDataTopic, RBUS_MAX_NAME_LENGTH, "rawdata.%s", sub->eventName);
+    errorcode = rbusMessage_AddListener(handle, rawDataTopic, _subscribe_rawdata_handler, (void *)sub);
+    if(errorcode != RBUS_ERROR_SUCCESS)
+    {
+        RBUSLOG_ERROR("%s: Listener failed err: %d", __FUNCTION__, errorcode);
+    }
+
+    return errorcode;
+}
+
 rbusError_t  rbusEvent_Subscribe(
     rbusHandle_t        handle,
     char const*         eventName,
@@ -4555,7 +4611,7 @@ rbusError_t rbusEvent_Unsubscribe(
             
             if(coreerr == RBUSCORE_ERROR_DESTINATION_UNREACHABLE)
             {
-                return RBUS_ERROR_ELEMENT_DOES_NOT_EXIST;
+                return RBUS_ERROR_DESTINATION_NOT_REACHABLE;
             }
             else
             {
@@ -4568,6 +4624,67 @@ rbusError_t rbusEvent_Unsubscribe(
         RBUSLOG_INFO("%s: %s no existing subscription found", __FUNCTION__, eventName);
         return RBUS_ERROR_INVALID_OPERATION; //TODO - is the the right error to return
     }
+}
+
+rbusError_t rbusEvent_UnsubscribeRawData(
+    rbusHandle_t        handle,
+    char const*         eventName)
+{
+    struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
+    char rawDataTopic[RBUS_MAX_NAME_LENGTH] = {0};
+    rbusEventSubscription_t* sub;
+    rbusError_t errorcode = RBUS_ERROR_SUCCESS;
+
+    VERIFY_NULL(handle);
+    VERIFY_NULL(eventName);
+
+    if (handleInfo->m_handleType != RBUS_HWDL_TYPE_REGULAR)
+        return RBUS_ERROR_INVALID_HANDLE;
+
+    RBUSLOG_DEBUG("%s: %s", __FUNCTION__, eventName);
+
+    /*the use of rtVector is inefficient here.  I have to loop through the vector to find the sub by name,
+        then call RemoveItem, which loops through again to find the item by address to destroy */
+    sub = rbusEventSubscription_find(handleInfo->eventSubs, eventName, NULL, 0, 0);
+
+    if(sub)
+    {
+        rbusMessage payload = rbusEvent_CreateSubscribePayload(sub, handleInfo->componentId);
+
+        rbusCoreError_t coreerr = rbus_unsubscribeFromEvent(NULL, eventName, payload);
+
+        if(payload)
+        {
+            rbusMessage_Release(payload);
+        }
+
+        rtVector_RemoveItem(handleInfo->eventSubs, sub, rbusEventSubscription_free);
+
+        if(coreerr != RBUSCORE_SUCCESS)
+        {
+            RBUSLOG_ERROR("%s: %s failed to remove subscription with return code %d", __FUNCTION__, eventName, coreerr);
+
+            if(coreerr == RBUSCORE_ERROR_DESTINATION_UNREACHABLE)
+            {
+                errorcode = RBUS_ERROR_DESTINATION_NOT_REACHABLE;
+            }
+            else
+            {
+                errorcode = RBUS_ERROR_BUS_ERROR;
+            }
+        }
+        snprintf(rawDataTopic, RBUS_MAX_NAME_LENGTH, "rawdata.%s", sub->eventName);
+        if(RBUS_ERROR_SUCCESS != rbusMessage_RemoveListener(handle, rawDataTopic))
+        {
+            RBUSLOG_WARN("%s: Remove listener failed err: %d", __FUNCTION__, errorcode);
+        }
+    }
+    else
+    {
+        RBUSLOG_INFO("%s: %s no existing subscription found", __FUNCTION__, eventName);
+        errorcode = RBUS_ERROR_INVALID_OPERATION;
+    }
+    return errorcode;
 }
 
 rbusError_t rbusEvent_SubscribeEx(
@@ -4598,7 +4715,6 @@ rbusError_t rbusEvent_SubscribeEx(
         errorcode = rbusEvent_SubscribeWithRetries(
             handle, subscription[i].eventName, subscription[i].handler, subscription[i].userData, 
             subscription[i].filter, subscription[i].interval, subscription[i].duration, timeout, NULL, subscription[i].publishOnSubscribe);
-
         if(errorcode != RBUS_ERROR_SUCCESS)
         {
             /*  Treat SubscribeEx like a transaction because
@@ -4608,6 +4724,61 @@ rbusError_t rbusEvent_SubscribeEx(
             if(i > 0)
                 rbusEvent_UnsubscribeEx(handle, subscription, i);
             break;
+        }
+    }
+
+    return errorcode;
+}
+
+rbusError_t rbusEvent_SubscribeExRawData(
+    rbusHandle_t                handle,
+    rbusEventSubscription_t*    subscription,
+    int                         numSubscriptions,
+    int                         timeout)
+{
+    rbusError_t errorcode = RBUS_ERROR_SUCCESS;
+    struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
+    char rawDataTopic[RBUS_MAX_NAME_LENGTH] = {0};
+    rbusEventSubscription_t* sub;
+    int i;
+
+    VERIFY_NULL(handle);
+    VERIFY_NULL(subscription);
+    VERIFY_ZERO(numSubscriptions);
+
+    if (handleInfo->m_handleType != RBUS_HWDL_TYPE_REGULAR)
+        return RBUS_ERROR_INVALID_HANDLE;
+
+    for(i = 0; i < numSubscriptions; ++i)
+    {
+        RBUSLOG_DEBUG ("%s: %s", __FUNCTION__, subscription[i].eventName);
+
+        //FIXME/TODO -- since this is not using async path, this could block and thus block the rest of the subs to come
+        //For rbusEvent_Subscribe, since it a single subscribe, blocking is fine but for rbusEvent_SubscribeEx,
+        //where we can have multiple, we need to actually run all these in parallel.  So we might need to leverage
+        //the asyncsubscribe api to handle this.
+        errorcode = rbusEvent_SubscribeWithRetries(
+            handle, subscription[i].eventName, subscription[i].handler, subscription[i].userData,
+            subscription[i].filter, subscription[i].interval, subscription[i].duration, timeout, NULL, subscription[i].publishOnSubscribe);
+        if(errorcode != RBUS_ERROR_SUCCESS)
+        {
+            /*  Treat SubscribeEx like a transaction because
+                if any subs fails, how will the user know which ones succeeded and which failed ?
+                So, as a transaction, we just undo everything, which are all those from 0 to i-1.
+            */
+            if(i > 0)
+                rbusEvent_UnsubscribeEx(handle, subscription, i);
+            break;
+        }
+        else
+        {
+            sub = rbusEventSubscription_find(handleInfo->eventSubs, subscription[i].eventName, subscription[i].filter, subscription[i].interval, subscription[i].duration);
+            snprintf(rawDataTopic, RBUS_MAX_NAME_LENGTH, "rawdata.%s", subscription[i].eventName);
+            errorcode = rbusMessage_AddListener(handle, rawDataTopic, _subscribe_rawdata_handler, (void *)sub);
+            if(errorcode != RBUS_ERROR_SUCCESS)
+            {
+                RBUSLOG_ERROR("%s: Listener failed err: %d", __FUNCTION__, errorcode);
+            }
         }
     }
 
@@ -4656,6 +4827,86 @@ rbusError_t rbusEvent_SubscribeExAsync(
     }
 
     return errorcode;    
+}
+
+rbusError_t rbusEvent_UnsubscribeExRawData(
+    rbusHandle_t                handle,
+    rbusEventSubscription_t*    subscription,
+    int                         numSubscriptions)
+{
+    rbusError_t errorcode = RBUS_ERROR_SUCCESS;
+    char rawDataTopic[RBUS_MAX_NAME_LENGTH] = {0};
+    struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
+
+    VERIFY_NULL(handle);
+    VERIFY_NULL(subscription);
+    VERIFY_ZERO(numSubscriptions);
+
+    if (handleInfo->m_handleType != RBUS_HWDL_TYPE_REGULAR)
+        return RBUS_ERROR_INVALID_HANDLE;
+
+    int i;
+
+    //TODO we will call unsubscribe for every sub in list
+    //if any unsubscribe fails below we use RBUS_ERROR_BUS_ERROR for return error
+    //The caller will have no idea which ones failed to unsub and which succeeded (if any)
+    //and unlike SubscribeEx, I don't think we can treat this like a transactions because
+    //its assumed that caller has successfully subscribed before so we need to attempt all
+    //to get as many as possible unsubscribed and off the bus
+
+    for(i = 0; i < numSubscriptions; ++i)
+    {
+        rbusEventSubscription_t* sub;
+
+        RBUSLOG_INFO("%s: %s", __FUNCTION__, subscription[i].eventName);
+
+        /*the use of rtVector is inefficient here.  I have to loop through the vector to find the sub by name,
+            then call RemoveItem, which loops through again to find the item by address to destroy */
+        sub = rbusEventSubscription_find(handleInfo->eventSubs, subscription[i].eventName, subscription[i].filter, subscription[i].interval, subscription[i].duration);
+        if(sub)
+        {
+            rbusCoreError_t coreerr;
+            rbusMessage payload;
+
+            payload = rbusEvent_CreateSubscribePayload(sub, handleInfo->componentId);
+
+            coreerr = rbus_unsubscribeFromEvent(NULL, sub->eventName, payload);
+
+            if(payload)
+            {
+                rbusMessage_Release(payload);
+            }
+
+            rtVector_RemoveItem(handleInfo->eventSubs, sub, rbusEventSubscription_free);
+
+            if(coreerr != RBUSCORE_SUCCESS)
+            {
+                RBUSLOG_ERROR("%s: %s failed to remove subscription with return code %d", __FUNCTION__, subscription[i].eventName, coreerr);
+
+                //FIXME -- we just overwrite any existing error that might have happened in a previous loop
+                if(coreerr == RBUSCORE_ERROR_DESTINATION_UNREACHABLE)
+                {
+                    errorcode = RBUS_ERROR_DESTINATION_NOT_REACHABLE;
+                }
+                else
+                {
+                    errorcode = RBUS_ERROR_BUS_ERROR;
+                }
+            }
+            snprintf(rawDataTopic, RBUS_MAX_NAME_LENGTH, "rawdata.%s", subscription[i].eventName);
+            if(RBUS_ERROR_SUCCESS != rbusMessage_RemoveListener(handle, rawDataTopic))
+            {
+                RBUSLOG_WARN("%s: Remove listener failed err: %d", __FUNCTION__, errorcode);
+            }
+        }
+        else
+        {
+            RBUSLOG_INFO("%s: %s no existing subscription found", __FUNCTION__, subscription[i].eventName);
+            errorcode = RBUS_ERROR_INVALID_OPERATION; //TODO - is the the right error to return
+        }
+    }
+
+    return errorcode;
 }
 
 rbusError_t rbusEvent_UnsubscribeEx(
@@ -4709,12 +4960,12 @@ rbusError_t rbusEvent_UnsubscribeEx(
 
             if(coreerr != RBUSCORE_SUCCESS)
             {
-                RBUSLOG_INFO("%s: failed with core err=%d", __FUNCTION__, coreerr);
+                RBUSLOG_ERROR("%s: %s failed to remove subscription with return code %d", __FUNCTION__, subscription[i].eventName, coreerr);
                 
                 //FIXME -- we just overwrite any existing error that might have happened in a previous loop
                 if(coreerr == RBUSCORE_ERROR_DESTINATION_UNREACHABLE)
                 {
-                    errorcode = RBUS_ERROR_ELEMENT_DOES_NOT_EXIST;
+                    errorcode = RBUS_ERROR_DESTINATION_NOT_REACHABLE;
                 }
                 else
                 {
@@ -4744,6 +4995,47 @@ rbusError_t rbusEvent_UnsubscribeEx(
     }
 
     return errorcode;
+}
+
+rbusError_t  rbusEvent_PublishRawData(
+  rbusHandle_t          handle,
+  rbusEventRawData_t*    eventData)
+{
+    struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
+    rbusError_t rc = RBUS_ERROR_SUCCESS;
+    rbusMessage_t msg;
+    char rawDataTopic[RBUS_MAX_NAME_LENGTH] = {0};
+
+    VERIFY_NULL(handle);
+    VERIFY_NULL(eventData);
+
+    if (handleInfo->m_handleType != RBUS_HWDL_TYPE_REGULAR)
+        return RBUS_ERROR_INVALID_HANDLE;
+
+    RBUSLOG_DEBUG("%s: %s", __FUNCTION__, eventData->name);
+
+    /*get the node and walk its subscriber list,
+      publishing event to each subscriber*/
+    elementNode* el = retrieveInstanceElement(handleInfo->elementRoot, eventData->name);
+
+    if(!el)
+    {
+        RBUSLOG_WARN("rbusEvent_Publish failed: retrieveElement return NULL for %s", eventData->name);
+        return RBUS_ERROR_ELEMENT_DOES_NOT_EXIST;
+    }
+
+    if(!el->subscriptions)/*nobody subscribed yet*/
+    {
+        return RBUS_ERROR_NOSUBSCRIBERS;
+    }
+    snprintf(rawDataTopic, RBUS_MAX_NAME_LENGTH, "rawdata.%s", eventData->name);
+    msg.topic = rawDataTopic;
+    msg.data = (uint8_t const*)eventData->rawData;
+    msg.length = eventData->rawDataLen;
+    rc = rbusMessage_Send(handle, &msg, RBUS_MESSAGE_CONFIRM_RECEIPT);
+    if (rc != RBUS_ERROR_SUCCESS)
+        RBUSLOG_ERROR("%s: rbusMessage_Send failed with return %d", __FUNCTION__, rc);
+    return rc;
 }
 
 rbusError_t  rbusEvent_Publish(

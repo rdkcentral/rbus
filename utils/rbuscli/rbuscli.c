@@ -290,6 +290,19 @@ void show_menu(const char* command)
             printf ("\tunsub Example.SomeStrProp = \"Hello\"\n\r");
             printf ("\n\r");
         }
+        else if(matchCmd(command, 11, "rawdataunsubscribe"))
+        {
+            printf ("\e[1mrawdataunsub\e[0mscribe \e[4mevent\e[0m [\e[4moperator\e[0m \e[4mvalue\e[0m]\n\r");
+            printf ("Unsubscribe from a single event.\n\r");
+            printf ("If a value-change filter was used to subscribe then the same filter must be passed to rawdataunsubscribe.\n\r");
+            printf ("Args:\n\r");
+            printf ("\t%-20sThe name of the event to rawdataunsubscribe from\n\r", "event");
+            printf ("\t%-20sOptional operator that was used when subscribing to this event. Supported operators (>, >=, <, <=, =, !=)\n\r", "operator");
+            printf ("\t%-20sOptional value that was used when subscribing to this event.\n\r", "value");
+            printf ("Examples:\n\r");
+            printf ("\trawdataunsub Example.SomeEvent!\n\r");
+            printf ("\n\r");
+        }
         else if(matchCmd(command, 6, "unsubinterval"))
         {
             printf ("\e[1munsubi\e[0mnterval \e[4mevent\e[0m \e[4minterval\e[0m [\e[4mduration\e[0m]\n\r");
@@ -325,7 +338,42 @@ void show_menu(const char* command)
             printf ("\tasub Example.SomeStrProp = \"Hello\"\n\r");
             printf ("\n\r");
         }
+        else if(matchCmd(command, 3, "rawdatasubscribe"))
+        {
+            printf ("\e[1mrawdatasub\e[0mscribe \e[4mevent\e[0m [\e[4moperator\e[0m \e[4mvalue\e[0m \e[4minitialValue\e[0m]\n\r");
+            printf ("Subscribe to a single event.\n\r");
+            printf ("Rbus supports general events, value-change events, and table events.\n\r");
+            printf ("And the type depends on that type of element \e[4mevent\e[0m refers to.\n\r");
+            printf ("If the type is a parameter then it is value-change event.\n\r");
+            printf ("If the type is a table then it is table events.\n\r");
+            printf ("If the type is a event then it is a general event.\n\r");
+            printf ("For value-change, an optional filter can be applied using the \e[4moperator\e[0m \e[4mvalue\e[0m parameters.\n\r");
+            printf ("Args:\n\r");
+            printf ("\t%-20sThe name of the event to subscribe to\n\r", "event");
+            printf ("\t%-20sOptional filter relational operator. Supported operators (>, >=, <, <=, =, !=)\n\r", "operator");
+            printf ("\t%-20sOptional filter trigger value\n\r", "value");
+            printf ("\t%-20sTo get initial value of the event being subscribed\n\r", "initialValue");
+            printf ("Examples:\n\r");
+            printf ("\tsub Example.SomeEvent!\n\r");
+            printf ("\tsub Example.SomeTable.\n\r");
+            printf ("\tsub Example.SomeIntProp > 10\n\r");
+            printf ("\tsub Example.SomeStrProp = \"Hello\"\n\r");
+            printf ("\tsub Example.SomeEvent! true\n\r");
+            printf ("\tsub Example.SomeEvent! = \"data\" true\n\r");
+            printf ("\n\r");
+        }
         else if(matchCmd(command, 3, "publish"))
+        {
+            printf ("\e[1mpub\e[0mlish \e[4mevent\e[0m [\e[4mdata\e[0m]\n\r");
+            printf ("Publishes an event which will be sent to all subscribers of this event.\n\r");
+            printf ("Args:\n\r");
+            printf ("\t%-20sThe name of the event to publish\n\r", "event");
+            printf ("\t%-20sThe data to publish with the event (as a string)\n\r", "data");
+            printf ("Examples:\n\r");
+            printf ("\tpub Example.MyEvent! \"Hello World\"\n\r");
+            printf ("\n\r");
+        }
+        else if(matchCmd(command, 3, "rawdatapublish"))
         {
             printf ("\e[1mpub\e[0mlish \e[4mevent\e[0m [\e[4mdata\e[0m]\n\r");
             printf ("Publishes an event which will be sent to all subscribers of this event.\n\r");
@@ -487,10 +535,13 @@ void show_menu(const char* command)
         printf ("\t\e[1munreg\e[0mister \e[4mname\e[0m\n\r");
         printf ("\t\e[1msub\e[0mscribe \e[4mevent\e[0m [\e[4moperator\e[0m \e[4mvalue\e[0m] [\e[4minitialValue\e[0m]\n\r");
         printf ("\t\e[1msubi\e[0mnterval \e[4mevent\e[0m \e[4minterval\e[0m [\e[4mduration\e[0m] [\e[4minitialValue\e[0m]\n\r");
+        printf ("\t\e[1mrawdatasub\e[0mscribe \e[4mevent\e[0m]\n\r");
         printf ("\t\e[1munsub\e[0mscribe \e[4mevent\e[0m [\e[4moperator\e[0m \e[4mvalue\e[0m]\n\r");
+        printf ("\t\e[1mrawdataunsub\e[0mscribe \e[4mevent\e[0m]\n\r");
         printf ("\t\e[1munsubi\e[0mnterval \e[4mevent\e[0m \e[4minterval\e[0m [\e[4mduration\e[0m] [\e[4minitialValue\e[0m]\n\r");
         printf ("\t\e[1masub\e[0mscribe \e[4mevent\e[0m [\e[4moperator\e[0m \e[4mvalue\e[0m]\n\r");
         printf ("\t\e[1mpub\e[0mlish \e[4mevent\e[0m [\e[4mdata\e[0m]\n\r");
+        printf ("\t\e[1mrawdatapub\e[0mlish \e[4mevent\e[0m [\e[4mdata\e[0m]\n\r");
         printf ("\t\e[1maddl\e[0mistener \e[4mexpression\e[0m\n\r");
         printf ("\t\e[1mreml\e[0mistener \e[4mexpression\e[0m\n\r");
         printf ("\t\e[1msend\e[0m \e[4mtopic\e[0m [\e[4mdata\e[0m]\n\r");
@@ -804,7 +855,19 @@ rbusError_t event_subscribe_handler(rbusHandle_t handle, rbusEventSubAction_t ac
     return RBUS_ERROR_SUCCESS;
 }
 
-void event_receive_handler(rbusHandle_t handle, rbusEvent_t const* event, rbusEventSubscription_t* subscription)
+static void event_receive_handler1(rbusHandle_t handle, rbusEventRawData_t const* event, rbusEventSubscription_t* subscription)
+{
+    (void)handle;
+    (void)subscription;
+    runSteps = __LINE__;
+    printf("\nevent_receive_handler1 called\n\r");
+    printf("Event received %s\n\r", event->name);
+    printf("Event data: %s\n\r", (char*)event->rawData);
+    printf("Event data len: %d\n\r", event->rawDataLen);
+    printf("\n\r");
+}
+
+void event_receive_handler2(rbusHandle_t handle, rbusEvent_t const* event, rbusEventSubscription_t* subscription)
 {
     (void)handle;
     (void)subscription;
@@ -1828,7 +1891,7 @@ int set_publishOnSubscribe(int argc, char *argv[])
     return publishOnSubscribe;
 }
 
-void validate_and_execute_subscribe_cmd (int argc, char *argv[], bool add, bool isAsync)
+void validate_and_execute_subscribe_cmd (int argc, char *argv[], bool add, bool isAsync, bool rawDataSub)
 {
     rbusError_t rc = RBUS_ERROR_SUCCESS;
     rbusFilter_t filter = NULL;
@@ -1956,16 +2019,25 @@ exit_error:
         return;
     }
 
-    rbusEventSubscription_t subscription = {argv[2], filter, interval, duration, event_receive_handler, userData, NULL, NULL, publishOnSubscribe};
+    rbusEventSubscription_t subscription_rawdata = {argv[2], filter, interval, duration, event_receive_handler1, userData, NULL, NULL, publishOnSubscribe};
+    rbusEventSubscription_t subscription = {argv[2], filter, interval, duration, event_receive_handler2, userData, NULL, NULL, publishOnSubscribe};
 
     /* Async will be TRUE only when add is TRUE */
     if (isAsync && add)
     {
         rc = rbusEvent_SubscribeExAsync(g_busHandle, &subscription, 1, event_receive_subscription_handler, 0);
     }
+    else if(add && rawDataSub)
+    {
+        rc = rbusEvent_SubscribeExRawData(g_busHandle, &subscription_rawdata, 1, 0);
+    }
     else if(add)
     {
         rc = rbusEvent_SubscribeEx(g_busHandle, &subscription, 1, 0);
+    }
+    else if(rawDataSub)
+    {
+        rc = rbusEvent_UnsubscribeExRawData(g_busHandle, &subscription, 1);
     }
     else
     {
@@ -2012,10 +2084,9 @@ exit_error:
     }
 }
 
-void validate_and_execute_publish_command(int argc, char *argv[])
+void validate_and_execute_publish_command(int argc, char *argv[], bool rawDataPub)
 {
     rbusError_t rc;
-    rbusEvent_t event = {0};
     rbusObject_t data;
     rbusValue_t value;
 
@@ -2029,23 +2100,38 @@ void validate_and_execute_publish_command(int argc, char *argv[])
         return;    
 
     runSteps = __LINE__;
-    rbusValue_Init(&value);
-    rbusValue_SetString(value, argc < 4 ? "default event data" : argv[3]);
-    rbusObject_Init(&data, NULL);
-    rbusObject_SetValue(data, "value", value);
-
-    event.name = argv[2];
-    event.data = data;
-    event.type = RBUS_EVENT_GENERAL;
-
-    rc = rbusEvent_Publish(g_busHandle, &event);
-
-    rbusValue_Release(value);
-    rbusObject_Release(data);
-
-    if(rc != RBUS_ERROR_SUCCESS)
+    if(rawDataPub)
     {
-        printf("Publish failed err: %d\n\r", rc);
+        rbusEventRawData_t event = {0};
+        event.name = argv[2];
+        event.rawData = argv[3];
+        event.rawDataLen = strlen(argv[3]);
+
+        rc = rbusEvent_PublishRawData(g_busHandle, &event);
+        if(rc != RBUS_ERROR_SUCCESS)
+            printf("provider: rbusEvent_Publish Event1 failed: %d\n", rc);
+    }
+    else
+    {
+        rbusEvent_t event = {0};
+        rbusValue_Init(&value);
+        rbusValue_SetString(value, argc < 4 ? "default event data" : argv[3]);
+        rbusObject_Init(&data, NULL);
+        rbusObject_SetValue(data, "value", value);
+
+        event.name = argv[2];
+        event.data = data;
+        event.type = RBUS_EVENT_GENERAL;
+
+        rc = rbusEvent_Publish(g_busHandle, &event);
+
+        rbusValue_Release(value);
+
+        if(rc != RBUS_ERROR_SUCCESS)
+        {
+            printf("Publish failed err: %d\n\r", rc);
+        }
+        rbusObject_Release(data);
     }
 }
 
@@ -2070,6 +2156,8 @@ void validate_and_execute_listen_command(int argc, char *argv[], bool add)
     userData = rt_calloc(1, 256);
     sprintf(userData, "listen %s", argv[2]);
 
+    printf("value of argv[2] = %s\n", argv[2]);
+    printf("value of userData = %s\n", userData);
     if(add)
     {
         rc = rbusMessage_AddListener(g_busHandle, argv[2], message_receive_handler, userData);
@@ -2358,19 +2446,31 @@ int handle_cmds (int argc, char *argv[])
     }
     else if(matchCmd(command, 3, "subscribe") || matchCmd(command, 4, "subinterval"))
     {
-        validate_and_execute_subscribe_cmd (argc, argv, true, false);
+        validate_and_execute_subscribe_cmd (argc, argv, true, false, false);
     }
     else if(matchCmd(command, 5, "unsubscribe") || matchCmd(command, 6, "unsubinterval"))
     {
-        validate_and_execute_subscribe_cmd (argc, argv, false, false);
+        validate_and_execute_subscribe_cmd (argc, argv, false, false, false);
     }
     else if(matchCmd(command, 4, "asubscribe"))
     {
-        validate_and_execute_subscribe_cmd (argc, argv, true, true);
+        validate_and_execute_subscribe_cmd (argc, argv, true, true, false);
+    }
+    else if(matchCmd(command, 9, "rawdatasubscribe"))
+    {
+        validate_and_execute_subscribe_cmd (argc, argv, true, false, true);
+    }
+    else if(matchCmd(command, 11, "rawdataunsubscribe"))
+    {
+        validate_and_execute_subscribe_cmd (argc, argv, false, false, true);
     }
     else if(matchCmd(command, 3, "publish"))
     {
-        validate_and_execute_publish_command (argc, argv);
+        validate_and_execute_publish_command (argc, argv, false);
+    }
+    else if(matchCmd(command, 3, "rawdatapublish"))
+    {
+        validate_and_execute_publish_command (argc, argv, true);
     }
     else if(matchCmd(command, 4, "addlistener"))
     {
@@ -2573,7 +2673,7 @@ void completion(const char *buf, linenoiseCompletions *lc) {
     {
         runSteps = __LINE__;
         completion = find_completion(tokens[0], 14, "get", "set", "add", "del", "getr", "getn", "disca", "discc", "disce",
-                "discw", "sub", "subint", "unsub", "unsubint", "asub", "method_no", "method_na", "method_va", "reg", "unreg", "pub",
+                "discw", "sub", "subint", "rawdatasub", "rawdataunsub", "unsub", "unsubint", "asub", "method_no", "method_na", "method_va", "reg", "unreg", "pub", "rawdatapub",
                 "addl", "reml", "send", "log", "quit", "opend", "closed", "help");
     }
     else if(num == 2)
@@ -2700,6 +2800,14 @@ char *hints(const char *buf, int *color, int *bold) {
         {
             hint = " event interval [duration] [initialValue]";
         }
+        else if(strcmp(tokens[0], "rawdatasub") == 0)
+        {
+            hint = " event";
+        }
+        else if(strcmp(tokens[0], "rawdataunsub") == 0)
+        {
+            hint = " event";
+        }
         else if(strcmp(tokens[0], "unsub") == 0)
         {
             hint = " event [operator value]";
@@ -2713,6 +2821,10 @@ char *hints(const char *buf, int *color, int *bold) {
             hint = " event [operator value]";
         }
         else if(strcmp(tokens[0], "pub") == 0)
+        {
+            hint = " event [data]";
+        }
+        else if(strcmp(tokens[0], "rawdatapub") == 0)
         {
             hint = " event [data]";
         }
