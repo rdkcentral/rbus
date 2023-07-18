@@ -817,6 +817,7 @@ void removeElementSubscription(elementNode* node, rbusSubscription_t* sub)
 {
     rtListItem item;
     rbusSubscription_t* data;
+    size_t size = 0;
 
     VERIFY_NULL(node);
     if(node->subscriptions)
@@ -829,6 +830,12 @@ void removeElementSubscription(elementNode* node, rbusSubscription_t* sub)
             if(data == sub)
             {
                 rtList_RemoveItem(node->subscriptions, item, NULL);
+                rtList_GetSize(node->subscriptions, &size);
+                if(size == 0)
+                {
+                    rtList_Destroy(node->subscriptions, NULL);
+                    node->subscriptions = NULL;
+                }
                 return;
             }
             rtListItem_GetNext(item, &item);
