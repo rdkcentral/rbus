@@ -526,9 +526,13 @@ void show_menu(const char* command)
             printf ("\nUsage:\n\r");
             printf ("\trbuscli [command]\n\r");
             printf ("\trbuscli [-i]\n\r");
+            printf ("\trbuscli [-g]\n\r");
+            printf ("\trbuscli [-s]\n\r");
             printf ("\n\r");
             printf ("Options:\n\r");
             printf ("\t\e[1m-i\e[0m Run as interactive shell.\n\r");
+            printf ("\t\e[1m-g\e[0m get the parameter value \e[4mpath\e[0m [\e[4mpath\e[0m \e[4m...\e[0m]\n\r");
+            printf ("\t\e[1m-s\e[0m set the parameter value \e[4mparameter\e[0m \e[4mtype\e[0m \e[4mvalue\e[0m [[\e[4mparameter\e[0m \e[4mtype\e[0m \e[4mvalue\e[0m] \e[4m...\e[0m] [commit]\n\r");
             printf ("\n\r");
             printf ("Commands:\n\r");
         }
@@ -1240,16 +1244,22 @@ void validate_and_execute_get_cmd (int argc, char *argv[])
             rbusValueType_t type = rbusValue_GetType(val);
             char *pStrVal = rbusValue_ToString(val,NULL,0);
 
-            printf ("Parameter %2d:\n\r", i+1);
-            printf ("              Name  : %s\n\r", rbusProperty_GetName(next));
-            printf ("              Type  : %s\n\r", getDataType_toString(type));
-            printf ("              Value : %s\n\r", pStrVal);
+	    if ((strcmp("-g", argv[1]) == 0) && (!isWildCard))
+	    {
+		    printf ("%s\n\r", pStrVal);
+	    }  
+	    else
+	    {
+		    printf ("Parameter %2d:\n\r", i+1);
+		    printf ("              Name  : %s\n\r", rbusProperty_GetName(next));
+		    printf ("              Type  : %s\n\r", getDataType_toString(type));
+		    printf ("              Value : %s\n\r", pStrVal);
+	    }
+	    if(pStrVal)
+		    free(pStrVal);
 
-            if(pStrVal)
-                free(pStrVal);
-
-            next = rbusProperty_GetNext(next);
-        }
+	    next = rbusProperty_GetNext(next);
+	}
         /* Free the memory */
         rbusProperty_Release(outputVals);
     }
@@ -1341,7 +1351,7 @@ void validate_and_execute_set_cmd (int argc, char *argv[])
     if (!verify_rbus_open())
         return;
 
-    if (i > 4) /* Multiple set commands; Lets use rbusValue_t */
+    if ((i > 4) && !(strcmp("-s", argv[1]) == 0)) /* Multiple set commands; Lets use rbusValue_t */
     {
         int isInvalid = 0;
         int index = 0;
@@ -2453,11 +2463,11 @@ int handle_cmds (int argc, char *argv[])
     char* command = argv[1];
 
     runSteps = __LINE__;
-    if(matchCmd(command, 3, "getvalues"))
+    if(matchCmd(command, 3, "getvalues") || (matchCmd(command, 2, "-g") && !g_isInteractive))
     {
         validate_and_execute_get_cmd (argc, argv);
     }
-    else if(matchCmd(command, 3, "setvalues"))
+    else if(matchCmd(command, 3, "setvalues") || (matchCmd(command, 2, "-s") && !g_isInteractive))
     {
         validate_and_execute_set_cmd (argc, argv);
     }
