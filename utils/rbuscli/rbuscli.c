@@ -47,6 +47,8 @@
 
 static int runSteps = __LINE__;
 
+bool g_isDebug = true;
+#define RBUSCLI_LOG(...) if (g_isDebug == true) {printf(__VA_ARGS__);}
 typedef struct _tlv_t {
     char *p_name;
     char *p_type;
@@ -526,13 +528,13 @@ void show_menu(const char* command)
             printf ("\nUsage:\n\r");
             printf ("\trbuscli [command]\n\r");
             printf ("\trbuscli [-i]\n\r");
-            printf ("\trbuscli [-g]\n\r");
-            printf ("\trbuscli [-s]\n\r");
+            printf ("\trbuscli [-g \e[0m \e[4mparameter\e\e[0m \e[0m]\n\r");
+            printf ("\trbuscli [-s \e[0m \e[4mparameter\e[0m \e[4mtype\e[0m \e[4mvalue\e[0m \e[0m]\n\r");
             printf ("\n\r");
             printf ("Options:\n\r");
             printf ("\t\e[1m-i\e[0m Run as interactive shell.\n\r");
-            printf ("\t\e[1m-g\e[0m get the parameter value \e[4mpath\e[0m [\e[4mpath\e[0m \e[4m...\e[0m]\n\r");
-            printf ("\t\e[1m-s\e[0m set the parameter value \e[4mparameter\e[0m \e[4mtype\e[0m \e[4mvalue\e[0m [[\e[4mparameter\e[0m \e[4mtype\e[0m \e[4mvalue\e[0m] \e[4m...\e[0m] [commit]\n\r");
+            printf ("\t\e[1m-g\e[0m Get the value of parameter\n\r");
+            printf ("\t\e[1m-s\e[0m Set the value of parameter\n\r");
             printf ("\n\r");
             printf ("Commands:\n\r");
         }
@@ -1200,9 +1202,9 @@ void validate_and_execute_get_cmd (int argc, char *argv[])
     const char *pInputParam[RBUS_CLI_MAX_PARAM] = {0, 0};
     bool isWildCard = false;
 
-    if (numOfInputParams < 1)
+    if ((numOfInputParams < 1) || ((strcmp("-g", argv[1]) == 0) && (numOfInputParams > 1)))
     {
-        printf ("Invalid arguments. Please see the help\n\r");
+        RBUSCLI_LOG ("Invalid arguments. Please see the help\n\r");
         return;
     }
 
@@ -1247,7 +1249,7 @@ void validate_and_execute_get_cmd (int argc, char *argv[])
 	    if ((strcmp("-g", argv[1]) == 0) && (!isWildCard))
 	    {
 		    printf ("%s\n\r", pStrVal);
-	    }  
+	    }
 	    else
 	    {
 		    printf ("Parameter %2d:\n\r", i+1);
@@ -1265,7 +1267,7 @@ void validate_and_execute_get_cmd (int argc, char *argv[])
     }
     else
     {
-        printf ("Failed to get the data. Error : %d\n\r",rc);
+        RBUSCLI_LOG ("Failed to get the data. Error : %d\n\r",rc);
     }
 }
 
@@ -1342,9 +1344,9 @@ void validate_and_execute_set_cmd (int argc, char *argv[])
     runSteps = __LINE__;
     /* must have 3 or multiples of 3 parameters.. it could possibliy have 1 extra param which
      * could be having commit and set to true/false */
-    if (!((i >= 3) && ((i % 3 == 0) || (i % 3 == 1))))
+    if (((strcmp("-s", argv[1]) == 0 ) && (i > 3)) || (!((i >= 3) && ((i % 3 == 0) || (i % 3 == 1)))))
     {
-        printf ("Invalid arguments. Please see the help\n\r");
+        RBUSCLI_LOG ("Invalid arguments. Please see the help\n\r");
         return;
     }
 
@@ -1475,7 +1477,7 @@ void validate_and_execute_set_cmd (int argc, char *argv[])
         if(value == false)
         {
             rc = RBUS_ERROR_INVALID_INPUT;
-            printf ("Invalid data value passed to set. Please pass proper value with respect to the data type\nsetvalues failed with return value: %d\n", rc);
+            RBUSCLI_LOG ("Invalid data value passed to set. Please pass proper value with respect to the data type\nsetvalues failed with return value: %d\n", rc);
             return;
         }
         if (type != RBUS_NONE)
@@ -1543,17 +1545,17 @@ void validate_and_execute_set_cmd (int argc, char *argv[])
         else
         {
             rc = RBUS_ERROR_INVALID_INPUT;
-            printf ("Invalid data type. Please see the help\n\r");
+            RBUSCLI_LOG ("Invalid data type. Please see the help\n\r");
         }
     }
 
     if(RBUS_ERROR_SUCCESS == rc)
     {
-        printf ("setvalues succeeded..\n\r");
+        RBUSCLI_LOG ("setvalues succeeded..\n\r");
     }
     else
     {
-        printf ("setvalues failed with return value: %d\n\r", rc);
+        RBUSCLI_LOG ("setvalues failed with return value: %d\n\r", rc);
     }
 }
 
@@ -3160,6 +3162,10 @@ int main( int argc, char *argv[] )
     }
     else
     {
+        if ((strcmp (argv[1], "-g") == 0) || (strcmp (argv[1], "-s") == 0))
+        {
+            g_isDebug = false;
+        }
         handle_cmds (argc, argv);
     }
 
