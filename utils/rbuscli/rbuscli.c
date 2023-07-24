@@ -1248,18 +1248,19 @@ void validate_and_execute_get_cmd (int argc, char *argv[])
 
 	    if ((strcmp("-g", argv[1]) == 0) && (!isWildCard))
 	    {
-		    printf ("%s\n\r", pStrVal);
+		printf ("%s\n\r", pStrVal);
 	    }
 	    else
 	    {
-		    printf ("Parameter %2d:\n\r", i+1);
-		    printf ("              Name  : %s\n\r", rbusProperty_GetName(next));
-		    printf ("              Type  : %s\n\r", getDataType_toString(type));
-		    printf ("              Value : %s\n\r", pStrVal);
+		printf ("Parameter %2d:\n\r", i+1);
+		printf ("              Name  : %s\n\r", rbusProperty_GetName(next));
+		printf ("              Type  : %s\n\r", getDataType_toString(type));
+		printf ("              Value : %s\n\r", pStrVal);
 	    }
 	    if(pStrVal)
-		    free(pStrVal);
-
+	    {
+		free(pStrVal);
+	    }
 	    next = rbusProperty_GetNext(next);
 	}
         /* Free the memory */
