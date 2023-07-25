@@ -4955,8 +4955,6 @@ rbusError_t rbusEvent_UnsubscribeEx(
                 rbusMessage_Release(payload);
             }
 
-            rtVector_RemoveItem(handleInfo->eventSubs, sub, rbusEventSubscription_free);
-
             if(coreerr != RBUSCORE_SUCCESS)
             {
                 RBUSLOG_ERROR("%s: %s failed to remove subscription with return code %d", __FUNCTION__, subscription[i].eventName, coreerr);
@@ -4971,6 +4969,7 @@ rbusError_t rbusEvent_UnsubscribeEx(
                     errorcode = RBUS_ERROR_BUS_ERROR;
                 }
             }
+            rtVector_RemoveItem(handleInfo->eventSubs, sub, rbusEventSubscription_free);
         }
         else
         {
