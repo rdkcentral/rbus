@@ -1248,7 +1248,7 @@ void validate_and_execute_get_cmd (int argc, char *argv[])
 
 	    if ((strcmp("-g", argv[1]) == 0) && (!isWildCard))
 	    {
-		printf ("%s\n\r", pStrVal);
+		printf ("%s\n", pStrVal);
 	    }
 	    else
 	    {
