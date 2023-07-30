@@ -34,6 +34,7 @@ int main(int argc, char * argv[])
             "Following commands are supported:\n"
             "%-20s - Enable debug level logs in router.\n"
             "%-20s - Disable debug level logs in router.\n"
+            "%-20s - Ask router to additionally listen to new socket.\n"
             "%-20s - Log routing tree stats.\n"
             "%-20s - Log routing tree topics.\n"
             "%-20s - Log routing tree routes.\n"
@@ -45,6 +46,7 @@ int main(int argc, char * argv[])
             "----------\n",
             RTROUTER_DIAG_CMD_ENABLE_VERBOSE_LOGS,
             RTROUTER_DIAG_CMD_DISABLE_VERBOSE_LOGS,
+            RTROUTER_DIAG_CMD_ADD_NEW_LISTENER,
             RTROUTER_DIAG_CMD_LOG_ROUTING_STATS,
             RTROUTER_DIAG_CMD_LOG_ROUTING_TOPICS,
             RTROUTER_DIAG_CMD_LOG_ROUTING_ROUTES,
@@ -53,20 +55,31 @@ int main(int argc, char * argv[])
             RTROUTER_DIAG_CMD_DUMP_BENCHMARKING_DATA,
             RTROUTER_DIAG_CMD_RESET_BENCHMARKING_DATA,
             RTROUTER_DIAG_CMD_SHUTDOWN
-  );
-  if(1 != argc)
-  {
-      rtConnection con;
-      rtLog_SetLevel(RT_LOG_INFO);
-      rtConnection_Create(&con, "APP2", "unix:///tmp/rtrouted");
-      rtMessage out;
-      rtMessage_Create(&out);
-      rtMessage_SetString(out, RTROUTER_DIAG_CMD_KEY, argv[1]);
-      rtConnection_SendMessage(con, out, "_RTROUTED.INBOX.DIAG");
-      sleep(1);
-      if(strncmp(argv[1], RTROUTER_DIAG_CMD_SHUTDOWN, sizeof(RTROUTER_DIAG_CMD_SHUTDOWN))==0)
-        exit(0);//just exit so rtConnection doesn't try to reconnect to broker
-      rtConnection_Destroy(con);
-  }
-  return 0;
+    );
+
+    if(1 != argc)
+    {
+        rtConnection con;
+        rtLog_SetLevel(RT_LOG_INFO);
+        rtConnection_Create(&con, "APP2", "unix:///tmp/rtrouted");
+        rtMessage out;
+        rtMessage_Create(&out);
+        rtMessage_SetString(out, RTROUTER_DIAG_CMD_KEY, argv[1]);
+
+        /* This is usually used when you want to pass additional information to the broker */
+        if (argv[2] != NULL)
+            rtMessage_SetString(out, RTROUTER_DIAG_CMD_VALUE, argv[2]);
+
+        rtConnection_SendMessage(con, out, "_RTROUTED.INBOX.DIAG");
+
+        sleep(1);
+
+        //just exit so rtConnection doesn't try to reconnect to broker
+        if(strncmp(argv[1], RTROUTER_DIAG_CMD_SHUTDOWN, sizeof(RTROUTER_DIAG_CMD_SHUTDOWN))==0)
+            exit(0);
+
+        /* Connection Destroy */
+        rtConnection_Destroy(con);
+    }
+    return 0;
 }
