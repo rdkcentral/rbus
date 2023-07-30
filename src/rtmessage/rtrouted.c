@@ -1183,6 +1183,26 @@ rtRouted_OnMessageDiagnostics(rtConnectedClient* sender, rtMessageHeader* hdr, u
     g_enable_traffic_monitor = 1;
   else if(0 == strncmp(RTROUTER_DIAG_CMD_DISABLE_TRAFFIC_MONITOR, cmd, sizeof(RTROUTER_DIAG_CMD_DISABLE_TRAFFIC_MONITOR)))
     g_enable_traffic_monitor = 0;
+  else if(0 == strncmp(RTROUTER_DIAG_CMD_ADD_NEW_LISTENER, cmd, sizeof(RTROUTER_DIAG_CMD_ADD_NEW_LISTENER)))
+  {
+    const char* socket = NULL;
+    rtListener* listener = NULL;
+
+    /* Get the socket */
+    rtMessage_GetString(msg, RTROUTER_DIAG_CMD_VALUE, &socket);
+
+    if (NULL != socket)
+    {
+      /* Have a log info for ref */
+      rtLog_Info("Received request to listen additionally on %s", socket);
+
+      if ((RT_OK == rtRouteBase_BindListener(socket, 1, 0, &listener)) && (NULL != listener))
+      {
+        rtLog_Warn("Updated rtrouted to listen additionally on %s", socket);
+        rtVector_PushBack(gListeners, listener);
+      }
+    }
+  }
   else if(0 == strncmp(RTROUTER_DIAG_CMD_DUMP_BENCHMARKING_DATA, cmd, sizeof(RTROUTER_DIAG_CMD_DUMP_BENCHMARKING_DATA)))
   {
     benchmark_print_stats("diagnostics");
