@@ -1218,7 +1218,13 @@ void validate_and_execute_get_cmd (int argc, char *argv[])
     if(numOfInputParams == 1)
     {
         if(pInputParam[0][strlen(pInputParam[0])-1] == '.' || strchr(pInputParam[0], '*'))
-            isWildCard = true;
+	{
+	    isWildCard = true;
+	    if ((strcmp("-g", argv[1]) == 0))
+	    {
+		return;
+	    }
+	}
     }
 
     if ((!isWildCard) && (1 == numOfInputParams))
@@ -1246,7 +1252,7 @@ void validate_and_execute_get_cmd (int argc, char *argv[])
             rbusValueType_t type = rbusValue_GetType(val);
             char *pStrVal = rbusValue_ToString(val,NULL,0);
 
-	    if ((strcmp("-g", argv[1]) == 0) && (!isWildCard))
+	    if ((strcmp("-g", argv[1]) == 0))
 	    {
 		printf ("%s\n", pStrVal);
 	    }
