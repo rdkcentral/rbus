@@ -22,10 +22,10 @@ cmake_minimum_required (VERSION 2.8.12)
 
 if (POLICY CMP0048)
   cmake_policy(SET CMP0048 NEW)
-  project(rbus VERSION 2.0.5)
+  project(rbus VERSION 2.0.7)
 else ()
   project(rbus)
-  set(PROJECT_VERSION "2.0.5")
+  set(PROJECT_VERSION "2.0.7")
 endif (POLICY CMP0048)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/")
