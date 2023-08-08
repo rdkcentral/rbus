@@ -56,13 +56,14 @@ struct _rbusHandle
   /* consumer side subscriptions FIXME - 
     this needs to be an associative map instead of list/vector*/
   rtVector              eventSubs; 
-
+  rtVector              eventSubsInternal;
   /* provider side subscriptions */
   rbusSubscriptions_t   subscriptions; 
 
   rtVector              messageCallbacks;
   rtConnection          m_connection;
   rbusHandleType_t      m_handleType;
+  rtConnection          m_connectionParent;
 };
 
 void rbusHandleList_Add(struct _rbusHandle* handle);
