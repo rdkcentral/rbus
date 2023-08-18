@@ -911,6 +911,7 @@ int subscribeHandlerImpl(
             action = RBUS_EVENT_ACTION_UNSUBSCRIBE;
 
 
+        RBUSLOG_INFO("Consumer=%s %s to event=%s", listener, action ? "UNSUBSCRIBED" : "SUBSCRIBED", eventName);
 
         ELM_PRIVATE_LOCK(el);
         err = el->cbTable.eventSubHandler(handle, action, eventName, filter, interval, &autoPublish);
@@ -937,7 +938,6 @@ int subscribeHandlerImpl(
         {
             return RBUS_ERROR_INVALID_INPUT; /*unexpected*/
         }
-        RBUSLOG_INFO("listener=%s has subscribed to event=%s",  listener, eventName);
     }
     else
     {
