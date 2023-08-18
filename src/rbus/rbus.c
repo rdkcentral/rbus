@@ -937,6 +937,7 @@ int subscribeHandlerImpl(
         {
             return RBUS_ERROR_INVALID_INPUT; /*unexpected*/
         }
+        RBUSLOG_INFO("listener=%s has subscribed to event=%s",  listener, eventName);
     }
     else
     {
