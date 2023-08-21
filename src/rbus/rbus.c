@@ -901,7 +901,7 @@ int subscribeHandlerImpl(
     if(!el)
         return -1;
 
-    RBUSLOG_INFO("Consumer=%s %s to event=%s", listener, action ? "UNSUBSCRIBED" : "SUBSCRIBED", eventName);
+    RBUSLOG_INFO("Consumer=%s %s to event=%s", listener, added ? "SUBSCRIBED" : "UNSUBSCRIBED", eventName);
 
     /* call the provider subHandler first to see if it overrides autoPublish */
     if(el->cbTable.eventSubHandler)
