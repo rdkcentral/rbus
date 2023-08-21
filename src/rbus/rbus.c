@@ -931,8 +931,9 @@ int subscribeHandlerImpl(
             RBUSLOG_ERROR("rbus interval subscription not supported for this event %s\n", eventName);
             return RBUS_ERROR_INVALID_OPERATION;
         }
+        ELM_PRIVATE_LOCK(el);
         subscription = rbusSubscriptions_addSubscription(handleInfo->subscriptions, listener, eventName, componentId, filter, interval, duration, autoPublish, el);
-
+        ELM_PRIVATE_UNLOCK(el);
         if(!subscription)
         {
             return RBUS_ERROR_INVALID_INPUT; /*unexpected*/
@@ -940,8 +941,10 @@ int subscribeHandlerImpl(
     }
     else
     {
+        ELM_PRIVATE_LOCK(el);
         subscription = rbusSubscriptions_getSubscription(handleInfo->subscriptions, listener, eventName, componentId, filter);
-
+        ELM_PRIVATE_UNLOCK(el);
+    
         if(!subscription)
         {
             RBUSLOG_INFO("unsubscribing from event which isn't currectly subscribed to event=%s listener=%s", eventName, listener);
@@ -999,7 +1002,9 @@ int subscribeHandlerImpl(
     /*remove subscription only after handling its ValueChange properties above*/
     if(!added)
     {
+        ELM_PRIVATE_LOCK(el);
         rbusSubscriptions_removeSubscription(handleInfo->subscriptions, subscription);
+        ELM_PRIVATE_UNLOCK(el);
     }
     return RBUS_ERROR_SUCCESS;
 }
@@ -1054,8 +1059,11 @@ static void registerTableRow (rbusHandle_t handle, elementNode* tableInstElem, c
 
         /* Re-subscribe all the child elements of this row */
         if(handleInfo->subscriptions)
+        {
+            ELM_PRIVATE_LOCK(rowElem);
             rbusSubscriptions_resubscribeRowElementCache(handle, handleInfo->subscriptions, rowElem);
-
+            ELM_PRIVATE_UNLOCK(rowElem);
+        }
         rbusValue_Release(rowNameVal);
         rbusValue_Release(instNumVal);
         rbusValue_Release(aliasVal);
@@ -2909,7 +2917,9 @@ rbusError_t rbus_regDataElements(
             }
             else
             {
+                ELM_PRIVATE_LOCK(node);
                 rbusSubscriptions_resubscribeElementCache(handle, handleInfo->subscriptions, name, node);
+                ELM_PRIVATE_UNLOCK(node);
                 RBUSLOG_DEBUG("%s inserted successfully!", name);
             }
         }
@@ -5085,7 +5095,9 @@ rbusError_t  rbusEvent_Publish(
     }
 
     /*Loop through element's subscriptions*/
+    ELM_PRIVATE_LOCK(el);
     rtList_GetFront(el->subscriptions, &listItem);
+    ELM_PRIVATE_UNLOCK(el);
     while(listItem)
     {
         bool publish = true;

@@ -366,13 +366,17 @@ void rbusSubscriptions_onElementDeleted(rbusSubscriptions_t subscriptions, eleme
 void rbusSubscriptions_onTableRowAdded(rbusSubscriptions_t subscriptions, elementNode* node)
 {
     VERIFY_NULL(subscriptions);
+    ELM_PRIVATE_LOCK(node);
     rbusSubscriptions_onElementCreated(subscriptions, node);
+    ELM_PRIVATE_UNLOCK(node);
 }
 
 void rbusSubscriptions_onTableRowRemoved(rbusSubscriptions_t subscriptions, elementNode* node)
 {
     VERIFY_NULL(subscriptions);
+    ELM_PRIVATE_LOCK(node);
     rbusSubscriptions_onElementDeleted(subscriptions, node);
+    ELM_PRIVATE_UNLOCK(node);
 }
 
 static pid_t rbusSubscriptions_getListenerPid(char const* listener)
