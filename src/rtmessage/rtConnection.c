@@ -1152,8 +1152,11 @@ rtConnection_SendInternal(rtConnection con, uint8_t const* buff, uint32_t n, cha
   rtMessageHeader_Init(&header);
   header.payload_length = message_length;
 
-  strncpy(header.topic, topic, RTMSG_HEADER_MAX_TOPIC_LENGTH-1);
-  header.topic_length = strlen(header.topic);
+  if(topic)
+  {
+    strncpy(header.topic, topic, RTMSG_HEADER_MAX_TOPIC_LENGTH-1);
+    header.topic_length = strlen(header.topic);
+  }
   if (reply_topic)
   {
     strncpy(header.reply_topic, reply_topic, RTMSG_HEADER_MAX_TOPIC_LENGTH-1);

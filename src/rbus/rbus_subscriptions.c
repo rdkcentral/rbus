@@ -366,17 +366,13 @@ void rbusSubscriptions_onElementDeleted(rbusSubscriptions_t subscriptions, eleme
 void rbusSubscriptions_onTableRowAdded(rbusSubscriptions_t subscriptions, elementNode* node)
 {
     VERIFY_NULL(subscriptions);
-    ELM_PRIVATE_LOCK(node);
     rbusSubscriptions_onElementCreated(subscriptions, node);
-    ELM_PRIVATE_UNLOCK(node);
 }
 
 void rbusSubscriptions_onTableRowRemoved(rbusSubscriptions_t subscriptions, elementNode* node)
 {
     VERIFY_NULL(subscriptions);
-    ELM_PRIVATE_LOCK(node);
     rbusSubscriptions_onElementDeleted(subscriptions, node);
-    ELM_PRIVATE_UNLOCK(node);
 }
 
 static pid_t rbusSubscriptions_getListenerPid(char const* listener)
@@ -603,7 +599,7 @@ static void rbusSubscriptions_saveCache(rbusSubscriptions_t subscriptions)
 
     snprintf(filePath, 256, CACHE_FILE_PATH_FORMAT, subscriptions->tmpDir, subscriptions->componentName);
 
-    RBUSLOG_INFO("%s: saving %s", __FUNCTION__, filePath);
+    RBUSLOG_DEBUG("%s: saving %s", __FUNCTION__, filePath);
 
     rtList_GetFront(subscriptions->subList, &item);
 

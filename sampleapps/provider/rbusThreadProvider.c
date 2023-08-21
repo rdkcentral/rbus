@@ -52,18 +52,6 @@ rbusError_t eventSubHandler(rbusHandle_t handle, rbusEventSubAction_t action, co
     {
         subscribed1 = action == RBUS_EVENT_ACTION_SUBSCRIBE ? 1 : 0;
     }
-    else if(!strcmp("Device.Provider1.Event2!", eventName))
-    {
-        subscribed1 = action == RBUS_EVENT_ACTION_SUBSCRIBE ? 1 : 0;
-    }
-    else if(!strcmp("Device.Provider1.Event3!", eventName))
-    {
-        subscribed1 = action == RBUS_EVENT_ACTION_SUBSCRIBE ? 1 : 0;
-    }
-    else if(!strcmp("Device.Provider1.Event4!", eventName))
-    {
-        subscribed1 = action == RBUS_EVENT_ACTION_SUBSCRIBE ? 1 : 0;
-    }
     else
     {
         printf("provider: eventSubHandler unexpected eventName %s\n", eventName);
@@ -85,9 +73,6 @@ int main(int argc, char *argv[])
 
     rbusDataElement_t dataElements[4] = {
         {"Device.Provider1.Event1!", RBUS_ELEMENT_TYPE_EVENT, {NULL, NULL, NULL, NULL, eventSubHandler, NULL}},
-        {"Device.Provider1.Event2!", RBUS_ELEMENT_TYPE_EVENT, {NULL, NULL, NULL, NULL, eventSubHandler, NULL}},
-        {"Device.Provider1.Event3!", RBUS_ELEMENT_TYPE_EVENT, {NULL, NULL, NULL, NULL, eventSubHandler, NULL}},
-        {"Device.Provider1.Event4!", RBUS_ELEMENT_TYPE_EVENT, {NULL, NULL, NULL, NULL, eventSubHandler, NULL}},
     };
 
     printf("provider: start\n");
@@ -99,7 +84,7 @@ int main(int argc, char *argv[])
         goto exit2;
     }
 
-    rc = rbus_regDataElements(handle, 4, dataElements);
+    rc = rbus_regDataElements(handle, 1, dataElements);
     if(rc != RBUS_ERROR_SUCCESS)
     {
         printf("provider: rbus_regDataElements failed: %d\n", rc);
@@ -109,7 +94,6 @@ int main(int argc, char *argv[])
     while (loopFor != 0)
     {
         printf("provider: exiting in %d seconds\n", loopFor);
-        sleep(1);
         loopFor--;
 
         rbusEvent_t event = {0};
@@ -136,73 +120,9 @@ int main(int argc, char *argv[])
         if(rc != RBUS_ERROR_SUCCESS)
             printf("provider: rbusEvent_Publish Event1 failed: %d\n", rc);
 
-        sleep(1);
-        printf("publishing Event2\n");
-
-        rbusValue_Init(&value);
-        rbusValue_SetString(value, eventData);
-
-        rbusObject_Init(&data, NULL);
-        rbusObject_SetValue(data, "someText", value);
-
-        event.name = dataElements[1].name;
-        event.data = data;
-        event.type = RBUS_EVENT_GENERAL;
-
-        rc = rbusEvent_Publish(handle, &event);
-
-        rbusValue_Release(value);
-        rbusObject_Release(data);
-
-        if(rc != RBUS_ERROR_SUCCESS)
-            printf("provider: rbusEvent_Publish Event2 failed: %d\n", rc);
- 
-        sleep(1);
-        printf("publishing Event3\n");
-
-        rbusValue_Init(&value);
-        rbusValue_SetString(value, eventData);
-
-        rbusObject_Init(&data, NULL);
-        rbusObject_SetValue(data, "someText", value);
-
-        event.name = dataElements[2].name;
-        event.data = data;
-        event.type = RBUS_EVENT_GENERAL;
-
-        rc = rbusEvent_Publish(handle, &event);
-
-        rbusValue_Release(value);
-        rbusObject_Release(data);
-
-        if(rc != RBUS_ERROR_SUCCESS)
-            printf("provider: rbusEvent_Publish Event2 failed: %d\n", rc);
-
-
-        sleep(1);
-        printf("publishing Event4\n");
-
-        rbusValue_Init(&value);
-        rbusValue_SetString(value, eventData);
-
-        rbusObject_Init(&data, NULL);
-        rbusObject_SetValue(data, "someText", value);
-
-        event.name = dataElements[3].name;
-        event.data = data;
-        event.type = RBUS_EVENT_GENERAL;
-
-        rc = rbusEvent_Publish(handle, &event);
-
-        rbusValue_Release(value);
-        rbusObject_Release(data);
-
-        if(rc != RBUS_ERROR_SUCCESS)
-            printf("provider: rbusEvent_Publish Event3 failed: %d\n", rc);
- 
     }
 
-    rbus_unregDataElements(handle, 4, dataElements);
+    rbus_unregDataElements(handle, 1, dataElements);
 exit1:
     rbus_close(handle);
 exit2:
