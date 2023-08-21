@@ -599,7 +599,7 @@ static void rbusSubscriptions_saveCache(rbusSubscriptions_t subscriptions)
 
     snprintf(filePath, 256, CACHE_FILE_PATH_FORMAT, subscriptions->tmpDir, subscriptions->componentName);
 
-    RBUSLOG_INFO("%s: saving %s", __FUNCTION__, filePath);
+    RBUSLOG_DEBUG("%s: saving %s", __FUNCTION__, filePath);
 
     rtList_GetFront(subscriptions->subList, &item);
 
