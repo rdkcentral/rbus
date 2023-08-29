@@ -18,6 +18,7 @@
 */
 #include "rbus.h"
 #include "rbus_handle.h"
+#include "rbuscore.h"
 #include <rtMemory.h>
 #include <string.h>
 
@@ -94,6 +95,40 @@ static int compareContextExpression(const void *left, const void *right)
     return strcmp(((const rbusMessageHandlerContext_t*)left)->expression, (const char*)right);
 }
 
+rbusError_t rbusMessage_AddPrivateListener(
+    rbusHandle_t handle,
+    char const* expression,
+    rbusMessageHandler_t handler,
+    void* userData)
+{
+    VERIFY_NULL(handle);
+    VERIFY_NULL(expression);
+
+    rtConnection myConn = rbuscore_FindClientPrivateConnection(expression);
+    if (NULL == myConn)
+    {
+        return RBUS_ERROR_DIRECT_CON_NOT_EXIST;
+    }
+
+    rbusMessageHandlerContext_t* ctx = rt_malloc(sizeof(rbusMessageHandlerContext_t));
+    ctx->handle = handle;
+    ctx->expression = strdup(expression);
+    ctx->handler = handler;
+    ctx->userData = userData;
+    ctx->connection = myConn;
+    rtVector_PushBack(handle->messageCallbacks, ctx);
+
+    rtError e = rtConnection_AddListener(myConn, expression, &rtMessage_CallbackHandler, ctx, true);
+    if (e != RT_OK)
+    {
+        RBUSLOG_WARN("rtConnection_AddListener:%s", rtStrError(e));
+        return RBUS_ERROR_BUS_ERROR;
+    }
+
+    return RBUS_ERROR_SUCCESS;
+}
+
+
 rbusError_t rbusMessage_AddListener(
     rbusHandle_t handle,
     char const* expression,
@@ -102,6 +137,7 @@ rbusError_t rbusMessage_AddListener(
 {
     VERIFY_NULL(handle);
     VERIFY_NULL(expression);
+
     rtConnection con = ((struct _rbusHandle*)handle)->m_connection;
 
     rbusMessageHandlerContext_t* ctx = rt_malloc(sizeof(rbusMessageHandlerContext_t));
@@ -111,11 +147,33 @@ rbusError_t rbusMessage_AddListener(
     ctx->userData = userData;
     ctx->connection = con;
     rtVector_PushBack(handle->messageCallbacks, ctx);
-
-    rtError e = rtConnection_AddListener(con, expression, &rtMessage_CallbackHandler, ctx);
+    rtError e = rtConnection_AddListener(con, expression, &rtMessage_CallbackHandler, ctx, false);
     if (e != RT_OK)
     {
         RBUSLOG_WARN("rtConnection_AddListener:%s", rtStrError(e));
+        return RBUS_ERROR_BUS_ERROR;
+    }
+
+    return RBUS_ERROR_SUCCESS;
+}
+
+rbusError_t rbusMessage_RemovePrivateListener(
+    rbusHandle_t handle,
+    char const* expression)
+{
+    VERIFY_NULL(handle);
+    rtConnection myConn = rbuscore_FindClientPrivateConnection(expression);
+    if (NULL == myConn)
+    {
+        return RBUS_ERROR_DIRECT_CON_NOT_EXIST;
+    }
+
+    rtVector_RemoveItemByCompare(handle->messageCallbacks, expression, compareContextExpression, cleanupContext);
+
+    rtError e = rtConnection_RemoveListener(myConn, expression);
+    if (e != RT_OK)
+    {
+        RBUSLOG_WARN("rtConnection_RemoveListener:%s", rtStrError(e));
         return RBUS_ERROR_BUS_ERROR;
     }
 
@@ -139,6 +197,28 @@ rbusError_t rbusMessage_RemoveListener(
     }
 
     return RBUS_ERROR_SUCCESS;
+}
+
+int rbusMessage_HasListener(
+    rbusHandle_t handle,
+    char const* listener)
+{
+    int ret = 0;
+    VERIFY_NULL(handle);
+    VERIFY_NULL(listener);
+    int i, n;
+
+    for (i = 0, n = rtVector_Size(handle->messageCallbacks); i < n; ++i)
+    {
+        rbusMessageHandlerContext_t* ctx = rtVector_At(handle->messageCallbacks, i);
+        VERIFY_NULL(ctx);
+        if(!strcmp(ctx->expression, listener))
+        {
+            ret = 1;
+            break;
+        }
+    }
+    return ret;
 }
 
 rbusError_t rbusMessage_RemoveAllListeners(

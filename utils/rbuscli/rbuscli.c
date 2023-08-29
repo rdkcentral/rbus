@@ -2153,9 +2153,11 @@ void validate_and_execute_publish_command(int argc, char *argv[], bool rawDataPu
     if(rawDataPub)
     {
         rbusEventRawData_t event = {0};
+        char* rawData = argc < 4 ? "default event data" : argv[3];
+
         event.name = argv[2];
-        event.rawData = argv[3];
-        event.rawDataLen = strlen(argv[3]);
+        event.rawData = rawData;
+        event.rawDataLen = strlen(rawData);
 
         rc = rbusEvent_PublishRawData(g_busHandle, &event);
         if(rc != RBUS_ERROR_SUCCESS)

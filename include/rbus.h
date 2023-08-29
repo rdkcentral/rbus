@@ -127,7 +127,8 @@ typedef enum _rbusError
     RBUS_ERROR_INVALID_METHOD,                  /**< Invalid Method           */
     RBUS_ERROR_NOSUBSCRIBERS,                   /**< No subscribers present   */
     RBUS_ERROR_SUBSCRIPTION_ALREADY_EXIST,      /**< The subscription already exists*/
-    RBUS_ERROR_INVALID_NAMESPACE                /**< Invalid namespace as per standard */
+    RBUS_ERROR_INVALID_NAMESPACE,               /**< Invalid namespace as per standard */
+    RBUS_ERROR_DIRECT_CON_NOT_EXIST,            /**< Direct connection not exist */
 } rbusError_t;
 
 
@@ -233,6 +234,7 @@ typedef struct
 } rbusEventRawData_t;
 
 typedef struct _rbusEventSubscription rbusEventSubscription_t;
+typedef struct _rbusEventSubscriptionInternal rbusEventSubscriptionInternal_t;
 
 /** @fn typedef void (* rbusSubscribeAsyncRespHandler_t)(
  *          rbusHandle_t              handle,
@@ -301,6 +303,28 @@ typedef struct _rbusEventSubscription
     rbusSubscribeAsyncRespHandler_t asyncHandler;/** Private use only: The async handler being used for any background subscription retries */
     bool                publishOnSubscribe;
 } rbusEventSubscription_t;
+
+typedef struct _rbusEventSubscriptionInternal
+{
+    char const*         eventName;  /** Fully qualified event name */
+    rbusFilter_t        filter;     /** Optional filter that the client would like
+                                        the sender to apply before sending the event
+                                      */
+    uint32_t            interval;   /**< Total interval period after which
+                                         the event needs to be fired. Should
+                                         be in multiples of minInterval
+                                      */
+    uint32_t            duration;   /** Optional maximum duration in seconds until which
+                                        the subscription should be in effect. Beyond this
+                                        duration, the event would be unsubscribed automatically.
+                                        Pass "0" for indefinite event subscription which requires
+                                        the rbusEvent_Unsubscribe API to be called explicitly.
+                                      */
+    void*               handler;
+    bool                needRawData;
+} rbusEventSubscriptionInternal_t;
+
+
 
 /** @} */
 

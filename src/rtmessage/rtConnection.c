@@ -605,7 +605,7 @@ rtConnection_CreateInternal(rtConnection* con, char const* application_name, cha
 
   if (err == RT_OK)
   {
-    rtConnection_AddListener(c, c->inbox_name, onDefaultMessage, c);
+    rtConnection_AddListener(c, c->inbox_name, onDefaultMessage, c, false);
     rtConnection_StartThreads(c);
     *con = c;
   }
@@ -1226,7 +1226,7 @@ rtConnection_SendInternal(rtConnection con, uint8_t const* buff, uint32_t n, cha
 }
 
 rtError
-rtConnection_AddListener(rtConnection con, char const* expression, rtMessageCallback callback, void* closure)
+rtConnection_AddListener(rtConnection con, char const* expression, rtMessageCallback callback, void* closure, bool needRawData)
 {
   int i;
 
@@ -1264,7 +1264,10 @@ rtConnection_AddListener(rtConnection con, char const* expression, rtMessageCall
   }
 
   con->listeners[i].in_use = 1;
-  con->listeners[i].subscription_id = rtConnection_GetNextSubscriptionId();
+  if(needRawData)
+    con->listeners[i].subscription_id = 300003; /* Rawdata unique subscription ID */
+  else
+    con->listeners[i].subscription_id = rtConnection_GetNextSubscriptionId();
   con->listeners[i].closure = closure;
   con->listeners[i].callback = callback;
   con->listeners[i].expression = strdup(expression);
