@@ -928,12 +928,12 @@ int subscribeHandlerImpl(
     and used to send the publish message in real time.*/
     bool autoPublish = true;
 
-    HANDLE_MUTEX_LOCK(handle);
     if(!el)
         return -1;
 
     RBUSLOG_INFO("Consumer=%s %s to event=%s", listener, added ? "SUBSCRIBED" : "UNSUBSCRIBED", eventName);
 
+    HANDLE_MUTEX_LOCK(handle);
     /* call the provider subHandler first to see if it overrides autoPublish */
     if(el->cbTable.eventSubHandler)
     {
@@ -951,7 +951,7 @@ int subscribeHandlerImpl(
         if(err != RBUS_ERROR_SUCCESS)
         {
             RBUSLOG_DEBUG("%s provider subHandler return err=%d", __FUNCTION__, err);
-
+            HANDLE_MUTEX_UNLOCK(handle);
             return err;
         }
     }
@@ -961,11 +961,13 @@ int subscribeHandlerImpl(
         if (interval && eventName[strlen(eventName)-1] == '.')
         {
             RBUSLOG_ERROR("rbus interval subscription not supported for this event %s\n", eventName);
+            HANDLE_MUTEX_UNLOCK(handle);
             return RBUS_ERROR_INVALID_OPERATION;
         }
         subscription = rbusSubscriptions_addSubscription(handleInfo->subscriptions, listener, eventName, componentId, filter, interval, duration, autoPublish, el);
         if(!subscription)
         {
+            HANDLE_MUTEX_UNLOCK(handle);
             return RBUS_ERROR_INVALID_INPUT; /*unexpected*/
         }
     }
@@ -976,6 +978,7 @@ int subscribeHandlerImpl(
         if(!subscription)
         {
             RBUSLOG_INFO("unsubscribing from event which isn't currectly subscribed to event=%s listener=%s", eventName, listener);
+            HANDLE_MUTEX_UNLOCK(handle);
             return RBUS_ERROR_INVALID_INPUT; /*unsubscribing from event which isn't currectly subscribed to*/
         }
     }
