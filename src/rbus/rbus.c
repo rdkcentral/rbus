@@ -928,6 +928,7 @@ int subscribeHandlerImpl(
     and used to send the publish message in real time.*/
     bool autoPublish = true;
 
+    HANDLE_MUTEX_LOCK(handle);
     if(!el)
         return -1;
 
@@ -962,9 +963,7 @@ int subscribeHandlerImpl(
             RBUSLOG_ERROR("rbus interval subscription not supported for this event %s\n", eventName);
             return RBUS_ERROR_INVALID_OPERATION;
         }
-        HANDLE_MUTEX_LOCK(handle);
         subscription = rbusSubscriptions_addSubscription(handleInfo->subscriptions, listener, eventName, componentId, filter, interval, duration, autoPublish, el);
-        HANDLE_MUTEX_UNLOCK(handle);
         if(!subscription)
         {
             return RBUS_ERROR_INVALID_INPUT; /*unexpected*/
@@ -972,9 +971,7 @@ int subscribeHandlerImpl(
     }
     else
     {
-        HANDLE_MUTEX_LOCK(handle);
         subscription = rbusSubscriptions_getSubscription(handleInfo->subscriptions, listener, eventName, componentId, filter);
-        HANDLE_MUTEX_UNLOCK(handle);
     
         if(!subscription)
         {
@@ -1033,10 +1030,9 @@ int subscribeHandlerImpl(
     /*remove subscription only after handling its ValueChange properties above*/
     if(!added)
     {
-        HANDLE_MUTEX_LOCK(handle);
         rbusSubscriptions_removeSubscription(handleInfo->subscriptions, subscription);
-        HANDLE_MUTEX_UNLOCK(handle);
     }
+    HANDLE_MUTEX_UNLOCK(handle);
     return RBUS_ERROR_SUCCESS;
 }
 
