@@ -202,7 +202,9 @@ static void* PublishingThreadFunc(void* rec)
     ERROR_CHECK(pthread_mutex_unlock(&sub_rec->mutex));
     if(duration_complete) {
         ERROR_CHECK(pthread_mutex_lock(&gMutex));
+        ERROR_CHECK(pthread_mutex_lock(&handleInfo->handleMutex));
         rbusSubscriptions_removeSubscription(handleInfo->subscriptions, sub);
+        ERROR_CHECK(pthread_mutex_unlock(&handleInfo->handleMutex));
         rtVector_RemoveItem(gRecord, sub_rec, sub_Free);
         ERROR_CHECK(pthread_mutex_unlock(&gMutex));
     }
