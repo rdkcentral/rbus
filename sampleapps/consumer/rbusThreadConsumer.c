@@ -54,8 +54,9 @@ void *threadFunction(void *arg) {
 
 int main() {
     pthread_t threads[NUM_THREADS];
+    int i;
 
-    for (int i = 1; i <= NUM_THREADS; i++) {
+    for (i = 1; i <= NUM_THREADS; i++) {
         int result = pthread_create(&threads[i], NULL, threadFunction, &i);
         if (result != 0) {
             fprintf(stderr, "Error creating thread %d\n", i);
@@ -64,7 +65,7 @@ int main() {
         usleep(250000);
     }
 
-    for (int i = 1; i <= NUM_THREADS; i++) {
+    for (i = 1; i <= NUM_THREADS; i++) {
         pthread_join(threads[i], NULL);
     }
 
