@@ -125,6 +125,13 @@ add_executable(rbusOpenTelemetry consumer/rbusOpenTelemetry.c)
 add_dependencies(rbusOpenTelemetry rbus)
 target_link_libraries(rbusOpenTelemetry rbus)
 
+add_executable(rbusThreadProvider provider/rbusThreadProvider.c)
+add_dependencies(rbusThreadProvider rbus)
+target_link_libraries(rbusThreadProvider rbus)
+
+add_executable(rbusThreadConsumer consumer/rbusThreadConsumer.c)
+add_dependencies(rbusThreadConsumer rbus)
+target_link_libraries(rbusThreadConsumer rbus)
 
 install (TARGETS
     rbusSampleProvider
@@ -148,6 +155,8 @@ install (TARGETS
     rbusCSIProvider
     rbusCSIConsumer
     rbusDirectConsumer
+    rbusThreadProvider
+    rbusThreadConsumer
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 endif (BUILD_RBUS_SAMPLE_APPS)

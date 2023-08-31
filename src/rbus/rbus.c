@@ -59,6 +59,36 @@
 
 #define LockMutex() pthread_mutex_lock(&gMutex)
 #define UnlockMutex() pthread_mutex_unlock(&gMutex)
+
+#define HANDLE_MUTEX_LOCK(HANDLE)     \
+{                                                                         \
+  int err;                                                                \
+  rbusHandle_t pTmp = (rbusHandle_t) HANDLE;                              \
+  if((err = pthread_mutex_lock(&pTmp->handleMutex)) != 0)                 \
+  {                                                                       \
+    RBUSLOG_ERROR("Error @ mutex lock.. Err=%d:%s ", err, strerror(err)); \
+  }                                                                       \
+}
+
+#define HANDLE_MUTEX_UNLOCK(HANDLE)   \
+{                                                                           \
+  int err;                                                                  \
+  rbusHandle_t pTmp = (rbusHandle_t) HANDLE;                                \
+  if((err = pthread_mutex_unlock(&pTmp->handleMutex)) != 0)                 \
+  {                                                                         \
+    RBUSLOG_ERROR("Error @ mutex unlock.. Err=%d:%s ", err, strerror(err)); \
+  }                                                                         \
+}
+
+#define ERROR_CHECK(CMD) \
+{ \
+  int err; \
+  if((err=CMD) != 0) \
+  { \
+    RBUSLOG_ERROR("Error %d:%s running command " #CMD, err, strerror(err)); \
+  } \
+}
+
 //********************************************************************************//
 
 //******************************* STRUCTURES *************************************//
@@ -903,6 +933,7 @@ int subscribeHandlerImpl(
 
     RBUSLOG_INFO("Consumer=%s %s to event=%s", listener, added ? "SUBSCRIBED" : "UNSUBSCRIBED", eventName);
 
+    HANDLE_MUTEX_LOCK(handle);
     /* call the provider subHandler first to see if it overrides autoPublish */
     if(el->cbTable.eventSubHandler)
     {
@@ -920,7 +951,7 @@ int subscribeHandlerImpl(
         if(err != RBUS_ERROR_SUCCESS)
         {
             RBUSLOG_DEBUG("%s provider subHandler return err=%d", __FUNCTION__, err);
-
+            HANDLE_MUTEX_UNLOCK(handle);
             return err;
         }
     }
@@ -930,22 +961,24 @@ int subscribeHandlerImpl(
         if (interval && eventName[strlen(eventName)-1] == '.')
         {
             RBUSLOG_ERROR("rbus interval subscription not supported for this event %s\n", eventName);
+            HANDLE_MUTEX_UNLOCK(handle);
             return RBUS_ERROR_INVALID_OPERATION;
         }
         subscription = rbusSubscriptions_addSubscription(handleInfo->subscriptions, listener, eventName, componentId, filter, interval, duration, autoPublish, el);
-
         if(!subscription)
         {
+            HANDLE_MUTEX_UNLOCK(handle);
             return RBUS_ERROR_INVALID_INPUT; /*unexpected*/
         }
     }
     else
     {
         subscription = rbusSubscriptions_getSubscription(handleInfo->subscriptions, listener, eventName, componentId, filter);
-
+    
         if(!subscription)
         {
             RBUSLOG_INFO("unsubscribing from event which isn't currectly subscribed to event=%s listener=%s", eventName, listener);
+            HANDLE_MUTEX_UNLOCK(handle);
             return RBUS_ERROR_INVALID_INPUT; /*unsubscribing from event which isn't currectly subscribed to*/
         }
     }
@@ -1002,6 +1035,7 @@ int subscribeHandlerImpl(
     {
         rbusSubscriptions_removeSubscription(handleInfo->subscriptions, subscription);
     }
+    HANDLE_MUTEX_UNLOCK(handle);
     return RBUS_ERROR_SUCCESS;
 }
 
@@ -1014,7 +1048,9 @@ static void registerTableRow (rbusHandle_t handle, elementNode* tableInstElem, c
 
     rowElem = instantiateTableRow(tableInstElem, instNum, aliasName);
 
+    HANDLE_MUTEX_LOCK(handle);
     rbusSubscriptions_onTableRowAdded(handleInfo->subscriptions, rowElem);
+    HANDLE_MUTEX_UNLOCK(handle);
 
     /*update ValueChange after rbusSubscriptions_onTableRowAdded */
     valueChangeTableRowUpdate(handle, rowElem, true);
@@ -1055,8 +1091,11 @@ static void registerTableRow (rbusHandle_t handle, elementNode* tableInstElem, c
 
         /* Re-subscribe all the child elements of this row */
         if(handleInfo->subscriptions)
+        {
+            HANDLE_MUTEX_LOCK(handle);
             rbusSubscriptions_resubscribeRowElementCache(handle, handleInfo->subscriptions, rowElem);
-
+            HANDLE_MUTEX_UNLOCK(handle);
+        }
         rbusValue_Release(rowNameVal);
         rbusValue_Release(instNumVal);
         rbusValue_Release(aliasVal);
@@ -1075,7 +1114,9 @@ static void unregisterTableRow (rbusHandle_t handle, elementNode* rowInstElem)
     /*update ValueChange before rbusSubscriptions_onTableRowRemoved */
     valueChangeTableRowUpdate(handle, rowInstElem, false);
 
+    HANDLE_MUTEX_LOCK(handle);
     rbusSubscriptions_onTableRowRemoved(handleInfo->subscriptions, rowInstElem);
+    HANDLE_MUTEX_UNLOCK(handle);
 
     deleteTableRow(rowInstElem);
 
@@ -2568,6 +2609,7 @@ rbusError_t rbus_open(rbusHandle_t* handle, char const* componentName)
     rbusCoreError_t err = RBUSCORE_SUCCESS;
     rbusHandle_t tmpHandle = NULL;
     static int32_t sLastComponentId = 0;
+    pthread_mutexattr_t attrib;
 
     if(!handle || !componentName)
     {
@@ -2636,6 +2678,9 @@ rbusError_t rbus_open(rbusHandle_t* handle, char const* componentName)
     tmpHandle->m_connection = rbus_getConnection();
     rtVector_Create(&tmpHandle->eventSubs);
     rtVector_Create(&tmpHandle->messageCallbacks);
+    ERROR_CHECK(pthread_mutexattr_init(&attrib));
+    ERROR_CHECK(pthread_mutexattr_settype(&attrib, PTHREAD_MUTEX_ERRORCHECK));
+    ERROR_CHECK(pthread_mutex_init(&tmpHandle->handleMutex, &attrib));
 
     *handle = tmpHandle;
 
@@ -2790,7 +2835,9 @@ rbusError_t rbus_close(rbusHandle_t handle)
 
     if(handleInfo->subscriptions != NULL)
     {
+        HANDLE_MUTEX_LOCK(handle);
         rbusSubscriptions_destroy(handleInfo->subscriptions);
+        HANDLE_MUTEX_UNLOCK(handle);
         handleInfo->subscriptions = NULL;
     }
 
@@ -2833,6 +2880,7 @@ rbusError_t rbus_close(rbusHandle_t handle)
 
         _rbus_open_pre_initialize(false);
     }
+    ERROR_CHECK(pthread_mutex_destroy(&handleInfo->handleMutex));
 
     UnlockMutex();
 
@@ -2910,7 +2958,9 @@ rbusError_t rbus_regDataElements(
             }
             else
             {
+                HANDLE_MUTEX_LOCK(handle);
                 rbusSubscriptions_resubscribeElementCache(handle, handleInfo->subscriptions, name, node);
+                HANDLE_MUTEX_UNLOCK(handle);
                 RBUSLOG_DEBUG("%s inserted successfully!", name);
             }
         }
@@ -5086,6 +5136,7 @@ rbusError_t  rbusEvent_Publish(
     }
 
     /*Loop through element's subscriptions*/
+    HANDLE_MUTEX_LOCK(handle);
     rtList_GetFront(el->subscriptions, &listItem);
     while(listItem)
     {
@@ -5160,6 +5211,7 @@ rbusError_t  rbusEvent_Publish(
 
         rtListItem_GetNext(listItem, &listItem);
     }
+    HANDLE_MUTEX_UNLOCK(handle);
 
     return errOut == RBUSCORE_SUCCESS ? RBUS_ERROR_SUCCESS: RBUS_ERROR_BUS_ERROR;
 }
