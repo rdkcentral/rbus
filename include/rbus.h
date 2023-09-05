@@ -1336,6 +1336,25 @@ rbusError_t rbusTable_unregisterRow(
   * @{ 
   */
 
+/** @fn rbusEventSubscription_t rbusEvent_FindSubscription(
+ *          rbusHandle_t        handle,
+ *          char const*         eventName,
+ *          rbusEventSubscription_t*    subscription)
+ *  @brief Find active subscription given eventName with subscription structure.
+ *  Used by: Components that need to find whether they have active subscription
+ *  already or not for the given eventName with subscription structure.
+ *  The eventName should be a name which was previously subscribed
+ *  @param      handle          Bus Handle
+ *  @param      eventName       The fully qualified name of the event
+ *  @param      subscription    The subscription which was previously subscribed
+ *  @return rbusEventSubscription_t found subscription
+ *  @ingroup Events
+ */
+rbusEventSubscription_t*  rbusEvent_FindSubscription(
+    rbusHandle_t        handle,
+    char const*         eventName,
+    rbusEventSubscription_t*    subscription);
+
 /** @fn rbusError_t  rbusEvent_Subscribe(
  *          rbusHandle_t        handle,
  *          char const*         eventName,
