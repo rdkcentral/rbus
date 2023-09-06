@@ -5046,7 +5046,7 @@ rbusError_t rbusEvent_UnsubscribeEx(
     return errorcode;
 }
 
-rbusEventSubscription_t* rbusEvent_FindSubscription(
+bool rbusEvent_FindSubscription(
     rbusHandle_t                handle,
     char const*                 eventName,
     rbusEventSubscription_t*    subscription)
@@ -5054,7 +5054,7 @@ rbusEventSubscription_t* rbusEvent_FindSubscription(
     if (handle == NULL)
     {
         RBUSLOG_ERROR("%s: failed, hanlder is NULL", __FUNCTION__);
-        return NULL;
+        return false;
     }
 
     struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
@@ -5070,19 +5070,16 @@ rbusEventSubscription_t* rbusEvent_FindSubscription(
         if (eventName == NULL)
         {
             RBUSLOG_ERROR("%s: failed, eventname is null", __FUNCTION__);
-            return NULL;
+            return false;
         }
         sub = rbusEventSubscription_find(handleInfo->eventSubs, eventName, NULL, 0, 0);
     }
 
     if (sub)
     {
-        return sub;
+        return true;
     }
-    else
-    {
-        return NULL;
-    }
+    return false;
 }
 
 

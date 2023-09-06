@@ -1336,7 +1336,7 @@ rbusError_t rbusTable_unregisterRow(
   * @{ 
   */
 
-/** @fn rbusEventSubscription_t rbusEvent_FindSubscription(
+/** @fn bool rbusEvent_FindSubscription(
  *          rbusHandle_t        handle,
  *          char const*         eventName,
  *          rbusEventSubscription_t*    subscription)
@@ -1347,10 +1347,10 @@ rbusError_t rbusTable_unregisterRow(
  *  @param      handle          Bus Handle
  *  @param      eventName       The fully qualified name of the event
  *  @param      subscription    The subscription which was previously subscribed
- *  @return rbusEventSubscription_t found subscription
+ *  @return     true or false
  *  @ingroup Events
  */
-rbusEventSubscription_t*  rbusEvent_FindSubscription(
+bool  rbusEvent_FindSubscription(
     rbusHandle_t        handle,
     char const*         eventName,
     rbusEventSubscription_t*    subscription);
