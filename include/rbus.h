@@ -1336,7 +1336,7 @@ rbusError_t rbusTable_unregisterRow(
   * @{ 
   */
 
-/** @fn bool rbusEvent_FindSubscription(
+/** @fn bool rbusEvent_IsSubscriptionExist(
  *          rbusHandle_t        handle,
  *          char const*         eventName,
  *          rbusEventSubscription_t*    subscription)
@@ -1350,7 +1350,7 @@ rbusError_t rbusTable_unregisterRow(
  *  @return     true or false
  *  @ingroup Events
  */
-bool  rbusEvent_FindSubscription(
+bool  rbusEvent_IsSubscriptionExist(
     rbusHandle_t        handle,
     char const*         eventName,
     rbusEventSubscription_t*    subscription);

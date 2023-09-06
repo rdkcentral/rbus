@@ -5046,7 +5046,7 @@ rbusError_t rbusEvent_UnsubscribeEx(
     return errorcode;
 }
 
-bool rbusEvent_FindSubscription(
+bool rbusEvent_IsSubscriptionExist(
     rbusHandle_t                handle,
     char const*                 eventName,
     rbusEventSubscription_t*    subscription)

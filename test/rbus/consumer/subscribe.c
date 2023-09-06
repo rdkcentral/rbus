@@ -320,7 +320,7 @@ void testSubscribe(rbusHandle_t handle, int* countPass, int* countFail)
     subscribeAsync(handle, "Device.TestProvider.Event1!", handler1, 20, RBUS_ERROR_SUCCESS, RBUS_ERROR_SUCCESS, 0, 300);
     if(gAsyncSuccess == 1)
     {
-        while((!rbusEvent_FindSubscription(handle, "Device.TestProvider.Event1!", NULL)) && (quit_counter--))
+        while((!rbusEvent_IsSubscriptionExist(handle, "Device.TestProvider.Event1!", NULL)) && (quit_counter--))
         {
             usleep(1000000);
         }
@@ -332,7 +332,7 @@ void testSubscribe(rbusHandle_t handle, int* countPass, int* countFail)
     subscribeAsync(handle, "Device.TestProvider.Event1!", handler1, -1, RBUS_ERROR_SUCCESS, RBUS_ERROR_SUCCESS, 0, 300);
     if(gAsyncSuccess == 1)
     {
-        while((!rbusEvent_FindSubscription(handle, "Device.TestProvider.Event1!", NULL)) && (quit_counter--))
+        while((!rbusEvent_IsSubscriptionExist(handle, "Device.TestProvider.Event1!", NULL)) && (quit_counter--))
         {
             usleep(1000000);
         }
