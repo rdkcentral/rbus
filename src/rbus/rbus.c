@@ -2845,14 +2845,13 @@ rbusError_t rbus_close(rbusHandle_t handle)
         count = (int)rtVector_Size(handleInfo->eventSubs);
         if(count)
         {
+            RBUSLOG_INFO("Cleaning up all the pending (%d) subscriptions", count);
             for(i = 0; i < count; ++i)
             {
                 rbusEventSubscriptionInternal_t* subInternal = NULL;
                 subInternal = (rbusEventSubscriptionInternal_t*)rtVector_At(handleInfo->eventSubs, 0);
                 rtVector_RemoveItem(handleInfo->eventSubs, subInternal, rbusEventSubscriptionInternal_free);
             }
-            RBUSLOG_ERROR("%s(%s): failed to unsubscribe %d subscriptions", __FUNCTION__, handleInfo->componentName, count);
-            ret = RBUS_ERROR_BUS_ERROR;
         }
         rtVector_Destroy(handleInfo->eventSubs, NULL);
         handleInfo->eventSubs = NULL;
