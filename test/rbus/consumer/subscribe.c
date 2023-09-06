@@ -221,22 +221,6 @@ void unsubscribe(
         rc);
 }
 
-rbusEventSubscription_t* EventSubscription_find(rtVector eventSubs, char const* eventName, rbusFilter_t filter)
-{
-    size_t i = 0;
-    for(i=0; i < rtVector_Size(eventSubs); ++i)
-    {
-        rbusEventSubscription_t* sub = (rbusEventSubscription_t*)rtVector_At(eventSubs, i);
-        if(sub && !strcmp(sub->eventName, eventName) && !rbusFilter_Compare(sub->filter, filter))
-        {
-            printf("EventSubscription_find success\n");
-            return sub;
-        }
-    }
-    printf("EventSubscription_find error: can't find %s\n", eventName);
-    return NULL;
-}
-
 void subscribeAsync(
     rbusHandle_t handle, 
     char const* event, 
@@ -282,7 +266,6 @@ void testSubscribe(rbusHandle_t handle, int* countPass, int* countFail)
     int success;
     int maxTimeout = 30;
     int i;
-    struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
     unsigned int quit_counter = 10;
 
     /*changing from default so tests don't take 10 minutes for async sub to complete*/
@@ -337,7 +320,7 @@ void testSubscribe(rbusHandle_t handle, int* countPass, int* countFail)
     subscribeAsync(handle, "Device.TestProvider.Event1!", handler1, 20, RBUS_ERROR_SUCCESS, RBUS_ERROR_SUCCESS, 0, 300);
     if(gAsyncSuccess == 1)
     {
-        while(((EventSubscription_find(handleInfo->eventSubs, "Device.TestProvider.Event1!", NULL)) == NULL) && (quit_counter--))
+        while((!rbusEvent_IsSubscriptionExist(handle, "Device.TestProvider.Event1!", NULL)) && (quit_counter--))
         {
             usleep(1000000);
         }
@@ -349,7 +332,7 @@ void testSubscribe(rbusHandle_t handle, int* countPass, int* countFail)
     subscribeAsync(handle, "Device.TestProvider.Event1!", handler1, -1, RBUS_ERROR_SUCCESS, RBUS_ERROR_SUCCESS, 0, 300);
     if(gAsyncSuccess == 1)
     {
-        while(((EventSubscription_find(handleInfo->eventSubs, "Device.TestProvider.Event1!", NULL)) == NULL) && (quit_counter--))
+        while((!rbusEvent_IsSubscriptionExist(handle, "Device.TestProvider.Event1!", NULL)) && (quit_counter--))
         {
             usleep(1000000);
         }

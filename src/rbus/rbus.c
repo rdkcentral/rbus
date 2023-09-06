@@ -5046,6 +5046,43 @@ rbusError_t rbusEvent_UnsubscribeEx(
     return errorcode;
 }
 
+bool rbusEvent_IsSubscriptionExist(
+    rbusHandle_t                handle,
+    char const*                 eventName,
+    rbusEventSubscription_t*    subscription)
+{
+    if (handle == NULL)
+    {
+        RBUSLOG_ERROR("%s: failed, hanlder is NULL", __FUNCTION__);
+        return false;
+    }
+
+    struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
+    rbusEventSubscription_t* sub = NULL;
+    if (subscription)
+    {
+        RBUSLOG_INFO("%s: %s", __FUNCTION__, subscription->eventName);
+        sub = rbusEventSubscription_find(handleInfo->eventSubs, subscription[0].eventName,
+                subscription[0].filter, subscription[0].interval, subscription[0].duration);
+    }
+    else
+    {
+        if (eventName == NULL)
+        {
+            RBUSLOG_ERROR("%s: failed, eventname is null", __FUNCTION__);
+            return false;
+        }
+        sub = rbusEventSubscription_find(handleInfo->eventSubs, eventName, NULL, 0, 0);
+    }
+
+    if (sub)
+    {
+        return true;
+    }
+    return false;
+}
+
+
 rbusError_t  rbusEvent_PublishRawData(
   rbusHandle_t          handle,
   rbusEventRawData_t*    eventData)
