@@ -1199,6 +1199,7 @@ void _subscribe_async_callback_handler(rbusHandle_t handle, rbusEventSubscriptio
     {
         rbusEventSubscriptionInternal_t* subInternal =  rt_malloc(sizeof(rbusEventSubscriptionInternal_t));
         subInternal->sub = subscription;
+        subInternal->dirty = false;
         rtVector_PushBack(handleInfo->eventSubs, subInternal);
     }
     else
