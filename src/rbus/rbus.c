@@ -3011,7 +3011,7 @@ rbusError_t rbus_regDataElements(
 
     if((rc == RBUS_ERROR_SUCCESS) && (!sDisConnHandler))
     {
-        err = rbus_registerClientDisconnectHandler(_client_disconnect_callback_handler);
+        //err = rbus_registerClientDisconnectHandler(_client_disconnect_callback_handler);
         if(err != RBUSCORE_SUCCESS)
         {
             RBUSLOG_ERROR("%s : rbus_registerClientDisconnectHandler error %d", __FUNCTION__, err);
