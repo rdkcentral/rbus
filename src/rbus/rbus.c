@@ -1200,7 +1200,9 @@ void _subscribe_async_callback_handler(rbusHandle_t handle, rbusEventSubscriptio
         rbusEventSubscriptionInternal_t* subInternal =  rt_malloc(sizeof(rbusEventSubscriptionInternal_t));
         subInternal->sub = subscription;
         subInternal->dirty = false;
+        HANDLE_MUTEX_LOCK(handle);
         rtVector_PushBack(handleInfo->eventSubs, subInternal);
+        HANDLE_MUTEX_UNLOCK(handle);
     }
     else
     {
@@ -1267,6 +1269,7 @@ static int _master_event_callback_handler(char const* sender, char const* eventN
 
     RBUSLOG_DEBUG("Received master event callback: sender=%s eventName=%s componentId=%d", sender, eventName, componentId);
 
+    HANDLE_MUTEX_LOCK(handleInfo);
     subInternal = rbusEventSubscription_find(handleInfo->eventSubs, eventName, filter, interval, duration);
 
     if(subInternal)
@@ -1289,12 +1292,14 @@ static int _master_event_callback_handler(char const* sender, char const* eventN
     else
     {
         RBUSLOG_DEBUG("Received master event callback: sender=%s eventName=%s, but no subscription found", sender, event.name);
+        HANDLE_MUTEX_UNLOCK(handleInfo);
         return RBUSCORE_ERROR_EVENT_NOT_HANDLED;
     }
 exit_1:
     rbusObject_Release(event.data);
     rbusFilter_Release(filter);
 
+    HANDLE_MUTEX_UNLOCK(handleInfo);
     return RBUSCORE_SUCCESS;
 }
 
@@ -2836,6 +2841,7 @@ rbusError_t rbus_close(rbusHandle_t handle)
     if(handleInfo->eventSubs)
     {
         int i;
+        HANDLE_MUTEX_LOCK(handle);
         int count = (int)rtVector_Size(handleInfo->eventSubs);
         for(i = 0; i < count; ++i)
         {
@@ -2856,6 +2862,7 @@ rbusError_t rbus_close(rbusHandle_t handle)
         }
         rtVector_Destroy(handleInfo->eventSubs, NULL);
         handleInfo->eventSubs = NULL;
+        HANDLE_MUTEX_UNLOCK(handle);
     }
 
     if (handleInfo->messageCallbacks)
@@ -4425,17 +4432,25 @@ static rbusError_t rbusEvent_SubscribeWithRetries(
     int destNotFoundSleep = 1000; /*miliseconds*/
     int destNotFoundTimeout;
     struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
+    HANDLE_MUTEX_LOCK(handle);
     if ((subInternal = rbusEventSubscription_find(handleInfo->eventSubs, eventName, filter, interval, duration)) ||
             (rbusAsyncSubscribe_GetSubscription(handle, eventName, filter)))
     {
         if (subInternal)
         {
             if (!subInternal->dirty)
+            {
+                HANDLE_MUTEX_UNLOCK(handle);
                 return RBUS_ERROR_SUBSCRIPTION_ALREADY_EXIST;
+            }
         }
         else
+        {
+            HANDLE_MUTEX_UNLOCK(handle);
             return RBUS_ERROR_SUBSCRIPTION_ALREADY_EXIST;
+        }
     }
+    HANDLE_MUTEX_UNLOCK(handle);
 
     if(timeout == -1)
     {
@@ -4517,7 +4532,9 @@ static rbusError_t rbusEvent_SubscribeWithRetries(
         subInternal->sub = sub;
         subInternal->dirty = false;
 
+        HANDLE_MUTEX_LOCK(handle);
         rtVector_PushBack(handleInfo->eventSubs, subInternal);
+        HANDLE_MUTEX_UNLOCK(handle);
 
         if(publishOnSubscribe)
         {
@@ -4599,6 +4616,7 @@ rbusError_t  rbusEvent_SubscribeRawData(
         RBUSLOG_ERROR("%s:Subscribe failed err: %d",  __FUNCTION__, errorcode);
         return errorcode;
     }
+    HANDLE_MUTEX_LOCK(handle);
     subInternal = rbusEventSubscription_find(handleInfo->eventSubs, eventName, NULL, 0, 0);
     snprintf(rawDataTopic, RBUS_MAX_NAME_LENGTH, "rawdata.%s", subInternal->sub->eventName);
     errorcode = rbusMessage_AddListener(handle, rawDataTopic,
@@ -4608,6 +4626,7 @@ rbusError_t  rbusEvent_SubscribeRawData(
         RBUSLOG_ERROR("%s: Listener failed err: %d", __FUNCTION__, errorcode);
     }
 
+    HANDLE_MUTEX_UNLOCK(handle);
     return errorcode;
 }
 
@@ -4678,6 +4697,7 @@ rbusError_t rbusEvent_Unsubscribe(
 
     /*the use of rtVector is inefficient here.  I have to loop through the vector to find the sub by name, 
         then call RemoveItem, which loops through again to find the item by address to destroy */
+    HANDLE_MUTEX_LOCK(handle);
     subInternal = rbusEventSubscription_find(handleInfo->eventSubs, eventName, NULL, 0, 0);
 
     if(subInternal)
@@ -4695,6 +4715,7 @@ rbusError_t rbusEvent_Unsubscribe(
         if(coreerr == RBUSCORE_SUCCESS)
         {
             rtVector_RemoveItem(handleInfo->eventSubs, subInternal, rbusEventSubscriptionInternal_free);
+            HANDLE_MUTEX_UNLOCK(handle);
             return RBUS_ERROR_SUCCESS;
         }
         else
@@ -4710,6 +4731,7 @@ rbusError_t rbusEvent_Unsubscribe(
             {
                 RBUSLOG_INFO("%s: %s failed with core err=%d", __FUNCTION__, eventName, coreerr);
                 rtVector_RemoveItem(handleInfo->eventSubs, subInternal, rbusEventSubscriptionInternal_free);
+                HANDLE_MUTEX_UNLOCK(handle);
                 return RBUS_ERROR_BUS_ERROR;
             }
         }
@@ -4717,8 +4739,10 @@ rbusError_t rbusEvent_Unsubscribe(
     else
     {
         RBUSLOG_INFO("%s: %s no existing subscription found", __FUNCTION__, eventName);
+        HANDLE_MUTEX_UNLOCK(handle);
         return RBUS_ERROR_INVALID_OPERATION; //TODO - is the the right error to return
     }
+    HANDLE_MUTEX_UNLOCK(handle);
     return RBUS_ERROR_SUCCESS;
 }
 
@@ -4741,6 +4765,7 @@ rbusError_t rbusEvent_UnsubscribeRawData(
 
     /*the use of rtVector is inefficient here.  I have to loop through the vector to find the sub by name,
         then call RemoveItem, which loops through again to find the item by address to destroy */
+    HANDLE_MUTEX_LOCK(handle);
     subInternal = rbusEventSubscription_find(handleInfo->eventSubs, eventName, NULL, 0, 0);
 
     if(subInternal)
@@ -4780,6 +4805,7 @@ rbusError_t rbusEvent_UnsubscribeRawData(
         RBUSLOG_INFO("%s: %s no existing subscription found", __FUNCTION__, eventName);
         errorcode = RBUS_ERROR_INVALID_OPERATION;
     }
+    HANDLE_MUTEX_UNLOCK(handle);
     return errorcode;
 }
 
@@ -4868,6 +4894,7 @@ rbusError_t rbusEvent_SubscribeExRawData(
         }
         else
         {
+            HANDLE_MUTEX_LOCK(handle);
             subInternal = rbusEventSubscription_find(handleInfo->eventSubs, subscription[i].eventName, subscription[i].filter, subscription[i].interval, subscription[i].duration);
             snprintf(rawDataTopic, RBUS_MAX_NAME_LENGTH, "rawdata.%s", subscription[i].eventName);
             errorcode = rbusMessage_AddListener(handle, rawDataTopic,
@@ -4876,6 +4903,7 @@ rbusError_t rbusEvent_SubscribeExRawData(
             {
                 RBUSLOG_ERROR("%s: Listener failed err: %d", __FUNCTION__, errorcode);
             }
+            HANDLE_MUTEX_UNLOCK(handle);
         }
     }
 
@@ -4958,7 +4986,8 @@ rbusError_t rbusEvent_UnsubscribeExRawData(
         RBUSLOG_INFO("%s: %s", __FUNCTION__, subscription[i].eventName);
 
         /*the use of rtVector is inefficient here.  I have to loop through the vector to find the sub by name,
-            then call RemoveItem, which loops through again to find the item by address to destroy */
+          then call RemoveItem, which loops through again to find the item by address to destroy */
+        HANDLE_MUTEX_LOCK(handle);
         subInternal = rbusEventSubscription_find(handleInfo->eventSubs, subscription[i].eventName, subscription[i].filter, subscription[i].interval, subscription[i].duration);
         if(subInternal)
         {
@@ -5003,6 +5032,7 @@ rbusError_t rbusEvent_UnsubscribeExRawData(
         }
     }
 
+    HANDLE_MUTEX_UNLOCK(handle);
     return errorcode;
 }
 
@@ -5038,6 +5068,7 @@ rbusError_t rbusEvent_UnsubscribeEx(
 
         /*the use of rtVector is inefficient here.  I have to loop through the vector to find the sub by name, 
             then call RemoveItem, which loops through again to find the item by address to destroy */
+        HANDLE_MUTEX_LOCK(handle);
         subInternal = rbusEventSubscription_find(handleInfo->eventSubs, subscription[i].eventName, subscription[i].filter, subscription[i].interval, subscription[i].duration);
         if(subInternal)
         {
@@ -5092,6 +5123,7 @@ rbusError_t rbusEvent_UnsubscribeEx(
                 errorcode = RBUS_ERROR_INVALID_OPERATION; //TODO - is the the right error to return
             }
         }
+        HANDLE_MUTEX_UNLOCK(handle);
     }
 
     return errorcode;
@@ -5110,6 +5142,7 @@ bool rbusEvent_IsSubscriptionExist(
 
     struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
     rbusEventSubscriptionInternal_t* subInternal = NULL;
+    HANDLE_MUTEX_LOCK(handle);
     if (subscription)
     {
         RBUSLOG_INFO("%s: %s", __FUNCTION__, subscription->eventName);
@@ -5121,6 +5154,7 @@ bool rbusEvent_IsSubscriptionExist(
         if (eventName == NULL)
         {
             RBUSLOG_ERROR("%s: failed, eventname is null", __FUNCTION__);
+            HANDLE_MUTEX_UNLOCK(handle);
             return false;
         }
         subInternal = rbusEventSubscription_find(handleInfo->eventSubs, eventName, NULL, 0, 0);
@@ -5128,8 +5162,10 @@ bool rbusEvent_IsSubscriptionExist(
 
     if (subInternal)
     {
+        HANDLE_MUTEX_UNLOCK(handle);
         return true;
     }
+    HANDLE_MUTEX_UNLOCK(handle);
     return false;
 }
 
