@@ -143,6 +143,10 @@ static pthread_mutex_t gMutex = PTHREAD_MUTEX_INITIALIZER;
 //********************************************************************************//
 
 static int _callback_handler(char const* destination, char const* method, rbusMessage request, void* userData, rbusMessage* response, const rtMessageHeader* hdr);
+
+rbusError_t _rbus_event_unsubscribeEx(rtVector eventSubs, int32_t componentId, rbusEventSubscription_t* subscription);
+rbusError_t _rbus_AsyncSubscribe_remove_subscription(rbusHandle_t handle, rbusEventSubscription_t* subscription);
+
 //******************************* INTERNAL FUNCTIONS *****************************//
 static rbusError_t rbusCoreError_to_rbusError(rtError e)
 {
@@ -1276,7 +1280,7 @@ static int _master_event_callback_handler(char const* sender, char const* eventN
     {
         if(subInternal->dirty && !(subInternal->sub->asyncHandler))
         {
-            rbusEvent_UnsubscribeEx(handleInfo, subInternal->sub, 1);
+            _rbus_event_unsubscribeEx(handleInfo->eventSubs, handleInfo->componentId, subInternal->sub);
             goto exit_1;
         }
         if (event.type == RBUS_EVENT_DURATION_COMPLETE) {
@@ -2847,7 +2851,7 @@ rbusError_t rbus_close(rbusHandle_t handle)
         {
             rbusEventSubscriptionInternal_t* subInternal = NULL;
             subInternal = (rbusEventSubscriptionInternal_t*)rtVector_At(handleInfo->eventSubs, 0);
-            rbusEvent_UnsubscribeEx(handle, subInternal->sub, 1);
+            _rbus_event_unsubscribeEx(handleInfo->eventSubs, handleInfo->componentId, subInternal->sub);
         }
         count = (int)rtVector_Size(handleInfo->eventSubs);
         if(count)
@@ -4411,6 +4415,63 @@ static rbusMessage rbusEvent_CreateSubscribePayload(rbusEventSubscription_t* sub
     return payload;
 }
 
+rbusError_t _rbus_event_unsubscribeEx(
+    rtVector                    eventSubs,
+    int32_t                    componentId,
+    rbusEventSubscription_t*    subscription)
+{
+    rbusError_t errorcode = RBUS_ERROR_SUCCESS;
+
+    rbusEventSubscriptionInternal_t* subInternal;
+
+    RBUSLOG_INFO("%s: %s", __FUNCTION__, subscription->eventName);
+
+    /*the use of rtVector is inefficient here.  I have to loop through the vector to find the sub by name,
+      then call RemoveItem, which loops through again to find the item by address to destroy */
+
+    subInternal = rbusEventSubscription_find(eventSubs, subscription->eventName,
+            subscription->filter, subscription->interval, subscription->duration);
+
+    if(subInternal == NULL)
+    {
+        errorcode = RBUS_ERROR_NOSUBSCRIBERS;
+    }
+    else
+    {
+        rbusCoreError_t coreerr;
+        rbusMessage payload;
+
+        payload = rbusEvent_CreateSubscribePayload(subInternal->sub, componentId);
+
+        coreerr = rbus_unsubscribeFromEvent(NULL, subInternal->sub->eventName, payload);
+
+        if(payload)
+        {
+            rbusMessage_Release(payload);
+        }
+
+        if(coreerr != RBUSCORE_SUCCESS)
+        {
+
+            //FIXME -- we just overwrite any existing error that might have happened in a previous loop
+            if(coreerr == RBUSCORE_ERROR_DESTINATION_UNREACHABLE)
+            {
+                subInternal->dirty = true;
+                RBUSLOG_INFO ("%s: %s unsubscription failed because no provider could be found"
+                        "and subscriber marked as dirty", __FUNCTION__, subscription->eventName);
+            }
+            else
+            {
+                RBUSLOG_ERROR("%s: %s failed to remove subscription with return code %d", __FUNCTION__, subscription->eventName, coreerr);
+                rtVector_RemoveItem(eventSubs, subInternal, rbusEventSubscriptionInternal_free);
+                errorcode = RBUS_ERROR_BUS_ERROR;
+            }
+        } else {
+            rtVector_RemoveItem(eventSubs, subInternal, rbusEventSubscriptionInternal_free);
+        }
+    }
+    return errorcode;
+}
 static rbusError_t rbusEvent_SubscribeWithRetries(
     rbusHandle_t                    handle,
     char const*                     eventName,
@@ -5036,6 +5097,30 @@ rbusError_t rbusEvent_UnsubscribeExRawData(
     return errorcode;
 }
 
+rbusError_t _rbus_AsyncSubscribe_remove_subscription(
+    rbusHandle_t                handle,
+    rbusEventSubscription_t*    subscription)
+{
+    rbusError_t errorcode = RBUS_ERROR_SUCCESS;
+    rbusEventSubscription_t sub = {0};
+    bool sub_removed = false;
+    sub.handle = handle;
+    sub.eventName = subscription->eventName;
+    sub.filter = subscription->filter;
+
+    sub_removed = rbusAsyncSubscribe_RemoveSubscription(&sub);
+    if(sub_removed)
+    {
+        RBUSLOG_INFO("%s: %s removed pending async subscription", __FUNCTION__, sub.eventName);
+    }
+    else
+    {
+        RBUSLOG_INFO("%s: %s no existing subscription found", __FUNCTION__, subscription->eventName);
+        errorcode = RBUS_ERROR_INVALID_OPERATION; //TODO - is the the right error to return
+    }
+    return errorcode;
+}
+
 rbusError_t rbusEvent_UnsubscribeEx(
     rbusHandle_t                handle,
     rbusEventSubscription_t*    subscription,
@@ -5062,70 +5147,15 @@ rbusError_t rbusEvent_UnsubscribeEx(
 
     for(i = 0; i < numSubscriptions; ++i)
     {
-        rbusEventSubscriptionInternal_t* subInternal;
 
-        RBUSLOG_INFO("%s: %s", __FUNCTION__, subscription[i].eventName);
-
-        /*the use of rtVector is inefficient here.  I have to loop through the vector to find the sub by name, 
-            then call RemoveItem, which loops through again to find the item by address to destroy */
-        HANDLE_MUTEX_LOCK(handle);
-        subInternal = rbusEventSubscription_find(handleInfo->eventSubs, subscription[i].eventName, subscription[i].filter, subscription[i].interval, subscription[i].duration);
-        if(subInternal)
+        HANDLE_MUTEX_LOCK(handleInfo);
+        errorcode = _rbus_event_unsubscribeEx(handleInfo->eventSubs, handleInfo->componentId, &subscription[i]);
+        HANDLE_MUTEX_UNLOCK(handleInfo);
+        if (errorcode == RBUS_ERROR_NOSUBSCRIBERS)
         {
-            rbusCoreError_t coreerr;
-            rbusMessage payload;
-
-            payload = rbusEvent_CreateSubscribePayload(subInternal->sub, handleInfo->componentId);
-
-            coreerr = rbus_unsubscribeFromEvent(NULL, subInternal->sub->eventName, payload);
-
-            if(payload)
-            {
-                rbusMessage_Release(payload);
-            }
-
-            if(coreerr != RBUSCORE_SUCCESS)
-            {
-                
-                //FIXME -- we just overwrite any existing error that might have happened in a previous loop
-                if(coreerr == RBUSCORE_ERROR_DESTINATION_UNREACHABLE)
-                {
-                    subInternal->dirty = true;
-                    RBUSLOG_INFO ("%s: %s unsubscription failed because no provider could be found"
-                        "and subscriber marked as dirty", __FUNCTION__, subscription[i].eventName);
-                }
-                else
-                {
-                    RBUSLOG_ERROR("%s: %s failed to remove subscription with return code %d", __FUNCTION__, subscription[i].eventName, coreerr);
-                    rtVector_RemoveItem(handleInfo->eventSubs, subInternal, rbusEventSubscriptionInternal_free);
-                    errorcode = RBUS_ERROR_BUS_ERROR;
-                }
-            } else {
-                rtVector_RemoveItem(handleInfo->eventSubs, subInternal, rbusEventSubscriptionInternal_free);
-            }
+            errorcode = _rbus_AsyncSubscribe_remove_subscription(handle, &subscription[i]);
         }
-        else
-        {
-            rbusEventSubscription_t sub = {0};
-            bool sub_removed = false;
-            sub.handle = handle;
-            sub.eventName = subscription[i].eventName;
-            sub.filter = subscription[i].filter;
-
-            sub_removed = rbusAsyncSubscribe_RemoveSubscription(&sub);
-            if(sub_removed)
-            {
-                RBUSLOG_INFO("%s: %s removed pending async subscription", __FUNCTION__, sub.eventName);
-            }
-            else
-            {
-                RBUSLOG_INFO("%s: %s no existing subscription found", __FUNCTION__, subscription[i].eventName);
-                errorcode = RBUS_ERROR_INVALID_OPERATION; //TODO - is the the right error to return
-            }
-        }
-        HANDLE_MUTEX_UNLOCK(handle);
     }
-
     return errorcode;
 }
 
@@ -5142,6 +5172,14 @@ bool rbusEvent_IsSubscriptionExist(
 
     struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
     rbusEventSubscriptionInternal_t* subInternal = NULL;
+    bool ret = false;
+
+    if (subscription == NULL && eventName == NULL)
+    {
+        RBUSLOG_ERROR("%s: failed, subscription & eventName both are NULL", __FUNCTION__);
+        return false;
+    }
+
     HANDLE_MUTEX_LOCK(handle);
     if (subscription)
     {
@@ -5151,22 +5189,14 @@ bool rbusEvent_IsSubscriptionExist(
     }
     else
     {
-        if (eventName == NULL)
-        {
-            RBUSLOG_ERROR("%s: failed, eventname is null", __FUNCTION__);
-            HANDLE_MUTEX_UNLOCK(handle);
-            return false;
-        }
+        RBUSLOG_INFO("%s: %s", __FUNCTION__, eventName);
         subInternal = rbusEventSubscription_find(handleInfo->eventSubs, eventName, NULL, 0, 0);
     }
 
-    if (subInternal)
-    {
-        HANDLE_MUTEX_UNLOCK(handle);
-        return true;
-    }
+    ret = (subInternal ? true : false);
     HANDLE_MUTEX_UNLOCK(handle);
-    return false;
+
+    return ret;
 }
 
 rbusError_t  rbusEvent_PublishRawData(
