@@ -1203,6 +1203,10 @@ rtRouted_OnMessageDiagnostics(rtConnectedClient* sender, rtMessageHeader* hdr, u
       }
     }
   }
+  else if(0 == strncmp(RTROUTER_DIAG_CMD_HEARTBEAT, cmd, sizeof(RTROUTER_DIAG_CMD_HEARTBEAT)))
+  {
+    rtLog_Debug("rtrouted process is running fine");
+  }
   else if(0 == strncmp(RTROUTER_DIAG_CMD_DUMP_BENCHMARKING_DATA, cmd, sizeof(RTROUTER_DIAG_CMD_DUMP_BENCHMARKING_DATA)))
   {
     benchmark_print_stats("diagnostics");
@@ -1969,6 +1973,13 @@ int main(int argc, char* argv[])
         }
       }
       i++;
+    }
+    while(1)
+    {
+        if(!(access("/tmp/heartbeat", F_OK)))
+            continue;
+        else
+            break;
     }
   }
 

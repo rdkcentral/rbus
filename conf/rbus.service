@@ -23,7 +23,7 @@ Description= An IPC framework
 Type=forking
 TimeoutSec=300
 ExecStart=/usr/bin/rtrouted $RTROUTER_OPTIONAL_ARGS
-ExecStopPost=/bin/sh -c 'echo 0 >> /tmp/rbus_stopped'
+ExecStopPost=/bin/sh -c 'echo 0 > /tmp/rbus_stopped'
 Restart=no
 
 
