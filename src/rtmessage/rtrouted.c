@@ -1974,6 +1974,13 @@ int main(int argc, char* argv[])
       }
       i++;
     }
+    while(1)
+    {
+        if(!(access("/tmp/heartbeat", F_OK)))
+            continue;
+        else
+            break;
+    }
   }
 
   rtVector_Destroy(gListeners, freeListener);
