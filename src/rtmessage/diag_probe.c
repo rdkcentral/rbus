@@ -29,35 +29,39 @@
 
 int main(int argc, char * argv[])
 {
-    printf( "----------\nHelp:\n"
-            "Syntax: rtm_diag_probe <command>\n"
-            "Following commands are supported:\n"
-            "%-20s - Enable debug level logs in router.\n"
-            "%-20s - Disable debug level logs in router.\n"
-            "%-20s - Ask router to additionally listen to new socket.\n"
-            "%-20s - Log routing tree stats.\n"
-            "%-20s - Log routing tree topics.\n"
-            "%-20s - Log routing tree routes.\n"
-            "%-20s - Enable bus traffic logging.\n"
-            "%-20s - Disable bus traffic logging.\n"
-            "%-20s - Dump raw benchmark data to rtrouted logs.\n"
-            "%-20s - Reset data collected so far for benchmarking.\n"
-            "%-20s - Shutdown the server.\n"
-            "----------\n",
-            RTROUTER_DIAG_CMD_ENABLE_VERBOSE_LOGS,
-            RTROUTER_DIAG_CMD_DISABLE_VERBOSE_LOGS,
-            RTROUTER_DIAG_CMD_ADD_NEW_LISTENER,
-            RTROUTER_DIAG_CMD_LOG_ROUTING_STATS,
-            RTROUTER_DIAG_CMD_LOG_ROUTING_TOPICS,
-            RTROUTER_DIAG_CMD_LOG_ROUTING_ROUTES,
-            RTROUTER_DIAG_CMD_ENABLE_TRAFFIC_MONITOR,
-            RTROUTER_DIAG_CMD_DISABLE_TRAFFIC_MONITOR,
-            RTROUTER_DIAG_CMD_DUMP_BENCHMARKING_DATA,
-            RTROUTER_DIAG_CMD_RESET_BENCHMARKING_DATA,
-            RTROUTER_DIAG_CMD_SHUTDOWN
-    );
-
-    if(1 != argc)
+    if(1 == argc)
+    {
+        printf( "----------\nHelp:\n"
+                "Syntax: rtrouted_diag <command>\n"
+                "Following commands are supported:\n"
+                "%-20s - Enable debug level logs in router.\n"
+                "%-20s - Disable debug level logs in router.\n"
+                "%-20s - Ask router to additionally listen to new socket.\n"
+                "%-20s - Heart beat monitoring for rtrouted\n"
+                "%-20s - Log routing tree stats.\n"
+                "%-20s - Log routing tree topics.\n"
+                "%-20s - Log routing tree routes.\n"
+                "%-20s - Enable bus traffic logging.\n"
+                "%-20s - Disable bus traffic logging.\n"
+                "%-20s - Dump raw benchmark data to rtrouted logs.\n"
+                "%-20s - Reset data collected so far for benchmarking.\n"
+                "%-20s - Shutdown the server.\n"
+                "----------\n",
+                RTROUTER_DIAG_CMD_ENABLE_VERBOSE_LOGS,
+                RTROUTER_DIAG_CMD_DISABLE_VERBOSE_LOGS,
+                RTROUTER_DIAG_CMD_ADD_NEW_LISTENER,
+                RTROUTER_DIAG_CMD_HEARTBEAT,
+                RTROUTER_DIAG_CMD_LOG_ROUTING_STATS,
+                RTROUTER_DIAG_CMD_LOG_ROUTING_TOPICS,
+                RTROUTER_DIAG_CMD_LOG_ROUTING_ROUTES,
+                RTROUTER_DIAG_CMD_ENABLE_TRAFFIC_MONITOR,
+                RTROUTER_DIAG_CMD_DISABLE_TRAFFIC_MONITOR,
+                RTROUTER_DIAG_CMD_DUMP_BENCHMARKING_DATA,
+                RTROUTER_DIAG_CMD_RESET_BENCHMARKING_DATA,
+                RTROUTER_DIAG_CMD_SHUTDOWN
+                    );
+    }
+    else
     {
         rtConnection con;
         rtLog_SetLevel(RT_LOG_INFO);
@@ -70,7 +74,7 @@ int main(int argc, char * argv[])
         if (argv[2] != NULL)
             rtMessage_SetString(out, RTROUTER_DIAG_CMD_VALUE, argv[2]);
 
-        rtConnection_SendMessage(con, out, "_RTROUTED.INBOX.DIAG");
+        rtConnection_SendMessage(con, out, RTROUTER_DIAG_DESTINATION);
 
         sleep(1);
 
