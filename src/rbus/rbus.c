@@ -943,7 +943,7 @@ int subscribeHandlerImpl(
     the preferred way is to use a callback triggered from the lowest level of code to detect a value change. This callback may be
     invoked by vendor code via a HAL API or other method. This callback can be received by the component that provides this event
     and used to send the publish message in real time.*/
-    bool autoPublish = true;
+    bool autoPublish = false;
 
     if(!el)
         return -1;
@@ -971,6 +971,11 @@ int subscribeHandlerImpl(
             HANDLE_MUTEX_UNLOCK(handle);
             return err;
         }
+    }
+    else if (interval)
+    {
+        autoPublish = true;
+        RBUSLOG_DEBUG("%s rbus autoPublish is enabled for interval based subscription", __FUNCTION__);
     }
 
     if(added)
