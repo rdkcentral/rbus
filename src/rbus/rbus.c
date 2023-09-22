@@ -972,6 +972,11 @@ int subscribeHandlerImpl(
             return err;
         }
     }
+    else if (interval)
+    {
+        autoPublish = true;
+        RBUSLOG_DEBUG("%s rbus autoPublish is enabled for interval based subscription", __FUNCTION__);
+    }
 
     if(added)
     {
