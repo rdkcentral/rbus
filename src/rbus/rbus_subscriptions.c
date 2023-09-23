@@ -113,7 +113,7 @@ void rbusSubscriptions_destroy(rbusSubscriptions_t subscriptions)
 static void rbusSubscriptions_onSubscriptionCreated(rbusSubscription_t* sub, elementNode* node);
 
 /*add a new subscription*/
-rbusSubscription_t* rbusSubscriptions_addSubscription(rbusSubscriptions_t subscriptions, char const* listener, char const* eventName, int32_t componentId, rbusFilter_t filter, int32_t interval, int32_t duration, bool autoPublish, elementNode* registryElem)
+rbusSubscription_t* rbusSubscriptions_addSubscription(rbusSubscriptions_t subscriptions, char const* listener, char const* eventName, int32_t componentId, rbusFilter_t filter, int32_t interval, int32_t duration, bool autoPublish, elementNode* registryElem, uint32_t userDataID)
 {
     rbusSubscription_t* sub;
     TokenChain* tokens;
@@ -142,6 +142,7 @@ rbusSubscription_t* rbusSubscriptions_addSubscription(rbusSubscriptions_t subscr
     sub->autoPublish = autoPublish;
     sub->element = registryElem;
     sub->tokens = tokens;
+    sub->userDataID = userDataID;
     rtList_Create(&sub->instances);
     rtList_PushBack(subscriptions->subList, sub, NULL);
 

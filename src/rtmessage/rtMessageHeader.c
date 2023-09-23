@@ -37,6 +37,7 @@ rtMessageHeader_Init(rtMessageHeader* hdr)
   memset(hdr->topic, 0, RTMSG_HEADER_MAX_TOPIC_LENGTH);
   hdr->reply_topic_length = 0;
   memset(hdr->reply_topic, 0, RTMSG_HEADER_MAX_TOPIC_LENGTH);
+  hdr->user_data_ID = 0;
 #ifdef MSG_ROUNDTRIP_TIME
   hdr->T1 = 0;
   hdr->T2 = 0;
@@ -52,11 +53,11 @@ rtMessageHeader_Encode(rtMessageHeader* hdr, uint8_t* buff)
 {
   uint8_t* ptr = buff;
 #ifdef MSG_ROUNDTRIP_TIME
-  static uint16_t const kSizeWithoutStringsInBytes = 52; /* 28 bytes for basic data +
+  static uint16_t const kSizeWithoutStringsInBytes = 56; /* 28 bytes for basic data +
                                                              4 bytes for Marker +
                                                             20 bytes for timestamp */
 #else
-  static uint16_t const kSizeWithoutStringsInBytes = 32; /* 28 bytes for basic data +
+  static uint16_t const kSizeWithoutStringsInBytes = 36; /* 28 bytes for basic data +
                                                              4 bytes for Marker */
 #endif
   uint16_t length = kSizeWithoutStringsInBytes
@@ -72,6 +73,7 @@ rtMessageHeader_Encode(rtMessageHeader* hdr, uint8_t* buff)
   rtEncoder_EncodeUInt32(&ptr, hdr->payload_length);
   rtEncoder_EncodeString(&ptr, hdr->topic, NULL);
   rtEncoder_EncodeString(&ptr, hdr->reply_topic, NULL);
+  rtEncoder_EncodeUInt32(&ptr, hdr->user_data_ID);
 #ifdef MSG_ROUNDTRIP_TIME
   rtEncoder_EncodeUInt32(&ptr, hdr->T1);
   rtEncoder_EncodeUInt32(&ptr, hdr->T2);
@@ -119,6 +121,7 @@ rtMessageHeader_Decode(rtMessageHeader* hdr, uint8_t const* buff)
     return RT_ERROR;
   }
   rtEncoder_DecodeStr(&ptr, hdr->reply_topic, hdr->reply_topic_length);
+  rtEncoder_DecodeUInt32(&ptr, (uint32_t*)&hdr->user_data_ID);
 #ifdef MSG_ROUNDTRIP_TIME
   rtEncoder_DecodeUInt32(&ptr, (uint32_t*)&hdr->T1);
   rtEncoder_DecodeUInt32(&ptr, (uint32_t*)&hdr->T2);

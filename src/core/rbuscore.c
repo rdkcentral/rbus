@@ -370,7 +370,7 @@ static int unlock()
 	return pthread_mutex_unlock(&g_mutex);
 }
 
-static rbusCoreError_t send_subscription_request(const char * object_name, const char * event_name, bool activate, const rbusMessage payload, int* providerError, int timeout, bool publishOnSubscribe, rbusMessage *response);
+static rbusCoreError_t send_subscription_request(const char * object_name, const char * event_name, bool activate, const rbusMessage payload, int* providerError, int timeout, bool publishOnSubscribe, rbusMessage *response, bool rawDataSub);
 
 static void perform_init()
 {
@@ -410,7 +410,7 @@ static void perform_cleanup()
             for(i2 = 0; i2 < sz2; i2++)
             {   
                 client_event_t event = rtVector_At(sub->events, i2);
-                send_subscription_request(sub->object, event->name, false, NULL, NULL, 0, false, NULL);
+                send_subscription_request(sub->object, event->name, false, NULL, NULL, 0, false, NULL, false);
             }
         }
         lock();
@@ -698,7 +698,7 @@ rtConnection rbus_getConnection()
     return g_connection;
 }
 
-static rbusCoreError_t send_subscription_request(const char * object_name, const char * event_name, bool activate, const rbusMessage payload, int* providerError, int timeout_ms, bool publishOnSubscribe, rbusMessage *response)
+static rbusCoreError_t send_subscription_request(const char * object_name, const char * event_name, bool activate, const rbusMessage payload, int* providerError, int timeout_ms, bool publishOnSubscribe, rbusMessage *response, bool rawDataSub)
 {
     /* Method definition to add new event subscription: 
      * method name: METHOD_ADD_EVENT_SUBSCRIPTION / METHOD_REMOVE_EVENT_SUBSCRIPTION.
@@ -717,6 +717,10 @@ static rbusCoreError_t send_subscription_request(const char * object_name, const
         rbusMessage_SetMessage(request, payload);
     if(publishOnSubscribe)
         rbusMessage_SetInt32(request, 1); /*for publishOnSubscribe */
+    else
+        rbusMessage_SetInt32(request, 0);
+    if(rawDataSub)
+        rbusMessage_SetInt32(request, 1); /*for rawdatasubscription */
     else
         rbusMessage_SetInt32(request, 0);
 
@@ -808,7 +812,7 @@ rbusCoreError_t rbus_registerObj(const char * object_name, rbus_callback_t handl
     server_object_create(&obj, object_name, handler, user_data);
 
     //TODO: callback signature translation. rbusMessage uses a significantly wider signature for callbacks. Translate to something simpler.
-    err = rtConnection_AddListener(g_connection, object_name, onMessage, obj);
+    err = rtConnection_AddListener(g_connection, object_name, onMessage, obj, 0);
 
     if(RT_OK == err)
     {
@@ -1539,7 +1543,7 @@ static rbusCoreError_t remove_subscription_callback(const char * object_name,  c
     return ret;
 }
 
-static rbusCoreError_t rbus_subscribeToEventInternal(const char * object_name,  const char * event_name, rbus_event_callback_t callback, const rbusMessage payload, void * user_data, int* providerError, int timeout, bool publishOnSubscribe, rbusMessage *response)
+static rbusCoreError_t rbus_subscribeToEventInternal(const char * object_name,  const char * event_name, rbus_event_callback_t callback, const rbusMessage payload, void * user_data, int* providerError, int timeout, bool publishOnSubscribe, rbusMessage *response, bool rawDataSub)
 {
     /*using namespace rbus_client;*/
     rbusCoreError_t ret = RBUSCORE_SUCCESS;
@@ -1612,7 +1616,7 @@ static rbusCoreError_t rbus_subscribeToEventInternal(const char * object_name,  
 
     unlock();
 
-    if((ret = send_subscription_request(object_name, event_name, true, payload, providerError, timeout, publishOnSubscribe, response)) != RBUSCORE_SUCCESS)
+    if((ret = send_subscription_request(object_name, event_name, true, payload, providerError, timeout, publishOnSubscribe, response, rawDataSub)) != RBUSCORE_SUCCESS)
     {
         if(g_master_event_callback == NULL)
         {
@@ -1627,12 +1631,12 @@ static rbusCoreError_t rbus_subscribeToEventInternal(const char * object_name,  
 
 rbusCoreError_t rbus_subscribeToEvent(const char * object_name,  const char * event_name, rbus_event_callback_t callback, const rbusMessage payload, void * user_data, int* providerError)
 {
-    return rbus_subscribeToEventInternal(object_name, event_name, callback, payload, user_data, providerError, 0, false, NULL);
+    return rbus_subscribeToEventInternal(object_name, event_name, callback, payload, user_data, providerError, 0, false, NULL, false);
 }
 
-rbusCoreError_t rbus_subscribeToEventTimeout(const char * object_name,  const char * event_name, rbus_event_callback_t callback, const rbusMessage payload, void * user_data, int* providerError, int timeout, bool publishOnSubscribe, rbusMessage *response)
+rbusCoreError_t rbus_subscribeToEventTimeout(const char * object_name,  const char * event_name, rbus_event_callback_t callback, const rbusMessage payload, void * user_data, int* providerError, int timeout, bool publishOnSubscribe, rbusMessage *response, bool rawDataSub)
 {
-    return rbus_subscribeToEventInternal(object_name, event_name, callback, payload, user_data, providerError, timeout, publishOnSubscribe, response);
+    return rbus_subscribeToEventInternal(object_name, event_name, callback, payload, user_data, providerError, timeout, publishOnSubscribe, response, rawDataSub);
 }
 
 rbusCoreError_t rbus_unsubscribeFromEvent(const char * object_name,  const char * event_name, const rbusMessage payload)
@@ -1658,7 +1662,7 @@ rbusCoreError_t rbus_unsubscribeFromEvent(const char * object_name,  const char 
 
     if(!g_master_event_callback)
         remove_subscription_callback(object_name, event_name);
-    ret = send_subscription_request(object_name, event_name, false, payload, NULL, 0, false, NULL);
+    ret = send_subscription_request(object_name, event_name, false, payload, NULL, 0, false, NULL, false);
     return ret;
 }
 
@@ -1764,7 +1768,7 @@ rbusCoreError_t rbus_registerClientDisconnectHandler(rbus_client_disconnect_call
     lock();
     if(!g_advisory_listener_installed)
     {
-        rtError err = rtConnection_AddListener(g_connection, RTMSG_ADVISORY_TOPIC, &rtrouted_advisory_callback, g_connection);
+        rtError err = rtConnection_AddListener(g_connection, RTMSG_ADVISORY_TOPIC, &rtrouted_advisory_callback, g_connection, 0);
         if(err == RT_OK)
         {
             RBUSCORELOG_DEBUG("Listening for advisory messages");
@@ -1817,7 +1821,7 @@ rbusCoreError_t rbus_publishSubscriberEvent(const char* object_name,  const char
         uint8_t* data;
         uint32_t dataLength;
         rbusMessage_ToBytes(out, &data, &dataLength);
-        rtRouteDirect_SendMessage (pPrivCliInfo, data, dataLength);
+        rtRouteDirect_SendMessage (pPrivCliInfo, data, dataLength, 0);
     }
     else
     {
