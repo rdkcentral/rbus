@@ -63,6 +63,7 @@ typedef struct
   char     topic[RTMSG_HEADER_MAX_TOPIC_LENGTH];
   uint32_t reply_topic_length;
   char     reply_topic[RTMSG_HEADER_MAX_TOPIC_LENGTH];
+  uint32_t user_data_ID;
 #ifdef MSG_ROUNDTRIP_TIME
   time_t   T1; /* Time at which consumer sends the request to daemon */
   time_t   T2; /* Time at which daemon receives the message from consumer */

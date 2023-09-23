@@ -186,7 +186,7 @@ rtConnection_SendBinaryResponse(rtConnection con, rtMessageHeader const* request
  */
 rtError
 rtConnection_AddListener(rtConnection con, char const* expression,
-  rtMessageCallback callback, void* closure);
+  rtMessageCallback callback, void* closure, uint32_t userDataID);
 
 /**
  * Remove a callback listener

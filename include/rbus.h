@@ -127,7 +127,9 @@ typedef enum _rbusError
     RBUS_ERROR_INVALID_METHOD,                  /**< Invalid Method           */
     RBUS_ERROR_NOSUBSCRIBERS,                   /**< No subscribers present   */
     RBUS_ERROR_SUBSCRIPTION_ALREADY_EXIST,      /**< The subscription already exists*/
-    RBUS_ERROR_INVALID_NAMESPACE                /**< Invalid namespace as per standard */
+    RBUS_ERROR_INVALID_NAMESPACE,               /**< Invalid namespace as per standard */
+    RBUS_ERROR_DIRECT_CON_NOT_EXIST,            /**< Direct connection not exist */
+    RBUS_ERROR_DIRECT_SEND_FAILURE              /**< Direct connection send failure */
 } rbusError_t;
 
 

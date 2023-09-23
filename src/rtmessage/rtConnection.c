@@ -605,7 +605,7 @@ rtConnection_CreateInternal(rtConnection* con, char const* application_name, cha
 
   if (err == RT_OK)
   {
-    rtConnection_AddListener(c, c->inbox_name, onDefaultMessage, c);
+    rtConnection_AddListener(c, c->inbox_name, onDefaultMessage, c, 0);
     rtConnection_StartThreads(c);
     *con = c;
   }
@@ -1115,6 +1115,7 @@ rtConnection_SendInternal(rtConnection con, uint8_t const* buff, uint32_t n, cha
   rtMessageHeader header;
   uint8_t const* message =NULL;
   uint32_t message_length;
+  static uint32_t userDataId = 1;
 
   if (!con)
     return rtErrorFromErrno(EINVAL);
@@ -1169,6 +1170,7 @@ rtConnection_SendInternal(rtConnection con, uint8_t const* buff, uint32_t n, cha
   }
   header.sequence_number = sequence_number; 
   header.flags = flags;
+  header.user_data_ID = userDataId;
 #ifdef MSG_ROUNDTRIP_TIME
   if(header.flags & rtMessageFlags_Request)
   {
@@ -1224,12 +1226,13 @@ rtConnection_SendInternal(rtConnection con, uint8_t const* buff, uint32_t n, cha
   }
   while ((err != RT_OK) && (num_attempts++ < max_attempts));
   con->send_buffer_in_use=0;
+  userDataId++;
 
   return err;
 }
 
 rtError
-rtConnection_AddListener(rtConnection con, char const* expression, rtMessageCallback callback, void* closure)
+rtConnection_AddListener(rtConnection con, char const* expression, rtMessageCallback callback, void* closure, uint32_t userDataID)
 {
   int i;
 
@@ -1267,7 +1270,10 @@ rtConnection_AddListener(rtConnection con, char const* expression, rtMessageCall
   }
 
   con->listeners[i].in_use = 1;
-  con->listeners[i].subscription_id = rtConnection_GetNextSubscriptionId();
+  if(userDataID)
+    con->listeners[i].subscription_id = userDataID; /* Rawdata unique subscription ID */
+  else
+    con->listeners[i].subscription_id = rtConnection_GetNextSubscriptionId();
   con->listeners[i].closure = closure;
   con->listeners[i].callback = callback;
   con->listeners[i].expression = strdup(expression);
