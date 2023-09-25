@@ -994,7 +994,7 @@ int subscribeHandlerImpl(
             if(!subscription)
             {
                 HANDLE_MUTEX_UNLOCK(handle);
-                return RBUS_ERROR_INVALID_OPERATION;
+                return RBUS_ERROR_INVALID_INPUT; // Adding fails because of invalid input
             }
         }
         else
