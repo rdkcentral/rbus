@@ -66,18 +66,18 @@ rtMessageHeader_Encode(rtMessageHeader* hdr, uint8_t* buff)
   rtEncoder_EncodeUInt16(&ptr, RTMSG_HEADER_MARKER);
   rtEncoder_EncodeUInt16(&ptr, RTMSG_HEADER_VERSION);
   rtEncoder_EncodeUInt16(&ptr, hdr->header_length);
-  rtEncoder_EncodeInt32(&ptr, hdr->sequence_number); // con->sequence_number++);
-  rtEncoder_EncodeInt32(&ptr, hdr->flags);
-  rtEncoder_EncodeInt32(&ptr, hdr->control_data);
-  rtEncoder_EncodeInt32(&ptr, hdr->payload_length);
+  rtEncoder_EncodeUInt32(&ptr, hdr->sequence_number); // con->sequence_number++);
+  rtEncoder_EncodeUInt32(&ptr, hdr->flags);
+  rtEncoder_EncodeUInt32(&ptr, hdr->control_data);
+  rtEncoder_EncodeUInt32(&ptr, hdr->payload_length);
   rtEncoder_EncodeString(&ptr, hdr->topic, NULL);
   rtEncoder_EncodeString(&ptr, hdr->reply_topic, NULL);
 #ifdef MSG_ROUNDTRIP_TIME
-  rtEncoder_EncodeInt32(&ptr, hdr->T1);
-  rtEncoder_EncodeInt32(&ptr, hdr->T2);
-  rtEncoder_EncodeInt32(&ptr, hdr->T3);
-  rtEncoder_EncodeInt32(&ptr, hdr->T4);
-  rtEncoder_EncodeInt32(&ptr, hdr->T5);
+  rtEncoder_EncodeUInt32(&ptr, hdr->T1);
+  rtEncoder_EncodeUInt32(&ptr, hdr->T2);
+  rtEncoder_EncodeUInt32(&ptr, hdr->T3);
+  rtEncoder_EncodeUInt32(&ptr, hdr->T4);
+  rtEncoder_EncodeUInt32(&ptr, hdr->T5);
 #endif
   rtEncoder_EncodeUInt16(&ptr, RTMSG_HEADER_MARKER);
   return RT_OK;

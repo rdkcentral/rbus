@@ -42,12 +42,13 @@
 #define RBUS_CLI_COMPONENT_NAME "rbuscli"
 #define RBUS_CLI_MAX_PARAM      25
 #define RBUS_CLI_MAX_CMD_ARG    (RBUS_CLI_MAX_PARAM * 3)
-#define RBUS_CLI_SESSION_ID     0
 #define BT_BUF_SIZE 512
 
 
 static int runSteps = __LINE__;
 
+bool g_isDebug = true;
+#define RBUSCLI_LOG(...) if (g_isDebug == true) {printf(__VA_ARGS__);}
 typedef struct _tlv_t {
     char *p_name;
     char *p_type;
@@ -63,6 +64,7 @@ rtHashMap gDirectHandlesHash = NULL;
 
 bool g_isInteractive = false;
 bool g_logEvents = true;
+unsigned int g_curr_sessionId = 0;
 rbusLogLevel_t g_logLevel = RBUS_LOG_WARN;
 
 bool matchCmd(const char* sub, size_t lenmin,  const char* full)
@@ -290,6 +292,19 @@ void show_menu(const char* command)
             printf ("\tunsub Example.SomeStrProp = \"Hello\"\n\r");
             printf ("\n\r");
         }
+        else if(matchCmd(command, 11, "rawdataunsubscribe"))
+        {
+            printf ("\e[1mrawdataunsub\e[0mscribe \e[4mevent\e[0m [\e[4moperator\e[0m \e[4mvalue\e[0m]\n\r");
+            printf ("Unsubscribe from a single event.\n\r");
+            printf ("If a value-change filter was used to subscribe then the same filter must be passed to rawdataunsubscribe.\n\r");
+            printf ("Args:\n\r");
+            printf ("\t%-20sThe name of the event to rawdataunsubscribe from\n\r", "event");
+            printf ("\t%-20sOptional operator that was used when subscribing to this event. Supported operators (>, >=, <, <=, =, !=)\n\r", "operator");
+            printf ("\t%-20sOptional value that was used when subscribing to this event.\n\r", "value");
+            printf ("Examples:\n\r");
+            printf ("\trawdataunsub Example.SomeEvent!\n\r");
+            printf ("\n\r");
+        }
         else if(matchCmd(command, 6, "unsubinterval"))
         {
             printf ("\e[1munsubi\e[0mnterval \e[4mevent\e[0m \e[4minterval\e[0m [\e[4mduration\e[0m]\n\r");
@@ -325,7 +340,42 @@ void show_menu(const char* command)
             printf ("\tasub Example.SomeStrProp = \"Hello\"\n\r");
             printf ("\n\r");
         }
+        else if(matchCmd(command, 3, "rawdatasubscribe"))
+        {
+            printf ("\e[1mrawdatasub\e[0mscribe \e[4mevent\e[0m [\e[4moperator\e[0m \e[4mvalue\e[0m \e[4minitialValue\e[0m]\n\r");
+            printf ("Subscribe to a single event.\n\r");
+            printf ("Rbus supports general events, value-change events, and table events.\n\r");
+            printf ("And the type depends on that type of element \e[4mevent\e[0m refers to.\n\r");
+            printf ("If the type is a parameter then it is value-change event.\n\r");
+            printf ("If the type is a table then it is table events.\n\r");
+            printf ("If the type is a event then it is a general event.\n\r");
+            printf ("For value-change, an optional filter can be applied using the \e[4moperator\e[0m \e[4mvalue\e[0m parameters.\n\r");
+            printf ("Args:\n\r");
+            printf ("\t%-20sThe name of the event to subscribe to\n\r", "event");
+            printf ("\t%-20sOptional filter relational operator. Supported operators (>, >=, <, <=, =, !=)\n\r", "operator");
+            printf ("\t%-20sOptional filter trigger value\n\r", "value");
+            printf ("\t%-20sTo get initial value of the event being subscribed\n\r", "initialValue");
+            printf ("Examples:\n\r");
+            printf ("\tsub Example.SomeEvent!\n\r");
+            printf ("\tsub Example.SomeTable.\n\r");
+            printf ("\tsub Example.SomeIntProp > 10\n\r");
+            printf ("\tsub Example.SomeStrProp = \"Hello\"\n\r");
+            printf ("\tsub Example.SomeEvent! true\n\r");
+            printf ("\tsub Example.SomeEvent! = \"data\" true\n\r");
+            printf ("\n\r");
+        }
         else if(matchCmd(command, 3, "publish"))
+        {
+            printf ("\e[1mpub\e[0mlish \e[4mevent\e[0m [\e[4mdata\e[0m]\n\r");
+            printf ("Publishes an event which will be sent to all subscribers of this event.\n\r");
+            printf ("Args:\n\r");
+            printf ("\t%-20sThe name of the event to publish\n\r", "event");
+            printf ("\t%-20sThe data to publish with the event (as a string)\n\r", "data");
+            printf ("Examples:\n\r");
+            printf ("\tpub Example.MyEvent! \"Hello World\"\n\r");
+            printf ("\n\r");
+        }
+        else if(matchCmd(command, 3, "rawdatapublish"))
         {
             printf ("\e[1mpub\e[0mlish \e[4mevent\e[0m [\e[4mdata\e[0m]\n\r");
             printf ("Publishes an event which will be sent to all subscribers of this event.\n\r");
@@ -401,6 +451,28 @@ void show_menu(const char* command)
             printf ("\tSetPSMRecordValue() Deveice.Test.Psm string test_value\n\r");
             printf ("\n\r");
         }
+        else if(matchCmd(command, 10, "create_session"))
+        {
+            printf ("\e[1mcreate_ses\e[0sion\n\r");
+            printf ("Create a session.\n\r");
+            printf ("Examples:\n\r");
+            printf ("\tcreate_session\n\r");
+            printf ("\n\r");
+        }
+        else if(matchCmd(command, 7, "get_session"))
+        {
+            printf ("\e[1mget_ses\e[0sion\n\r");
+            printf ("Get the current session Id value.\n\r");
+            printf ("\tget_session\n\r");
+            printf ("\n\r");
+        }
+        else if(matchCmd(command, 9, "close_session"))
+        {
+            printf ("\e[1mclose_ses\e[0sion\n\r");
+            printf ("Close the current session.\n\r");
+            printf ("\tclose_session\n\r");
+            printf ("\n\r");
+        }
         else if(matchCmd(command, 3, "log"))
         {
             printf ("\t\e[1mlog\e[0m \e[4mlevel\e[0m\n\r");
@@ -456,9 +528,13 @@ void show_menu(const char* command)
             printf ("\nUsage:\n\r");
             printf ("\trbuscli [command]\n\r");
             printf ("\trbuscli [-i]\n\r");
+            printf ("\trbuscli [-g \e[0m \e[4mparameter\e\e[0m \e[0m]\n\r");
+            printf ("\trbuscli [-s \e[0m \e[4mparameter\e[0m \e[4mtype\e[0m \e[4mvalue\e[0m \e[0m]\n\r");
             printf ("\n\r");
             printf ("Options:\n\r");
             printf ("\t\e[1m-i\e[0m Run as interactive shell.\n\r");
+            printf ("\t\e[1m-g\e[0m Get the value of parameter\n\r");
+            printf ("\t\e[1m-s\e[0m Set the value of parameter\n\r");
             printf ("\n\r");
             printf ("Commands:\n\r");
         }
@@ -487,14 +563,19 @@ void show_menu(const char* command)
         printf ("\t\e[1munreg\e[0mister \e[4mname\e[0m\n\r");
         printf ("\t\e[1msub\e[0mscribe \e[4mevent\e[0m [\e[4moperator\e[0m \e[4mvalue\e[0m] [\e[4minitialValue\e[0m]\n\r");
         printf ("\t\e[1msubi\e[0mnterval \e[4mevent\e[0m \e[4minterval\e[0m [\e[4mduration\e[0m] [\e[4minitialValue\e[0m]\n\r");
+        printf ("\t\e[1mrawdatasub\e[0mscribe \e[4mevent\e[0m]\n\r");
         printf ("\t\e[1munsub\e[0mscribe \e[4mevent\e[0m [\e[4moperator\e[0m \e[4mvalue\e[0m]\n\r");
+        printf ("\t\e[1mrawdataunsub\e[0mscribe \e[4mevent\e[0m]\n\r");
         printf ("\t\e[1munsubi\e[0mnterval \e[4mevent\e[0m \e[4minterval\e[0m [\e[4mduration\e[0m] [\e[4minitialValue\e[0m]\n\r");
         printf ("\t\e[1masub\e[0mscribe \e[4mevent\e[0m [\e[4moperator\e[0m \e[4mvalue\e[0m]\n\r");
         printf ("\t\e[1mpub\e[0mlish \e[4mevent\e[0m [\e[4mdata\e[0m]\n\r");
+        printf ("\t\e[1mrawdatapub\e[0mlish \e[4mevent\e[0m [\e[4mdata\e[0m]\n\r");
         printf ("\t\e[1maddl\e[0mistener \e[4mexpression\e[0m\n\r");
         printf ("\t\e[1mreml\e[0mistener \e[4mexpression\e[0m\n\r");
         printf ("\t\e[1msend\e[0m \e[4mtopic\e[0m [\e[4mdata\e[0m]\n\r");
-        printf ("\t\e[1mlog\e[0m \e[4mlevel\e[0m\n\r");
+        printf ("\t\e[1mcreate_ses\e[0msion\n\r");
+        printf ("\t\e[1mget_ses\e[0msion\n\r");
+        printf ("\t\e[1mclose_ses\e[0msion\n\r");
         printf ("\t\e[1mquit\e[0m\n\r");
         if(g_isInteractive)    
         {
@@ -804,7 +885,19 @@ rbusError_t event_subscribe_handler(rbusHandle_t handle, rbusEventSubAction_t ac
     return RBUS_ERROR_SUCCESS;
 }
 
-void event_receive_handler(rbusHandle_t handle, rbusEvent_t const* event, rbusEventSubscription_t* subscription)
+static void event_receive_handler1(rbusHandle_t handle, rbusEventRawData_t const* event, rbusEventSubscription_t* subscription)
+{
+    (void)handle;
+    (void)subscription;
+    runSteps = __LINE__;
+    printf("\nevent_receive_handler1 called\n\r");
+    printf("Event received %s\n\r", event->name);
+    printf("Event data: %s\n\r", (char*)event->rawData);
+    printf("Event data len: %d\n\r", event->rawDataLen);
+    printf("\n\r");
+}
+
+void event_receive_handler2(rbusHandle_t handle, rbusEvent_t const* event, rbusEventSubscription_t* subscription)
 {
     (void)handle;
     (void)subscription;
@@ -1109,9 +1202,9 @@ void validate_and_execute_get_cmd (int argc, char *argv[])
     const char *pInputParam[RBUS_CLI_MAX_PARAM] = {0, 0};
     bool isWildCard = false;
 
-    if (numOfInputParams < 1)
+    if ((numOfInputParams < 1) || ((strcmp("-g", argv[1]) == 0) && (numOfInputParams > 1)))
     {
-        printf ("Invalid arguments. Please see the help\n\r");
+        RBUSCLI_LOG ("Invalid arguments. Please see the help\n\r");
         return;
     }
 
@@ -1125,7 +1218,13 @@ void validate_and_execute_get_cmd (int argc, char *argv[])
     if(numOfInputParams == 1)
     {
         if(pInputParam[0][strlen(pInputParam[0])-1] == '.' || strchr(pInputParam[0], '*'))
-            isWildCard = true;
+	{
+	    isWildCard = true;
+	    if ((strcmp("-g", argv[1]) == 0))
+	    {
+		return;
+	    }
+	}
     }
 
     if ((!isWildCard) && (1 == numOfInputParams))
@@ -1153,22 +1252,29 @@ void validate_and_execute_get_cmd (int argc, char *argv[])
             rbusValueType_t type = rbusValue_GetType(val);
             char *pStrVal = rbusValue_ToString(val,NULL,0);
 
-            printf ("Parameter %2d:\n\r", i+1);
-            printf ("              Name  : %s\n\r", rbusProperty_GetName(next));
-            printf ("              Type  : %s\n\r", getDataType_toString(type));
-            printf ("              Value : %s\n\r", pStrVal);
-
-            if(pStrVal)
-                free(pStrVal);
-
-            next = rbusProperty_GetNext(next);
-        }
+	    if ((strcmp("-g", argv[1]) == 0))
+	    {
+		printf ("%s\n", pStrVal);
+	    }
+	    else
+	    {
+		printf ("Parameter %2d:\n\r", i+1);
+		printf ("              Name  : %s\n\r", rbusProperty_GetName(next));
+		printf ("              Type  : %s\n\r", getDataType_toString(type));
+		printf ("              Value : %s\n\r", pStrVal);
+	    }
+	    if(pStrVal)
+	    {
+		free(pStrVal);
+	    }
+	    next = rbusProperty_GetNext(next);
+	}
         /* Free the memory */
         rbusProperty_Release(outputVals);
     }
     else
     {
-        printf ("Failed to get the data. Error : %d\n\r",rc);
+        RBUSCLI_LOG ("Failed to get the data. Error : %d\n\r",rc);
     }
 }
 
@@ -1240,22 +1346,21 @@ void validate_and_execute_set_cmd (int argc, char *argv[])
     rbusError_t rc = RBUS_ERROR_SUCCESS;
     int i = argc - 2;
     bool isCommit = true;
-    int sessionId = 0;
-    static bool g_pendingCommit = false;
+    unsigned int sessionId = 0;
 
     runSteps = __LINE__;
     /* must have 3 or multiples of 3 parameters.. it could possibliy have 1 extra param which
      * could be having commit and set to true/false */
-    if (!((i >= 3) && ((i % 3 == 0) || (i % 3 == 1))))
+    if (((strcmp("-s", argv[1]) == 0 ) && (i > 3)) || (!((i >= 3) && ((i % 3 == 0) || (i % 3 == 1)))))
     {
-        printf ("Invalid arguments. Please see the help\n\r");
+        RBUSCLI_LOG ("Invalid arguments. Please see the help\n\r");
         return;
     }
 
     if (!verify_rbus_open())
         return;
 
-    if (i > 4) /* Multiple set commands; Lets use rbusValue_t */
+    if ((i > 4) && !(strcmp("-s", argv[1]) == 0)) /* Multiple set commands; Lets use rbusValue_t */
     {
         int isInvalid = 0;
         int index = 0;
@@ -1310,31 +1415,39 @@ void validate_and_execute_set_cmd (int argc, char *argv[])
                     if (strncasecmp ("true", argv[argc - 1], 4) == 0)
                         isCommit = true;
                     else if (strncasecmp ("false", argv[argc - 1], 5) == 0)
+                    {
                         isCommit = false;
+                        if(g_curr_sessionId == 0)
+                        {
+                            rc = rbus_createSession(g_busHandle, &g_curr_sessionId);
+                            if(rc != RBUS_ERROR_SUCCESS)
+                            {
+                                printf("Session creation failed with err = %d\n", rc);
+                            }
+                        }
+                        if(g_curr_sessionId == 0)
+                            printf("Can't set the value temporarily with sessionId 0 and commit false\n");
+                    }
                     else
                         isCommit = true;
 
-                    if (isCommit == false)
-                    {
-                        g_pendingCommit = true;
-                        sessionId = RBUS_CLI_SESSION_ID;
-                    }
-                    else
-                    {
-                        if (g_pendingCommit)
-                            sessionId = RBUS_CLI_SESSION_ID;
-                        else
-                            sessionId = 0;
-                    }
                 }
                 else
                 {
                     isCommit = true;
-                    if (g_pendingCommit)
-                        sessionId = RBUS_CLI_SESSION_ID;
-                    else
-                        sessionId = 0;
                 }
+                if(isCommit && g_curr_sessionId != 0)
+                {
+                    printf("closing the session\n");
+                    fflush(stdout);
+                    rc = rbus_closeSession(g_busHandle, g_curr_sessionId);
+                    if(rc != RBUS_ERROR_SUCCESS)
+                    {
+                        printf("Session close failed with err = %d\n", rc);
+                    }
+                    g_curr_sessionId = 0;
+                }
+                sessionId = g_curr_sessionId;
             }
             else
             {
@@ -1342,11 +1455,6 @@ void validate_and_execute_set_cmd (int argc, char *argv[])
                 isCommit = true;
                 sessionId = 0;
             }
-
-            /* Reset the flag */
-            if (isCommit == true)
-                g_pendingCommit = false;
-
 
             rbusSetOptions_t opts = {isCommit,sessionId};
             rc = rbus_setMulti(g_busHandle, paramCnt, properties/*setNames, setVal*/, &opts);
@@ -1376,7 +1484,7 @@ void validate_and_execute_set_cmd (int argc, char *argv[])
         if(value == false)
         {
             rc = RBUS_ERROR_INVALID_INPUT;
-            printf ("Invalid data value passed to set. Please pass proper value with respect to the data type\nsetvalues failed with return value: %d\n", rc);
+            RBUSCLI_LOG ("Invalid data value passed to set. Please pass proper value with respect to the data type\nsetvalues failed with return value: %d\n", rc);
             return;
         }
         if (type != RBUS_NONE)
@@ -1392,30 +1500,38 @@ void validate_and_execute_set_cmd (int argc, char *argv[])
                     if (strncasecmp ("true", argv[argc - 1], 4) == 0)
                         isCommit = true;
                     else if (strncasecmp ("false", argv[argc - 1], 5) == 0)
+                    {
                         isCommit = false;
+                        if(g_curr_sessionId == 0)
+                        {
+                            rc = rbus_createSession(g_busHandle, &g_curr_sessionId);
+                            if(rc != RBUS_ERROR_SUCCESS)
+                            {
+                                printf("Session creation failed with err = %d\n", rc);
+                            }
+                        }
+                        if(g_curr_sessionId == 0)
+                            printf("Can't set the value temporarily with sessionId 0 and commit false\n");
+                    }
                     else
                         isCommit = true;
-
-                    if (isCommit == false)
-                    {
-                        g_pendingCommit = true;
-                        sessionId = RBUS_CLI_SESSION_ID;
-                    }
-                    else
-                    {
-                        if (g_pendingCommit)
-                            sessionId = RBUS_CLI_SESSION_ID;
-                        else
-                            sessionId = 0;
-                    }
+                    sessionId = g_curr_sessionId;
                 }
                 else
                 {
                     isCommit = true;
-                    if (g_pendingCommit)
-                        sessionId = RBUS_CLI_SESSION_ID;
-                    else
-                        sessionId = 0;
+                    sessionId = 0;
+                }
+                if(isCommit && g_curr_sessionId != 0)
+                {
+                    printf("closing the session\n");
+                    fflush(stdout);
+                    rc = rbus_closeSession(g_busHandle, g_curr_sessionId);
+                    if(rc != RBUS_ERROR_SUCCESS)
+                    {
+                        printf("Session close failed with err = %d\n", rc);
+                    }
+                    g_curr_sessionId = 0;
                 }
             }
             else
@@ -1425,9 +1541,6 @@ void validate_and_execute_set_cmd (int argc, char *argv[])
                 sessionId = 0;
             }
             (void)sessionId;
-            /* Reset the flag */
-            if (isCommit == true)
-                g_pendingCommit = false;
 
             /* Assume a sessionId as it is going to be single entry thro this cli app; */
             rbusSetOptions_t opts = {isCommit,sessionId};
@@ -1439,17 +1552,17 @@ void validate_and_execute_set_cmd (int argc, char *argv[])
         else
         {
             rc = RBUS_ERROR_INVALID_INPUT;
-            printf ("Invalid data type. Please see the help\n\r");
+            RBUSCLI_LOG ("Invalid data type. Please see the help\n\r");
         }
     }
 
     if(RBUS_ERROR_SUCCESS == rc)
     {
-        printf ("setvalues succeeded..\n\r");
+        RBUSCLI_LOG ("setvalues succeeded..\n\r");
     }
     else
     {
-        printf ("setvalues failed with return value: %d\n\r", rc);
+        RBUSCLI_LOG ("setvalues failed with return value: %d\n\r", rc);
     }
 }
 
@@ -1828,7 +1941,7 @@ int set_publishOnSubscribe(int argc, char *argv[])
     return publishOnSubscribe;
 }
 
-void validate_and_execute_subscribe_cmd (int argc, char *argv[], bool add, bool isAsync)
+void validate_and_execute_subscribe_cmd (int argc, char *argv[], bool add, bool isAsync, bool rawDataSub)
 {
     rbusError_t rc = RBUS_ERROR_SUCCESS;
     rbusFilter_t filter = NULL;
@@ -1956,16 +2069,25 @@ exit_error:
         return;
     }
 
-    rbusEventSubscription_t subscription = {argv[2], filter, interval, duration, event_receive_handler, userData, NULL, NULL, publishOnSubscribe};
+    rbusEventSubscription_t subscription_rawdata = {argv[2], filter, interval, duration, event_receive_handler1, userData, NULL, NULL, publishOnSubscribe};
+    rbusEventSubscription_t subscription = {argv[2], filter, interval, duration, event_receive_handler2, userData, NULL, NULL, publishOnSubscribe};
 
     /* Async will be TRUE only when add is TRUE */
     if (isAsync && add)
     {
         rc = rbusEvent_SubscribeExAsync(g_busHandle, &subscription, 1, event_receive_subscription_handler, 0);
     }
+    else if(add && rawDataSub)
+    {
+        rc = rbusEvent_SubscribeExRawData(g_busHandle, &subscription_rawdata, 1, 0);
+    }
     else if(add)
     {
         rc = rbusEvent_SubscribeEx(g_busHandle, &subscription, 1, 0);
+    }
+    else if(rawDataSub)
+    {
+        rc = rbusEvent_UnsubscribeExRawData(g_busHandle, &subscription, 1);
     }
     else
     {
@@ -2012,10 +2134,9 @@ exit_error:
     }
 }
 
-void validate_and_execute_publish_command(int argc, char *argv[])
+void validate_and_execute_publish_command(int argc, char *argv[], bool rawDataPub)
 {
     rbusError_t rc;
-    rbusEvent_t event = {0};
     rbusObject_t data;
     rbusValue_t value;
 
@@ -2029,23 +2150,38 @@ void validate_and_execute_publish_command(int argc, char *argv[])
         return;    
 
     runSteps = __LINE__;
-    rbusValue_Init(&value);
-    rbusValue_SetString(value, argc < 4 ? "default event data" : argv[3]);
-    rbusObject_Init(&data, NULL);
-    rbusObject_SetValue(data, "value", value);
-
-    event.name = argv[2];
-    event.data = data;
-    event.type = RBUS_EVENT_GENERAL;
-
-    rc = rbusEvent_Publish(g_busHandle, &event);
-
-    rbusValue_Release(value);
-    rbusObject_Release(data);
-
-    if(rc != RBUS_ERROR_SUCCESS)
+    if(rawDataPub)
     {
-        printf("Publish failed err: %d\n\r", rc);
+        rbusEventRawData_t event = {0};
+        event.name = argv[2];
+        event.rawData = argv[3];
+        event.rawDataLen = strlen(argv[3]);
+
+        rc = rbusEvent_PublishRawData(g_busHandle, &event);
+        if(rc != RBUS_ERROR_SUCCESS)
+            printf("provider: rbusEvent_Publish Event1 failed: %d\n", rc);
+    }
+    else
+    {
+        rbusEvent_t event = {0};
+        rbusValue_Init(&value);
+        rbusValue_SetString(value, argc < 4 ? "default event data" : argv[3]);
+        rbusObject_Init(&data, NULL);
+        rbusObject_SetValue(data, "value", value);
+
+        event.name = argv[2];
+        event.data = data;
+        event.type = RBUS_EVENT_GENERAL;
+
+        rc = rbusEvent_Publish(g_busHandle, &event);
+
+        rbusValue_Release(value);
+
+        if(rc != RBUS_ERROR_SUCCESS)
+        {
+            printf("Publish failed err: %d\n\r", rc);
+        }
+        rbusObject_Release(data);
     }
 }
 
@@ -2070,6 +2206,8 @@ void validate_and_execute_listen_command(int argc, char *argv[], bool add)
     userData = rt_calloc(1, 256);
     sprintf(userData, "listen %s", argv[2]);
 
+    printf("value of argv[2] = %s\n", argv[2]);
+    printf("value of userData = %s\n", userData);
     if(add)
     {
         rc = rbusMessage_AddListener(g_busHandle, argv[2], message_receive_handler, userData);
@@ -2283,6 +2421,48 @@ void validate_and_execute_method_names_cmd (int argc, char *argv[])
     execute_method_cmd(argv[1], argv[2], inParams);
 }
 
+void validate_and_execute_create_session_cmd ( )
+{
+    rbusError_t rc = RBUS_ERROR_SUCCESS;
+    if (!verify_rbus_open())
+        return;
+    rc = rbus_createSession(g_busHandle, &g_curr_sessionId);
+    if(rc != RBUS_ERROR_SUCCESS)
+    {
+        printf("Session creation failed with err = %d\n", rc);
+    }
+}
+
+void validate_and_execute_get_session_cmd ( )
+{
+    if (!verify_rbus_open())
+        return;
+    rbus_getCurrentSession(g_busHandle, &g_curr_sessionId);
+    printf ("current sessionID %d\n\r", g_curr_sessionId);
+}
+
+void validate_and_execute_close_session_cmd (int argc, char *argv[])
+{
+    rbusError_t rc = RBUS_ERROR_SUCCESS;
+    (void)argc;
+    if (!verify_rbus_open())
+        return;
+    if (strncasecmp ("false", argv[argc - 1], 5) == 0)
+    {
+        /* Todo : Provider need to rollback the changes to actual value that is present before commit field is passed as false*/
+    }
+    rbus_getCurrentSession(g_busHandle, &g_curr_sessionId);
+    if(g_curr_sessionId != 0)
+    {
+        rc = rbus_closeSession(g_busHandle, g_curr_sessionId);
+    }
+    if(rc != RBUS_ERROR_SUCCESS)
+    {
+        printf("Session close failed with err = %d\n", rc);
+    }
+    g_curr_sessionId = 0;
+}
+
 int handle_cmds (int argc, char *argv[])
 {
     /* Interactive shell; handle the enter key */
@@ -2292,11 +2472,11 @@ int handle_cmds (int argc, char *argv[])
     char* command = argv[1];
 
     runSteps = __LINE__;
-    if(matchCmd(command, 3, "getvalues"))
+    if(matchCmd(command, 3, "getvalues") || (matchCmd(command, 2, "-g") && !g_isInteractive))
     {
         validate_and_execute_get_cmd (argc, argv);
     }
-    else if(matchCmd(command, 3, "setvalues"))
+    else if(matchCmd(command, 3, "setvalues") || (matchCmd(command, 2, "-s") && !g_isInteractive))
     {
         validate_and_execute_set_cmd (argc, argv);
     }
@@ -2358,19 +2538,31 @@ int handle_cmds (int argc, char *argv[])
     }
     else if(matchCmd(command, 3, "subscribe") || matchCmd(command, 4, "subinterval"))
     {
-        validate_and_execute_subscribe_cmd (argc, argv, true, false);
+        validate_and_execute_subscribe_cmd (argc, argv, true, false, false);
     }
     else if(matchCmd(command, 5, "unsubscribe") || matchCmd(command, 6, "unsubinterval"))
     {
-        validate_and_execute_subscribe_cmd (argc, argv, false, false);
+        validate_and_execute_subscribe_cmd (argc, argv, false, false, false);
     }
     else if(matchCmd(command, 4, "asubscribe"))
     {
-        validate_and_execute_subscribe_cmd (argc, argv, true, true);
+        validate_and_execute_subscribe_cmd (argc, argv, true, true, false);
+    }
+    else if(matchCmd(command, 9, "rawdatasubscribe"))
+    {
+        validate_and_execute_subscribe_cmd (argc, argv, true, false, true);
+    }
+    else if(matchCmd(command, 11, "rawdataunsubscribe"))
+    {
+        validate_and_execute_subscribe_cmd (argc, argv, false, false, true);
     }
     else if(matchCmd(command, 3, "publish"))
     {
-        validate_and_execute_publish_command (argc, argv);
+        validate_and_execute_publish_command (argc, argv, false);
+    }
+    else if(matchCmd(command, 3, "rawdatapublish"))
+    {
+        validate_and_execute_publish_command (argc, argv, true);
     }
     else if(matchCmd(command, 4, "addlistener"))
     {
@@ -2395,6 +2587,18 @@ int handle_cmds (int argc, char *argv[])
     else if(matchCmd(command, 9, "method_noargs"))
     {
         validate_and_execute_method_noargs_cmd (argc, argv);
+    }
+    else if(matchCmd(command, 10, "create_session"))
+    {
+        validate_and_execute_create_session_cmd (argc, argv);
+    }
+    else if(matchCmd(command, 7, "get_session"))
+    {
+        validate_and_execute_get_session_cmd (argc, argv);
+    }
+    else if(matchCmd(command, 9, "close_session"))
+    {
+        validate_and_execute_close_session_cmd (argc, argv);
     }
     else if(matchCmd(command, 4, "help"))
     {
@@ -2573,7 +2777,7 @@ void completion(const char *buf, linenoiseCompletions *lc) {
     {
         runSteps = __LINE__;
         completion = find_completion(tokens[0], 14, "get", "set", "add", "del", "getr", "getn", "disca", "discc", "disce",
-                "discw", "sub", "subint", "unsub", "unsubint", "asub", "method_no", "method_na", "method_va", "reg", "unreg", "pub",
+                "discw", "sub", "subint", "rawdatasub", "rawdataunsub", "unsub", "unsubint", "asub", "method_no", "method_na", "method_va", "reg", "unreg", "pub", "rawdatapub",
                 "addl", "reml", "send", "log", "quit", "opend", "closed", "help");
     }
     else if(num == 2)
@@ -2700,6 +2904,14 @@ char *hints(const char *buf, int *color, int *bold) {
         {
             hint = " event interval [duration] [initialValue]";
         }
+        else if(strcmp(tokens[0], "rawdatasub") == 0)
+        {
+            hint = " event";
+        }
+        else if(strcmp(tokens[0], "rawdataunsub") == 0)
+        {
+            hint = " event";
+        }
         else if(strcmp(tokens[0], "unsub") == 0)
         {
             hint = " event [operator value]";
@@ -2713,6 +2925,10 @@ char *hints(const char *buf, int *color, int *bold) {
             hint = " event [operator value]";
         }
         else if(strcmp(tokens[0], "pub") == 0)
+        {
+            hint = " event [data]";
+        }
+        else if(strcmp(tokens[0], "rawdatapub") == 0)
         {
             hint = " event [data]";
         }
@@ -2953,6 +3169,10 @@ int main( int argc, char *argv[] )
     }
     else
     {
+        if ((strcmp (argv[1], "-g") == 0) || (strcmp (argv[1], "-s") == 0))
+        {
+            g_isDebug = false;
+        }
         handle_cmds (argc, argv);
     }
 

@@ -41,6 +41,7 @@ rbusError_t eventSubHandler(rbusHandle_t handle, rbusEventSubAction_t action, co
     (void)autoPublish;
     (void)interval;
 
+    *autoPublish = true;
     printf(
         "eventSubHandler called:\n" \
         "\taction=%s\n" \

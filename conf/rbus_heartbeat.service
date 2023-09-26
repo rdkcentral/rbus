@@ -17,9 +17,14 @@
 # limitations under the License.
 ##########################################################################
 [Unit]
-Description=RBus IPC Restart Service
+Description= To check whether the rtrouted process is running or not
+Requires=rbus.service
+OnFailure=rbus_monitor.service
 
 [Service]
-Type=simple
-ExecStartPre=/bin/sh -c "if [[ ! -f /tmp/rbus_stopped ]]; then echo rbus_stuck > /tmp/rbus_stopped;fi"
-ExecStart=/bin/sh -c "if [[ -e /lib/rdk/rbus_termination_handler.sh ]]; then /lib/rdk/rbus_termination_handler.sh; fi"
+Type=oneshot
+TimeoutStartSec=10s
+ExecStart=/usr/bin/rtrouted_diag heartbeat
+
+[Install]
+WantedBy=multi-user.target

@@ -32,6 +32,23 @@
 
 int runtime = 70;
 
+rbusError_t eventSubHandler(rbusHandle_t handle, rbusEventSubAction_t action, const char* eventName, rbusFilter_t filter, int32_t interval, bool*     autoPublish)
+ {
+     (void)handle;
+     (void)filter;
+     (void)interval;
+
+     printf(
+             "eventSubHandler called:\n" \
+             "\taction=%s\n" \
+             "\teventName=%s\n",
+             action == RBUS_EVENT_ACTION_SUBSCRIBE ? "subscribe" : "unsubscribe",
+             eventName);
+
+     *autoPublish = true;
+     return RBUS_ERROR_SUCCESS;
+ }
+
 rbusError_t getHandler(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t* opts)
 {
     char const* name = rbusProperty_GetName(property);
@@ -78,7 +95,7 @@ int main(int argc, char *argv[])
 
     char componentName[] = "EventProvider";
 
-    rbusDataElement_t dataElements[1] = {{"Device.Provider1.Param1", RBUS_ELEMENT_TYPE_PROPERTY, {getHandler, NULL, NULL, NULL, NULL, NULL}}};
+    rbusDataElement_t dataElements[1] = {{"Device.Provider1.Param1", RBUS_ELEMENT_TYPE_PROPERTY, {getHandler, NULL, NULL, NULL, eventSubHandler, NULL}}};
 
     printf("provider: start\n");
 
