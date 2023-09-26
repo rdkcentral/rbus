@@ -197,7 +197,7 @@ void rbusValue_Releases(int count, ...)
 }
 
 
-void rbusValue_MarshallTMtoRBUS(rbusDateTime_t* outvalue, struct tm* invalue){
+void rbusValue_MarshallTMtoRBUS(rbusDateTime_t* outvalue, const struct tm* invalue){
     outvalue->m_time.tm_sec =  (int32_t)invalue->tm_sec;
     outvalue->m_time.tm_min =  (int32_t)invalue->tm_min;
     outvalue->m_time.tm_hour =  (int32_t)invalue->tm_hour;
@@ -209,7 +209,7 @@ void rbusValue_MarshallTMtoRBUS(rbusDateTime_t* outvalue, struct tm* invalue){
     outvalue->m_time.tm_isdst =  (int32_t)invalue->tm_isdst;
 }
 
-void rbusValue_UnMarshallRBUStoTM(struct tm* outvalue, rbusDateTime_t* invalue){
+void rbusValue_UnMarshallRBUStoTM(struct tm* outvalue, const rbusDateTime_t* invalue){
     outvalue->tm_sec =  (int)invalue->m_time.tm_sec;
     outvalue->tm_min =  (int)invalue->m_time.tm_min;
     outvalue->tm_hour =  (int)invalue->m_time.tm_hour;
