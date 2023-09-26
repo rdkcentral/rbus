@@ -351,14 +351,14 @@ void rbusValue_fwrite(rbusValue_t obj, int depth, FILE* fout);
  *  @param invalue An incoming struct tm
  *  @param outvalue An outgoing explicit length time structure
  */
-void rbusValue_MarshallTMtoRBUS(rbusDateTime_t* outvalue, struct tm* invalue);
+void rbusValue_MarshallTMtoRBUS(rbusDateTime_t* outvalue, const struct tm* invalue);
 
 /**
  *  @brief Convert an explicit length time structure to a local "struct tm", which allows 64/32 bit platform message interchange
  *  @param invalue An incoming explicit length time structure
  *  @param outvalue An outgoing struct tm
  */
-void rbusValue_UnMarshallRBUStoTM(struct tm* outvalue, rbusDateTime_t* invalue);
+void rbusValue_UnMarshallRBUStoTM(struct tm* outvalue, const rbusDateTime_t* invalue);
 
 #ifdef __cplusplus
 }
