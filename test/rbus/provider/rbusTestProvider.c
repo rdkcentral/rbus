@@ -511,6 +511,8 @@ rbusError_t tableRegSubHandler(rbusHandle_t handle, rbusEventSubAction_t action,
     (void)interval;
     (void)autoPublish;
 
+    *autoPublish = true;
+
     printf(
         "tableRegSubHandler called:\n" \
         "\taction=%s\n" \
@@ -619,6 +621,7 @@ rbusError_t eventSubHandler(rbusHandle_t handle, rbusEventSubAction_t action, co
     (void)filter;
     (void)interval;
     (void)autoPublish;
+    *autoPublish = true;
 
     printf(
         "eventSubHandler called:\n" \
@@ -893,6 +896,21 @@ rbusError_t setVCByHandler(rbusHandle_t handle, rbusProperty_t property, rbusSet
     printf("setVCByHandler [%s]=[%d]\n", rbusProperty_GetName(property), gByValue);
     return RBUS_ERROR_SUCCESS;
 }
+
+rbusError_t subAutoPubIntHandler(rbusHandle_t handle, rbusEventSubAction_t action, const char* eventName, rbusFilter_t filter, int32_t interval, bool* autoPublish)
+{
+    (void)handle;
+    (void)eventName;
+    (void)filter;
+    (void)interval;
+    (void)autoPublish;
+    (void)action;
+    printf("subAutoPubIntHandler\n");
+
+    *autoPublish = true;
+    return RBUS_ERROR_SUCCESS;
+}
+
 
 rbusError_t subNoAutoPubIntHandler(rbusHandle_t handle, rbusEventSubAction_t action, const char* eventName, rbusFilter_t filter, int32_t interval, bool* autoPublish)
 {
@@ -1374,6 +1392,7 @@ rbusError_t eventsTablesEventSubHandler(rbusHandle_t handle, rbusEventSubAction_
     (void)autoPublish;
     int instNum = 0;
 
+    *autoPublish = true;
     printf(
         "%s called:\n" \
         "\taction=%s\n" \
@@ -1450,27 +1469,27 @@ int main(int argc, char *argv[])
         {"Device.%s.Event2!", RBUS_ELEMENT_TYPE_EVENT, {NULL,NULL,NULL,NULL, eventSubHandler, NULL}},
         {"Device.%s.ErrorSubHandlerEvent!", RBUS_ELEMENT_TYPE_EVENT, {NULL,NULL,NULL,NULL, provideErrorSubHandler, NULL}},
         /*testing value-change filter for Int32 and Strings only, for now*/
-        {"Device.%s.VCParam", RBUS_ELEMENT_TYPE_PROPERTY, {getVCHandler,NULL,NULL,NULL,NULL, NULL}},
-        {"Device.%s.VCParamInt0", RBUS_ELEMENT_TYPE_PROPERTY, {getVCIntHandler,NULL,NULL,NULL,NULL, NULL}},
-        {"Device.%s.VCParamInt1", RBUS_ELEMENT_TYPE_PROPERTY, {getVCIntHandler,NULL,NULL,NULL,NULL, NULL}},
-        {"Device.%s.VCParamInt2", RBUS_ELEMENT_TYPE_PROPERTY, {getVCIntHandler,NULL,NULL,NULL,NULL, NULL}},
-        {"Device.%s.VCParamInt3", RBUS_ELEMENT_TYPE_PROPERTY, {getVCIntHandler,NULL,NULL,NULL,NULL, NULL}},
-        {"Device.%s.VCParamInt4", RBUS_ELEMENT_TYPE_PROPERTY, {getVCIntHandler,NULL,NULL,NULL,NULL, NULL}},
-        {"Device.%s.VCParamInt5", RBUS_ELEMENT_TYPE_PROPERTY, {getVCIntHandler,NULL,NULL,NULL,NULL, NULL}},
-        {"Device.%s.VCParamStr0", RBUS_ELEMENT_TYPE_PROPERTY, {getVCStrHandler,NULL,NULL,NULL,NULL, NULL}},
-        {"Device.%s.VCParamStr1", RBUS_ELEMENT_TYPE_PROPERTY, {getVCStrHandler,NULL,NULL,NULL,NULL, NULL}},
-        {"Device.%s.VCParamStr2", RBUS_ELEMENT_TYPE_PROPERTY, {getVCStrHandler,NULL,NULL,NULL,NULL, NULL}},
-        {"Device.%s.VCParamStr3", RBUS_ELEMENT_TYPE_PROPERTY, {getVCStrHandler,NULL,NULL,NULL,NULL, NULL}},
-        {"Device.%s.VCParamStr4", RBUS_ELEMENT_TYPE_PROPERTY, {getVCStrHandler,NULL,NULL,NULL,NULL, NULL}},
-        {"Device.%s.VCParamStr5", RBUS_ELEMENT_TYPE_PROPERTY, {getVCStrHandler,NULL,NULL,NULL,NULL, NULL}},
-        {"Device.%s.VCParamBy",   RBUS_ELEMENT_TYPE_PROPERTY, {getVCByHandler,setVCByHandler,NULL,NULL,NULL, NULL}},
+        {"Device.%s.VCParam", RBUS_ELEMENT_TYPE_PROPERTY, {getVCHandler,NULL,NULL,NULL, subAutoPubIntHandler, NULL}},
+        {"Device.%s.VCParamInt0", RBUS_ELEMENT_TYPE_PROPERTY, {getVCIntHandler,NULL,NULL,NULL,subAutoPubIntHandler, NULL}},
+        {"Device.%s.VCParamInt1", RBUS_ELEMENT_TYPE_PROPERTY, {getVCIntHandler,NULL,NULL,NULL,subAutoPubIntHandler, NULL}},
+        {"Device.%s.VCParamInt2", RBUS_ELEMENT_TYPE_PROPERTY, {getVCIntHandler,NULL,NULL,NULL,subAutoPubIntHandler, NULL}},
+        {"Device.%s.VCParamInt3", RBUS_ELEMENT_TYPE_PROPERTY, {getVCIntHandler,NULL,NULL,NULL,subAutoPubIntHandler, NULL}},
+        {"Device.%s.VCParamInt4", RBUS_ELEMENT_TYPE_PROPERTY, {getVCIntHandler,NULL,NULL,NULL,subAutoPubIntHandler, NULL}},
+        {"Device.%s.VCParamInt5", RBUS_ELEMENT_TYPE_PROPERTY, {getVCIntHandler,NULL,NULL,NULL,subAutoPubIntHandler, NULL}},
+        {"Device.%s.VCParamStr0", RBUS_ELEMENT_TYPE_PROPERTY, {getVCStrHandler,NULL,NULL,NULL,subAutoPubIntHandler, NULL}},
+        {"Device.%s.VCParamStr1", RBUS_ELEMENT_TYPE_PROPERTY, {getVCStrHandler,NULL,NULL,NULL,subAutoPubIntHandler, NULL}},
+        {"Device.%s.VCParamStr2", RBUS_ELEMENT_TYPE_PROPERTY, {getVCStrHandler,NULL,NULL,NULL,subAutoPubIntHandler, NULL}},
+        {"Device.%s.VCParamStr3", RBUS_ELEMENT_TYPE_PROPERTY, {getVCStrHandler,NULL,NULL,NULL,subAutoPubIntHandler, NULL}},
+        {"Device.%s.VCParamStr4", RBUS_ELEMENT_TYPE_PROPERTY, {getVCStrHandler,NULL,NULL,NULL,subAutoPubIntHandler, NULL}},
+        {"Device.%s.VCParamStr5", RBUS_ELEMENT_TYPE_PROPERTY, {getVCStrHandler,NULL,NULL,NULL,subAutoPubIntHandler, NULL}},
+        {"Device.%s.VCParamBy",   RBUS_ELEMENT_TYPE_PROPERTY, {getVCByHandler,setVCByHandler,NULL,NULL,subAutoPubIntHandler, NULL}},
         {"Device.%s.NoAutoPubInt", RBUS_ELEMENT_TYPE_PROPERTY, {NULL,NULL,NULL,NULL,subNoAutoPubIntHandler, NULL}},
         {"Device.%s.Table1.{i}.", RBUS_ELEMENT_TYPE_TABLE, {NULL, NULL, tableAddRowHandler, tableRemoveRowHandler, eventSubHandler, NULL}},
         {"Device.%s.Table1.{i}.Table2.{i}.", RBUS_ELEMENT_TYPE_TABLE, {NULL, NULL, tableAddRowHandler, tableRemoveRowHandler, eventSubHandler, NULL}},
         {"Device.%s.Table1.{i}.Table2.{i}.Table3.{i}.", RBUS_ELEMENT_TYPE_TABLE, {NULL, NULL, tableAddRowHandler, tableRemoveRowHandler, eventSubHandler, NULL}},
-        {"Device.%s.Table1.{i}.data", RBUS_ELEMENT_TYPE_PROPERTY, {dataGetHandler, dataSetHandler, NULL, NULL, NULL, NULL}},
-        {"Device.%s.Table1.{i}.Table2.{i}.data", RBUS_ELEMENT_TYPE_PROPERTY, {dataGetHandler, dataSetHandler, NULL, NULL, NULL, NULL}},
-        {"Device.%s.Table1.{i}.Table2.{i}.Table3.{i}.data", RBUS_ELEMENT_TYPE_PROPERTY, {dataGetHandler, dataSetHandler, NULL, NULL, NULL, NULL}},
+        {"Device.%s.Table1.{i}.data", RBUS_ELEMENT_TYPE_PROPERTY, {dataGetHandler, dataSetHandler, NULL, NULL, eventSubHandler, NULL}},
+        {"Device.%s.Table1.{i}.Table2.{i}.data", RBUS_ELEMENT_TYPE_PROPERTY, {dataGetHandler, dataSetHandler, NULL, NULL, eventSubHandler, NULL}},
+        {"Device.%s.Table1.{i}.Table2.{i}.Table3.{i}.data", RBUS_ELEMENT_TYPE_PROPERTY, {dataGetHandler, dataSetHandler, NULL, NULL, eventSubHandler, NULL}},
         {"Device.%s.TableReg.{i}.", RBUS_ELEMENT_TYPE_TABLE, {NULL, NULL, tableRegAddRowHandler, tableRegRemoveRowHandler, tableRegSubHandler, NULL}},
         {"Device.%s.TableReg.{i}.TableReg.{i}.", RBUS_ELEMENT_TYPE_TABLE, {NULL, NULL, tableRegAddRowHandler, tableRegRemoveRowHandler, tableRegSubHandler, NULL}},
         {"Device.%s.ResetTables", RBUS_ELEMENT_TYPE_PROPERTY, {NULL, resetTablesSetHandler, NULL, NULL, NULL, NULL}},
@@ -1505,7 +1524,7 @@ int main(int argc, char *argv[])
         {"Device.%s.BigString", RBUS_ELEMENT_TYPE_PROPERTY, {getBigHandler,setBigHandler,NULL,NULL,NULL, NULL}},
         {"Device.%s.BigBytes", RBUS_ELEMENT_TYPE_PROPERTY, {getBigHandler,setBigHandler,NULL,NULL,NULL, NULL}},
         {"Device.%s.EventsTable.{i}.", RBUS_ELEMENT_TYPE_TABLE, {NULL, NULL, eventsTablesAddRowHandler, eventsTablesRemRowHandler, NULL, NULL}},
-        {"Device.%s.EventsTable.{i}.Prop", RBUS_ELEMENT_TYPE_PROPERTY, {eventsTablesPropGetHandler, NULL, NULL, NULL, NULL, NULL}},
+        {"Device.%s.EventsTable.{i}.Prop", RBUS_ELEMENT_TYPE_PROPERTY, {eventsTablesPropGetHandler, NULL, NULL, NULL, eventsTablesEventSubHandler, NULL}},
         {"Device.%s.EventsTable.{i}.Event", RBUS_ELEMENT_TYPE_EVENT, {NULL,NULL,NULL,NULL, eventsTablesEventSubHandler, NULL}}
     };
 

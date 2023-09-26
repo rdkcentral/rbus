@@ -39,5 +39,6 @@
 
 #define RTROUTER_DIAG_CMD_ADD_NEW_LISTENER          "addNewListener"
 #define RTROUTER_DIAG_CMD_SHUTDOWN                  "shutdown"
+#define RTROUTER_DIAG_CMD_HEARTBEAT                 "heartbeat"
 
 #endif
