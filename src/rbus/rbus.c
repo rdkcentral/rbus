@@ -4634,7 +4634,7 @@ static rbusError_t rbusEvent_SubscribeWithRetries(
             if (!(subInternal && subInternal->dirty))
                 rbusEventSubscription_free(sub);
 
-            return RBUS_ERROR_DESTINATION_NOT_REACHABLE;
+            return RBUS_ERROR_TIMEOUT;
         }
         else if(providerError != RBUS_ERROR_SUCCESS)
         {   
