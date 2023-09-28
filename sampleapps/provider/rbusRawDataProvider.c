@@ -97,7 +97,7 @@ int main(int argc, char *argv[])
             rbusEventRawData_t event = {0};
             event.name = dataElements[0].name;
             event.rawData = "Hello";
-            event.rawDataLen = strlen("Hello");
+            event.rawDataLen = strlen("Hello")+1;
 
             rc = rbusEvent_PublishRawData(handle, &event);
             if(rc != RBUS_ERROR_SUCCESS)
