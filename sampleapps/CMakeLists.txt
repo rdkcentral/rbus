@@ -133,6 +133,10 @@ add_executable(rbusThreadConsumer consumer/rbusThreadConsumer.c)
 add_dependencies(rbusThreadConsumer rbus)
 target_link_libraries(rbusThreadConsumer rbus)
 
+add_executable(rbusRawDataProvider provider/rbusRawDataProvider.c)
+add_dependencies(rbusRawDataProvider rbus)
+target_link_libraries(rbusRawDataProvider rbus)
+
 install (TARGETS
     rbusSampleProvider
     rbusSampleConsumer
@@ -157,6 +161,7 @@ install (TARGETS
     rbusDirectConsumer
     rbusThreadProvider
     rbusThreadConsumer
+    rbusRawDataProvider
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 endif (BUILD_RBUS_SAMPLE_APPS)
