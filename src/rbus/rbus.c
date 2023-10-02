@@ -935,7 +935,8 @@ int subscribeHandlerImpl(
     int32_t componentId,
     int32_t interval,
     int32_t duration,
-    rbusFilter_t filter)
+    rbusFilter_t filter,
+    int rawData)
 {
     int error = RBUS_ERROR_SUCCESS;
     rbusSubscription_t* subscription = NULL;
@@ -952,6 +953,8 @@ int subscribeHandlerImpl(
     if(!el)
         return -1;
 
+    if(rawData)
+        autoPublish = false;
     RBUSLOG_INFO("Consumer=%s %s to event=%s", listener, added ? "SUBSCRIBED" : "UNSUBSCRIBED", eventName);
 
     HANDLE_MUTEX_LOCK(handle);
@@ -968,6 +971,13 @@ int subscribeHandlerImpl(
         ELM_PRIVATE_LOCK(el);
         err = el->cbTable.eventSubHandler(handle, action, eventName, filter, interval, &autoPublish);
         ELM_PRIVATE_UNLOCK(el);
+
+        if(rawData && autoPublish)
+        {
+            RBUSLOG_DEBUG("%s raw data subscription doesn't allow autoPublish=%d", __FUNCTION__, err);
+            HANDLE_MUTEX_UNLOCK(handle);
+            return RBUS_ERROR_INVALID_INPUT;
+        }
 
         if(err != RBUS_ERROR_SUCCESS)
         {
@@ -1021,48 +1031,57 @@ int subscribeHandlerImpl(
 
     /* if autoPublish and its a property being subscribed to
        then update rbusValueChange to handle the property */
-    if(el->type == RBUS_ELEMENT_TYPE_PROPERTY && subscription->autoPublish)
+    if(rawData && el->type == RBUS_ELEMENT_TYPE_PROPERTY)
     {
-        rtListItem item;
-        rtList_GetFront(subscription->instances, &item);
-        while(item)
+        RBUSLOG_INFO("rawDataSubscription is only allowed for events");
+        HANDLE_MUTEX_UNLOCK(handle);
+        return RBUS_ERROR_INVALID_INPUT;
+    }
+    else
+    {
+        if(el->type == RBUS_ELEMENT_TYPE_PROPERTY && subscription->autoPublish)
         {
-            elementNode* node;
-
-            rtListItem_GetData(item, (void**)&node);
-
-            if (subscription->interval)
+            rtListItem item;
+            rtList_GetFront(subscription->instances, &item);
+            while(item)
             {
-                RBUSLOG_INFO("%s: subscription with interval  %s event=%s prop=%s", __FUNCTION__,
-                        added ? "Add" : "Remove", subscription->eventName, node->fullName);
-                if(added) {
-                    if((error = rbusInterval_AddSubscriptionRecord(handle, node, subscription)) != RBUS_ERROR_SUCCESS)
-                        RBUSLOG_ERROR("rbusInterval_AddSubscriptionRecord failed with error : %d\n", error);
-                    break;
-                }
-                else
-                {
-                    rbusInterval_RemoveSubscriptionRecord(handle, node, subscription);
-                    break;
-                }
-            }
-            else if(!elementHasAutoPubSubscriptions(node, subscription))
-            {
-                /* Check if the node has other subscribers or not.  If it has other
-                   subs then we don't need to either add or remove it from ValueChange */
-                RBUSLOG_INFO("%s: ValueChange %s event=%s prop=%s", __FUNCTION__,
-                        added ? "Add" : "Remove", subscription->eventName, node->fullName);
-                if(added)
-                {
-                    rbusValueChange_AddPropertyNode(handle, node);
-                }
-                else
-                {
-                    rbusValueChange_RemovePropertyNode(handle, node);
-                }
-            }
+                elementNode* node;
 
-            rtListItem_GetNext(item, &item);
+                rtListItem_GetData(item, (void**)&node);
+
+                if (subscription->interval)
+                {
+                    RBUSLOG_INFO("%s: subscription with interval  %s event=%s prop=%s", __FUNCTION__,
+                            added ? "Add" : "Remove", subscription->eventName, node->fullName);
+                    if(added) {
+                        if((error = rbusInterval_AddSubscriptionRecord(handle, node, subscription)) != RBUS_ERROR_SUCCESS)
+                            RBUSLOG_ERROR("rbusInterval_AddSubscriptionRecord failed with error : %d\n", error);
+                        break;
+                    }
+                    else
+                    {
+                        rbusInterval_RemoveSubscriptionRecord(handle, node, subscription);
+                        break;
+                    }
+                }
+                else if(!elementHasAutoPubSubscriptions(node, subscription))
+                {
+                    /* Check if the node has other subscribers or not.  If it has other
+                       subs then we don't need to either add or remove it from ValueChange */
+                    RBUSLOG_INFO("%s: ValueChange %s event=%s prop=%s", __FUNCTION__,
+                            added ? "Add" : "Remove", subscription->eventName, node->fullName);
+                    if(added)
+                    {
+                        rbusValueChange_AddPropertyNode(handle, node);
+                    }
+                    else
+                    {
+                        rbusValueChange_RemovePropertyNode(handle, node);
+                    }
+                }
+
+                rtListItem_GetNext(item, &item);
+            }
         }
     }
 
@@ -1190,14 +1209,14 @@ static void unregisterTableRow (rbusHandle_t handle, elementNode* rowInstElem)
     }
 }
 //******************************* CALLBACKS *************************************//
-static int _event_subscribe_callback_handler(elementNode* el,  char const* eventName, char const* listener, int added, int componentId, int interval, int duration, rbusFilter_t filter, void* userData)
+static int _event_subscribe_callback_handler(elementNode* el,  char const* eventName, char const* listener, int added, int componentId, int interval, int duration, rbusFilter_t filter, void* userData, int rawData)
 {
     rbusHandle_t handle = (rbusHandle_t)userData;
     rbusCoreError_t err = RBUSCORE_SUCCESS;
 
     RBUSLOG_DEBUG("%s: event subscribe callback for [%s] event! and element of type %d", __FUNCTION__, eventName, el->type);
 
-    err = subscribeHandlerImpl(handle, added, el, eventName, listener, componentId, interval, duration, filter);
+    err = subscribeHandlerImpl(handle, added, el, eventName, listener, componentId, interval, duration, filter, rawData);
     return err;
 }
 
@@ -2304,6 +2323,7 @@ static void _subscribe_callback_handler (rbusHandle_t handle, rbusMessage reques
     int has_payload = 0;
     rbusMessage payload = NULL;
     int publishOnSubscribe = 0;
+    int rawData = 0;
     struct _rbusHandle* handleInfo = handle;
     int32_t componentId = 0;
     int32_t interval = 0;
@@ -2360,9 +2380,12 @@ static void _subscribe_callback_handler (rbusHandle_t handle, rbusMessage reques
 
             int added = strncmp(method, METHOD_SUBSCRIBE, MAX_METHOD_NAME_LENGTH) == 0 ? 1 : 0;
             if(added)
+            {
                 rbusMessage_GetInt32(request, &publishOnSubscribe);
+                rbusMessage_GetInt32(request, &rawData);
+            }
             if(ret == RBUS_ERROR_SUCCESS)
-                ret = _event_subscribe_callback_handler(el, event_name, sender, added, componentId, interval, duration, filter, handle);
+                ret = _event_subscribe_callback_handler(el, event_name, sender, added, componentId, interval, duration, filter, handle, rawData);
             rbusMessage_SetInt32(*response, ret);
 
             if(publishOnSubscribe && ret == RBUS_ERROR_SUCCESS)
@@ -4493,7 +4516,8 @@ static rbusError_t rbusEvent_SubscribeWithRetries(
     uint32_t                        duration,    
     int                             timeout,
     rbusSubscribeAsyncRespHandler_t async,
-    bool                            publishOnSubscribe)
+    bool                            publishOnSubscribe,
+    bool                            rawData)
 {
     rbusCoreError_t coreerr;
     int providerError = RBUS_ERROR_SUCCESS;
@@ -4569,7 +4593,7 @@ static rbusError_t rbusEvent_SubscribeWithRetries(
     {
         RBUSLOG_DEBUG("%s: %s subscribing", __FUNCTION__, eventName);
 
-        coreerr = rbus_subscribeToEventTimeout(NULL, sub->eventName, _event_callback_handler, payload, sub, &providerError, destNotFoundTimeout, publishOnSubscribe, &response);
+        coreerr = rbus_subscribeToEventTimeout(NULL, sub->eventName, _event_callback_handler, payload, sub, &providerError, destNotFoundTimeout, publishOnSubscribe, &response, rawData);
         
         if(coreerr == RBUSCORE_ERROR_DESTINATION_UNREACHABLE && destNotFoundTimeout > 0)
         {
@@ -4731,7 +4755,7 @@ rbusError_t  rbusEvent_SubscribeRawData(
 
     RBUSLOG_DEBUG("%s: %s", __FUNCTION__, eventName);
 
-    errorcode = rbusEvent_SubscribeWithRetries(handle, eventName, handler, userData, NULL, 0, 0 , timeout, NULL, false);
+    errorcode = rbusEvent_SubscribeWithRetries(handle, eventName, handler, userData, NULL, 0, 0 , timeout, NULL, false, true);
     if(errorcode != RBUS_ERROR_SUCCESS)
     {
         RBUSLOG_ERROR("%s:Subscribe failed err: %d",  __FUNCTION__, errorcode);
@@ -4768,7 +4792,7 @@ rbusError_t  rbusEvent_Subscribe(
 
     RBUSLOG_DEBUG("%s: %s", __FUNCTION__, eventName);
 
-    errorcode = rbusEvent_SubscribeWithRetries(handle, eventName, handler, userData, NULL, 0, 0 , timeout, NULL, false);
+    errorcode = rbusEvent_SubscribeWithRetries(handle, eventName, handler, userData, NULL, 0, 0 , timeout, NULL, false, false);
 
     return errorcode;
 }
@@ -4794,7 +4818,7 @@ rbusError_t  rbusEvent_SubscribeAsync(
 
     RBUSLOG_DEBUG("%s: %s", __FUNCTION__, eventName);
 
-    errorcode = rbusEvent_SubscribeWithRetries(handle, eventName, handler, userData, NULL, 0, 0, timeout, subscribeHandler, false);
+    errorcode = rbusEvent_SubscribeWithRetries(handle, eventName, handler, userData, NULL, 0, 0, timeout, subscribeHandler, false, false);
 
     return errorcode;
 }
@@ -4939,7 +4963,7 @@ rbusError_t rbusEvent_SubscribeEx(
         //the asyncsubscribe api to handle this.
         errorcode = rbusEvent_SubscribeWithRetries(
             handle, subscription[i].eventName, subscription[i].handler, subscription[i].userData, 
-            subscription[i].filter, subscription[i].interval, subscription[i].duration, timeout, NULL, subscription[i].publishOnSubscribe);
+            subscription[i].filter, subscription[i].interval, subscription[i].duration, timeout, NULL, subscription[i].publishOnSubscribe, false);
         if(errorcode != RBUS_ERROR_SUCCESS)
         {
             /*  Treat SubscribeEx like a transaction because
@@ -4982,9 +5006,14 @@ rbusError_t rbusEvent_SubscribeExRawData(
         //For rbusEvent_Subscribe, since it a single subscribe, blocking is fine but for rbusEvent_SubscribeEx,
         //where we can have multiple, we need to actually run all these in parallel.  So we might need to leverage
         //the asyncsubscribe api to handle this.
+        if(!subscription[i].handler)
+        {
+            errorcode = RBUS_ERROR_INVALID_INPUT;
+            break;
+        }
         errorcode = rbusEvent_SubscribeWithRetries(
             handle, subscription[i].eventName, subscription[i].handler, subscription[i].userData,
-            subscription[i].filter, subscription[i].interval, subscription[i].duration, timeout, NULL, subscription[i].publishOnSubscribe);
+            subscription[i].filter, subscription[i].interval, subscription[i].duration, timeout, NULL, subscription[i].publishOnSubscribe, true);
         if(errorcode != RBUS_ERROR_SUCCESS)
         {
             /*  Treat SubscribeEx like a transaction because
@@ -5038,7 +5067,7 @@ rbusError_t rbusEvent_SubscribeExAsync(
 
         errorcode = rbusEvent_SubscribeWithRetries(
             handle, subscription[i].eventName, subscription[i].handler, subscription[i].userData, 
-            subscription[i].filter, subscription[i].interval, subscription[i].duration, timeout, subscribeHandler, false);
+            subscription[i].filter, subscription[i].interval, subscription[i].duration, timeout, subscribeHandler, false, false);
 
         if(errorcode != RBUS_ERROR_SUCCESS)
         {
