@@ -1031,7 +1031,7 @@ int subscribeHandlerImpl(
 
     /* if autoPublish and its a property being subscribed to
        then update rbusValueChange to handle the property */
-    if(rawData && el->type == RBUS_ELEMENT_TYPE_PROPERTY)
+    if(rawData && el->type != RBUS_ELEMENT_TYPE_EVENT)
     {
         RBUSLOG_INFO("rawDataSubscription is only allowed for events");
         HANDLE_MUTEX_UNLOCK(handle);
