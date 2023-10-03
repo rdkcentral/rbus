@@ -44,7 +44,7 @@ static void rbusSubscriptions_saveCache(rbusSubscriptions_t subscriptions);
 
 int subscribeHandlerImpl(rbusHandle_t handle, bool added, elementNode* el, char const* eventName, char const* listener, int32_t componentId, int32_t interval, int32_t duration, rbusFilter_t filter);
 
-static int subscriptionKeyCompare(rbusSubscription_t* subscription, char const* listener, int32_t componentId,  char const* eventName, rbusFilter_t filter, int32_t interval, int32_t duration)
+static int subscriptionKeyCompare(rbusSubscription_t* subscription, char const* listener, int32_t componentId,  char const* eventName, rbusFilter_t filter, int32_t interval, int32_t duration, bool rawData)
 {
     int rc;
     if((rc = strcmp(subscription->listener, listener)) == 0)
@@ -56,7 +56,7 @@ static int subscriptionKeyCompare(rbusSubscription_t* subscription, char const* 
                 if ((rc = rbusFilter_Compare(subscription->filter, filter)) == 0)
                 {
                     rc = ((subscription->interval == interval) &&
-                            (subscription->duration == duration)) ? 0 : 1;
+                            (subscription->duration == duration) && (subscription->rawData == rawData)) ? 0 : 1;
                 }
             }
         }
@@ -117,7 +117,7 @@ void rbusSubscriptions_destroy(rbusSubscriptions_t subscriptions)
 static void rbusSubscriptions_onSubscriptionCreated(rbusSubscription_t* sub, elementNode* node);
 
 /*add a new subscription*/
-rbusSubscription_t* rbusSubscriptions_addSubscription(rbusSubscriptions_t subscriptions, char const* listener, char const* eventName, int32_t componentId, rbusFilter_t filter, int32_t interval, int32_t duration, bool autoPublish, elementNode* registryElem)
+rbusSubscription_t* rbusSubscriptions_addSubscription(rbusSubscriptions_t subscriptions, char const* listener, char const* eventName, int32_t componentId, rbusFilter_t filter, int32_t interval, int32_t duration, bool autoPublish, elementNode* registryElem, bool rawData)
 {
     rbusSubscription_t* sub;
     TokenChain* tokens;
@@ -146,6 +146,7 @@ rbusSubscription_t* rbusSubscriptions_addSubscription(rbusSubscriptions_t subscr
     sub->autoPublish = autoPublish;
     sub->element = registryElem;
     sub->tokens = tokens;
+    sub->rawData = rawData;
     rtList_Create(&sub->instances);
     rtList_PushBack(subscriptions->subList, sub, NULL);
 
@@ -157,7 +158,7 @@ rbusSubscription_t* rbusSubscriptions_addSubscription(rbusSubscriptions_t subscr
 }
 
 /*get an existing subscription by searching for its unique key [eventName, listener, filter]*/
-rbusSubscription_t* rbusSubscriptions_getSubscription(rbusSubscriptions_t subscriptions, char const* listener, char const* eventName, int32_t componentId, rbusFilter_t filter, int32_t interval, int32_t duration)
+rbusSubscription_t* rbusSubscriptions_getSubscription(rbusSubscriptions_t subscriptions, char const* listener, char const* eventName, int32_t componentId, rbusFilter_t filter, int32_t interval, int32_t duration, bool rawData)
 {
     rtListItem item;
     rbusSubscription_t* sub;
@@ -177,7 +178,7 @@ rbusSubscription_t* rbusSubscriptions_getSubscription(rbusSubscriptions_t subscr
             return NULL;
         RBUSLOG_DEBUG("%s: comparing to %s %s", __FUNCTION__, sub->listener, sub->eventName);
 
-        if(subscriptionKeyCompare(sub, listener, componentId, eventName, filter, interval, duration) == 0)
+        if(subscriptionKeyCompare(sub, listener, componentId, eventName, filter, interval, duration, rawData) == 0)
         {
             RBUSLOG_DEBUG("%s: found sub %s %s %d", __FUNCTION__, listener, eventName, componentId);
             return sub;
@@ -343,7 +344,7 @@ void rbusSubscriptions_onElementDeleted(rbusSubscriptions_t subscriptions, eleme
                     if(val)
                     {
                         subscription = rbusSubscriptions_getSubscription(subscriptions, sub->listener, sub->eventName,
-                                sub->componentId, sub->filter, sub->interval, sub->duration);
+                                sub->componentId, sub->filter, sub->interval, sub->duration, sub->rawData);
                         if(!subscription)
                         {
                             RBUSLOG_INFO("unsubscribing from event which isn't currectly subscribed to event=%s listener=%s", sub->eventName, sub->listener);
