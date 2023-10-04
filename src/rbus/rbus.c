@@ -2803,7 +2803,7 @@ exit_error0:
     return ret;
 }
 
-static bool sDisConnHandler = false;
+static uint32_t sDisConnHandler;
 
 rbusError_t rbus_openDirect(rbusHandle_t handle, rbusHandle_t* myDirectHandle, char const* pParameterName)
 {
@@ -2834,8 +2834,8 @@ rbusError_t rbus_openDirect(rbusHandle_t handle, rbusHandle_t* myDirectHandle, c
                 if (!sDisConnHandler)
                 {
                     rbus_registerClientDisconnectHandler(_client_disconnect_callback_handler);
-                    sDisConnHandler = true;
                 }
+                sDisConnHandler++;
             }
             else
             {
@@ -2855,16 +2855,27 @@ rbusError_t rbus_openDirect(rbusHandle_t handle, rbusHandle_t* myDirectHandle, c
 rbusError_t rbus_closeDirect(rbusHandle_t handle)
 {
     rbusError_t ret = RBUS_ERROR_SUCCESS;
+    rbusCoreError_t err = RBUSCORE_SUCCESS;
     struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
 
     VERIFY_NULL(handle);
     if (RBUS_HWDL_TYPE_DIRECT == handleInfo->m_handleType)
     {
+        if (sDisConnHandler == 1)
+        {
+            if((err = rbus_unregisterClientDisconnectHandler()) != RBUSCORE_SUCCESS)
+            {
+                RBUSLOG_ERROR("%s(%s): rbus_unregisterClientDisconnectHandler error %d", __FUNCTION__, handleInfo->componentName, err);
+                ret = RBUS_ERROR_BUS_ERROR;
+            }
+        }
+        --sDisConnHandler;
         rbuscore_closePrivateConnection(handleInfo->componentName);
         free(handleInfo->componentName);
         handleInfo->componentName = NULL;
         handleInfo->m_handleType = RBUS_HWDL_TYPE_UNKNOWN;
         free(handleInfo);
+
     }
     else
     {
@@ -2951,13 +2962,14 @@ rbusError_t rbus_close(rbusHandle_t handle)
     {
         RBUSLOG_DEBUG("%s(%s): closing broker connection", __FUNCTION__, componentName);
 
+#if 0
         //calling before closing connection
         if((err = rbus_unregisterClientDisconnectHandler()) != RBUSCORE_SUCCESS)
         {
             RBUSLOG_ERROR("%s(%s): rbus_unregisterClientDisconnectHandler error %d", __FUNCTION__, componentName, err);
             ret = RBUS_ERROR_BUS_ERROR;
         }
-
+#endif
         if((err = rbus_closeBrokerConnection()) != RBUSCORE_SUCCESS)
         {
             RBUSLOG_ERROR("%s(%s): rbus_closeBrokerConnection error %d", __FUNCTION__, componentName, err);
@@ -3063,6 +3075,7 @@ rbusError_t rbus_regDataElements(
     if(rc != RBUS_ERROR_SUCCESS && i > 0)
         rbus_unregDataElements(handle, i, elements);
 
+#if 0
     if((rc == RBUS_ERROR_SUCCESS) && (!sDisConnHandler))
     {
         err = rbus_registerClientDisconnectHandler(_client_disconnect_callback_handler);
@@ -3073,7 +3086,7 @@ rbusError_t rbus_regDataElements(
         else
             sDisConnHandler = true;
     }
-
+#endif
     return rc;
 }
 
@@ -4530,23 +4543,20 @@ static rbusError_t rbusEvent_SubscribeWithRetries(
     int destNotFoundTimeout;
     struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
     HANDLE_MUTEX_LOCK(handle);
-    if ((subInternal = rbusEventSubscription_find(handleInfo->eventSubs, eventName, filter, interval, duration, rawData)) ||
-            (rbusAsyncSubscribe_GetSubscription(handle, eventName, filter)))
+    if ((subInternal = rbusEventSubscription_find(handleInfo->eventSubs, eventName, filter, interval, duration, rawData)) != NULL)
     {
-        if (subInternal)
-        {
-            if (!subInternal->dirty)
-            {
-                HANDLE_MUTEX_UNLOCK(handle);
-                return RBUS_ERROR_SUBSCRIPTION_ALREADY_EXIST;
-            }
-        }
-        else
+        if (!subInternal->dirty)
         {
             HANDLE_MUTEX_UNLOCK(handle);
             return RBUS_ERROR_SUBSCRIPTION_ALREADY_EXIST;
         }
     }
+    else if (rbusAsyncSubscribe_GetSubscription(handle, eventName, filter))
+    {
+        HANDLE_MUTEX_UNLOCK(handle);
+        return RBUS_ERROR_SUBSCRIPTION_ALREADY_EXIST;
+    }
+
     HANDLE_MUTEX_UNLOCK(handle);
 
     if(timeout == -1)
@@ -4667,7 +4677,10 @@ static rbusError_t rbusEvent_SubscribeWithRetries(
             RBUSLOG_DEBUG("%s: %s subscribe retries failed due provider error %d", __FUNCTION__, eventName, providerError);
             if (providerError == RBUS_ERROR_SUBSCRIPTION_ALREADY_EXIST)
             {
-                subInternal->dirty = false;
+                if (subInternal)
+                {
+                    subInternal->dirty = false;
+                }
                 RBUSLOG_INFO("EVENT_SUBSCRIPTION_ALREADY_EXIST  %s", subInternal->sub->eventName);
                 return RBUS_ERROR_SUCCESS;
             }
@@ -5212,8 +5225,9 @@ rbusError_t rbusEvent_UnsubscribeEx(
             if(errorcode != RBUS_ERROR_DESTINATION_NOT_REACHABLE)
             {
                 rbusEventSubscriptionInternal_free(subInternal);
-                errorcode = RBUS_ERROR_SUCCESS;
             }
+            else
+                errorcode = RBUS_ERROR_SUCCESS;
         }
         else
         {
