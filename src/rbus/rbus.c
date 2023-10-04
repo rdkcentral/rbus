@@ -2679,8 +2679,6 @@ rbusError_t rbus_open(rbusHandle_t* handle, char const* componentName)
 
     LockMutex();
 
-    _rbus_open_pre_initialize(true);
-
     /*
         Per spec: If a component calls this API more than once, any previous busHandle 
         and all previous data element registrations will be canceled.
@@ -2694,6 +2692,8 @@ rbusError_t rbus_open(rbusHandle_t* handle, char const* componentName)
         rbus_close(tmpHandle);
         LockMutex();
     }
+
+    _rbus_open_pre_initialize(true);
 
     if(rbusHandleList_IsFull())
     {
