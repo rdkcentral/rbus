@@ -2204,6 +2204,7 @@ static int _method_callback_handler(rbusHandle_t handle, rbusMessage request, rb
     struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
     rbusError_t result = RBUS_ERROR_BUS_ERROR;
     int sessionId;
+    int hasInParam = 0;
     char const* methodName;
     rbusObject_t inParams, outParams;
     rbusValue_t value1, value2;
@@ -2214,7 +2215,15 @@ static int _method_callback_handler(rbusHandle_t handle, rbusMessage request, rb
 
     rbusMessage_GetInt32(request, &sessionId);
     rbusMessage_GetString(request, &methodName);
-    rbusObject_initFromMessage(&inParams, request);
+    rbusMessage_GetInt32(request, &hasInParam);
+    if (hasInParam)
+    {
+        rbusObject_initFromMessage(&inParams, request);
+    }
+    else
+    {
+        rbusObject_Init(&inParams, NULL);
+    }
 
     RBUSLOG_INFO("%s method [%s]", __FUNCTION__, methodName);
 
@@ -2278,7 +2287,8 @@ static int _method_callback_handler(rbusHandle_t handle, rbusMessage request, rb
         rbusObject_SetValue(outParams, "error_string", value2);
     }
 
-    rbusObject_Release(inParams);
+    if (inParams)
+        rbusObject_Release(inParams);
     rbusValue_Release(value1);
     rbusValue_Release(value2);
 
@@ -5442,7 +5452,14 @@ rbusError_t rbusMethod_InvokeInternal(
     rbusMessage_SetString(request, methodName); /*TODO: do we need to append the name as well as pass the name as the 1st arg to rbus_invokeRemoteMethod2 ?*/
 
     if(inParams)
+    {
+        rbusMessage_SetInt32(request, 1);
         rbusObject_appendToMessage(inParams, request);
+    }
+    else
+    {
+        rbusMessage_SetInt32(request, 0);
+    }
 
     /* Find direct connection status */
     rtConnection myConn = rbuscore_FindClientPrivateConnection(methodName);
