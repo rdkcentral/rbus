@@ -94,7 +94,7 @@ static int rbusAsyncSubscribeRetrier_CompareSubscription(const void *pitem, cons
     if((!item)||(!sub))
         return 1;
 
-    if( item->subscription->handle == sub->handle &&
+    if (item->subscription && (item->subscription->handle == sub->handle) &&
         strcmp(item->subscription->eventName, sub->eventName) == 0 && 
         rbusFilter_Compare(item->subscription->filter, sub->filter) == 0)
         return 0;
@@ -168,7 +168,7 @@ static void rbusAsyncSubscribeRetrier_SendSubscriptionRequests()
 
     while(li)
     {
-        AsyncSubscription_t* item;
+        AsyncSubscription_t* item = NULL;
 
         rtListItem_GetData(li, (void**)&item);
 
@@ -249,17 +249,15 @@ static void rbusAsyncSubscribeRetrier_SendSubscriptionRequests()
                 }
 
                 _subscribe_async_callback_handler(item->subscription->handle, item->subscription, responseErr);
-
-                item->subscription = NULL;/*ownership no longer ours*/
-
                 //store the next item, because we are removing this li item from list
+                LOCK();
+                item->subscription = NULL;
                 rtListItem_GetNext(li, &tmp); 
-
                 rtList_RemoveItem(gRetrier->items, li, rbusAsyncSubscribeRetrier_FreeSubscription);
-
+                UNLOCK();
                 li = tmp;
                 continue;//li is already the next item so avoid GetNext below
-          }
+            }
         }
         rtListItem_GetNext(li, &li);    
     }
