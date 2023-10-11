@@ -251,6 +251,7 @@ static void rbusAsyncSubscribeRetrier_SendSubscriptionRequests()
                 _subscribe_async_callback_handler(item->subscription->handle, item->subscription, responseErr);
                 //store the next item, because we are removing this li item from list
                 LOCK();
+                item->subscription = NULL;
                 rtListItem_GetNext(li, &tmp); 
                 rtList_RemoveItem(gRetrier->items, li, rbusAsyncSubscribeRetrier_FreeSubscription);
                 UNLOCK();
