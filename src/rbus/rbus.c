@@ -1214,18 +1214,31 @@ void _subscribe_async_callback_handler(rbusHandle_t handle, rbusEventSubscriptio
 
     subscription->asyncHandler(subscription->handle, subscription, error);
 
-    if(error == RBUS_ERROR_SUCCESS)
+    if(subscription != NULL)
     {
-        rbusEventSubscriptionInternal_t* subInternal =  rt_malloc(sizeof(rbusEventSubscriptionInternal_t));
-        subInternal->sub = subscription;
-        subInternal->dirty = false;
-        HANDLE_MUTEX_LOCK(handle);
-        rtVector_PushBack(handleInfo->eventSubs, subInternal);
-        HANDLE_MUTEX_UNLOCK(handle);
-    }
-    else
-    {
-        rbusEventSubscription_free(subscription);
+        if(error == RBUS_ERROR_SUCCESS)
+        {
+            rbusEventSubscriptionInternal_t* subInternal = NULL;
+            HANDLE_MUTEX_LOCK(handle);
+            subInternal = rbusEventSubscription_find(handleInfo->eventSubs, subscription->eventName,
+                    subscription->filter, subscription->interval, subscription->duration);
+            if (subInternal)
+            {
+                subInternal->dirty = false;
+            }
+            else
+            {
+                subInternal =  rt_malloc(sizeof(rbusEventSubscriptionInternal_t));
+                subInternal->sub = subscription;
+                subInternal->dirty = false;
+                rtVector_PushBack(handleInfo->eventSubs, subInternal);
+            }
+            HANDLE_MUTEX_UNLOCK(handle);
+        }
+        else
+        {
+            rbusEventSubscription_free(subscription);
+        }
     }
 }
 
@@ -1293,7 +1306,7 @@ static int _master_event_callback_handler(char const* sender, char const* eventN
 
     if(subInternal)
     {
-        if(subInternal->dirty && !(subInternal->sub->asyncHandler))
+        if(subInternal->dirty)
         {
             errorcode =  _rbus_event_unsubscribe(handleInfo, subInternal);
             if(errorcode != RBUS_ERROR_DESTINATION_NOT_REACHABLE)
@@ -4530,7 +4543,12 @@ static rbusError_t rbusEvent_SubscribeWithRetries(
     HANDLE_MUTEX_LOCK(handle);
     if ((subInternal = rbusEventSubscription_find(handleInfo->eventSubs, eventName, filter, interval, duration)) != NULL)
     {
-        if (!subInternal->dirty)
+        /*Allow only if it is dirty*/
+        if (subInternal->dirty)
+        {
+            subInternal->dirty = false;
+        }
+        else
         {
             HANDLE_MUTEX_UNLOCK(handle);
             return RBUS_ERROR_SUBSCRIPTION_ALREADY_EXIST;
@@ -4553,30 +4571,22 @@ static rbusError_t rbusEvent_SubscribeWithRetries(
         destNotFoundTimeout = timeout * 1000; /*convert seconds to milliseconds */
     }
 
-    if (subInternal && subInternal->dirty)
-    {
-        sub = subInternal->sub;
-    }
-    else
-    {
-        sub = rt_malloc(sizeof(rbusEventSubscription_t));
+    sub = rt_malloc(sizeof(rbusEventSubscription_t));
+    sub->handle = handle;
+    sub->eventName = strdup(eventName);
+    sub->handler = handler;
+    sub->userData = userData;
+    sub->filter = filter;
+    sub->duration = duration;
+    sub->interval = interval;
+    sub->asyncHandler = async;
 
-        sub->handle = handle;
-        sub->eventName = strdup(eventName);
-        sub->handler = handler;
-        sub->userData = userData;
-        sub->filter = filter;
-        sub->duration = duration;
-        sub->interval = interval;
-        sub->asyncHandler = async;
+    if(sub->filter)
+        rbusFilter_Retain(sub->filter);
 
-        if(sub->filter)
-            rbusFilter_Retain(sub->filter);
-
-    }
     payload = rbusEvent_CreateSubscribePayload(sub, handleInfo->componentId);
 
-    if ((subInternal && !subInternal->dirty) || sub->asyncHandler)
+    if (sub->asyncHandler)
     {
         //FIXME: this should take the payload too (mrollins) because rbus_asynsubscribe is passing NULL for filter to rbus_subscribeToEvent
         rbusAsyncSubscribe_AddSubscription(sub, payload);
@@ -4626,13 +4636,15 @@ static rbusError_t rbusEvent_SubscribeWithRetries(
     if(coreerr == RBUSCORE_SUCCESS)
     {
         int initial_value = 0;
-        subInternal = rt_malloc(sizeof(rbusEventSubscriptionInternal_t));
-        subInternal->sub = sub;
-        subInternal->dirty = false;
-
-        HANDLE_MUTEX_LOCK(handle);
-        rtVector_PushBack(handleInfo->eventSubs, subInternal);
-        HANDLE_MUTEX_UNLOCK(handle);
+        if (subInternal == NULL)
+        {
+            subInternal = rt_malloc(sizeof(rbusEventSubscriptionInternal_t));
+            subInternal->sub = sub;
+            subInternal->dirty = false;
+            HANDLE_MUTEX_LOCK(handle);
+            rtVector_PushBack(handleInfo->eventSubs, subInternal);
+            HANDLE_MUTEX_UNLOCK(handle);
+        }
 
         if(publishOnSubscribe)
         {
@@ -4651,9 +4663,13 @@ static rbusError_t rbusEvent_SubscribeWithRetries(
         {
             RBUSLOG_DEBUG("%s: %s all subscribe retries failed because no provider could be found", __FUNCTION__, eventName);
             RBUSLOG_WARN("EVENT_SUBSCRIPTION_FAIL_NO_PROVIDER_COMPONENT  %s", eventName);/*RDKB-33658-AC7*/
-            if (!(subInternal && subInternal->dirty))
-                rbusEventSubscription_free(sub);
-
+            rbusEventSubscription_free(sub);
+            HANDLE_MUTEX_LOCK(handle);
+            if (subInternal)
+            {
+                subInternal->dirty = true;
+            }
+            HANDLE_MUTEX_UNLOCK(handle);
             return RBUS_ERROR_TIMEOUT;
         }
         else if(providerError != RBUS_ERROR_SUCCESS)
@@ -4661,26 +4677,30 @@ static rbusError_t rbusEvent_SubscribeWithRetries(
             RBUSLOG_DEBUG("%s: %s subscribe retries failed due provider error %d", __FUNCTION__, eventName, providerError);
             if (providerError == RBUS_ERROR_SUBSCRIPTION_ALREADY_EXIST)
             {
-                if (subInternal)
-                {
-                    subInternal->dirty = false;
-                }
-                RBUSLOG_INFO("EVENT_SUBSCRIPTION_ALREADY_EXIST  %s", subInternal->sub->eventName);
+                RBUSLOG_INFO("EVENT_SUBSCRIPTION_ALREADY_EXIST  %s", eventName);
+
                 return RBUS_ERROR_SUCCESS;
             }
             else
             {
                 RBUSLOG_WARN("EVENT_SUBSCRIPTION_FAIL_INVALID_INPUT  %s", eventName);/*RDKB-33658-AC9*/
-                if (!(subInternal && subInternal->dirty))
-                    rbusEventSubscription_free(sub);
+                rbusEventSubscription_free(sub);
+                HANDLE_MUTEX_LOCK(handle);
+                if (subInternal)
+                {
+                    subInternal->dirty = true;
+                }
+                HANDLE_MUTEX_UNLOCK(handle);
                 return providerError;
             }
         }
         else
         {
             RBUSLOG_WARN("%s: %s subscribe retries failed due to core error %d", __FUNCTION__, eventName, coreerr);
-            if (!(subInternal && subInternal->dirty))
-                rbusEventSubscription_free(sub);
+            rbusEventSubscription_free(sub);
+            HANDLE_MUTEX_LOCK(handle);
+            if (subInternal)
+                subInternal->dirty = true;
             return RBUS_ERROR_BUS_ERROR;
         }
     }
