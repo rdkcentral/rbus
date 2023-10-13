@@ -29,7 +29,7 @@
 #ifndef RBUS_MESSAGE_H
 #define RBUS_MESSAGE_H
 
-#include <rbus.h>
+#include "rbus.h"
 
 #ifdef __cplusplus
 extern "C" {
