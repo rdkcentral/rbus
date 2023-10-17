@@ -63,7 +63,8 @@ struct _rbusHandle
   rtVector              messageCallbacks;
   rtConnection          m_connection;
   rbusHandleType_t      m_handleType;
-  pthread_mutex_t       handleMutex;
+  pthread_mutex_t       handle_eventSubsMutex;
+  pthread_mutex_t       handle_subsMutex;
 };
 
 void rbusHandleList_Add(struct _rbusHandle* handle);
