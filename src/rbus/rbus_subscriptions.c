@@ -26,6 +26,7 @@
 #include <sys/stat.h>
 #include <sys/types.h> 
 #include <signal.h>
+#include <unistd.h>
 
 #define VERIFY_NULL(T)         if(NULL == T){ return; }
 #define CACHE_FILE_PATH_FORMAT "%s/rbus_subs_%s"
@@ -562,6 +563,19 @@ static void rbusSubscriptions_loadCache(rbusSubscriptions_t subscriptions)
             subscriptionFree(sub);
             needSave = true;
             continue;
+        }
+        else
+        {
+            char filename[RTMSG_HEADER_MAX_TOPIC_LENGTH];
+            snprintf(filename, RTMSG_HEADER_MAX_TOPIC_LENGTH-1, "%s%d_%d", "/tmp/.rbus/",
+                    rbusSubscriptions_getListenerPid(sub->listener), sub->componentId);
+            if(access(filename, F_OK) != 0)
+            {
+                subscriptionFree(sub);
+                needSave = true;
+                continue;
+                RBUSLOG_DEBUG("%s: file doesn't exist %s", __FUNCTION__, filename);
+            }
         }
 
         rtList_Create(&sub->instances);
