@@ -1774,6 +1774,7 @@ int main(int argc, char* argv[])
     exit(12);
   }
 
+  mkdir("/tmp/.rbus", 0700);
 #ifdef ENABLE_RDKLOGGER
     rdk_logger_init("/etc/debug.ini");
 #endif
