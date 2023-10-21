@@ -2701,6 +2701,7 @@ rbusError_t rbus_open(rbusHandle_t* handle, char const* componentName)
     rbusHandle_t tmpHandle = NULL;
     static int32_t sLastComponentId = 0;
     pthread_mutexattr_t attrib;
+    char filename[RTMSG_HEADER_MAX_TOPIC_LENGTH];
 
     if(!handle || !componentName)
     {
@@ -2782,6 +2783,15 @@ rbusError_t rbus_open(rbusHandle_t* handle, char const* componentName)
 
     RBUSLOG_INFO("%s(%s) success", __FUNCTION__, componentName);
 
+    snprintf(filename, RTMSG_HEADER_MAX_TOPIC_LENGTH-1, "%s%d_%d", "/tmp/.rbus/", getpid(), tmpHandle->componentId);
+    FILE *fd  =  fopen(filename, "w");
+    if (fd)
+    {
+        RBUSLOG_DEBUG("%s(%s): %s File created successfully", __FUNCTION__, componentName, filename);
+        fclose(fd);
+    }
+
+    RBUSLOG_INFO("%s(%s) success", __FUNCTION__, componentName);
     return RBUS_ERROR_SUCCESS;
 
     if((err = rbus_unregisterObj(componentName)) != RBUSCORE_SUCCESS)
@@ -2910,6 +2920,9 @@ rbusError_t rbus_close(rbusHandle_t handle)
     RBUSLOG_INFO("%s(%s)", __FUNCTION__, handleInfo->componentName);
 
     LockMutex();
+    char filename[RTMSG_HEADER_MAX_TOPIC_LENGTH];
+    snprintf(filename, RTMSG_HEADER_MAX_TOPIC_LENGTH-1, "%s%d_%d", "/tmp/.rbus/", getpid(), handleInfo->componentId);
+    remove(filename);
 
     if(handleInfo->eventSubs)
     {
