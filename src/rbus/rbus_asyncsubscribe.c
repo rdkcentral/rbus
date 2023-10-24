@@ -184,8 +184,6 @@ static void rbusAsyncSubscribeRetrier_SendSubscriptionRequests()
 
             coreerr = rbus_subscribeToEventTimeout(NULL, item->subscription->eventName,
                         _event_callback_handler, item->payload, item->subscription, &providerError, 0, false, &response, false);
-            if(response)
-                rbusMessage_GetInt32(response, (int32_t*)&subscriptionId);
 
             rtTime_Now(&now);
 
@@ -228,6 +226,8 @@ static void rbusAsyncSubscribeRetrier_SendSubscriptionRequests()
 
                 if(coreerr == RBUSCORE_SUCCESS)
                 {
+                    if(response)
+                        rbusMessage_GetUInt32(response, &subscriptionId);
                     RBUSLOG_INFO("%s: %s subscribe retries succeeded", __FUNCTION__, item->subscription->eventName);
                     responseErr = RBUS_ERROR_SUCCESS;
                 }
