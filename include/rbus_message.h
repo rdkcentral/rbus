@@ -76,6 +76,27 @@ typedef void (*rbusMessageHandler_t)(
     rbusMessage_t* message, 
     void* userData);
 
+/** @fn rbusError_t rbusMessage_AddPrivateListener(
+ *          rbusHandle_t handle,
+ *          char const* expression,
+ *          rbusMessageHandler_t callback,
+ *          void * userData)
+ *  @brief  Add a message for private listener created for direct mode.
+ *  @param  handle Bus Handle
+ *  @param  expression A topic or a topic expression
+ *  @param  handler The message callback handler
+ *  @param  userData User data to be passed back to the callback handler
+ *  @return RBus error code as defined by rbusError_t.
+ *  Possible errors are: RBUS_ERROR_BUS_ERROR
+ */
+rbusError_t rbusMessage_AddPrivateListener(
+    rbusHandle_t handle,
+    char const* expression,
+    rbusMessageHandler_t handler,
+    void* userData,
+    uint32_t subscriptionId,
+    uint32_t* listenerId);
+
 /** @fn rbusError_t rbusMessage_AddListener(
  *          rbusHandle_t handle,
  *          char const* expression,
@@ -93,7 +114,23 @@ rbusError_t rbusMessage_AddListener(
     rbusHandle_t handle,
     char const* expression,
     rbusMessageHandler_t handler,
-    void* userData);
+    void* userData,
+    uint32_t* listenerId);
+
+/** @fn rbusError_t rbusMessage_RemovePrivateListener(
+ *          rbusHandle_t handle,
+ *          char const* expression)
+ *  @brief  Remove a message for private listener created for direct mode.
+ *  @param  handle Bus Handle
+ *  @param  expression A topic or a topic expression
+ *  @return RBus error code as defined by rbusError_t.
+ *  Possible errors are: RBUS_ERROR_BUS_ERROR
+ */
+rbusError_t rbusMessage_RemovePrivateListener(
+    rbusHandle_t handle,
+    char const* expression,
+    uint32_t subscriptionId,
+    uint32_t listenerId);
 
 /** @fn rbusError_t rbusMessage_RemoveListener(
  *          rbusHandle_t handle,
@@ -106,7 +143,8 @@ rbusError_t rbusMessage_AddListener(
  */
 rbusError_t rbusMessage_RemoveListener(
     rbusHandle_t handle,
-    char const* expression);
+    char const* expression,
+    uint32_t listenerId);
 
 /** @fn rbusError_t rbusMessage_RemoveAllListeners(
  *          rbusHandle_t handle,

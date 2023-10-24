@@ -181,7 +181,8 @@ static void* PublishingThreadFunc(void* rec)
                 handleInfo->componentName,
                 sub->eventName/*use the same eventName the consumer subscribed with; not event instance name eventData->name*/,
                 sub->listener,
-                msg);
+                msg,
+                sub->subscriptionId);
 
         rbusMessage_Release(msg);
         rbusObject_Release(data);

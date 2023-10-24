@@ -41,6 +41,7 @@ int main()
 {
     rbusError_t err;
     rbusHandle_t rbus;
+    uint32_t listenerId;
 
     err = rbus_open(&rbus, "rbus_recv");
     if (err)
@@ -49,7 +50,7 @@ int main()
         return 1;
     }
 
-    rbusMessage_AddListener(rbus, "A.B.C", &rbusMessageHandler, NULL);
+    rbusMessage_AddListener(rbus, "A.B.C", &rbusMessageHandler, NULL, &listenerId);
 
     while (running)
     {
