@@ -2154,8 +2154,8 @@ void validate_and_execute_publish_command(int argc, char *argv[], bool rawDataPu
     {
         rbusEventRawData_t event = {0};
         event.name = argv[2];
-        event.rawData = argv[3];
-        event.rawDataLen = strlen(argv[3]);
+        event.rawData = argc < 4 ? "default event data" : argv[3];
+        event.rawDataLen = strlen(event.rawData);
 
         rc = rbusEvent_PublishRawData(g_busHandle, &event);
         if(rc != RBUS_ERROR_SUCCESS)
@@ -2210,11 +2210,11 @@ void validate_and_execute_listen_command(int argc, char *argv[], bool add)
     printf("value of userData = %s\n", userData);
     if(add)
     {
-        rc = rbusMessage_AddListener(g_busHandle, argv[2], message_receive_handler, userData);
+        rc = rbusMessage_AddListener(g_busHandle, argv[2], message_receive_handler, userData, 0);
     }
     else
     {
-        rc = rbusMessage_RemoveListener(g_busHandle, argv[2]);
+        rc = rbusMessage_RemoveListener(g_busHandle, argv[2], 0);
     }
 
     if(rc != RBUS_ERROR_SUCCESS)

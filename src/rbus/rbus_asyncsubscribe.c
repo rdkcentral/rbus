@@ -41,7 +41,7 @@
 #define UNLOCK() ERROR_CHECK(pthread_mutex_unlock(&gRetrier->mutexQueue))
 
 /*defined in rbus.c*/
-void _subscribe_async_callback_handler(rbusHandle_t handle, rbusEventSubscription_t* subscription, rbusError_t error);
+void _subscribe_async_callback_handler(rbusHandle_t handle, rbusEventSubscription_t* subscription, rbusError_t error, uint32_t subscriptionId);
 int _event_callback_handler(char const* objectName, char const* eventName, rbusMessage message, void* userData);
 void rbusEventSubscription_free(void* p);
 
@@ -177,11 +177,15 @@ static void rbusAsyncSubscribeRetrier_SendSubscriptionRequests()
             rbusCoreError_t coreerr;
             int elapsed;
             int providerError;
+            rbusMessage response;
+            uint32_t subscriptionId = 0;
 
             RBUSLOG_INFO("%s: %s subscribing", __FUNCTION__, item->subscription->eventName);
 
-            coreerr = rbus_subscribeToEvent(NULL, item->subscription->eventName, 
-                        _event_callback_handler, item->payload, item->subscription, &providerError);
+            coreerr = rbus_subscribeToEventTimeout(NULL, item->subscription->eventName,
+                        _event_callback_handler, item->payload, item->subscription, &providerError, 0, false, &response, false);
+            if(response)
+                rbusMessage_GetInt32(response, (int32_t*)&subscriptionId);
 
             rtTime_Now(&now);
 
@@ -248,7 +252,7 @@ static void rbusAsyncSubscribeRetrier_SendSubscriptionRequests()
                     }
                 }
 
-                _subscribe_async_callback_handler(item->subscription->handle, item->subscription, responseErr);
+                _subscribe_async_callback_handler(item->subscription->handle, item->subscription, responseErr, subscriptionId);
                 //store the next item, because we are removing this li item from list
                 LOCK();
                 item->subscription = NULL;
