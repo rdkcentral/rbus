@@ -150,6 +150,7 @@ exit:
 static int rbus_recv(const char *topic, pid_t pid, int *rbus_send_status, rbusGtestMsg_t test)
 {
   rbusHandle_t handle;
+  uint32_t listenerId;
   int ret = RBUS_ERROR_BUS_ERROR, wait_ret = -1;
   char *componentName = NULL;
   pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
@@ -521,6 +522,7 @@ static void exec_msg_test(rbusGtestMsg_t test)
     case RBUS_GTEST_MSG9:
       {
           rbusHandle_t rbus;
+          uint32_t listenerId;
 
           EXPECT_EQ(rbus_open(&rbus, "rbus_recv"),0);
           EXPECT_EQ(rbusMessage_AddListener(rbus, "A.B.C", &rbusRecvHandler, NULL, 0),0);
