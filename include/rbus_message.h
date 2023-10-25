@@ -155,6 +155,19 @@ rbusError_t rbusMessage_RemoveListener(
 rbusError_t rbusMessage_RemoveAllListeners(
     rbusHandle_t handle);
 
+/** @fn rbusError_t rbusMessage_HasListener(
+ *          rbusHandle_t handle,
+ *          char const* topic)
+ *  @brief  Check the existence of listener.
+ *  @param  handle Bus Handle
+ *  @param  listener name to check
+ *  @return 0 or 1
+ *  Possible errors are: 0, 1
+ */
+int rbusMessage_HasListener(
+     rbusHandle_t handle,
+     char const* topic);
+
 /** @fn rbusError_t rbusMessage_Send(
  *          rbusHandle_t handle,
  *          rbusMessage_t* message,

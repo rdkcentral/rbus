@@ -233,6 +233,28 @@ rbusError_t rbusMessage_RemoveAllListeners(
     return RBUS_ERROR_SUCCESS;
 }
 
+int rbusMessage_HasListener(
+    rbusHandle_t handle,
+    char const* topic)
+{
+    int ret = 0;
+    VERIFY_NULL(handle);
+    VERIFY_NULL(topic);
+    int i, n;
+
+    for (i = 0, n = rtVector_Size(handle->messageCallbacks); i < n; ++i)
+    {
+        rbusMessageHandlerContext_t* ctx = rtVector_At(handle->messageCallbacks, i);
+        VERIFY_NULL(ctx);
+        if(!strcmp(ctx->expression, topic))
+        {
+            ret = 1;
+            break;
+        }
+    }
+    return ret;
+}
+
 rbusError_t rbusMessage_Send(
     rbusHandle_t handle,
     rbusMessage_t* message,
