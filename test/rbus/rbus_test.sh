@@ -32,6 +32,39 @@ echo "test will complete in about $duration seconds"
 
 wait
 
+logmultiRbusOpenMethodProvider=/tmp/log.multiRbusOpenMethodProvider
+logmultiRbusOpenMethodConsumer=/tmp/log.multiRbusOpenMethodConsumer
+
+echo "Multi RbusOpen with Method Invoke test will complete in about 10 seconds"
+./multiRbusOpenMethodProvider > $logmultiRbusOpenMethodProvider &
+./multiRbusOpenMethodConsumer > $logmultiRbusOpenMethodConsumer &
+
+wait
+
+logRbusOpenProvider=/tmp/log.multiRbusOpenprovider
+logRbusOpenConsumer=/tmp/log.multiRbusOpenconsumer
+
+echo "Multi RbusOpen with Register and subscribe test will complete in about 80 seconds"
+./multiRbusOpenProvider > $logRbusOpenProvider &
+./multiRbusOpenConsumer > $logRbusOpenConsumer &
+
+wait
+
+logRbusOpenRegRbusOpenProvider=/tmp/log.rbusOpenRegRbusOpenProvider
+logRbusOpenRegRbusOpenConsumer=/tmp/log.rbusOpenRegRbusOpenConsumer
+
+echo "Multi Rbus Open Register and Subscribe Negative test will complete in about 75 seconds"
+./rbusOpenRegRbusOpenProvider > $logRbusOpenRegRbusOpenProvider 2>&1 &
+./rbusOpenRegRbusOpenConsumer > $logRbusOpenRegRbusOpenConsumer 2>&1 &
+
+wait
+
+logMultiProviderThreadsForSingleEvent=/tmp/log.multiProviderThreadsForSingleEvent
+logMultiConsumerThreadsForSingleEvent=/tmp/log.multiConsumerThreadsForSingleEvent
+
+echo "multiProvider and multiConsumer Threads For a SingleEvent long duration"
+./multiProviderThreadsForSingleEvent > logMultiProviderThreadsForSingleEvent &
+./multiConsumerThreadsForSingleEvent > logMultiConsumerThreadsForSingleEvent &
 #result=`diff -rupN <(grep _test_ $logConsumer) <(echo "$expected_results")`
 #if [ -n "$result" ]; then
 #    echo "The following tests failed:"
@@ -39,7 +72,6 @@ wait
 #else
 #    echo "All tests passed"
 #fi
-
 echo "Done."
 
 
