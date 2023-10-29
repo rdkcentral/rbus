@@ -497,12 +497,11 @@ rtRouteDirect_AcceptClientConnection(rtListener* listener)
 }
 
 rtError
-rtRouteDirect_SendMessage(const rtPrivateClientInfo* pClient, uint8_t const* pInBuff, int inLength, bool rawData, char* subEventName, uint32_t subscriptionId)
+rtRouteDirect_SendMessage(const rtPrivateClientInfo* pClient, uint8_t const* pInBuff, int inLength, char* subEventName, uint32_t subscriptionId)
 {
     rtError ret = RT_OK;
     rtMessageHeader new_header;
     ssize_t bytes_sent;
-    (void)rawData;
 
     if (pClient && pInBuff && (inLength > 0))
     {

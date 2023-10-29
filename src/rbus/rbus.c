@@ -394,15 +394,13 @@ rbusError_t rbusCloseDirect_SubRemove(rbusHandle_t handle, rtVector eventSubs, c
             handle->m_connection = handle->m_connectionParent; /* changed the handle m_connection of direct connection to use normal m_connection and used the same to add the rawdatatopic for normal connection*/
             memset(rawDataTopic, '\0', strlen(rawDataTopic));
             if(subInternal->rawData)
-                snprintf(rawDataTopic, RBUS_MAX_NAME_LENGTH, "rawdata.%s", subInternal->sub->eventName);
-            else
-                snprintf(rawDataTopic, RBUS_MAX_NAME_LENGTH, "%d.%s", subInternal->subscriptionId, subInternal->sub->eventName);
-            if(subInternal->rawData)
             {
+                snprintf(rawDataTopic, RBUS_MAX_NAME_LENGTH, "rawdata.%s", subInternal->sub->eventName);
                 errorcode = rbusMessage_AddListener(handle, rawDataTopic, _subscribe_rawdata_handler, (void *)(subInternal->sub), subInternal->subscriptionId);
             }
             else
             {
+                snprintf(rawDataTopic, RBUS_MAX_NAME_LENGTH, "%d.%s", subInternal->subscriptionId, subInternal->sub->eventName);
                 errorcode = rbusMessage_AddListener(handle, rawDataTopic, _consumer_event_handler, (void *)&subInternal->subscriptionId, subInternal->subscriptionId);
             }
             if(errorcode != RBUS_ERROR_SUCCESS)
