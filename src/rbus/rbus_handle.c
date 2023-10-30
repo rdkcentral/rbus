@@ -29,14 +29,14 @@ void rbusHandleList_Add(struct _rbusHandle* handle)
     VERIFY_NULL(handle,return);
     if(!gHandleList)
         rtVector_Create(&gHandleList);
-    RBUSLOG_DEBUG("%s adding %p", __FUNCTION__, handle);
+    RBUSLOG_DEBUG("adding %p", handle);
     rtVector_PushBack(gHandleList, handle);
 }
 
 void rbusHandleList_Remove(struct _rbusHandle* handle)
 {
     VERIFY_NULL(handle,return);
-    RBUSLOG_DEBUG("%s removing %p", __FUNCTION__, handle);
+    RBUSLOG_DEBUG("removing %p", handle);
     rtVector_RemoveItem(gHandleList, handle, rtVector_Cleanup_Free);
     if(rtVector_Size(gHandleList) == 0)
     {
@@ -53,7 +53,7 @@ bool rbusHandleList_IsEmpty()
 
 bool rbusHandleList_IsFull()
 {
-    RBUSLOG_DEBUG("%s size=%zu", __FUNCTION__, rtVector_Size(gHandleList));
+    RBUSLOG_DEBUG("size=%zu", rtVector_Size(gHandleList));
     return (gHandleList && rtVector_Size(gHandleList) >= RBUS_MAX_HANDLES);
 }
 

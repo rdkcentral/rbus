@@ -123,12 +123,12 @@ rbusSubscription_t* rbusSubscriptions_addSubscription(rbusSubscriptions_t subscr
     rbusSubscription_t* sub;
     TokenChain* tokens;
   
-    RBUSLOG_DEBUG("%s: adding %s %s", __FUNCTION__, listener, eventName);
+    RBUSLOG_DEBUG("adding %s %s", listener, eventName);
 
     tokens = TokenChain_create(eventName, registryElem);
     if(tokens == NULL)
     {
-        RBUSLOG_ERROR("%s: invalid token chain for %s", __FUNCTION__, eventName);
+        RBUSLOG_ERROR("invalid token chain for %s", eventName);
         return NULL;
     }
     if(!subscriptions)
@@ -163,7 +163,7 @@ rbusSubscription_t* rbusSubscriptions_getSubscription(rbusSubscriptions_t subscr
     rtListItem item;
     rbusSubscription_t* sub;
 
-    RBUSLOG_DEBUG("%s: searching for %s %s", __FUNCTION__, listener, eventName);
+    RBUSLOG_DEBUG("searching for %s %s", listener, eventName);
 
     if(!subscriptions)
         return NULL;
@@ -176,16 +176,16 @@ rbusSubscription_t* rbusSubscriptions_getSubscription(rbusSubscriptions_t subscr
 
         if(!sub)
             return NULL;
-        RBUSLOG_DEBUG("%s: comparing to %s %s", __FUNCTION__, sub->listener, sub->eventName);
+        RBUSLOG_DEBUG("comparing to %s %s", sub->listener, sub->eventName);
 
         if(subscriptionKeyCompare(sub, listener, componentId, eventName, filter, interval, duration) == 0)
         {
-            RBUSLOG_DEBUG("%s: found sub %s %s %d", __FUNCTION__, listener, eventName, componentId);
+            RBUSLOG_DEBUG("found sub %s %s %d", listener, eventName, componentId);
             return sub;
         }
         rtListItem_GetNext(item, &item);
     }
-    RBUSLOG_DEBUG("%s: no sub found for %s %s", __FUNCTION__, listener, eventName);
+    RBUSLOG_DEBUG("no sub found for %s %s", listener, eventName);
 
     return NULL;
 }
@@ -198,7 +198,7 @@ void rbusSubscriptions_removeSubscription(rbusSubscriptions_t subscriptions, rbu
 
     VERIFY_NULL(subscriptions);
     VERIFY_NULL(sub);
-    RBUSLOG_DEBUG("%s: %s %s", __FUNCTION__, sub->listener, sub->eventName);
+    RBUSLOG_DEBUG("%s %s", sub->listener, sub->eventName);
 
     rtList_GetFront(subscriptions->subList, &item);
 
@@ -207,7 +207,7 @@ void rbusSubscriptions_removeSubscription(rbusSubscriptions_t subscriptions, rbu
         rtListItem_GetData(item, (void**)&sub2);
         if(sub == sub2)
         {
-            RBUSLOG_DEBUG("%s: removing %s %s", __FUNCTION__, sub->listener, sub->eventName);
+            RBUSLOG_DEBUG("removing %s %s", sub->listener, sub->eventName);
             rtList_RemoveItem(subscriptions->subList, item, subscriptionFree);
             break;
         }
@@ -392,7 +392,7 @@ static pid_t rbusSubscriptions_getListenerPid(char const* listener)
     pid = atoi(p+1);
     if(pid == 0)
     {
-        RBUSLOG_ERROR("%s: pid not found in listener name %s", __FUNCTION__, listener);
+        RBUSLOG_ERROR("pid not found in listener name %s", listener);
     }
     return pid;
 }
@@ -401,7 +401,7 @@ static bool rbusSubscriptions_isProcessRunning(pid_t pid)
 {
     /*sending 0 signal to kill is used to check if process running*/
     int rc = kill(pid, 0);
-    RBUSLOG_DEBUG("%s: kill check for pid %d returned %d", __FUNCTION__, pid, rc);
+    RBUSLOG_DEBUG("kill check for pid %d returned %d", pid, rc);
     return rc == 0;
 }
 
@@ -437,18 +437,18 @@ static void rbusSubscriptions_loadCache(rbusSubscriptions_t subscriptions)
 
     snprintf(filePath, 256, CACHE_FILE_PATH_FORMAT, subscriptions->tmpDir, subscriptions->componentName);
 
-    RBUSLOG_INFO("%s: file %s", __FUNCTION__, filePath);
+    RBUSLOG_INFO("file %s", filePath);
 
     if(stat(filePath, &st) != 0)
     {
-        RBUSLOG_DEBUG("%s: file doesn't exist %s", __FUNCTION__, filePath);
+        RBUSLOG_DEBUG("file doesn't exist %s", filePath);
         return;
     }
 
     file = fopen(filePath, "rb");
     if(!file)
     {
-        RBUSLOG_ERROR("%s: failed to open file %s", __FUNCTION__, filePath);
+        RBUSLOG_ERROR("failed to open file %s", filePath);
         goto remove_bad_file;
     }
 
@@ -456,7 +456,7 @@ static void rbusSubscriptions_loadCache(rbusSubscriptions_t subscriptions)
     size = ftell(file);
     if(size <= 0)
     {
-        RBUSLOG_DEBUG("%s: file is empty %s", __FUNCTION__, filePath);
+        RBUSLOG_DEBUG("file is empty %s", filePath);
         goto remove_bad_file;
     }
 
@@ -467,7 +467,7 @@ static void rbusSubscriptions_loadCache(rbusSubscriptions_t subscriptions)
     fseek(file, 0, SEEK_SET);
     if(fread(buff->data, 1, size, file) != (size_t)size)
     {
-        RBUSLOG_ERROR("%s: failed to read entire file %s", __FUNCTION__, filePath);
+        RBUSLOG_ERROR("failed to read entire file %s", filePath);
         goto remove_bad_file;
     }
 
@@ -481,7 +481,7 @@ static void rbusSubscriptions_loadCache(rbusSubscriptions_t subscriptions)
         sub = (rbusSubscription_t*)rt_try_calloc(1, sizeof(struct _rbusSubscription));
         if(!sub)
         {
-            RBUSLOG_ERROR("%s: failed to malloc sub", __FUNCTION__);
+            RBUSLOG_ERROR("failed to malloc sub");
             goto remove_bad_file;
         }
         //read listener
@@ -492,7 +492,7 @@ static void rbusSubscriptions_loadCache(rbusSubscriptions_t subscriptions)
         sub->listener = rt_try_malloc(length);
         if(!sub->listener)
         {
-            RBUSLOG_ERROR("%s: failed to malloc %d bytes for listener", __FUNCTION__, length);
+            RBUSLOG_ERROR("failed to malloc %d bytes for listener", length);
             goto remove_bad_file;
         }
         memcpy(sub->listener, buff->data + buff->posRead, length);
@@ -506,7 +506,7 @@ static void rbusSubscriptions_loadCache(rbusSubscriptions_t subscriptions)
         sub->eventName = rt_try_malloc(length);
         if(!sub->eventName)
         {
-            RBUSLOG_ERROR("%s: failed to malloc %d bytes for eventName", __FUNCTION__, length);
+            RBUSLOG_ERROR("failed to malloc %d bytes for eventName", length);
             goto remove_bad_file;
         }
         memcpy(sub->eventName, buff->data + buff->posRead, length);
@@ -559,7 +559,7 @@ static void rbusSubscriptions_loadCache(rbusSubscriptions_t subscriptions)
          */
         if(!rbusSubscriptions_isListenerRunning(sub->listener))
         {
-            RBUSLOG_INFO("%s: process no longer running for listener %s", __FUNCTION__, sub->listener);
+            RBUSLOG_INFO("process no longer running for listener %s", sub->listener);
             subscriptionFree(sub);
             needSave = true;
             continue;
@@ -574,14 +574,14 @@ static void rbusSubscriptions_loadCache(rbusSubscriptions_t subscriptions)
                 subscriptionFree(sub);
                 needSave = true;
                 continue;
-                RBUSLOG_DEBUG("%s: file doesn't exist %s", __FUNCTION__, filename);
+                RBUSLOG_DEBUG("file doesn't exist %s", filename);
             }
         }
 
         rtList_Create(&sub->instances);
         rtList_PushBack(subscriptions->subList, sub, NULL);
 
-        RBUSLOG_INFO("%s: loaded %s %s", __FUNCTION__, sub->listener, sub->eventName);
+        RBUSLOG_INFO("loaded %s %s", sub->listener, sub->eventName);
     }
 
     rbusBuffer_Destroy(buff);
@@ -593,7 +593,7 @@ static void rbusSubscriptions_loadCache(rbusSubscriptions_t subscriptions)
 
 remove_bad_file:
 
-    RBUSLOG_WARN("%s: removing corrupted file %s", __FUNCTION__, filePath);
+    RBUSLOG_WARN("removing corrupted file %s", filePath);
 
     if(file)
         fclose(file);
@@ -605,7 +605,7 @@ remove_bad_file:
         free(sub);
 
     if(remove(filePath) != 0)
-        RBUSLOG_ERROR("%s: failed to remove %s", __FUNCTION__, filePath);
+        RBUSLOG_ERROR("failed to remove %s", filePath);
 }
 
 static void rbusSubscriptions_saveCache(rbusSubscriptions_t subscriptions)
@@ -618,16 +618,16 @@ static void rbusSubscriptions_saveCache(rbusSubscriptions_t subscriptions)
 
     snprintf(filePath, 256, CACHE_FILE_PATH_FORMAT, subscriptions->tmpDir, subscriptions->componentName);
 
-    RBUSLOG_DEBUG("%s: saving %s", __FUNCTION__, filePath);
+    RBUSLOG_DEBUG("saving Cache %s", filePath);
 
     rtList_GetFront(subscriptions->subList, &item);
 
     if(!item)
     {
-        RBUSLOG_DEBUG("%s: no subs so removing file %s", __FUNCTION__, filePath);
+        RBUSLOG_DEBUG("no subs so removing file %s", filePath);
 
         if(remove(filePath) != 0)
-            RBUSLOG_ERROR("%s: failed to remove %s", __FUNCTION__, filePath);
+            RBUSLOG_ERROR("failed to remove %s", filePath);
 
         return;
     }
@@ -636,7 +636,7 @@ static void rbusSubscriptions_saveCache(rbusSubscriptions_t subscriptions)
 
     if(!file)
     {
-        RBUSLOG_ERROR("%s: failed to open %s", __FUNCTION__, filePath);
+        RBUSLOG_ERROR("failed to open %s", filePath);
         return;
     }
 
@@ -657,7 +657,7 @@ static void rbusSubscriptions_saveCache(rbusSubscriptions_t subscriptions)
         if(sub->filter)
           rbusFilter_Encode(sub->filter, buff);
 
-        RBUSLOG_DEBUG("%s: saved %s %s", __FUNCTION__, sub->listener, sub->eventName);
+        RBUSLOG_DEBUG("saved %s %s", sub->listener, sub->eventName);
 
         rtListItem_GetNext(item, &item);
     }
@@ -722,7 +722,7 @@ void rbusSubscriptions_resubscribeElementCache(rbusHandle_t handle, rbusSubscrip
 
     VERIFY_NULL(subscriptions);
     VERIFY_NULL(el);
-    RBUSLOG_DEBUG("%s: event %s", __FUNCTION__, elementName);
+    RBUSLOG_DEBUG("event %s", elementName);
 
     rtList_GetFront(subscriptions->subList, &item);
 
@@ -737,7 +737,7 @@ void rbusSubscriptions_resubscribeElementCache(rbusHandle_t handle, rbusSubscrip
         {
             rtListItem next;
             rbusError_t err;
-            RBUSLOG_INFO("%s: resubscribing %s for %s", __FUNCTION__, sub->eventName, sub->listener);
+            RBUSLOG_INFO("resubscribing %s for %s", sub->eventName, sub->listener);
             rtListItem_GetNext(item, &next);
             rtList_RemoveItem(subscriptions->subList, item, NULL);/*remove before calling subscribeHandlerImpl to avoid dupes in cache file*/
             err = subscribeHandlerImpl(handle, true, el, sub->eventName, sub->listener, sub->componentId, sub->interval, sub->duration, sub->filter);
@@ -785,7 +785,7 @@ void rbusSubscriptions_resubscribeRowElementCache(rbusHandle_t handle, rbusSubsc
                 el = retrieveInstanceElement(handleInfo->elementRoot, sub->eventName);
                 if(el)
                 {
-                    RBUSLOG_INFO("%s: resubscribing %s for %s", __FUNCTION__, sub->eventName, sub->listener);
+                    RBUSLOG_INFO("resubscribing %s for %s", sub->eventName, sub->listener);
                     rtList_RemoveItem(subscriptions->subList, item, NULL);
                     err = subscribeHandlerImpl(handle, true, el, sub->eventName, sub->listener, sub->componentId, sub->interval, sub->duration, sub->filter);
                     (void)err;
@@ -809,7 +809,7 @@ void rbusSubscriptions_handleClientDisconnect(rbusHandle_t handle, rbusSubscript
     struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
 
     VERIFY_NULL(subscriptions);
-    RBUSLOG_DEBUG("%s: %s", __FUNCTION__, listener);
+    RBUSLOG_DEBUG("%s", listener);
 
     rtList_GetFront(subscriptions->subList, &item);
 

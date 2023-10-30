@@ -2512,7 +2512,7 @@ static void _rbuscore_directconnection_load_from_cache()
 
     snprintf(cacheFileName, 256, RBUS_DIRECT_FILE_CACHE, __progname); 
 
-    RBUSCORELOG_DEBUG("Entry of %s", __FUNCTION__);
+    RBUSCORELOG_DEBUG("Entry of directconnection_load_from_cache");
 
     if(stat(cacheFileName, &st) != 0)
     {
@@ -2779,7 +2779,7 @@ rbusCoreError_t rbuscore_startPrivateListener(const char* pPrivateConnAddress, c
 
             if((err = pthread_create(&pid, NULL, rbuscore_PrivateThreadFunc, pInstance)) != 0)
             {
-                RBUSCORELOG_ERROR("%s pthread_create failed: err=%d", __FUNCTION__, err);
+                RBUSCORELOG_ERROR("pthread_create failed: err=%d", err);
                 directServerUnlock();
                 return RBUSCORE_ERROR_GENERAL;
             }
