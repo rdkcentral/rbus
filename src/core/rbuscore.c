@@ -1735,7 +1735,7 @@ rbusCoreError_t rbus_publishSubscriberEvent(const char* object_name,  const char
         uint8_t* data;
         uint32_t dataLength;
         rbusMessage_ToBytes(out, &data, &dataLength);
-        rtRouteDirect_SendMessage (pPrivCliInfo, data, dataLength, false, (char*)event_name, subscriptionId);
+        rtRouteDirect_SendMessage (pPrivCliInfo, data, dataLength, (char*)event_name, subscriptionId);
     }
     else
     {

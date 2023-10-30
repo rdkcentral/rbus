@@ -5675,7 +5675,7 @@ rbusError_t  rbusEvent_PublishRawData(
         const rtPrivateClientInfo *pPrivCliInfo = _rbuscore_find_server_privateconnection (subscription->eventName, subscription->listener);
         if(pPrivCliInfo && subscription->rawData)
         {
-            ret = rtRouteDirect_SendMessage (pPrivCliInfo, eventData->rawData, eventData->rawDataLen, true, subscription->eventName, subscription->subscriptionId);
+            ret = rtRouteDirect_SendMessage (pPrivCliInfo, eventData->rawData, eventData->rawDataLen, subscription->eventName, subscription->subscriptionId);
             if(RT_OK != ret)
             {
                rc = RBUS_ERROR_BUS_ERROR;
