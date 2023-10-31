@@ -4802,7 +4802,7 @@ rbusError_t  rbusEvent_SubscribeRawData(
     if (handleInfo->m_handleType != RBUS_HWDL_TYPE_REGULAR)
         return RBUS_ERROR_INVALID_HANDLE;
 
-    RBUSLOG_INFO("SubscribeRawData for %s", eventName);
+    RBUSLOG_DEBUG("SubscribeRawData for %s", eventName);
 
     errorcode = rbusEvent_SubscribeWithRetries(handle, eventName, handler, userData, NULL, 0, 0 , timeout, NULL, false);
     if(errorcode != RBUS_ERROR_SUCCESS)
