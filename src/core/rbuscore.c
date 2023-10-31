@@ -2779,7 +2779,7 @@ rbusCoreError_t rbuscore_startPrivateListener(const char* pPrivateConnAddress, c
 
             if((err = pthread_create(&pid, NULL, rbuscore_PrivateThreadFunc, pInstance)) != 0)
             {
-                RBUSCORELOG_ERROR("%s pthread_create failed: err=%d", __FUNCTION__, err);
+                RBUSCORELOG_ERROR("pthread_create failed: err=%d", err);
                 directServerUnlock();
                 return RBUSCORE_ERROR_GENERAL;
             }

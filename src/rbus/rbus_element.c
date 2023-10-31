@@ -249,7 +249,7 @@ elementNode* insertElement(elementNode* root, rbusDataElement_t* elem)
     nextNode = currentNode->child;
     createChild = 1;
 
-    RBUSLOG_DEBUG("<%s>: Request to insert element [%s]!!", __FUNCTION__, elem->name);
+    RBUSLOG_DEBUG("Request to insert element [%s]!!", elem->name);
 
     name = strdup(elem->name);
 
@@ -386,7 +386,7 @@ elementNode* retrieveElement(elementNode* root, const char* elmentName)
     int tokenFound = 0;
 
     LOCK();
-    RBUSLOG_DEBUG("<%s>: Request to retrieve element [%s]", __FUNCTION__, elmentName);
+    RBUSLOG_DEBUG("Request to retrieve element [%s]", elmentName);
     if(currentNode == NULL)
     {
         return NULL;
@@ -481,7 +481,7 @@ elementNode* retrieveInstanceElement(elementNode* root, const char* elmentName)
     int tokenFound = 0;
     bool isWildcard = false;
 
-    RBUSLOG_DEBUG("<%s>: Request to retrieve element [%s]", __FUNCTION__, elmentName);
+    RBUSLOG_DEBUG("Request to retrieve element [%s]", elmentName);
     LOCK();
     if(currentNode == NULL)
     {
@@ -977,7 +977,7 @@ elementNode* instantiateTableRow(elementNode* tableNode, uint32_t instNum, char 
 
     LOCK();
 #if DEBUG_ELEMENTS
-    RBUSLOG_INFO("%s: table=%s instNum=%u alias=%s", __FUNCTION__, tableNode->fullName, instNum, alias);
+    RBUSLOG_INFO("table=%s instNum=%u alias=%s", tableNode->fullName, instNum, alias);
     printElement(tableNode, 0);
 #endif
 
@@ -1005,7 +1005,7 @@ elementNode* instantiateTableRow(elementNode* tableNode, uint32_t instNum, char 
     if(!rowTemplate)
     {
         assert(false);
-        RBUSLOG_ERROR("%s ERROR: row template not found for table %s", __FUNCTION__, tableNode->fullName);
+        RBUSLOG_ERROR("ERROR: row template not found for table %s", tableNode->fullName);
         return NULL;
     }
 
@@ -1041,7 +1041,7 @@ void deleteTableRow(elementNode* rowNode)
     
     if(!parent)
     {
-        RBUSLOG_INFO("%s: row doesn't have a parent", __FUNCTION__);
+        RBUSLOG_INFO("row doesn't have a parent");
     }
 #if DEBUG_ELEMENTS
     RBUSLOG_INFO("%s: row=%s", __FUNCTION__, rowNode->fullName);
