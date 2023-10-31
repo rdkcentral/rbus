@@ -5328,7 +5328,7 @@ rbusError_t  rbusEvent_PublishRawData(
 
     if(!el)
     {
-        RBUSLOG_WARN("failed! retrieveElement return NULL for %s", eventData->name);
+        RBUSLOG_WARN("Publish failed! retrieveElement return NULL for %s", eventData->name);
         return RBUS_ERROR_ELEMENT_DOES_NOT_EXIST;
     }
 
@@ -5371,7 +5371,7 @@ rbusError_t  rbusEvent_Publish(
 
     if(!el)
     {
-        RBUSLOG_WARN("failed! retrieveElement return NULL for %s", eventData->name);
+        RBUSLOG_WARN("Publish failed! retrieveElement return NULL for %s", eventData->name);
         return RBUS_ERROR_ELEMENT_DOES_NOT_EXIST;
     }
 
