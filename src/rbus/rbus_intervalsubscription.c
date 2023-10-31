@@ -105,7 +105,7 @@ static sRecord* sub_find(rbusSubscription_t* sub)
 /* Publishing event based on subscriber interval */
 static void* PublishingThreadFunc(void* rec)
 {
-    RBUSLOG_DEBUG("\n %s: start\n", __FUNCTION__);
+    RBUSLOG_DEBUG("\n PublishingThreadFunc: start\n");
     struct sRecord *sub_rec = (struct sRecord*)rec;
     int count = 0;
     int duration_count = 0;
@@ -151,7 +151,7 @@ static void* PublishingThreadFunc(void* rec)
         rbusProperty_Release(properties);
         if(result != RBUS_ERROR_SUCCESS)
         {
-            RBUSLOG_ERROR("%s: failed to get details of %s", __FUNCTION__, sub->eventName);
+            RBUSLOG_ERROR("failed to get details of %s", sub->eventName);
             rbusObject_Release(data);
             continue;
         }
@@ -187,7 +187,7 @@ static void* PublishingThreadFunc(void* rec)
         rbusObject_Release(data);
         if(error != RBUSCORE_SUCCESS)
         {
-            RBUSLOG_ERROR("%s: rbusEvent_Publish failed with result=%d", __FUNCTION__, result);
+            RBUSLOG_ERROR("Event_Publish failed with result=%d", result);
         }
 
         if (duration_complete)
@@ -221,19 +221,19 @@ rbusError_t rbusInterval_AddSubscriptionRecord(
     sRecord *sub_rec = NULL;
     if(!propNode)
     {
-        RBUSLOG_ERROR("%s: propNode NULL error", __FUNCTION__);
+        RBUSLOG_ERROR("propNode NULL error");
         return RBUS_ERROR_INVALID_INPUT;
     }
 
     if(propNode->type != RBUS_ELEMENT_TYPE_PROPERTY)
     {
-        RBUSLOG_ERROR("%s: propNode type %d error", __FUNCTION__, propNode->type);
+        RBUSLOG_ERROR("propNode type %d error", propNode->type);
         return RBUS_ERROR_NOSUBSCRIBERS ;
     }
     
     if(!propNode->cbTable.getHandler)
     {
-        RBUSLOG_ERROR("%s: as it does not have getHandler", __FUNCTION__);
+        RBUSLOG_ERROR("as it does not have getHandler");
         return RBUS_ERROR_ACCESS_NOT_ALLOWED;
     }
 
@@ -295,6 +295,6 @@ void rbusInterval_RemoveSubscriptionRecord(
     }
     else
     {
-        RBUSLOG_ERROR("%s: value not found\n", __FUNCTION__);
+        RBUSLOG_ERROR("value not found\n");
     }
 }
