@@ -56,7 +56,7 @@ void rbusConfig_CreateOnce()
     if(gConfig)
         return;
 
-    RBUSLOG_INFO("%s", __FUNCTION__);
+    RBUSLOG_DEBUG("%s", __FUNCTION__);
 
     gConfig = rt_malloc(sizeof(struct _rbusConfig_t));
 
@@ -73,7 +73,7 @@ void rbusConfig_Destroy()
     if(!gConfig)
         return;
 
-    RBUSLOG_INFO("%s", __FUNCTION__);
+    RBUSLOG_DEBUG("%s", __FUNCTION__);
 
     free(gConfig->tmpDir);
     free(gConfig);

@@ -809,7 +809,7 @@ void rbusSubscriptions_handleClientDisconnect(rbusHandle_t handle, rbusSubscript
     struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
 
     VERIFY_NULL(subscriptions);
-    RBUSLOG_DEBUG("%s", listener);
+    RBUSLOG_DEBUG("%s: %s", __FUNCTION__, listener);
 
     rtList_GetFront(subscriptions->subList, &item);
 
@@ -842,7 +842,7 @@ static void rbusSubscriptions_cleanupDeadListeners(rbusHandle_t handle, rbusSubs
     rtListItem item;
     rbusSubscription_t* sub;
 
-    RBUSLOG_INFO("%s", __FUNCTION__);
+    RBUSLOG_DEBUG("%s", __FUNCTION__);
 
     rtList_GetFront(subscriptions->subList, &item);
 
@@ -872,7 +872,7 @@ rbusSubscription_t* rbusSubscriptions_updateExisting(rbusSubscriptions_t subscri
     rtListItem item;
     rbusSubscription_t* sub;
 
-    RBUSLOG_INFO("%s: update %s %s", __FUNCTION__, listener, eventName);
+    RBUSLOG_DEBUG("%s: update %s %s", __FUNCTION__, listener, eventName);
 
     rtList_GetFront(subscriptions->subList, &item);
 

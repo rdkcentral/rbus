@@ -160,7 +160,7 @@ static void rbusAsyncSubscribeRetrier_SendSubscriptionRequests()
     rtListItem li;
     rtTime_t now;
 
-    RBUSLOG_INFO("SendSubscriptionRequests enter");
+    RBUSLOG_DEBUG("%s enter", __FUNCTION__);
 
     rtTime_Now(&now);
 
@@ -260,7 +260,7 @@ static void rbusAsyncSubscribeRetrier_SendSubscriptionRequests()
         }
         rtListItem_GetNext(li, &li);    
     }
-    RBUSLOG_INFO("SendSubscriptionRequests exit");
+    RBUSLOG_DEBUG("%s exit", __FUNCTION__);
 }
 
 static void* AsyncSubscribeRetrier_threadFunc(void* data)
@@ -308,7 +308,7 @@ static void rbusAsyncSubscribeRetrier_Create()
     pthread_mutexattr_t mattrib;
     pthread_condattr_t cattrib;
 
-    RBUSLOG_INFO("%s enter", __FUNCTION__);
+    RBUSLOG_DEBUG("%s enter", __FUNCTION__);
 
     gRetrier = rt_malloc(sizeof(struct AsyncSubscribeRetrier_t));
 
@@ -327,12 +327,12 @@ static void rbusAsyncSubscribeRetrier_Create()
 
     ERROR_CHECK(pthread_create(&gRetrier->threadId, NULL, AsyncSubscribeRetrier_threadFunc, NULL));
 
-    RBUSLOG_INFO("%s exit", __FUNCTION__);
+    RBUSLOG_DEBUG("%s exit", __FUNCTION__);
 }
 
 static void rbusAsyncSubscribeRetrier_Destroy()
 {
-    RBUSLOG_INFO("%s enter", __FUNCTION__);
+    RBUSLOG_DEBUG("%s enter", __FUNCTION__);
 
     LOCK();
     gRetrier->isRunning = false;
@@ -349,7 +349,7 @@ static void rbusAsyncSubscribeRetrier_Destroy()
     free(gRetrier);
     gRetrier = NULL;
 
-    RBUSLOG_INFO("%s exit", __FUNCTION__);
+    RBUSLOG_DEBUG("%s exit", __FUNCTION__);
 }
 
 void rbusAsyncSubscribe_AddSubscription(rbusEventSubscription_t* subscription, rbusMessage payload)
@@ -430,7 +430,7 @@ void rbusAsyncSubscribe_CloseHandle(rbusHandle_t handle)
     if(!gRetrier)
         return;
 
-    RBUSLOG_INFO("%s", __FUNCTION__);
+    RBUSLOG_DEBUG("%s", __FUNCTION__);
 
     LOCK();
 

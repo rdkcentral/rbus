@@ -81,7 +81,7 @@ static void rbusValueChange_Init()
     pthread_mutexattr_t attrib;
     pthread_condattr_t cattrib;
 
-    RBUSLOG_INFO("%s", __FUNCTION__);
+    RBUSLOG_DEBUG("%s", __FUNCTION__);
 
     if(gVC)
         return;
@@ -127,7 +127,7 @@ static ValueChangeRecord* vcParams_Find(const elementNode* paramNode)
 static void* rbusValueChange_pollingThreadFunc(void *userData)
 {
     (void)(userData);
-    RBUSLOG_INFO("%s: start", __FUNCTION__);
+    RBUSLOG_DEBUG("%s: start", __FUNCTION__);
     LOCK();
     while(gVC->running)
     {
@@ -240,7 +240,7 @@ static void* rbusValueChange_pollingThreadFunc(void *userData)
         }
     }
     UNLOCK();
-    RBUSLOG_INFO("%s: stop", __FUNCTION__);
+    RBUSLOG_DEBUG("%s: stop", __FUNCTION__);
     return NULL;
 }
 
@@ -260,7 +260,7 @@ void rbusValueChange_AddPropertyNode(rbusHandle_t handle, elementNode* propNode)
         RBUSLOG_WARN("propNode NULL error");
         return;
     }
-    RBUSLOG_INFO("%s", propNode->fullName);
+    RBUSLOG_DEBUG(" Add Property Node %s", propNode->fullName);
     assert(propNode->type == RBUS_ELEMENT_TYPE_PROPERTY);
     if(propNode->type != RBUS_ELEMENT_TYPE_PROPERTY)
     {
@@ -371,7 +371,7 @@ void rbusValueChange_RemovePropertyNode(rbusHandle_t handle, elementNode* propNo
 
 void rbusValueChange_CloseHandle(rbusHandle_t handle)
 {
-    RBUSLOG_INFO("%s", __FUNCTION__);
+    RBUSLOG_DEBUG("%s", __FUNCTION__);
 
     if(!gVC)
     {

@@ -105,7 +105,7 @@ static sRecord* sub_find(rbusSubscription_t* sub)
 /* Publishing event based on subscriber interval */
 static void* PublishingThreadFunc(void* rec)
 {
-    RBUSLOG_INFO("\n PublishingThreadFunc: start\n");
+    RBUSLOG_DEBUG("\n PublishingThreadFunc: start\n");
     struct sRecord *sub_rec = (struct sRecord*)rec;
     int count = 0;
     int duration_count = 0;
@@ -208,7 +208,7 @@ static void* PublishingThreadFunc(void* rec)
         rtVector_RemoveItem(gRecord, sub_rec, sub_Free);
         ERROR_CHECK(pthread_mutex_unlock(&gMutex));
     }
-    RBUSLOG_INFO("%s: stop\n", __FUNCTION__);
+    RBUSLOG_DEBUG("%s: stop\n", __FUNCTION__);
     return NULL;
 }
 

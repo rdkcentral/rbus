@@ -2251,7 +2251,7 @@ static int _method_callback_handler(rbusHandle_t handle, rbusMessage request, rb
         rbusObject_Init(&inParams, NULL);
     }
 
-    RBUSLOG_INFO("method [%s]", methodName);
+    RBUSLOG_DEBUG("%s [%s]", __FUNCTION__, methodName);
 
     rbusObject_Init(&outParams, NULL);
     /*get the element for the row */
@@ -2668,7 +2668,7 @@ static int _callback_handler(char const* destination, char const* method, rbusMe
  */
 static void _rbus_open_pre_initialize(bool retain)
 {
-    RBUSLOG_INFO("%s", __FUNCTION__);
+    RBUSLOG_DEBUG("%s", __FUNCTION__);
     static bool sRetained = false;
     
     if(retain && !sRetained)
@@ -2780,8 +2780,6 @@ rbusError_t rbus_open(rbusHandle_t* handle, char const* componentName)
 
     UnlockMutex();
 
-    RBUSLOG_INFO("(%s) success", componentName);
-
     snprintf(filename, RTMSG_HEADER_MAX_TOPIC_LENGTH-1, "%s%d_%d", "/tmp/.rbus/", getpid(), tmpHandle->componentId);
     FILE *fd  =  fopen(filename, "w");
     if (fd)
@@ -2790,21 +2788,21 @@ rbusError_t rbus_open(rbusHandle_t* handle, char const* componentName)
         fclose(fd);
     }
 
-    RBUSLOG_INFO("(%s) success", componentName);
+    RBUSLOG_INFO(" rbus open (%s) success", componentName);
     return RBUS_ERROR_SUCCESS;
 
     if((err = rbus_unregisterObj(componentName)) != RBUSCORE_SUCCESS)
-        RBUSLOG_ERROR("(%s): rbus_unregisterObj error %d", componentName, err);
+        RBUSLOG_ERROR("(%s): unregisterObj error %d", componentName, err);
 
 exit_error2:
 
     if(rbus_getConnection() && rbusHandleList_IsEmpty())
         if((err = rbus_unregisterClientDisconnectHandler()) != RBUSCORE_SUCCESS)
-            RBUSLOG_ERROR("(%s): rbus_unregisterClientDisconnectHandler error %d", componentName, err);
+            RBUSLOG_ERROR("(%s): unregisterClientDisconnectHandler error %d", componentName, err);
 
     if(rbus_getConnection() && rbusHandleList_IsEmpty())
         if((err = rbus_closeBrokerConnection()) != RBUSCORE_SUCCESS)
-            RBUSLOG_ERROR("(%s): rbus_closeBrokerConnection error %d", componentName, err);
+            RBUSLOG_ERROR("(%s): closeBrokerConnection error %d", componentName, err);
 
 exit_error1:
 
@@ -2916,7 +2914,7 @@ rbusError_t rbus_close(rbusHandle_t handle)
 
     VERIFY_NULL(handle);
 
-    RBUSLOG_INFO("(%s)", handleInfo->componentName);
+    RBUSLOG_INFO("rbus close for (%s)", handleInfo->componentName);
 
     LockMutex();
     char filename[RTMSG_HEADER_MAX_TOPIC_LENGTH];
@@ -2976,7 +2974,7 @@ rbusError_t rbus_close(rbusHandle_t handle)
 
     if((err = rbus_unregisterObj(handleInfo->componentName)) != RBUSCORE_SUCCESS)
     {
-        RBUSLOG_ERROR("(%s): rbus_unregisterObj error %d", handleInfo->componentName, err);
+        RBUSLOG_ERROR("(%s): unregisterObj error %d", handleInfo->componentName, err);
         ret = RBUS_ERROR_INVALID_HANDLE;
     }
 
@@ -3044,7 +3042,7 @@ rbusError_t rbus_regDataElements(
             break ;
         }
 
-        RBUSLOG_INFO("%s: %s", __FUNCTION__, name);
+        RBUSLOG_DEBUG("%s: %s", __FUNCTION__, name);
 
         if(handleInfo->elementRoot == NULL)
         {
@@ -3108,7 +3106,7 @@ rbusError_t rbus_regDataElements(
         err = rbus_registerClientDisconnectHandler(_client_disconnect_callback_handler);
         if(err != RBUSCORE_SUCCESS)
         {
-            RBUSLOG_ERROR("rbus_registerClientDisconnectHandler error %d", err);
+            RBUSLOG_ERROR("registerClientDisconnectHandler error %d", err);
         }
         else
             sDisConnHandler = true;
@@ -3176,7 +3174,7 @@ rbusError_t rbus_discoverComponentName (rbusHandle_t handle,
     }
     else
     {
-         RBUSLOG_WARN("return from rbus_discoverElementsObjects is not success");
+         RBUSLOG_WARN("return from discoverElementsObjects is not success");
     }
   
     return errorcode;
@@ -4068,7 +4066,7 @@ rbusError_t rbusTable_addRow(
         if(instNum)
             *instNum = (uint32_t)instanceId;/*FIXME we need an rbus_PopUInt32 to avoid loosing a bit */
 
-        RBUSLOG_INFO("rbus_invokeRemoteMethod2 success response returnCode:%d instanceId:%d", returnCode, instanceId);
+        RBUSLOG_DEBUG("rbus_invokeRemoteMethod2 success response returnCode:%d instanceId:%d", returnCode, instanceId);
         if((returnCode == RBUS_ERROR_SUCCESS) || (legacyRetCode == RBUS_LEGACY_ERR_SUCCESS))
         {
             returnCode = RBUS_ERROR_SUCCESS;
@@ -4104,7 +4102,7 @@ rbusError_t rbusTable_removeRow(
     if (handleInfo->m_handleType != RBUS_HWDL_TYPE_REGULAR)
         return RBUS_ERROR_INVALID_HANDLE;
 
-    RBUSLOG_INFO("%s: %s", __FUNCTION__, rowName);
+    RBUSLOG_DEBUG("Remove row: %s", rowName);
 
     rbusMessage_Init(&request);
     rbusMessage_SetInt32(request, 0);/*TODO: this should be the session ID*/
@@ -4130,7 +4128,7 @@ rbusError_t rbusTable_removeRow(
         rbusMessage_GetInt32(response, &returnCode);
         legacyRetCode = (rbusLegacyReturn_t)returnCode;
 
-        RBUSLOG_INFO("rbus_invokeRemoteMethod2 success response returnCode:%d", returnCode);
+        RBUSLOG_DEBUG("rbus_invokeRemoteMethod2 success response returnCode:%d", returnCode);
         if((returnCode == RBUS_ERROR_SUCCESS) || (legacyRetCode == RBUS_LEGACY_ERR_SUCCESS))
         {
             returnCode = RBUS_ERROR_SUCCESS;
@@ -4239,7 +4237,7 @@ rbusError_t rbusTable_getRowNames(
     rbusMessage_SetInt32(request, -1);/*nextLevel*/
     rbusMessage_SetInt32(request, 1);/*getRowNames*/
 
-    RBUSLOG_INFO("%s: %s", __FUNCTION__, tableName);
+    RBUSLOG_DEBUG("Get row: %s", tableName);
 
     /* Find direct connection status */
     rtConnection myConn = rbuscore_FindClientPrivateConnection(tableName);
@@ -5495,7 +5493,7 @@ rbusError_t rbusMethod_InvokeInternal(
     VERIFY_NULL(handle);
     VERIFY_NULL(methodName);
 
-    RBUSLOG_INFO("%s: %s", __FUNCTION__, methodName);
+    RBUSLOG_DEBUG("Method_InvokeInternal: %s", methodName);
 
     rbusMessage_Init(&request);
     rbusMessage_SetInt32(request, 0);/*TODO: this should be the session ID*/
@@ -5550,7 +5548,7 @@ rbusError_t rbusMethod_InvokeInternal(
 
     rbusMessage_Release(response);
 
-    RBUSLOG_INFO("rbus_invokeRemoteMethod2 success response returnCode:%d", returnCode);
+    RBUSLOG_INFO("Method_InvokeInternal success response with returnCode:%d", returnCode);
 
     return returnCode;
 }
