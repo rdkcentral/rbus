@@ -114,7 +114,7 @@ static int rbusAsyncSubscribeRetrier_DetermineNextSendTime(rtTime_t* nextSendTim
     rtTime_Now(&now);
     rtTime_Later(&now, rbusConfig_Get()->subscribeMaxWait + 1000, nextSendTime);
 
-    RBUSLOG_DEBUG("%s now=%s", __FUNCTION__, rtTime_ToString(&now, tbuff));
+    RBUSLOG_DEBUG("now=%s", rtTime_ToString(&now, tbuff));
 
     if(!li)
     {
@@ -126,7 +126,7 @@ static int rbusAsyncSubscribeRetrier_DetermineNextSendTime(rtTime_t* nextSendTim
         AsyncSubscription_t* item;
         rtListItem_GetData(li, (void**)&item);
 
-        RBUSLOG_INFO("%s item=%s", __FUNCTION__, rtTime_ToString(&item->nextRetryTime, tbuff));
+        RBUSLOG_INFO("item=%s", rtTime_ToString(&item->nextRetryTime, tbuff));
 
         if(rtTime_Compare(&item->nextRetryTime, nextSendTime) < 0)
         {
@@ -139,7 +139,7 @@ static int rbusAsyncSubscribeRetrier_DetermineNextSendTime(rtTime_t* nextSendTim
     //if nextSendTime is past due, return 1 so the caller knows to send requests now
     if(rtTime_Compare(nextSendTime, &now) <= 0)
     {
-        RBUSLOG_INFO("%s subs past due", __FUNCTION__);
+        RBUSLOG_INFO("subs past due");
         return 1;
     }
 
@@ -148,7 +148,7 @@ static int rbusAsyncSubscribeRetrier_DetermineNextSendTime(rtTime_t* nextSendTim
     //this will essentially batch all items due between now and this next time
     rtTime_Later(nextSendTime, 1000, nextSendTime);
 #endif
-    RBUSLOG_INFO("%s subs due in %d miliseconds nextSendTime=%s", __FUNCTION__,
+    RBUSLOG_INFO("subs due in %d miliseconds nextSendTime=%s",
                 rtTime_Elapsed(&now, nextSendTime), 
                 rtTime_ToString(nextSendTime, tbuff));
 
@@ -178,7 +178,7 @@ static void rbusAsyncSubscribeRetrier_SendSubscriptionRequests()
             int elapsed;
             int providerError;
 
-            RBUSLOG_INFO("%s: %s subscribing", __FUNCTION__, item->subscription->eventName);
+            RBUSLOG_INFO("%s subscribing", item->subscription->eventName);
 
             coreerr = rbus_subscribeToEvent(NULL, item->subscription->eventName, 
                         _event_callback_handler, item->payload, item->subscription, &providerError);
@@ -211,8 +211,7 @@ static void rbusAsyncSubscribeRetrier_SendSubscriptionRequests()
                     rtTime_Later(&item->startTime, rbusConfig_Get()->subscribeTimeout, &item->nextRetryTime);
                 }
 
-                RBUSLOG_INFO("%s: %s no provider. retry in %d ms with %d left", 
-                    __FUNCTION__, 
+                RBUSLOG_INFO("%s no provider. retry in %d ms with %d left",
                     item->subscription->eventName, 
                     rtTime_Elapsed(&now, &item->nextRetryTime), 
                     rbusConfig_Get()->subscribeTimeout - elapsed );
@@ -224,26 +223,26 @@ static void rbusAsyncSubscribeRetrier_SendSubscriptionRequests()
 
                 if(coreerr == RBUSCORE_SUCCESS)
                 {
-                    RBUSLOG_INFO("%s: %s subscribe retries succeeded", __FUNCTION__, item->subscription->eventName);
+                    RBUSLOG_INFO("%s subscribe retries succeeded", item->subscription->eventName);
                     responseErr = RBUS_ERROR_SUCCESS;
                 }
                 else
                 {
                     if(coreerr == RBUSCORE_ERROR_DESTINATION_UNREACHABLE)
                     {
-                        RBUSLOG_INFO("%s: %s all subscribe retries failed and no provider found", __FUNCTION__, item->subscription->eventName);
+                        RBUSLOG_INFO("%s all subscribe retries failed and no provider found", item->subscription->eventName);
                         RBUSLOG_WARN("EVENT_SUBSCRIPTION_FAIL_NO_PROVIDER_COMPONENT  %s", item->subscription->eventName);/*RDKB-33658-AC7*/
                         responseErr = RBUS_ERROR_TIMEOUT;
                     }
                     else if(providerError != RBUS_ERROR_SUCCESS)
                     {
-                        RBUSLOG_INFO("%s: %s subscribe retries failed due provider error %d", __FUNCTION__, item->subscription->eventName, providerError);
+                        RBUSLOG_INFO("%s subscribe retries failed due provider error %d", item->subscription->eventName, providerError);
                         RBUSLOG_WARN("EVENT_SUBSCRIPTION_FAIL_INVALID_INPUT  %s", item->subscription->eventName);/*RDKB-33658-AC9*/
                         responseErr = providerError;
                     }
                     else
                     {  
-                        RBUSLOG_INFO("%s: %s subscribe retries failed due to core error %d", __FUNCTION__, item->subscription->eventName, coreerr);
+                        RBUSLOG_INFO("%s subscribe retries failed due to core error %d", item->subscription->eventName, coreerr);
                         responseErr = RBUS_ERROR_BUS_ERROR;
                     }
                 }
@@ -285,7 +284,7 @@ static void* AsyncSubscribeRetrier_threadFunc(void* data)
             rtTimespec_t ts;
             int err;
 
-            RBUSLOG_DEBUG("%s timedwait until %s", __FUNCTION__, rtTime_ToString(&nextSendTime, tbuff));
+            RBUSLOG_DEBUG("timedwait until %s", rtTime_ToString(&nextSendTime, tbuff));
  
             err = pthread_cond_timedwait(&gRetrier->condItemAdded,
                                          &gRetrier->mutexQueue,
@@ -295,7 +294,7 @@ static void* AsyncSubscribeRetrier_threadFunc(void* data)
                 RBUSLOG_ERROR("Error %d:%s running command pthread_cond_timedwait", err, strerror(err));
             }
 
-            RBUSLOG_DEBUG("%s waked up", __FUNCTION__);
+            RBUSLOG_DEBUG("waked up");
             //either we timed out or a new subscription was added
             //in either case, loop back to top and things will get handled properly
         }
@@ -309,7 +308,7 @@ static void rbusAsyncSubscribeRetrier_Create()
     pthread_mutexattr_t mattrib;
     pthread_condattr_t cattrib;
 
-    RBUSLOG_INFO("%s enter", __FUNCTION__);
+    RBUSLOG_DEBUG("%s enter", __FUNCTION__);
 
     gRetrier = rt_malloc(sizeof(struct AsyncSubscribeRetrier_t));
 
@@ -328,12 +327,12 @@ static void rbusAsyncSubscribeRetrier_Create()
 
     ERROR_CHECK(pthread_create(&gRetrier->threadId, NULL, AsyncSubscribeRetrier_threadFunc, NULL));
 
-    RBUSLOG_INFO("%s exit", __FUNCTION__);
+    RBUSLOG_DEBUG("%s exit", __FUNCTION__);
 }
 
 static void rbusAsyncSubscribeRetrier_Destroy()
 {
-    RBUSLOG_INFO("%s enter", __FUNCTION__);
+    RBUSLOG_DEBUG("%s enter", __FUNCTION__);
 
     LOCK();
     gRetrier->isRunning = false;
@@ -350,7 +349,7 @@ static void rbusAsyncSubscribeRetrier_Destroy()
     free(gRetrier);
     gRetrier = NULL;
 
-    RBUSLOG_INFO("%s exit", __FUNCTION__);
+    RBUSLOG_DEBUG("%s exit", __FUNCTION__);
 }
 
 void rbusAsyncSubscribe_AddSubscription(rbusEventSubscription_t* subscription, rbusMessage payload)
@@ -375,7 +374,7 @@ void rbusAsyncSubscribe_AddSubscription(rbusEventSubscription_t* subscription, r
     rtTime_Now(&item->startTime);
     item->nextRetryTime = item->startTime; /*set to now also so we do our first sub immediately*/
 
-    RBUSLOG_INFO("%s %s %s", __FUNCTION__, subscription->eventName, rtTime_ToString(&item->startTime, tbuff));
+    RBUSLOG_INFO("%s %s", subscription->eventName, rtTime_ToString(&item->startTime, tbuff));
 
     LOCK();
     rtList_PushBack(gRetrier->items, item, NULL);
@@ -431,7 +430,7 @@ void rbusAsyncSubscribe_CloseHandle(rbusHandle_t handle)
     if(!gRetrier)
         return;
 
-    RBUSLOG_INFO("%s", __FUNCTION__);
+    RBUSLOG_DEBUG("%s", __FUNCTION__);
 
     LOCK();
 
@@ -450,7 +449,7 @@ void rbusAsyncSubscribe_CloseHandle(rbusHandle_t handle)
 
     if(size == 0)
     {
-        RBUSLOG_INFO("%s all handles removed", __FUNCTION__);
+        RBUSLOG_INFO("all handles removed");
         rbusAsyncSubscribeRetrier_Destroy();
     }
 }

@@ -173,12 +173,12 @@ static void* rbusValueChange_pollingThreadFunc(void *userData)
 
             if(result != RBUS_ERROR_SUCCESS)
             {
-                RBUSLOG_WARN("%s: failed to get current value of %s", __FUNCTION__, rbusProperty_GetName(property));
+                RBUSLOG_WARN("failed to get current value of %s", rbusProperty_GetName(property));
                 continue;
             }
 
             char* sValue = rbusValue_ToString(rbusProperty_GetValue(property), NULL, 0);
-            RBUSLOG_DEBUG("%s: %s=%s", __FUNCTION__, rbusProperty_GetName(property), sValue);
+            RBUSLOG_DEBUG("%s=%s", rbusProperty_GetName(property), sValue);
             free(sValue);
 
             newVal = rbusProperty_GetValue(property);
@@ -190,7 +190,7 @@ static void* rbusValueChange_pollingThreadFunc(void *userData)
                 rbusObject_t data;
                 rbusValue_t byVal = NULL;
 
-                RBUSLOG_INFO("%s: value change detected for %s", __FUNCTION__, rbusProperty_GetName(rec->property));
+                RBUSLOG_INFO("value change detected for %s", rbusProperty_GetName(rec->property));
 
                 /* The "by" field is set to the component's name which made the last value change.
                    The source of a value-change could be an external component calling rbus_set or the provider internally updating
@@ -225,7 +225,7 @@ static void* rbusValueChange_pollingThreadFunc(void *userData)
 
                 if(result != RBUS_ERROR_SUCCESS)
                 {
-                    RBUSLOG_WARN("%s: rbusEvent_Publish failed with result=%d", __FUNCTION__, result);
+                    RBUSLOG_WARN("Event_Publish failed with result=%d", result);
                 }
 
                 /*update the record's property with new value*/
@@ -234,7 +234,7 @@ static void* rbusValueChange_pollingThreadFunc(void *userData)
             }
             else
             {
-                RBUSLOG_DEBUG("%s: value change not detected for %s", __FUNCTION__, rbusProperty_GetName(rec->property));
+                RBUSLOG_DEBUG("value change not detected for %s", rbusProperty_GetName(rec->property));
                 rbusProperty_Release(property);
             }
         }
@@ -257,20 +257,20 @@ void rbusValueChange_AddPropertyNode(rbusHandle_t handle, elementNode* propNode)
     assert(propNode);
     if(!propNode)
     {
-        RBUSLOG_WARN("%s: propNode NULL error", __FUNCTION__);
+        RBUSLOG_WARN("propNode NULL error");
         return;
     }
-    RBUSLOG_DEBUG("%s: %s", __FUNCTION__, propNode->fullName);
+    RBUSLOG_DEBUG(" Add Property Node %s", propNode->fullName);
     assert(propNode->type == RBUS_ELEMENT_TYPE_PROPERTY);
     if(propNode->type != RBUS_ELEMENT_TYPE_PROPERTY)
     {
-        RBUSLOG_WARN("%s: propNode type %d error", __FUNCTION__, propNode->type);
+        RBUSLOG_WARN("propNode type %d error", propNode->type);
         return;
     }
     assert(propNode->cbTable.getHandler);
     if(!propNode->cbTable.getHandler)
     {
-        RBUSLOG_WARN("%s: propNode getHandler NULL error", __FUNCTION__);
+        RBUSLOG_WARN("propNode getHandler NULL error");
         return;
     }
 
@@ -301,14 +301,14 @@ void rbusValueChange_AddPropertyNode(rbusHandle_t handle, elementNode* propNode)
 
         if(result != RBUS_ERROR_SUCCESS)
         {
-            RBUSLOG_WARN("%s: failed to get current value for %s as the node is not found", __FUNCTION__, propNode->fullName);
+            RBUSLOG_WARN("failed to get current value for %s as the node is not found", propNode->fullName);
             vcParams_Free(rec);
             rec = NULL;
             return;
         }
 
         char* sValue;
-        RBUSLOG_DEBUG("%s: %s=%s", __FUNCTION__, propNode->fullName, (sValue = rbusValue_ToString(rbusProperty_GetValue(rec->property), NULL, 0)));
+        RBUSLOG_DEBUG("%s=%s", propNode->fullName, (sValue = rbusValue_ToString(rbusProperty_GetValue(rec->property), NULL, 0)));
         free(sValue);
 
         LOCK();//############ LOCK ############
@@ -334,7 +334,7 @@ void rbusValueChange_RemovePropertyNode(rbusHandle_t handle, elementNode* propNo
 
     (void)(handle);
     VERIFY_NULL(propNode);
-    RBUSLOG_DEBUG("%s: %s", __FUNCTION__, propNode->fullName);
+    RBUSLOG_DEBUG("RemovePropertyNode %s", propNode->fullName);
 
     if(!gVC)
     {
@@ -359,7 +359,7 @@ void rbusValueChange_RemovePropertyNode(rbusHandle_t handle, elementNode* propNo
     }
     else
     {
-        RBUSLOG_WARN("%s: value change param not found: %s", __FUNCTION__, propNode->fullName);
+        RBUSLOG_WARN("value change param not found: %s", propNode->fullName);
     }
     UNLOCK();//############ UNLOCK ############
     if(stopThread)
