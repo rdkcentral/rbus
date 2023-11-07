@@ -65,36 +65,72 @@ int main(int argc, char *argv[])
     (void)(argc);
     (void)(argv);
 
-    int rc = RBUS_ERROR_SUCCESS;
-    rbusHandle_t handle;
+    int rc1 = RBUS_ERROR_SUCCESS;
+    int rc2 = RBUS_ERROR_SUCCESS;
+    rbusHandle_t handle1;
+    rbusHandle_t handle2;
     rbusFilter_t filter;
     rbusValue_t filterValue;
     rbusEventSubscription_t subscription = {"Device.Provider1.Param1", NULL, 0, 0, eventReceiveHandler, NULL, NULL, NULL, false};
 
-    rc = rbus_open(&handle, "multiRbusOpenConsumer");
-    rc = rbus_open(&handle, "multiRbusOpenConsumer");
-    if(rc != RBUS_ERROR_SUCCESS)
+    rc1 = rbus_open(&handle1, "multiRbusOpenConsumer");
+    if(rc1 != RBUS_ERROR_SUCCESS)
     {
-        printf("consumer: rbus_open failed: %d\n", rc);
-        return -1;
+        printf("consumer: rbus_open handle1 failed: %d\n", rc1);
+        goto exit1;
     }
 
-    printf("Subscribing to Device.Provider1.Param1\n");
+    rc2 = rbus_open(&handle2, "multiRbusOpenConsumer");
+    if(rc2 != RBUS_ERROR_SUCCESS)
+    {
+        printf("consumer: rbus_open handle2 failed: %d\n", rc2);
+        goto exit2;
+    }
+
+    printf("handle1 and handle2 Subscribing to Device.Provider1.Param1\n");
     /* subscribe to all value change events on property "Device.Provider1.Param1" */
-    rc = rbusEvent_Subscribe(
-        handle,
+    rc1 = rbusEvent_Subscribe(
+        handle1,
         "Device.Provider1.Param1",
         eventReceiveHandler,
         "My User Data",
         0);
+    if(rc1 != RBUS_ERROR_INVALID_HANDLE)
+    {
+        printf("consumer: rbusEvent_Subscribe handle1 failed with err:%d\n", rc1);
+    }
+
+    sleep(1);
+    rc2 = rbusEvent_Subscribe(
+        handle2,
+        "Device.Provider1.Param1",
+        eventReceiveHandler,
+        "My User Data",
+        0);
+    if(rc2 != RBUS_ERROR_SUCCESS)
+    {
+        printf("consumer: rbusEvent_Subscribe handle2 failed with err:%d\n", rc2);
+    }
 
     sleep(15);
 
-    printf("Unsubscribing Device.Provider1.Param1\n");
+    printf("Unsubscribing Device.Provider1.Param1 handles\n");
 
-    rbusEvent_Unsubscribe(
-        handle,
-        "Device.Provider1.Param1");
+    rc1 = rbusEvent_Unsubscribe(
+            handle1,
+            "Device.Provider1.Param1");
+    if(rc1 != RBUS_ERROR_INVALID_HANDLE)
+    {
+        printf("Unsubscribing handle1 err:%d\n", rc1);
+    }
+   
+    rc2 = rbusEvent_Unsubscribe(
+            handle2,
+            "Device.Provider1.Param1");
+    if(rc2 != RBUS_ERROR_SUCCESS)
+    {
+        printf("Unsubscribing handle2 failed :%d\n", rc2);
+    }
 
     /* subscribe using filter to value change events on property "Device.Provider1.Param1"
        setting filter to: value >= 5.
@@ -109,14 +145,36 @@ int main(int argc, char *argv[])
 
     printf("Subscribing to Device.Provider1.Param1 with filter > 5\n");
 
-    rc = rbusEvent_SubscribeEx(handle, &subscription, 1, 0);
+    rc1 = rbusEvent_SubscribeEx(handle1, &subscription, 1, 0);
+    if(rc1 != RBUS_ERROR_INVALID_HANDLE)
+    {
+        printf("subscribeEx handle1 err :%d\n", rc1);
+    }
+
+    rc2 = rbusEvent_SubscribeEx(handle2, &subscription, 1, 0);
+    if(rc2 != RBUS_ERROR_SUCCESS)
+    {
+        printf("subscribeEx handle2 failed :%d\n", rc2);
+    }
 
     rbusValue_Release(filterValue);
     rbusFilter_Release(filter);
 
     sleep(25);
+    rc2 = rbus_close(handle2);
+    if(rc2 != RBUS_ERROR_SUCCESS)
+    {
+        printf("consumer: rbus_close handle2 err: %d\n", rc2);
+    }
 
-    return rc;
+exit2:
+    rc1 = rbus_close(handle1);
+    if(rc1 != RBUS_ERROR_INVALID_HANDLE)
+    {
+        printf("consumer: rbus_close handle1 failed: %d\n", rc1);
+    }
+exit1:
+    return rc2;
 }
 
 

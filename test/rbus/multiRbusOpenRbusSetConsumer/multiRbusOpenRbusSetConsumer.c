@@ -31,20 +31,28 @@
 
 int main(int argc, char *argv[])
 {
-    rbusHandle_t handle;
-    int rc = RBUS_ERROR_SUCCESS;
+    rbusHandle_t handle1;
+    rbusHandle_t handle2;
+    int rc1 = RBUS_ERROR_SUCCESS;
+    int rc2 = RBUS_ERROR_SUCCESS;
 
     (void)(argc);
     (void)(argv);
 
     printf("constumer: start\n");
 
-    rc = rbus_open(&handle, "multiRbusOpenRbusSetConsumer");
-    rc = rbus_open(&handle, "multiRbusOpenRbusSetConsumer");
-    if(rc != RBUS_ERROR_SUCCESS)
+    rc1 = rbus_open(&handle1, "multiRbusOpenRbusSetConsumer");
+    if(rc1 != RBUS_ERROR_SUCCESS)
     {
-        printf("consumer: rbus_open failed: %d\n", rc);
+        printf("consumer: First rbus_open with handle1 err: %d\n", rc1);
         goto exit1;
+    }
+
+    rc2 = rbus_open(&handle2, "multiRbusOpenRbusSetConsumer");
+    if(rc2 != RBUS_ERROR_SUCCESS)
+    {
+        printf("consumer: Second rbus_open with handle2 err: %d\n", rc2);
+        goto exit2;
     }
 
     TestValueProperty data = { RBUS_INT32, "Device.multiRbusOpenGetTestProvider.Value.RBUS_INT32", {NULL} };
@@ -57,29 +65,42 @@ int main(int argc, char *argv[])
 
     printf("_test_multiRbusOpen rbus_set %s\n", data.name);
    
-    rc = rbus_set(handle, data.name, value, NULL);
+    rc1 = rbus_set(handle1, data.name, value, NULL);
 
-    if(rc ==  RBUS_ERROR_SUCCESS)
+    if(rc1 != RBUS_ERROR_INVALID_HANDLE)
     {
-        printf(">>>>>>>>>>>>>>>>>>>>>>>> test rbus set success %s >>>>>>>>>>>>>>>>>>>>>>>>>\n", data.name);
-        rbusValue_Release(value);
+        printf("_test_Value rbus_set err:%d\n", rc1);
+    }
+    sleep(1);
+
+    rc2 = rbus_set(handle2, data.name, value, NULL);
+
+    if(rc2 ==  RBUS_ERROR_SUCCESS)
+    {
+        printf(">>>>>>>>>>>>>>>>>>>>>>>> test rbus set with handle2 success %s >>>>>>>>>>>>>>>>>>>>>>>>>\n", data.name);
     }
     else
     {
-        printf("_test_Value rbus_set failed err:%d\n", rc);
+        printf("_test_Value rbus_set with handle2 err:%d\n", rc2);
     }
 
-    sleep(1);
+    sleep(10);
+    rc2 = rbus_close(handle2);
+    if(rc2 != RBUS_ERROR_SUCCESS)
+    {
+        printf("consumer: rbus_close handle2 err: %d\n", rc2);
+    }
 
-    printf("consumer: multiRbusOpenRbusGetConsumer %s\n", 
-    rc == RBUS_ERROR_SUCCESS ? "success" : "fail");
-
-    sleep(5);
-
-
+exit2:
+    rc1 = rbus_close(handle1);
+    if(rc1 != RBUS_ERROR_INVALID_HANDLE)
+    {
+        printf("consumer: rbus_close handle1 err: %d\n", rc1);
+    }
 exit1:
+    rbusValue_Release(value);
     printf("consumer: exit\n");
-    return rc;
+    return rc2;
 }
 
 

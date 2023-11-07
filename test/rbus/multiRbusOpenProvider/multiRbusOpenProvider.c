@@ -90,35 +90,69 @@ int main(int argc, char *argv[])
     (void)(argc);
     (void)(argv);
 
-    rbusHandle_t handle;
-    int rc = RBUS_ERROR_SUCCESS;
+    rbusHandle_t handle1 = NULL;
+    rbusHandle_t handle2 = NULL;
+    int rc1 = RBUS_ERROR_SUCCESS;
+    int rc2 = RBUS_ERROR_SUCCESS;
 
     char componentName[] = "multiRbusOpenProvider";
 
     rbusDataElement_t dataElements[1] = {{"Device.Provider1.Param1", RBUS_ELEMENT_TYPE_PROPERTY, {getHandler, NULL, NULL, NULL, eventSubHandler, NULL}}};
 
     printf("provider: start\n");
-
-    rc = rbus_open(&handle, componentName);
-    rc = rbus_open(&handle, componentName);
-    if(rc != RBUS_ERROR_SUCCESS)
+    rc1 = rbus_open(&handle1, componentName);
+    if(rc1 != RBUS_ERROR_SUCCESS)
     {
-        printf("provider: rbus_open failed: %d\n", rc);
+        printf("provider: First rbus_open handle1 err: %d\n", rc1);
+        goto exit1;
+    }
+
+    printf("provider0: handle1:%p: %d\n", (void*)handle1,rc1);
+    rc2 = rbus_open(&handle2, componentName);
+    if(rc2 != RBUS_ERROR_SUCCESS)
+    {
+        printf("provider: Second rbus_open handle2 err: %d\n", rc2);
         goto exit2;
     }
 
-    rc = rbus_regDataElements(handle, 1, dataElements);
-    if(rc != RBUS_ERROR_SUCCESS)
+    printf("provider1: handle1:%p: %d\n", (void*)handle1,rc1);
+    rc1 = rbus_regDataElements(handle1, 1, dataElements);
+    if(rc1 != RBUS_ERROR_INVALID_HANDLE)
     {
-        printf("provider: rbus_regDataElements failed: %d\n", rc);
-        goto exit2;
+        printf("provider: rbus_regDataElements handle1 err: %d\n", rc1);
+    }
+    rc2 = rbus_regDataElements(handle2, 1, dataElements);
+    if(rc2 != RBUS_ERROR_SUCCESS)
+    {
+        printf("provider: rbus_regDataElements handle2 err: %d\n", rc2);
     }
 
     sleep(runtime);
 
-    rbus_unregDataElements(handle, 1, dataElements);
+    rc1 = rbus_unregDataElements(handle1, 1, dataElements);
+    if(rc1 != RBUS_ERROR_INVALID_HANDLE)
+    {
+        printf("provider: rbus_unregDataElements handle1 err: %d\n", rc1);
+    }
 
+    rc2 = rbus_unregDataElements(handle2, 1, dataElements);
+    if(rc2 != RBUS_ERROR_SUCCESS)
+    {
+        printf("provider: rbus_unregDataElements handle2 err: %d\n", rc2);
+    }
+
+   rc2 = rbus_close(handle2);
+   if(rc2 != RBUS_ERROR_SUCCESS)
+   {
+      printf("provider: rbus_close handle2 err: %d\n", rc2);
+   }
 exit2:
-    printf("provider: exit\n");
-    return rc;
+   rc1 = rbus_close(handle1);
+   if(rc1 != RBUS_ERROR_INVALID_HANDLE)
+   {
+      printf("provider: rbus_close handle1 err: %d\n", rc1);
+   }
+exit1:
+   printf("provider: exit with :%d and %d\n",rc1,rc2);
+   return rc2;
 }

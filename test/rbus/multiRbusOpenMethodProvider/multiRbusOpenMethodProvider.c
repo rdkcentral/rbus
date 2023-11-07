@@ -29,8 +29,9 @@
 #include <rbus.h>
 #include <rtMemory.h>
 
-int loopFor = 10;
-rbusHandle_t handle;
+int loopFor = 40;
+rbusHandle_t handle1;
+rbusHandle_t handle2;
 
 typedef struct MethodData
 {
@@ -47,7 +48,7 @@ static void* asyncMethodFunc(void *p)
 
     printf("%s enter\n", __FUNCTION__);
 
-    sleep(3);
+    sleep(20);
 
     data = p;
 
@@ -137,7 +138,8 @@ int main(int argc, char *argv[])
     (void)(argc);
     (void)(argv);
 
-    int rc = RBUS_ERROR_SUCCESS;
+    int rc1 = RBUS_ERROR_SUCCESS;
+    int rc2 = RBUS_ERROR_SUCCESS;
 
     char componentName[] = "multiRbusOpenMethodProvider";
 
@@ -147,22 +149,34 @@ int main(int argc, char *argv[])
         {"Device.Methods.AsyncMethod()", RBUS_ELEMENT_TYPE_METHOD, {NULL, NULL, NULL, NULL, NULL, methodHandler}}
     };
 
-    printf("provider: start\n");
+    printf("multiRbusOpenMethodProvider: start\n");
 
-    rc = rbus_open(&handle, componentName);
-    rc = rbus_open(&handle, componentName);
-    if(rc != RBUS_ERROR_SUCCESS)
+    rc1 = rbus_open(&handle1, componentName);
+    if(rc1 != RBUS_ERROR_SUCCESS)
     {
-        printf("provider: rbus_open failed: %d\n", rc);
+        printf("provider: First rbus_open of handle1 err: %d\n", rc1);
         goto exit2;
     }
 
-    rc = rbus_regDataElements(handle, 3, dataElements);
-    if(rc != RBUS_ERROR_SUCCESS)
+    rc2 = rbus_open(&handle2, componentName);
+    if(rc2 != RBUS_ERROR_SUCCESS)
     {
-        printf("provider: rbus_regDataElements failed: %d\n", rc);
-        goto exit2;
+        printf("provider: Second rbus_open of handle2 err: %d\n", rc2);
+        goto exit1;
     }
+
+    rc1 = rbus_regDataElements(handle1, 3, dataElements);
+    if(rc1 != RBUS_ERROR_INVALID_HANDLE)
+    {
+        printf("provider: rbus_regDataElements handle1 err: %d\n", rc1);
+    }
+
+    rc2 = rbus_regDataElements(handle2, 3, dataElements);
+    if(rc2 != RBUS_ERROR_SUCCESS)
+    {
+        printf("provider: rbus_regDataElements handle2 err: %d\n", rc2);
+    }
+
 
     while (loopFor != 0)
     {
@@ -171,8 +185,31 @@ int main(int argc, char *argv[])
         loopFor--;
     }
 
-    rbus_unregDataElements(handle, 3, dataElements);
+    rc1 = rbus_unregDataElements(handle1, 3, dataElements);
+    if(rc1 != RBUS_ERROR_INVALID_HANDLE)
+    {
+        printf("provider: rbus_unregDataElements handle1 err: %d\n", rc1);
+    }
+
+    rc2 = rbus_unregDataElements(handle2, 3, dataElements);
+    if(rc2 != RBUS_ERROR_SUCCESS)
+    {
+        printf("provider: rbus_unregDataElements handle2 err: %d\n", rc2);
+    }
+
+   rc2 = rbus_close(handle2);
+   if(rc2 != RBUS_ERROR_SUCCESS)
+   {
+      printf("provider: rbus_close handle2 err: %d\n", rc2);
+   }
+exit1:
+   rc1 = rbus_close(handle1);
+   if(rc1 != RBUS_ERROR_INVALID_HANDLE)
+   {
+      printf("provider: rbus_close handle1 err: %d\n", rc1);
+   }
+
 exit2:
-    printf("provider: exit\n");
-    return rc;
+    printf("multiRbusOpenMethodProvider: exit\n");
+    return rc2;
 }
