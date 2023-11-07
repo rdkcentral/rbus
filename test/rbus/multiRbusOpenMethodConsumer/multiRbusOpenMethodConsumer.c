@@ -109,8 +109,6 @@ int main(int argc, char *argv[])
     {
         printf("multiRbusOpenMethodConsumer: rbusMethod_Invoke(Device.Methods.SimpleMethod()) using handle2 return err:%d\n", rc2);
     }
-    rbusObject_Release(inParams1);
-    rbusObject_Release(inParams2);
 
     if(rc1 == RBUS_ERROR_SUCCESS)
     {
@@ -122,6 +120,8 @@ int main(int argc, char *argv[])
         rbusObject_fwrite(outParams2, 1, stdout);
         rbusObject_Release(outParams2);
     }
+    rbusObject_Release(inParams1);
+    rbusObject_Release(inParams2);
 
     /*Test to check the Outparams error msg handling
     This testcase reads the provider specific error code and prints it.
@@ -183,7 +183,6 @@ int main(int argc, char *argv[])
 
     rc1 = rbusMethod_InvokeAsync(handle1, "Device.Methods.AsyncMethod()", inParams1, asyncMethodHandler, 0);
 
-    rbusObject_Release(inParams1);
 
     printf("multiRbusOpenMethodConsumer: rbusMethod_InvokeAsync(Device.Methods.AsyncMethod()) for handle1 %s with err :%d\n", rc1 == RBUS_ERROR_INVALID_HANDLE ? "success" : "fail",rc1);
 
@@ -200,7 +199,6 @@ int main(int argc, char *argv[])
         rbusObject_fwrite(outParams2, 1, stdout);
         rbusObject_Release(outParams2);
     }
-    rbusObject_Release(inParams2);
 
     sleep(10);
 
@@ -217,6 +215,8 @@ exit2:
         printf("multiRbusOpenMethodConsumer: rbus_close handle1 err: %d\n", rc1);
     }
 exit1:
+    rbusObject_Release(inParams1);
+    rbusObject_Release(inParams2);
 
     printf("multiRbusOpenMethodConsumer: exit\n");
     return rc2;
