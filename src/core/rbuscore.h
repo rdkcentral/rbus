@@ -24,6 +24,7 @@
 #include "rbuscore_types.h"
 #include "rbuscore_message.h"
 #include <rtm_discovery_api.h>
+#include "rtrouteBase.h"
 
 #define MAX_OBJECT_NAME_LENGTH RTMSG_HEADER_MAX_TOPIC_LENGTH
 #define MAX_METHOD_NAME_LENGTH 64
@@ -31,6 +32,8 @@
 #define MAX_SUPPORTED_METHODS 32
 #define MAX_REGISTERED_OBJECTS 64
 #define RBUS_OPEN_TELEMETRY_DATA_MAX 512
+#define RBUS_REGISTER_OBJECT_SUBSCRIPTION_ID 2
+#define RBUS_ADVISORY_SUBSCRIPTION_ID 3
 
 void rbus_getOpenTelemetryContext(const char **s, const char **t);
 void rbus_setOpenTelemetryContext(const char *s, const char *t);
@@ -142,10 +145,10 @@ rbusCoreError_t rbus_subscribeToEvent(const char * object_name,  const char * ev
 /* Subscribe to 'event_name' events from 'object_name' object, with the specified timeout. If the timeout is less than or equal to zero, timeout will be set to 1000.
  * If the object supports only one event, event_name can be NULL. If the event_name is an alias for the object, then object_name can be NULL. The installed callback will be invoked every time 
  * a matching event is received. */
-rbusCoreError_t rbus_subscribeToEventTimeout(const char * object_name,  const char * event_name, rbus_event_callback_t callback, const rbusMessage payload, void * user_data, int* providerError, int timeout_ms, bool publishOnSubscribe, rbusMessage *response);
+rbusCoreError_t rbus_subscribeToEventTimeout(const char * object_name,  const char * event_name, rbus_event_callback_t callback, const rbusMessage payload, void * user_data, int* providerError, int timeout_ms, bool publishOnSubscribe, rbusMessage *response, bool rawData);
 
 /* Unsubscribe from receiving 'event_name' events from 'object_name' object. If the object supports only one event, event_name can be NULL. */
-rbusCoreError_t rbus_unsubscribeFromEvent(const char * object_name,  const char * event_name, const rbusMessage payload);
+rbusCoreError_t rbus_unsubscribeFromEvent(const char * object_name,  const char * event_name, const rbusMessage payload, bool rawData);
 
 /* Register a on-subscribe callback which will be called when any subscriber subscribes to any event.
    This disables the rbuscore built-in server-side event subscription handling. Used by rbus 2.0*/
@@ -159,7 +162,7 @@ rbusCoreError_t rbus_registerClientDisconnectHandler(rbus_client_disconnect_call
 rbusCoreError_t rbus_unregisterClientDisconnectHandler();
 
 /* Send an event message directly to a specific subscribe(e.g. listener) */
-rbusCoreError_t rbus_publishSubscriberEvent(const char* object_name,  const char * event_name, const char* listener, rbusMessage out);
+rbusCoreError_t rbus_publishSubscriberEvent(const char* object_name,  const char * event_name, const char* listener, rbusMessage out, uint32_t subscriptionId);
 
 /*------ Convenience functions built on top of base functions above. ------*/
 
@@ -226,6 +229,7 @@ rbusCoreError_t rbuscore_startPrivateListener(const char* pPrivateConnAddress, c
 /* The Provider application to request to remove/close the instance of rtrouted in the given DML */
 rbusCoreError_t rbuscore_updatePrivateListener(const char* pConsumerName, const char *pDMLName);
 
+const rtPrivateClientInfo* _rbuscore_find_server_privateconnection(const char *pParameterName, const char *pConsumerName);
 
 #ifdef __cplusplus
 }

@@ -65,6 +65,7 @@ struct _rbusHandle
   rbusHandleType_t      m_handleType;
   pthread_mutex_t       handle_eventSubsMutex;
   pthread_mutex_t       handle_subsMutex;
+  rtConnection          m_connectionParent;
 };
 
 void rbusHandleList_Add(struct _rbusHandle* handle);
