@@ -46,6 +46,8 @@ typedef struct _rbusSubscription
     rtList instances;           /* the instance elements e.g.   Device.WiFi.AccessPoint.1.AssociatedDevice.1.SignalStrength
                                                                 Device.WiFi.AccessPoint.1.AssociatedDevice.2.SignalStrength
                                                                 Device.WiFi.AccessPoint.2.AssociatedDevice.1.SignalStrength */
+    bool rawData;
+    uint32_t subscriptionId;
 } rbusSubscription_t;
 
 /*create a new subscriptions registry for an rbus handle*/
@@ -55,10 +57,10 @@ void rbusSubscriptions_create(rbusSubscriptions_t* subscriptions, rbusHandle_t h
 void rbusSubscriptions_destroy(rbusSubscriptions_t subscriptions);
 
 /*add a new subscription with unique key [listener, eventName, filter] and the corresponding*/
-rbusSubscription_t* rbusSubscriptions_addSubscription(rbusSubscriptions_t subscriptions, char const* listener, char const* eventName, int32_t componentId, rbusFilter_t filter, int32_t interval, int32_t duration, bool autoPublish, elementNode* registryElem);
+rbusSubscription_t* rbusSubscriptions_addSubscription(rbusSubscriptions_t subscriptions, char const* listener, char const* eventName, int32_t componentId, rbusFilter_t filter, int32_t interval, int32_t duration, bool autoPublish, elementNode* registryElem, bool rawData);
 
 /*get an existing subscription by searching for its unique key [listener, eventName, filter]*/
-rbusSubscription_t* rbusSubscriptions_getSubscription(rbusSubscriptions_t subscriptions, char const* listener, char const* eventName, int32_t componentId, rbusFilter_t filter, int32_t interval, int32_t duration);
+rbusSubscription_t* rbusSubscriptions_getSubscription(rbusSubscriptions_t subscriptions, char const* listener, char const* eventName, int32_t componentId, rbusFilter_t filter, int32_t interval, int32_t duration, bool rawData);
 
 /*remove an existing subscription*/
 void rbusSubscriptions_removeSubscription(rbusSubscriptions_t subscriptions, rbusSubscription_t* sub);
