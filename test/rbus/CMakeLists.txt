@@ -51,13 +51,6 @@ add_executable(rbusOpenRegRbusOpenProvider
 add_dependencies(rbusOpenRegRbusOpenProvider rbus)
 target_link_libraries(rbusOpenRegRbusOpenProvider rbus)
 
-add_executable(TestRbusOpenRegProvider 
-    provider/TestRbusOpenRegProvider.c
-    common/runningParamHelper.c
-    common/testValueHelper.c)
-add_dependencies(TestRbusOpenRegProvider rbus)
-target_link_libraries(TestRbusOpenRegProvider rbus)
-
 add_executable(multiRbusOpenRbusGetProvider 
     multiRbusOpenRbusGetProvider/multiRbusOpenRbusGetProvider.c
     common/runningParamHelper.c
@@ -155,26 +148,6 @@ add_executable(rbusOpenSubRbusOpenConsumer
 add_dependencies(rbusOpenSubRbusOpenConsumer rbus)
 target_link_libraries(rbusOpenSubRbusOpenConsumer rbus)
 
-add_executable(TestSubRbusOpenConsumer 
-    consumer/TestSubRbusOpenConsumer.c
-    consumer/elementTree.c
-    consumer/valueAPI.c
-    consumer/propertyAPI.c
-    consumer/objectAPI.c
-    consumer/value.c
-    consumer/valueChange.c
-    consumer/subscribe.c
-    consumer/subscribeEx.c
-    consumer/tables.c
-    consumer/events.c
-    consumer/methods.c
-    consumer/filter.c
-    consumer/partialPath.c
-    common/runningParamHelper.c
-    common/testValueHelper.c)
-add_dependencies(TestSubRbusOpenConsumer rbus)
-target_link_libraries(TestSubRbusOpenConsumer rbus)
-
 add_executable(multiRbusOpenRbusGetConsumer 
     multiRbusOpenRbusGetConsumer/multiRbusOpenRbusGetConsumer.c
     consumer/elementTree.c
@@ -223,7 +196,6 @@ install (TARGETS
  multiRbusOpenMethodProvider multiRbusOpenMethodConsumer
  multiRbusOpenRbusGetProvider multiRbusOpenRbusGetConsumer multiRbusOpenRbusSetConsumer
  multiProviderThreadsForSingleEvent multiConsumerThreadsForSingleEvent 
- TestRbusOpenRegProvider TestSubRbusOpenConsumer
  rbusOpenRegRbusOpenProvider rbusOpenSubRbusOpenConsumer 
  rbusTestProvider rbusTestConsumer 
         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
