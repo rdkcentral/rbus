@@ -571,10 +571,10 @@ static void rbusSubscriptions_loadCache(rbusSubscriptions_t subscriptions)
                     rbusSubscriptions_getListenerPid(sub->listener), sub->componentId);
             if(access(filename, F_OK) != 0)
             {
+                RBUSLOG_ERROR("file doesn't exist %s", filename);
                 subscriptionFree(sub);
                 needSave = true;
                 continue;
-                RBUSLOG_DEBUG("file doesn't exist %s", filename);
             }
         }
 
