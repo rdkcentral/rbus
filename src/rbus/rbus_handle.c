@@ -24,6 +24,29 @@ static rtVector gHandleList = NULL;
 
 #define VERIFY_NULL(T,R) if(NULL == T){ RBUSLOG_ERROR(#T" is NULL"); R; }
 
+bool rbusHandleList_IsValidHandle(struct _rbusHandle* handle)
+{
+    struct _rbusHandle* tmphandle = NULL;
+    if (handle == NULL)
+    {
+        return false;
+    }
+    int i;
+    if(gHandleList)
+    {
+        int len = rtVector_Size(gHandleList);
+        for(i = 0; i < len; i++)
+        {
+            tmphandle = (struct _rbusHandle*)rtVector_At(gHandleList, i);
+            if(tmphandle == handle)
+            {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
 void rbusHandleList_Add(struct _rbusHandle* handle)
 {
     VERIFY_NULL(handle,return);
