@@ -75,10 +75,10 @@
 #define RBUS_H
 
 #include <stddef.h>
-#include <rbus_value.h>
-#include <rbus_property.h>
-#include <rbus_object.h>
-#include <rbus_filter.h>
+#include "rbus_value.h"
+#include "rbus_property.h"
+#include "rbus_object.h"
+#include "rbus_filter.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -1896,7 +1896,7 @@ rbusError_t rbus_closeDirect(rbusHandle_t handle);
 }
 #endif
 
-#include <rbus_message.h>
+#include "rbus_message.h"
 
 #endif
 
