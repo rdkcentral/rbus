@@ -105,7 +105,7 @@ int main(int argc, char *argv[])
         printf("multiRbusOpenMethodConsumer: rbusMethod_Invoke(Device.Methods.SimpleMethod()) using handle1 return err:%d\n", rc1);
     }
     rc2 = rbusMethod_Invoke(handle2, "Device.Methods.SimpleMethod()", inParams2, &outParams2);
-    if(rc1 != RBUS_ERROR_SUCCESS)
+    if(rc2 != RBUS_ERROR_SUCCESS)
     {
         printf("multiRbusOpenMethodConsumer: rbusMethod_Invoke(Device.Methods.SimpleMethod()) using handle2 return err:%d\n", rc2);
     }
@@ -135,15 +135,13 @@ int main(int argc, char *argv[])
     }
 
     rc2 = rbusMethod_Invoke(handle2, "Device.Methods.SimpleMethod1()", NULL, &outParams2);
-    if(rc1 != RBUS_ERROR_SUCCESS)
+    if(rc2 != RBUS_ERROR_SUCCESS)
     {
-        printf("DEEPAK multiRbusOpenMethodConsumer: rbusMethod_Invoke(Device.Methods.SimpleMethod1()) using handle2 %s:%d\n",
+        printf("multiRbusOpenMethodConsumer: rbusMethod_Invoke(Device.Methods.SimpleMethod1()) using handle2 %s:%d\n",
                              rc2 == RBUS_ERROR_SUCCESS ? "success" : "fail",rc2);
     } 
-    printf("multiRbusOpenMethodConsumer: rbusMethod_Invoke(Device.Methods.SimpleMethod1()) using handle2 %s:%d\n",
-        rc2 == RBUS_ERROR_SUCCESS ? "success" : "fail",rc2);
 
-    if(rc1 != RBUS_ERROR_SUCCESS)
+    if(rc1 != RBUS_ERROR_INVALID_HANDLE && rc1 != RBUS_ERROR_SUCCESS)
     {
         rbusObject_fwrite(outParams1, 1, stdout);
         rbusObject_Release(outParams1);
