@@ -108,6 +108,16 @@
   } \
 }
 
+#define VERIFY_HANDLE(HANDLE)     \
+{                                                                           \
+    VERIFY_NULL(HANDLE);                                                    \
+    rbusHandle_t pTmp = (rbusHandle_t) HANDLE;                              \
+    if (!rbusHandleList_IsValidHandle(pTmp))                                \
+    {                                                                       \
+        RBUSLOG_ERROR("handle is invalid");                                 \
+        return RBUS_ERROR_INVALID_HANDLE;                                   \
+    }                                                                       \
+}
 //********************************************************************************//
 
 //******************************* STRUCTURES *************************************//
@@ -3101,6 +3111,7 @@ rbusError_t rbus_closeDirect(rbusHandle_t handle)
 
 rbusError_t rbus_close(rbusHandle_t handle)
 {
+    VERIFY_HANDLE(handle);
     rbusError_t ret = RBUS_ERROR_SUCCESS;
     rbusCoreError_t err = RBUSCORE_SUCCESS;
     struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
@@ -3215,6 +3226,7 @@ rbusError_t rbus_regDataElements(
     rbusDataElement_t *elements)
 {
     int i;
+    VERIFY_HANDLE(handle);
     rbusError_t rc = RBUS_ERROR_SUCCESS;
     rbusCoreError_t err = RBUSCORE_SUCCESS;
     struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
@@ -3314,6 +3326,7 @@ rbusError_t rbus_unregDataElements(
     int numDataElements,
     rbusDataElement_t *elements)
 {
+    VERIFY_HANDLE(handle);
     struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
     int i;
 
@@ -3401,6 +3414,7 @@ rbusError_t rbus_get(rbusHandle_t handle, char const* name, rbusValue_t* value)
 {
     rbusError_t errorcode = RBUS_ERROR_SUCCESS;
     rbusCoreError_t err = RBUSCORE_SUCCESS;
+    VERIFY_HANDLE(handle);
     rbusMessage request, response;
     int ret = -1;
     struct _rbusHandle* handleInfo = (struct _rbusHandle*) handle;
@@ -3868,6 +3882,7 @@ rbusError_t rbus_set(rbusHandle_t handle, char const* name,rbusValue_t value, rb
 {
     rbusError_t errorcode = RBUS_ERROR_INVALID_INPUT;
     rbusCoreError_t err = RBUSCORE_SUCCESS;
+    VERIFY_HANDLE(handle);
     rbusMessage setRequest, setResponse;
     struct _rbusHandle* handleInfo = (struct _rbusHandle*) handle;
 
@@ -5123,6 +5138,7 @@ rbusError_t  rbusEvent_Subscribe(
     int                 timeout)
 {
     rbusError_t errorcode;
+    VERIFY_HANDLE(handle);
     struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
 
     VERIFY_NULL(handle);
@@ -5148,6 +5164,7 @@ rbusError_t  rbusEvent_SubscribeAsync(
     int                             timeout)
 {
     rbusError_t errorcode;
+    VERIFY_HANDLE(handle);
     struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
 
     VERIFY_NULL(handle);
@@ -5169,6 +5186,7 @@ rbusError_t rbusEvent_Unsubscribe(
     rbusHandle_t        handle,
     char const*         eventName)
 {
+    VERIFY_HANDLE(handle);
     struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
     rbusEventSubscriptionInternal_t* subInternal;
 
@@ -5235,6 +5253,7 @@ rbusError_t rbusEvent_UnsubscribeRawData(
     rbusHandle_t        handle,
     char const*         eventName)
 {
+    VERIFY_HANDLE(handle);
     struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
     rbusEventSubscriptionInternal_t* subInternal;
     rbusError_t errorcode = RBUS_ERROR_SUCCESS;
@@ -5279,6 +5298,7 @@ rbusError_t rbusEvent_SubscribeEx(
     int                         timeout)
 {
     rbusError_t errorcode = RBUS_ERROR_SUCCESS;
+    VERIFY_HANDLE(handle);
     struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
     int i;
 
@@ -5899,6 +5919,7 @@ rbusError_t rbusMethod_Invoke(
     rbusObject_t inParams, 
     rbusObject_t* outParams)
 {
+    VERIFY_HANDLE(handle);
     struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
     VERIFY_NULL(handle);
     VERIFY_NULL(methodName);
@@ -5950,6 +5971,7 @@ rbusError_t rbusMethod_InvokeAsync(
     rbusMethodAsyncRespHandler_t callback, 
     int timeout)
 {
+    VERIFY_HANDLE(handle);
     struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
     pthread_t pid;
     rbusMethodInvokeAsyncData_t* data;

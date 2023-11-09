@@ -125,14 +125,6 @@ add_executable(rbusOpenTelemetry consumer/rbusOpenTelemetry.c)
 add_dependencies(rbusOpenTelemetry rbus)
 target_link_libraries(rbusOpenTelemetry rbus)
 
-add_executable(rbusThreadProvider provider/rbusThreadProvider.c)
-add_dependencies(rbusThreadProvider rbus)
-target_link_libraries(rbusThreadProvider rbus)
-
-add_executable(rbusThreadConsumer consumer/rbusThreadConsumer.c)
-add_dependencies(rbusThreadConsumer rbus)
-target_link_libraries(rbusThreadConsumer rbus)
-
 add_executable(rbusRawDataProvider provider/rbusRawDataProvider.c)
 add_dependencies(rbusRawDataProvider rbus)
 target_link_libraries(rbusRawDataProvider rbus)
@@ -159,8 +151,6 @@ install (TARGETS
     rbusCSIProvider
     rbusCSIConsumer
     rbusDirectConsumer
-    rbusThreadProvider
-    rbusThreadConsumer
     rbusRawDataProvider
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 

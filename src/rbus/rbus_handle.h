@@ -68,6 +68,7 @@ struct _rbusHandle
   rtConnection          m_connectionParent;
 };
 
+bool rbusHandleList_IsValidHandle(struct _rbusHandle* handle);
 void rbusHandleList_Add(struct _rbusHandle* handle);
 void rbusHandleList_Remove(struct _rbusHandle* handle);
 bool rbusHandleList_IsEmpty();

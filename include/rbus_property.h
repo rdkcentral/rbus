@@ -37,7 +37,7 @@
 #ifndef RBUS_PROPERTY_H
 #define RBUS_PROPERTY_H
 
-#include <rbus_value.h>
+#include "rbus_value.h"
 
 #ifdef __cplusplus
 extern "C" {

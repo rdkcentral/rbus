@@ -63,6 +63,34 @@ jobs:
           export LD_LIBRARY_PATH=$PREFIX/lib
           nohup ./bin/rbusTestProvider >/tmp/plog.txt &
           ./bin/rbusTestConsumer -a
+      - name: Run multiRbusOpenMethod Unit test 
+        run: |
+          cd install/usr
+          export PREFIX=$PWD
+          export LD_LIBRARY_PATH=$PREFIX/lib
+          nohup ./bin/multiRbusOpenMethodProvider >/tmp/log_multiRbusOpenMethodProvider.txt &
+          ./bin/multiRbusOpenMethodConsumer
+      - name: Run multiRbusOpenSubscribe Unit test
+        run: |
+          cd install/usr
+          export PREFIX=$PWD
+          export LD_LIBRARY_PATH=$PREFIX/lib
+          nohup ./bin/multiRbusOpenProvider >/tmp/log_multiRbusOpenProvider.txt &
+          ./bin/multiRbusOpenConsumer
+      - name: Run multiRbusOpenGet Unit test
+        run: |
+          cd install/usr
+          export PREFIX=$PWD
+          export LD_LIBRARY_PATH=$PREFIX/lib
+          nohup ./bin/multiRbusOpenRbusGetProvider >/tmp/log_multiRbusOpenRbusGetProvider.txt &
+          ./bin/multiRbusOpenRbusGetConsumer
+      - name: Run multiRbusOpenSet Unit test
+        run: |
+          cd install/usr
+          export PREFIX=$PWD
+          export LD_LIBRARY_PATH=$PREFIX/lib
+          nohup ./bin/multiRbusOpenRbusGetProvider >/tmp/log_multiRbusOpenRbusSetProvider.txt &
+          ./bin/multiRbusOpenRbusSetConsumer
       - name: Stop rtrouted
         run: |
           killall -9 rtrouted
