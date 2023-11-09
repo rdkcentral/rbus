@@ -40,7 +40,7 @@
 #ifndef RBUS_FILTER_H
 #define RBUS_FILTER_H
 
-#include <rbus_value.h>
+#include "rbus_value.h"
 
 #ifdef __cplusplus
 extern "C" {
