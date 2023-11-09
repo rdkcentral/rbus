@@ -79,13 +79,13 @@ TokenChain* TokenChain_create(char const* sourceName, elementNode* regNode)
 
     if(regNode == NULL)
     {
-        RBUSLOG_ERROR("%s ERROR: regNode NULL", __FUNCTION__);
+        RBUSLOG_ERROR("ERROR: regNode NULL");
         return NULL;
     }
 
     if(sourceName == NULL)
     {
-        RBUSLOG_ERROR("%s ERROR: sourceName NULL", __FUNCTION__);
+        RBUSLOG_ERROR("ERROR: sourceName NULL");
         return NULL;
     }
 
@@ -93,7 +93,7 @@ TokenChain* TokenChain_create(char const* sourceName, elementNode* regNode)
 
     if(nameLen == 0)    
     {
-        RBUSLOG_ERROR("%s ERROR: sourceName EMPTY", __FUNCTION__);
+        RBUSLOG_ERROR("ERROR: sourceName EMPTY");
         return NULL;
     }
 
@@ -177,7 +177,7 @@ TokenChain* TokenChain_create(char const* sourceName, elementNode* regNode)
                 }
                 else
                 {
-                    RBUSLOG_ERROR("%s ERROR: alias missing closing bracket: %s", __FUNCTION__, tok->text);
+                    RBUSLOG_ERROR("ERROR: alias missing closing bracket: %s", tok->text);
                     goto tokenChainError;
                 }
             }
@@ -195,7 +195,7 @@ TokenChain* TokenChain_create(char const* sourceName, elementNode* regNode)
                     }
                     else
                     {   
-                        RBUSLOG_ERROR("%s ERROR: invalid instance number %s", __FUNCTION__, tok->text);
+                        RBUSLOG_ERROR("ERROR: invalid instance number %s", tok->text);
                         goto tokenChainError;
                     }
                 }   
@@ -211,7 +211,7 @@ TokenChain* TokenChain_create(char const* sourceName, elementNode* regNode)
 
     if(ptr != name || node->parent != NULL)
     {
-        RBUSLOG_ERROR("%s ERROR: token count missmatch source=%s node=%s", __FUNCTION__, sourceName, regNode->fullName);
+        RBUSLOG_ERROR("ERROR: token count missmatch source=%s node=%s", sourceName, regNode->fullName);
         goto tokenChainError;
     }
 

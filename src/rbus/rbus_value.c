@@ -992,7 +992,7 @@ void rbusValue_Copy(rbusValue_t dest, rbusValue_t source)
     VERIFY_NULL(source);
     if(dest == source)
     {
-        RBUSLOG_INFO("%s: dest and source are the same", __FUNCTION__);
+        RBUSLOG_INFO("dest and source are the same");
         return;
     }
 
@@ -1012,7 +1012,7 @@ void rbusValue_Copy(rbusValue_t dest, rbusValue_t source)
         break;
     case RBUS_PROPERTY:
     case RBUS_OBJECT:
-        RBUSLOG_INFO("%s PROPERTY/OBJECT NOT SUPPORTED YET", __FUNCTION__); /* TODO */
+        RBUSLOG_INFO("PROPERTY/OBJECT NOT SUPPORTED YET"); /* TODO */
         break;
     default:
         dest->type = source->type;

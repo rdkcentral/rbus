@@ -21,6 +21,7 @@ include_directories(${PROJECT_SOURCE_DIR}/include)
 include_directories(${PROJECT_SOURCE_DIR}/src/rtmessage)
 include_directories(${PROJECT_SOURCE_DIR}/src/core)
 include_directories(${PROJECT_SOURCE_DIR}/src/rbus)
+include_directories(${PROJECT_SOURCE_DIR}/test/rbus/common)
 
 add_executable(rbusTestProvider 
     provider/rbusTestProvider.c
@@ -28,6 +29,44 @@ add_executable(rbusTestProvider
     common/testValueHelper.c)
 add_dependencies(rbusTestProvider rbus)
 target_link_libraries(rbusTestProvider rbus)
+
+add_executable(multiRbusOpenProvider 
+    multiRbusOpenProvider/multiRbusOpenProvider.c
+    common/runningParamHelper.c
+    common/testValueHelper.c)
+add_dependencies(multiRbusOpenProvider rbus)
+target_link_libraries(multiRbusOpenProvider rbus)
+
+add_executable(multiRbusOpenMethodProvider 
+    multiRbusOpenMethodProvider/multiRbusOpenMethodProvider.c
+    common/runningParamHelper.c
+    common/testValueHelper.c)
+add_dependencies(multiRbusOpenMethodProvider rbus)
+target_link_libraries(multiRbusOpenMethodProvider rbus)
+
+add_executable(rbusOpenRegRbusOpenProvider 
+    multiRbusOpenProvider/rbusOpenRegRbusOpenProvider.c
+    common/runningParamHelper.c
+    common/testValueHelper.c)
+add_dependencies(rbusOpenRegRbusOpenProvider rbus)
+target_link_libraries(rbusOpenRegRbusOpenProvider rbus)
+
+add_executable(multiRbusOpenRbusGetProvider 
+    multiRbusOpenRbusGetProvider/multiRbusOpenRbusGetProvider.c
+    common/runningParamHelper.c
+    common/testValueHelper.c)
+add_dependencies(multiRbusOpenRbusGetProvider rbus)
+target_link_libraries(multiRbusOpenRbusGetProvider rbus)
+
+add_executable(multiProviderThreadsForSingleEvent 
+    multiProviderThreadsForSingleEvent/multiProviderThreadsForSingleEvent.c)
+add_dependencies(multiProviderThreadsForSingleEvent rbus)
+target_link_libraries(multiProviderThreadsForSingleEvent rbus)
+
+add_executable(multiConsumerThreadsForSingleEvent 
+    multiConsumerThreadsForSingleEvent/multiConsumerThreadsForSingleEvent.c)
+add_dependencies(multiConsumerThreadsForSingleEvent rbus)
+target_link_libraries(multiConsumerThreadsForSingleEvent rbus)
 
 add_executable(rbusTestConsumer 
     consumer/rbusTestConsumer.c
@@ -48,9 +87,117 @@ add_executable(rbusTestConsumer
     common/testValueHelper.c)
 add_dependencies(rbusTestConsumer rbus)
 target_link_libraries(rbusTestConsumer rbus)
+
+add_executable(multiRbusOpenConsumer 
+    multiRbusOpenConsumer/multiRbusOpenConsumer.c
+    consumer/elementTree.c
+    consumer/valueAPI.c
+    consumer/propertyAPI.c
+    consumer/objectAPI.c
+    consumer/value.c
+    consumer/valueChange.c
+    consumer/subscribe.c
+    consumer/subscribeEx.c
+    consumer/tables.c
+    consumer/events.c
+    consumer/methods.c
+    consumer/filter.c
+    consumer/partialPath.c
+    common/runningParamHelper.c
+    common/testValueHelper.c)
+add_dependencies(multiRbusOpenConsumer rbus)
+target_link_libraries(multiRbusOpenConsumer rbus)
+
+add_executable(multiRbusOpenMethodConsumer 
+    multiRbusOpenMethodConsumer/multiRbusOpenMethodConsumer.c
+    consumer/elementTree.c
+    consumer/valueAPI.c
+    consumer/propertyAPI.c
+    consumer/objectAPI.c
+    consumer/value.c
+    consumer/valueChange.c
+    consumer/subscribe.c
+    consumer/subscribeEx.c
+    consumer/tables.c
+    consumer/events.c
+    consumer/methods.c
+    consumer/filter.c
+    consumer/partialPath.c
+    common/runningParamHelper.c
+    common/testValueHelper.c)
+add_dependencies(multiRbusOpenMethodConsumer rbus)
+target_link_libraries(multiRbusOpenMethodConsumer rbus)
+
+add_executable(rbusOpenSubRbusOpenConsumer  
+    multiRbusOpenConsumer/rbusOpenSubRbusOpenConsumer.c
+    consumer/elementTree.c
+    consumer/valueAPI.c
+    consumer/propertyAPI.c
+    consumer/objectAPI.c
+    consumer/value.c
+    consumer/valueChange.c
+    consumer/subscribe.c
+    consumer/subscribeEx.c
+    consumer/tables.c
+    consumer/events.c
+    consumer/methods.c
+    consumer/filter.c
+    consumer/partialPath.c
+    common/runningParamHelper.c
+    common/testValueHelper.c)
+add_dependencies(rbusOpenSubRbusOpenConsumer rbus)
+target_link_libraries(rbusOpenSubRbusOpenConsumer rbus)
+
+add_executable(multiRbusOpenRbusGetConsumer 
+    multiRbusOpenRbusGetConsumer/multiRbusOpenRbusGetConsumer.c
+    consumer/elementTree.c
+    consumer/valueAPI.c
+    consumer/propertyAPI.c
+    consumer/objectAPI.c
+    consumer/value.c
+    consumer/valueChange.c
+    consumer/subscribe.c
+    consumer/subscribeEx.c
+    consumer/tables.c
+    consumer/events.c
+    consumer/methods.c
+    consumer/filter.c
+    consumer/partialPath.c
+    common/runningParamHelper.c
+    common/testValueHelper.c)
+add_dependencies(multiRbusOpenRbusGetConsumer rbus)
+target_link_libraries(multiRbusOpenRbusGetConsumer rbus)
+
+add_executable(multiRbusOpenRbusSetConsumer 
+    multiRbusOpenRbusSetConsumer/multiRbusOpenRbusSetConsumer.c
+    consumer/elementTree.c
+    consumer/valueAPI.c
+    consumer/propertyAPI.c
+    consumer/objectAPI.c
+    consumer/value.c
+    consumer/valueChange.c
+    consumer/subscribe.c
+    consumer/subscribeEx.c
+    consumer/tables.c
+    consumer/events.c
+    consumer/methods.c
+    consumer/filter.c
+    consumer/partialPath.c
+    common/runningParamHelper.c
+    common/testValueHelper.c)
+add_dependencies(multiRbusOpenRbusSetConsumer rbus)
+target_link_libraries(multiRbusOpenRbusSetConsumer rbus)
+
+
 set (CMAKE_C_FLAGS "-Wno-overflow ${CMAKE_C_FLAGS}")
 
-install (TARGETS rbusTestProvider rbusTestConsumer 
+install (TARGETS
+ multiRbusOpenConsumer multiRbusOpenProvider
+ multiRbusOpenMethodProvider multiRbusOpenMethodConsumer
+ multiRbusOpenRbusGetProvider multiRbusOpenRbusGetConsumer multiRbusOpenRbusSetConsumer
+ multiProviderThreadsForSingleEvent multiConsumerThreadsForSingleEvent 
+ rbusOpenRegRbusOpenProvider rbusOpenSubRbusOpenConsumer 
+ rbusTestProvider rbusTestConsumer 
         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 install(FILES rbus_test.sh
