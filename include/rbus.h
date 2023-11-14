@@ -1871,6 +1871,12 @@ rbusError_t rbus_setLogLevel(rbusLogLevel_t level);
  *
  *  @brief  Component use this API to open direct connection to the provider
  *
+ *  Rbus supports a mode that optimizes performance for very frequent, high data rate transfers or rbus operations that need extremely low latency.
+ *  This is known as rbus_direct mode.   While this mode improves performance, reduces CPU usage and improves latency, it also uses more memory and
+ *  resources compared with normal rbus operation.   Rbus_direct mode should only be used where it's needed and avoided where its not needed.
+ *  Developers should use normal rbus operation modes unless there are special circumstances that require rbus_direct mode.  Developers should 
+ *  NOT use rbus_direct mode for all operations.   For more information on rbus_direct see the instructions for rbus_openDirect() in rbus.h.
+ *
  *  Used by: Component that wants to use private connection to provider and avoid RBUS Daemon.
  *
  *  @param handle           Current active rbus handle
