@@ -118,6 +118,25 @@
         return RBUS_ERROR_INVALID_HANDLE;                                   \
     }                                                                       \
 }
+
+#define VERIFY_METHOD_HANDLE(HANDLE)    \
+{                                                                           \
+    rbusHandle_t pTmp = (rbusHandle_t) HANDLE;                              \
+    if (!rbusHandleList_IsValidHandle(pTmp))                                \
+    {                                                                       \
+        RBUSLOG_ERROR("handle is invalid");                                 \
+        return RBUS_ERROR_INVALID_METHOD_INVOKE_HANDLE;                     \
+    }                                                                       \
+    VERIFY_METHOD_NULL(HANDLE);                                  \
+}
+
+#define VERIFY_METHOD_NULL(T)           \
+{                                                                           \
+    if(NULL == T)                                                           \
+    {                                                                       \
+        RBUSLOG_WARN(#T" is NULL"); return RBUS_ERROR_INVALID_METHOD_INVOKE_INPUT;    \
+    }                                                                       \
+}
 //********************************************************************************//
 
 //******************************* STRUCTURES *************************************//
@@ -5544,6 +5563,7 @@ rbusError_t rbusMethod_InvokeInternal(
     {
         RBUSLOG_ERROR("%s failed; Received error %d from RBUS Daemon for the object %s", handle->componentName, err, methodName);
         /* Updating the outParmas as RBUS core is returning failure */
+        rbusObject_Init(outParams, NULL);
         rbusValue_Init(&value1);
         rbusValue_Init(&value2);
 
@@ -5578,32 +5598,10 @@ rbusError_t rbusMethod_Invoke(
     rbusObject_t inParams, 
     rbusObject_t* outParams)
 {
-   rbusValue_t value1 = NULL, value2 = NULL;
-   rbusObject_Init(outParams, NULL);
- 
-   rbusValue_Init(&value1);
-   rbusValue_Init(&value2);
-   rbusValue_SetInt32(value1, RBUS_ERROR_INVALID_HANDLE);
-   rbusValue_SetString(value2, rbusError_ToString(RBUS_ERROR_INVALID_HANDLE));
-   rbusObject_SetValue(*outParams, "error_code", value1);
-   rbusObject_SetValue(*outParams, "error_string", value2);
-   rbusValue_Release(value1);
-   rbusValue_Release(value2);
-
-    VERIFY_HANDLE(handle);
+    VERIFY_METHOD_HANDLE(handle);
+    VERIFY_METHOD_NULL(methodName);
+    
     struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
-
-    rbusValue_Init(&value1);
-    rbusValue_Init(&value2);
-    rbusValue_SetInt32(value1, RBUS_ERROR_INVALID_INPUT);
-    rbusValue_SetString(value2, rbusError_ToString(RBUS_ERROR_INVALID_INPUT));
-    rbusObject_SetValue(*outParams, "error_code", value1);
-    rbusObject_SetValue(*outParams, "error_string", value2);
-    rbusValue_Release(value1);
-    rbusValue_Release(value2);
-
-    VERIFY_NULL(handle);
-    VERIFY_NULL(methodName);
 
     if (handleInfo->m_handleType != RBUS_HWDL_TYPE_REGULAR)
         return RBUS_ERROR_INVALID_HANDLE;
@@ -5652,15 +5650,14 @@ rbusError_t rbusMethod_InvokeAsync(
     rbusMethodAsyncRespHandler_t callback, 
     int timeout)
 {
-    VERIFY_HANDLE(handle);
+    VERIFY_METHOD_HANDLE(handle);
+    VERIFY_METHOD_NULL(methodName);
+    VERIFY_METHOD_NULL(callback);
+ 
     struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
     pthread_t pid;
     rbusMethodInvokeAsyncData_t* data;
     int err = 0;
-
-    VERIFY_NULL(handle);
-    VERIFY_NULL(methodName);
-    VERIFY_NULL(callback);
 
     if (handleInfo->m_handleType != RBUS_HWDL_TYPE_REGULAR)
         return RBUS_ERROR_INVALID_HANDLE;

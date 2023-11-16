@@ -127,7 +127,9 @@ typedef enum _rbusError
     RBUS_ERROR_INVALID_METHOD,                  /**< Invalid Method           */
     RBUS_ERROR_NOSUBSCRIBERS,                   /**< No subscribers present   */
     RBUS_ERROR_SUBSCRIPTION_ALREADY_EXIST,      /**< The subscription already exists*/
-    RBUS_ERROR_INVALID_NAMESPACE                /**< Invalid namespace as per standard */
+    RBUS_ERROR_INVALID_NAMESPACE,               /**< Invalid namespace as per standard */
+    RBUS_ERROR_INVALID_METHOD_INVOKE_HANDLE,    /**< Invalid Method Invoke Handle */
+    RBUS_ERROR_INVALID_METHOD_INVOKE_INPUT      /**< Invalid Method Invoke Input  */
 } rbusError_t;
 
 
@@ -1713,8 +1715,10 @@ rbusError_t  rbusEvent_PublishRawData(
                             provider is responsible in sending the errorcode and error string.
                             other error like no method/handling issues, internal err
                             will be taken care by rbus.
+                            consumer side errors returning (RBUS_ERROR_INVALID_METHOD_INVOKE_HANDLE and
+                            RBUS_ERROR_INVALID_METHOD_INVOKE_INPUT) will not contain outparams for input validation.
  *  @return RBus error code as defined by rbusError_t.
- *  Possible values are: RBUS_ERROR_SUCCESS, RBUS_ERROR_BUS_ERROR, RBUS_ERROR_INVALID_INPUT
+ *  Possible values are: RBUS_ERROR_SUCCESS, RBUS_ERROR_BUS_ERROR, RBUS_ERROR_INVALID_INPUT, RBUS_ERROR_TIMEOUT, RBUS_ERROR_INVALID_METHOD, RBUS_ERROR_INVALID_HANDLE, RBUS_ERROR_INVALID_METHOD_INVOKE_HANDLE, RBUS_ERROR_INVALID_METHOD_INVOKE_INPUT
  *  @ingroup Methods
  */
 rbusError_t rbusMethod_Invoke(
