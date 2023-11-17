@@ -118,25 +118,6 @@
         return RBUS_ERROR_INVALID_HANDLE;                                   \
     }                                                                       \
 }
-
-#define VERIFY_METHOD_HANDLE(HANDLE)    \
-{                                                                           \
-    rbusHandle_t pTmp = (rbusHandle_t) HANDLE;                              \
-    if (!rbusHandleList_IsValidHandle(pTmp))                                \
-    {                                                                       \
-        RBUSLOG_ERROR("handle is invalid");                                 \
-        return RBUS_ERROR_INVALID_METHOD_INVOKE_HANDLE;                     \
-    }                                                                       \
-    VERIFY_METHOD_NULL(HANDLE);                                  \
-}
-
-#define VERIFY_METHOD_NULL(T)           \
-{                                                                           \
-    if(NULL == T)                                                           \
-    {                                                                       \
-        RBUSLOG_WARN(#T" is NULL"); return RBUS_ERROR_INVALID_METHOD_INVOKE_INPUT;    \
-    }                                                                       \
-}
 //********************************************************************************//
 
 //******************************* STRUCTURES *************************************//
@@ -5598,8 +5579,8 @@ rbusError_t rbusMethod_Invoke(
     rbusObject_t inParams, 
     rbusObject_t* outParams)
 {
-    VERIFY_METHOD_HANDLE(handle);
-    VERIFY_METHOD_NULL(methodName);
+    VERIFY_HANDLE(handle);
+    VERIFY_NULL(methodName);
     
     struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
 
@@ -5650,9 +5631,9 @@ rbusError_t rbusMethod_InvokeAsync(
     rbusMethodAsyncRespHandler_t callback, 
     int timeout)
 {
-    VERIFY_METHOD_HANDLE(handle);
-    VERIFY_METHOD_NULL(methodName);
-    VERIFY_METHOD_NULL(callback);
+    VERIFY_HANDLE(handle);
+    VERIFY_NULL(methodName);
+    VERIFY_NULL(callback);
  
     struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
     pthread_t pid;
