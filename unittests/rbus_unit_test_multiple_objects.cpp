@@ -44,12 +44,12 @@ static bool OPEN_BROKER_CONNECTION1(char* connection_name)
     bool result = false;
     rbusCoreError_t err = RBUSCORE_SUCCESS;
 
-    if((err = rbus_openBrokerConnection(connection_name)) == RBUSCORE_SUCCESS)
+    if((err = rbuscore_openBrokerConnection(connection_name)) == RBUSCORE_SUCCESS)
     {
          //printf("Successfully connected to bus.\n");
          result = true;
     }
-    EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_openBrokerConnection failed";
+    EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbuscore_openBrokerConnection failed";
     return result;
 }
 
@@ -57,12 +57,12 @@ static bool CLOSE_BROKER_CONNECTION1()
 {
     bool result = false;
     rbusCoreError_t err = RBUSCORE_SUCCESS;
-    if((err = rbus_closeBrokerConnection()) == RBUSCORE_SUCCESS)
+    if((err = rbuscore_closeBrokerConnection()) == RBUSCORE_SUCCESS)
     {
         //printf("Successfully disconnected from bus.\n");
         result = true;
     }
-    EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_closeBrokerConnection failed";
+    EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbuscore_closeBrokerConnection failed";
     return result;
 }
 
@@ -101,13 +101,13 @@ static void CREATE_RBUS_SERVER_INSTANCE1(int handle, int obj_count)
         printf("Registering object %s\n", buffer);
         strncpy(*(test_buffer + i), buffer, 100);
 
-        err = rbus_registerObj(buffer, callback, NULL);
-        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_registerObj failed";
+        err = rbuscore_registerObj(buffer, callback, NULL);
+        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbuscore_registerObj failed";
 
         rbus_method_table_entry_t table[2] = {{METHOD_SETPARAMETERVALUES, (void *)(test_buffer + i), handle_setStudentInfo}, {METHOD_GETPARAMETERVALUES, (void *)(test_buffer + i), handle_getStudentInfo}};
 
-        err = rbus_registerMethodTable(buffer, table, 2);
-        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_registerMethodTable failed";
+        err = rbuscore_registerMethodTable(buffer, table, 2);
+        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbuscore_registerMethodTable failed";
     }
     return;
 }
@@ -136,21 +136,21 @@ static void CREATE_RBUS_SERVER_ELEMENTS(int handle, int element_count)
 
     printf("Registering object %s\n", obj_name);
 
-    err = rbus_registerObj(obj_name, callback, NULL);
-    EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_registerObj failed";
+    err = rbuscore_registerObj(obj_name, callback, NULL);
+    EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbuscore_registerObj failed";
 
     rbus_method_table_entry_t table[2] = {{METHOD_SETPARAMETERVALUES, (void *)(test_buffer), handle_set1}, {METHOD_GETPARAMETERVALUES, (void *)(test_buffer), handle_get1}};
 
-    err = rbus_registerMethodTable(obj_name, table, 2);
-    EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_registerMethodTable failed";
+    err = rbuscore_registerMethodTable(obj_name, table, 2);
+    EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbuscore_registerMethodTable failed";
 
     for(i = 1; i < element_count; i++)
     {
         memset( buffer, 0, DEFAULT_RESULT_BUFFERSIZE );
         snprintf(buffer, (sizeof(buffer) - 1), "%s.element%d", obj_name, i);
         printf("Adding element %s\n", buffer);
-        err = rbus_addElement(obj_name, buffer);
-        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_addElement failed";
+        err = rbuscore_addElement(obj_name, buffer);
+        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbuscore_addElement failed";
     }
     return;
 }
@@ -161,12 +161,12 @@ static bool RBUS_PULL_OBJECT1(const char* expected_data, char* server_obj, rbusC
     rbusCoreError_t err = RBUSCORE_SUCCESS;
     rbusMessage response;
     //printf("pulling data from : %s \n", server_obj);
-    if((err = rbus_pullObj(server_obj, 1000, &response)) == RBUSCORE_SUCCESS)
+    if((err = rbuscore_pullObj(server_obj, 1000, &response)) == RBUSCORE_SUCCESS)
     {
         const char* buff = NULL;
         rbusMessage_GetString(response, &buff);
         printf("%s: rbus pull returned : %s \n", __FUNCTION__, buff);
-        EXPECT_STREQ(buff, expected_data) << "rbus_pullObj failed to procure expected string";
+        EXPECT_STREQ(buff, expected_data) << "rbuscore_pullObj failed to procure expected string";
         rbusMessage_Release(response);
         result = true;
     }
@@ -174,7 +174,7 @@ static bool RBUS_PULL_OBJECT1(const char* expected_data, char* server_obj, rbusC
     {
         printf("Could not pull object %s\n", server_obj);
     }
-    EXPECT_EQ(err, expected_err) << "rbus_pullObj failed";
+    EXPECT_EQ(err, expected_err) << "rbuscore_pullObj failed";
     return result;
 }
 
@@ -185,8 +185,8 @@ static bool RBUS_PUSH_OBJECT1(char* data, char* server_obj, rbusCoreError_t expe
     rbusMessage_Init(&setter);
     rbusMessage_SetString(setter, data);
     //printf("pushing data %s to : %s \n", data, server_obj);
-    err = rbus_pushObj(server_obj, setter, 1000);
-    EXPECT_EQ(err, expected_err) << "rbus_pushObj failed";
+    err = rbuscore_pushObj(server_obj, setter, 1000);
+    EXPECT_EQ(err, expected_err) << "rbuscore_pushObj failed";
     return true;
 }
 

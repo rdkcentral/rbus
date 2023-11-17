@@ -86,7 +86,7 @@ void rbusHandleList_ClientDisconnect(char const* clientListener)
     size_t len;
     VERIFY_NULL(clientListener,return);
     if(gHandleList)/*this could theoretically be null if advisory event comes in between the time rbus_close calls 
-                  rbusHandleList_Remove and rbus_unregisterClientDisconnectHandler*/
+                  rbusHandleList_Remove and rbuscore_unregisterClientDisconnectHandler*/
     {
         len = rtVector_Size(gHandleList);
         for(i = 0; i < len; i++)

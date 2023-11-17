@@ -88,46 +88,46 @@ int main(int argc, char *argv[])
     printf("syntax: sample_server <server object name>\n");
     rtLog_SetLevel(RT_LOG_INFO);
 
-    if((err = rbus_openBrokerConnection(argv[1])) == RBUSCORE_SUCCESS)
+    if((err = rbuscore_openBrokerConnection(argv[1])) == RBUSCORE_SUCCESS)
     {
         printf("Successfully connected to bus.\n");
     }
 
 
-    if((err = rbus_registerObj(OBJ1_NAME, callback, NULL)) == RBUSCORE_SUCCESS)
+    if((err = rbuscore_registerObj(OBJ1_NAME, callback, NULL)) == RBUSCORE_SUCCESS)
     {
         printf("Successfully registered object.\n");
     }
-    if((err = rbus_registerObj(OBJ2_NAME, callback, NULL)) == RBUSCORE_SUCCESS)
+    if((err = rbuscore_registerObj(OBJ2_NAME, callback, NULL)) == RBUSCORE_SUCCESS)
     {
         printf("Successfully registered object.\n");
     }
 
     rbus_method_table_entry_t table[2] = {{METHOD_SETPARAMETERVALUES, (void *)data1, handle_set}, {METHOD_GETPARAMETERVALUES, (void *)data1, handle_get}};
-    rbus_registerMethodTable(OBJ1_NAME, table, 2);
+    rbuscore_registerMethodTable(OBJ1_NAME, table, 2);
     table[0].user_data = (void *)data2;
     table[1].user_data = (void *)data2;
-    rbus_registerMethodTable(OBJ2_NAME, table, 2);
-    rbus_addElement(OBJ1_NAME, "obj1_alias");
-    rbus_addElement(OBJ1_NAME, "obj1_alias2");
+    rbuscore_registerMethodTable(OBJ2_NAME, table, 2);
+    rbuscore_addElement(OBJ1_NAME, "obj1_alias");
+    rbuscore_addElement(OBJ1_NAME, "obj1_alias2");
 
-    rbus_registerEvent(OBJ1_NAME, "event1", NULL, NULL);
-    rbus_registerEvent(OBJ1_NAME, "event1", NULL, NULL); //Negative test.
-    rbus_registerEvent(OBJ1_NAME, "event2", NULL, NULL);
-    rbus_registerEvent(OBJ2_NAME, NULL, NULL, NULL); //Test with empty event name. This is equivalent to the school of thought that "object name == event"
+    rbuscore_registerEvent(OBJ1_NAME, "event1", NULL, NULL);
+    rbuscore_registerEvent(OBJ1_NAME, "event1", NULL, NULL); //Negative test.
+    rbuscore_registerEvent(OBJ1_NAME, "event2", NULL, NULL);
+    rbuscore_registerEvent(OBJ2_NAME, NULL, NULL, NULL); //Test with empty event name. This is equivalent to the school of thought that "object name == event"
 
     //support rbus events being elements
-    rbus_addElement(OBJ1_NAME, "event4");
+    rbuscore_addElement(OBJ1_NAME, "event4");
     char data4[] = "data4";
-    rbus_registerEvent(OBJ1_NAME, "event4", sub_callback, data4);
+    rbuscore_registerEvent(OBJ1_NAME, "event4", sub_callback, data4);
 
     {
         //Run some negative test cases first.
         rbusMessage msg3;
         rbusMessage_Init(&msg3);
         rbusMessage_SetString(msg3, "efgh");
-        rbus_publishEvent(OBJ2_NAME, "non_event", msg3);
-        rbus_publishEvent("non_object", "event3", msg3);
+        rbuscore_publishEvent(OBJ2_NAME, "non_event", msg3);
+        rbuscore_publishEvent("non_object", "event3", msg3);
         rbusMessage_Release(msg3);
     }
 
@@ -141,9 +141,9 @@ int main(int argc, char *argv[])
         rbusMessage_SetString(msg1, "bar");
         rbusMessage_SetString(msg2, "beef");
         rbusMessage_SetString(msg4, "two");
-        rbus_publishEvent(OBJ1_NAME, "event1", msg1);
-        rbus_publishEvent(OBJ1_NAME, "event2", msg2);
-        rbus_publishEvent(OBJ1_NAME, "event4", msg4);
+        rbuscore_publishEvent(OBJ1_NAME, "event1", msg1);
+        rbuscore_publishEvent(OBJ1_NAME, "event2", msg2);
+        rbuscore_publishEvent(OBJ1_NAME, "event4", msg4);
         rbusMessage_Release(msg1);
         rbusMessage_Release(msg2);
         rbusMessage_Release(msg4);
@@ -153,19 +153,19 @@ int main(int argc, char *argv[])
             rbusMessage msg3;
             rbusMessage_Init(&msg3);
             rbusMessage_SetString(msg3, "efgh");
-            rbus_publishEvent(OBJ2_NAME, NULL, msg3);
+            rbuscore_publishEvent(OBJ2_NAME, NULL, msg3);
             rbusMessage_Release(msg3);
         }
         if(10 == i)
         {
-            rbus_unregisterEvent(OBJ2_NAME, NULL);
-            rbus_unregisterObj(OBJ2_NAME);
+            rbuscore_unregisterEvent(OBJ2_NAME, NULL);
+            rbuscore_unregisterObj(OBJ2_NAME);
         }
         sleep(4);
     }
     pause();
 
-    if((err = rbus_closeBrokerConnection()) == RBUSCORE_SUCCESS)
+    if((err = rbuscore_closeBrokerConnection()) == RBUSCORE_SUCCESS)
     {
         printf("Successfully disconnected from bus.\n");
     }

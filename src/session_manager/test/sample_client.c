@@ -30,7 +30,7 @@ static int g_current_session_id = 0;
 void create_session()
 {
     rbusMessage response;
-    if(RBUSCORE_SUCCESS == rbus_invokeRemoteMethod(RBUS_SMGR_DESTINATION_NAME, RBUS_SMGR_METHOD_REQUEST_SESSION_ID, NULL, 1000, &response))
+    if(RBUSCORE_SUCCESS == rbuscore_invokeRemoteMethod(RBUS_SMGR_DESTINATION_NAME, RBUS_SMGR_METHOD_REQUEST_SESSION_ID, NULL, 1000, &response))
     {
         int result;
         if(RT_OK == rbusMessage_GetInt32(response, &result))
@@ -55,7 +55,7 @@ void create_session()
 void print_current_session_id()
 {
     rbusMessage response;
-    if(RBUSCORE_SUCCESS == rbus_invokeRemoteMethod(RBUS_SMGR_DESTINATION_NAME, RBUS_SMGR_METHOD_GET_CURRENT_SESSION_ID, NULL, 1000, &response))
+    if(RBUSCORE_SUCCESS == rbuscore_invokeRemoteMethod(RBUS_SMGR_DESTINATION_NAME, RBUS_SMGR_METHOD_GET_CURRENT_SESSION_ID, NULL, 1000, &response))
     {
         int result;
         if(RT_OK == rbusMessage_GetInt32(response, &result))
@@ -84,7 +84,7 @@ void end_session(int session)
 
     rbusMessage_Init(&out);
     rbusMessage_SetInt32(out, session);
-    if(RBUSCORE_SUCCESS == rbus_invokeRemoteMethod(RBUS_SMGR_DESTINATION_NAME, RBUS_SMGR_METHOD_END_SESSION, out, 1000, &response))
+    if(RBUSCORE_SUCCESS == rbuscore_invokeRemoteMethod(RBUS_SMGR_DESTINATION_NAME, RBUS_SMGR_METHOD_END_SESSION, out, 1000, &response))
     {
         int result;
         if(RT_OK == rbusMessage_GetInt32(response, &result))
@@ -109,7 +109,7 @@ int main(int argc, char *argv[])
     rbusCoreError_t err = RBUSCORE_SUCCESS;
     rtLog_SetLevel(RT_LOG_INFO);
 
-    if((err = rbus_openBrokerConnection("rbus_smgr_client")) == RBUSCORE_SUCCESS)
+    if((err = rbuscore_openBrokerConnection("rbus_smgr_client")) == RBUSCORE_SUCCESS)
     {
         printf("Successfully connected to bus.\n");
     }
@@ -124,7 +124,7 @@ int main(int argc, char *argv[])
     end_session(g_current_session_id);
     
 
-    if((err = rbus_closeBrokerConnection()) == RBUSCORE_SUCCESS)
+    if((err = rbuscore_closeBrokerConnection()) == RBUSCORE_SUCCESS)
     {
         printf("Successfully disconnected from bus.\n");
     }

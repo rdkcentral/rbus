@@ -85,43 +85,43 @@ int main(int argc, char *argv[])
     rbusCoreError_t err = RBUSCORE_SUCCESS;
     rtLog_SetLevel(RT_LOG_INFO);
 
-    if((err = rbus_openBrokerConnection("wildcard_server")) == RBUSCORE_SUCCESS)
+    if((err = rbuscore_openBrokerConnection("wildcard_server")) == RBUSCORE_SUCCESS)
     {
         printf("Successfully connected to bus.\n");
     }
 
 
-    if((err = rbus_registerObj(OBJ1_NAME, callback, NULL)) == RBUSCORE_SUCCESS)
+    if((err = rbuscore_registerObj(OBJ1_NAME, callback, NULL)) == RBUSCORE_SUCCESS)
     {
         printf("Successfully registered object.\n");
     }
-    if((err = rbus_registerObj(OBJ2_NAME, callback, NULL)) == RBUSCORE_SUCCESS)
+    if((err = rbuscore_registerObj(OBJ2_NAME, callback, NULL)) == RBUSCORE_SUCCESS)
     {
         printf("Successfully registered object.\n");
     }
 
-    if((err = rbus_registerObj(OBJ3_NAME, callback, NULL)) == RBUSCORE_SUCCESS)
+    if((err = rbuscore_registerObj(OBJ3_NAME, callback, NULL)) == RBUSCORE_SUCCESS)
     {
         printf("Successfully registered object.\n");
     }
     rbus_method_table_entry_t table[2] = {{METHOD_SETPARAMETERVALUES, (void *)data1, handle_set}, {METHOD_GETPARAMETERVALUES, (void *)data1, handle_get}};
-    rbus_registerMethodTable(OBJ1_NAME, table, 2);
+    rbuscore_registerMethodTable(OBJ1_NAME, table, 2);
     table[0].user_data = (void *)data2;
     table[1].user_data = (void *)data2;
-    rbus_registerMethodTable(OBJ2_NAME, table, 2);
-    rbus_addElement(OBJ1_NAME, "device.wifi.a");
-    rbus_addElement(OBJ1_NAME, "device.wifi.aa");
-    rbus_addElement(OBJ1_NAME, "device.wifi.ab");
-    rbus_addElement(OBJ1_NAME, "device.wifi.abb");
-    rbus_addElement(OBJ1_NAME, "device.wifi.b");
-    rbus_addElement(OBJ1_NAME, "device.wifi.x.y");
-    rbus_addElement(OBJ2_NAME, "device.tr69.x.y");
-    rbus_addElement(OBJ2_NAME, "device.wifii.a");
-    rbus_addElement(OBJ2_NAME, "device.tr69.x.z");
+    rbuscore_registerMethodTable(OBJ2_NAME, table, 2);
+    rbuscore_addElement(OBJ1_NAME, "device.wifi.a");
+    rbuscore_addElement(OBJ1_NAME, "device.wifi.aa");
+    rbuscore_addElement(OBJ1_NAME, "device.wifi.ab");
+    rbuscore_addElement(OBJ1_NAME, "device.wifi.abb");
+    rbuscore_addElement(OBJ1_NAME, "device.wifi.b");
+    rbuscore_addElement(OBJ1_NAME, "device.wifi.x.y");
+    rbuscore_addElement(OBJ2_NAME, "device.tr69.x.y");
+    rbuscore_addElement(OBJ2_NAME, "device.wifii.a");
+    rbuscore_addElement(OBJ2_NAME, "device.tr69.x.z");
 
     pause();
 
-    if((err = rbus_closeBrokerConnection()) == RBUSCORE_SUCCESS)
+    if((err = rbuscore_closeBrokerConnection()) == RBUSCORE_SUCCESS)
     {
         printf("Successfully disconnected from bus.\n");
     }

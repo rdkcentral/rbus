@@ -76,38 +76,38 @@ int main(int argc, char *argv[])
     rbusCoreError_t err = RBUSCORE_SUCCESS;
     rtLog_SetLevel(RT_LOG_INFO);
 
-    if((err = rbus_openBrokerConnection("obj_lookup")) == RBUSCORE_SUCCESS)
+    if((err = rbuscore_openBrokerConnection("obj_lookup")) == RBUSCORE_SUCCESS)
     {
         printf("Successfully connected to bus.\n");
     }
 
-    if((err = rbus_registerObj("foo", callback, NULL)) == RBUSCORE_SUCCESS)
+    if((err = rbuscore_registerObj("foo", callback, NULL)) == RBUSCORE_SUCCESS)
     {
         printf("Successfully registered object.\n");
     }
 
-    if((err = rbus_registerObj("bar", callback, NULL)) == RBUSCORE_SUCCESS)
+    if((err = rbuscore_registerObj("bar", callback, NULL)) == RBUSCORE_SUCCESS)
     {
         printf("Successfully registered object.\n");
     }
 
     rbus_method_table_entry_t table[1] = {{METHOD_GETPARAMETERVALUES, NULL, handle_get}};
-    rbus_registerMethodTable("foo", table, 1); 
-    rbus_registerMethodTable("bar", table, 1);
+    rbuscore_registerMethodTable("foo", table, 1); 
+    rbuscore_registerMethodTable("bar", table, 1);
 
-    rbus_addElement("foo", "foox.element1");
-    rbus_addElement("foo", "foox.element2");
-    rbus_addElement("bar", "barx.element2");
-    rbus_addElement("bar", "barx.element1");
-    rbus_addElement("foo", "common.element1");
-    rbus_addElement("bar", "common.element2");
+    rbuscore_addElement("foo", "foox.element1");
+    rbuscore_addElement("foo", "foox.element2");
+    rbuscore_addElement("bar", "barx.element2");
+    rbuscore_addElement("bar", "barx.element1");
+    rbuscore_addElement("foo", "common.element1");
+    rbuscore_addElement("bar", "common.element2");
 
 /* Needed to test the rtmessage not the rbuscore */
 #if 0
     const int in_length = 12;
     const char *inputs[] = {"foo", "foox.element1", "foox.element2", "bar", "barx.element1", "barx.element2", "abcd", "foox.", "barx.", "common.element1", "common.element2", "common."};
     char **output = NULL;
-    if(RBUSCORE_SUCCESS == rbus_discoverElementObjects(inputs, in_length, &output))
+    if(RBUSCORE_SUCCESS == rbuscore_discoverElementObjects(inputs, in_length, &output))
     {
         printf("Multi-lookup returned success. Printing mapping information...\n");
         for(int i = 0; i < in_length; i++)
@@ -121,7 +121,7 @@ int main(int argc, char *argv[])
 
     pause();
 
-    if((err = rbus_closeBrokerConnection()) == RBUSCORE_SUCCESS)
+    if((err = rbuscore_closeBrokerConnection()) == RBUSCORE_SUCCESS)
     {
         printf("Successfully disconnected from bus.\n");
     }

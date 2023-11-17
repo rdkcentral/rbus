@@ -53,7 +53,7 @@ typedef struct _rbusOpenTelemetryContext
 
 static pthread_once_t _open_telemetry_once = PTHREAD_ONCE_INIT;
 static pthread_key_t  _open_telemetry_key;
-static rbusOpenTelemetryContext* rbus_getOpenTelemetryContextFromThreadLocal();
+static rbusOpenTelemetryContext* rbuscore_getOpenTelemetryContextFromThreadLocal();
 
 static void rbus_init_open_telemeetry_thread_specific_key()
 {
@@ -483,7 +483,7 @@ static void dispatch_method_call(rbusMessage msg, const rtMessageHeader *hdr, se
 
     /* Fetch the context that was sent with the message */
     _rbusMessage_GetMetaInfo(msg, &method_name, &traceParent, &traceState);
-    rbus_setOpenTelemetryContext(traceParent, traceState);
+    rbuscore_setOpenTelemetryContext(traceParent, traceState);
 
     lock();
     if( rtVector_Size(obj->methods) > 0 && RT_OK == err)
@@ -504,9 +504,9 @@ static void dispatch_method_call(rbusMessage msg, const rtMessageHeader *hdr, se
             return;/*provider will send response async later on*/
     }
     /* Clear the context for next method */
-    rbus_clearOpenTelemetryContext();
+    rbuscore_clearOpenTelemetryContext();
 
-    rbus_sendResponse(hdr, response);
+    rbuscore_sendResponse(hdr, response);
 }
 
 static void onMessage(rtMessageHeader const* hdr, uint8_t const* data, uint32_t dataLen, void* closure)
@@ -586,7 +586,7 @@ static void configure_router_address()
     }
 }
 
-rbusCoreError_t rbus_openBrokerConnection(const char * component_name)
+rbusCoreError_t rbuscore_openBrokerConnection(const char * component_name)
 {
     if(RBUSCORE_DISABLED == rbuscore_checkBusStatus())
     {
@@ -595,11 +595,11 @@ rbusCoreError_t rbus_openBrokerConnection(const char * component_name)
     }
     else
     {
-        return rbus_openBrokerConnection2(component_name, NULL);
+        return rbuscore_openBrokerConnection2(component_name, NULL);
     }
 }
 
-rbusCoreError_t rbus_openBrokerConnection2(const char * component_name, const char* broker_address)
+rbusCoreError_t rbuscore_openBrokerConnection2(const char * component_name, const char* broker_address)
 {
 	rbusCoreError_t ret = RBUSCORE_SUCCESS;
 	rtError result = RT_OK;
@@ -633,7 +633,7 @@ rbusCoreError_t rbus_openBrokerConnection2(const char * component_name, const ch
 		return RBUSCORE_SUCCESS;
 	}
 
-	/*nobody calls rbus_openBrokerConnection2 directly (except maybe some unit tests) so broker_address is always NULL*/
+	/*nobody calls rbuscore_openBrokerConnection2 directly (except maybe some unit tests) so broker_address is always NULL*/
 	if(broker_address == NULL)
 	{
 		configure_router_address();/*this allows devices with split cpu environment to connect to rtrouted over tcp*/
@@ -658,7 +658,7 @@ rbusCoreError_t rbus_openBrokerConnection2(const char * component_name, const ch
 	return ret;
 }
 
-rbusCoreError_t rbus_closeBrokerConnection()
+rbusCoreError_t rbuscore_closeBrokerConnection()
 {
     rtError err = RT_OK;
     lock();
@@ -693,7 +693,7 @@ rbusCoreError_t rbus_closeBrokerConnection()
     return RBUSCORE_SUCCESS;
 }
 
-rtConnection rbus_getConnection()
+rtConnection rbuscore_getConnection()
 {
     return g_connection;
 }
@@ -722,7 +722,7 @@ static rbusCoreError_t send_subscription_request(const char * object_name, const
 
     if(timeout_ms <= 0)
         timeout_ms = TIMEOUT_VALUE_FIRE_AND_FORGET;
-    ret = rbus_invokeRemoteMethod(object_name, (activate? METHOD_SUBSCRIBE : METHOD_UNSUBSCRIBE),
+    ret = rbuscore_invokeRemoteMethod(object_name, (activate? METHOD_SUBSCRIBE : METHOD_UNSUBSCRIBE),
             request, timeout_ms, &internal_response);
     if(RBUSCORE_SUCCESS == ret)
     {
@@ -772,7 +772,7 @@ static rbusCoreError_t send_subscription_request(const char * object_name, const
     return ret;
 }
 
-rbusCoreError_t rbus_registerObj(const char * object_name, rbus_callback_t handler, void * user_data)
+rbusCoreError_t rbuscore_registerObj(const char * object_name, rbus_callback_t handler, void * user_data)
 {
     rtError err = RT_OK;
     server_object_t obj = NULL;
@@ -833,7 +833,7 @@ rbusCoreError_t rbus_registerObj(const char * object_name, rbus_callback_t handl
     }
 }
 
-rbusCoreError_t rbus_registerMethod(const char * object_name, const char *method_name, rbus_callback_t handler, void * user_data)
+rbusCoreError_t rbuscore_registerMethod(const char * object_name, const char *method_name, rbus_callback_t handler, void * user_data)
 {
     /*using namespace rbus_server;*/
     rbusCoreError_t ret = RBUSCORE_SUCCESS;
@@ -878,7 +878,7 @@ rbusCoreError_t rbus_registerMethod(const char * object_name, const char *method
 }
 
 
-rbusCoreError_t rbus_unregisterMethod(const char * object_name, const char *method_name)
+rbusCoreError_t rbuscore_unregisterMethod(const char * object_name, const char *method_name)
 {
     /*using namespace rbus_server;*/
 	rbusCoreError_t ret = RBUSCORE_SUCCESS;
@@ -908,18 +908,18 @@ rbusCoreError_t rbus_unregisterMethod(const char * object_name, const char *meth
     return ret;
 }
 
-rbusCoreError_t rbus_addElementEvent(const char * object_name, const char* event)
+rbusCoreError_t rbuscore_addElementEvent(const char * object_name, const char* event)
 {
-    return rbus_addElement(object_name, event);
+    return rbuscore_addElement(object_name, event);
 }
 
-rbusCoreError_t rbus_registerMethodTable(const char * object_name, rbus_method_table_entry_t *table, unsigned int num_entries)
+rbusCoreError_t rbuscore_registerMethodTable(const char * object_name, rbus_method_table_entry_t *table, unsigned int num_entries)
 {
     rbusCoreError_t ret= RBUSCORE_SUCCESS;
     RBUSCORELOG_INFO("Registering method table for object %s", object_name);
     for(unsigned int i = 0; i < num_entries; i++)
     {
-        if((ret = rbus_registerMethod(object_name, table[i].method, table[i].callback, table[i].user_data)) != RBUSCORE_SUCCESS)
+        if((ret = rbuscore_registerMethod(object_name, table[i].method, table[i].callback, table[i].user_data)) != RBUSCORE_SUCCESS)
         {
             RBUSCORELOG_ERROR("Failed to register table with object %s. Method: %s. Aborting remaining method registrations.", object_name, table[i].method);
             break;
@@ -928,13 +928,13 @@ rbusCoreError_t rbus_registerMethodTable(const char * object_name, rbus_method_t
     return ret;
 }
 
-rbusCoreError_t rbus_unregisterMethodTable(const char * object_name, rbus_method_table_entry_t *table, unsigned int num_entries)
+rbusCoreError_t rbuscore_unregisterMethodTable(const char * object_name, rbus_method_table_entry_t *table, unsigned int num_entries)
 {
     rbusCoreError_t ret = RBUSCORE_SUCCESS;
     RBUSCORELOG_INFO("Unregistering method table for object %s", object_name);
     for(unsigned int i = 0; i < num_entries; i++)
     {
-        if((ret = rbus_unregisterMethod(object_name, table[i].method)) != RBUSCORE_SUCCESS)
+        if((ret = rbuscore_unregisterMethod(object_name, table[i].method)) != RBUSCORE_SUCCESS)
         {
             RBUSCORELOG_ERROR("Failed to unregister table with object %s. Method: %s. Aborting remaining method unregistrations.", object_name, table[i].method);
             break;
@@ -943,7 +943,7 @@ rbusCoreError_t rbus_unregisterMethodTable(const char * object_name, rbus_method
     return ret;
 }
 
-rbusCoreError_t rbus_unregisterObj(const char * object_name)
+rbusCoreError_t rbuscore_unregisterObj(const char * object_name)
 {
     /*using namespace rbus_server;*/
     rtError err = RT_OK;
@@ -978,7 +978,7 @@ rbusCoreError_t rbus_unregisterObj(const char * object_name)
     return ret;
 }
 
-rbusCoreError_t rbus_addElement(const char * object_name, const char * element)
+rbusCoreError_t rbuscore_addElement(const char * object_name, const char * element)
 {
     rtError err = RT_OK;
 
@@ -1019,7 +1019,7 @@ rbusCoreError_t rbus_addElement(const char * object_name, const char * element)
     return RBUSCORE_SUCCESS;
 }
 
-rbusCoreError_t rbus_removeElement(const char * object, const char * element)
+rbusCoreError_t rbuscore_removeElement(const char * object, const char * element)
 {
     if(NULL == g_connection)
     {
@@ -1047,12 +1047,12 @@ rbusCoreError_t rbus_removeElement(const char * object, const char * element)
     return RBUSCORE_SUCCESS;
 }
 
-rbusCoreError_t rbus_pushObj(const char * object_name, rbusMessage message, int timeout_millisecs)
+rbusCoreError_t rbuscore_pushObj(const char * object_name, rbusMessage message, int timeout_millisecs)
 {
     rtError err = RT_OK;
     rbusCoreError_t ret = RBUSCORE_SUCCESS;
     rbusMessage response = NULL;
-    if((ret = rbus_invokeRemoteMethod(object_name, METHOD_SETPARAMETERVALUES, message, timeout_millisecs, &response)) != RBUSCORE_SUCCESS)
+    if((ret = rbuscore_invokeRemoteMethod(object_name, METHOD_SETPARAMETERVALUES, message, timeout_millisecs, &response)) != RBUSCORE_SUCCESS)
     {
         RBUSCORELOG_ERROR("Failed to send message. Error code: 0x%x", err);
         return ret;
@@ -1096,12 +1096,12 @@ static rtError rbus_sendRequest(rtConnection con, rbusMessage req, char const* t
     return err;
 }
 
-rbusCoreError_t rbus_invokeRemoteMethod(const char * object_name, const char *method, rbusMessage out, int timeout_millisecs, rbusMessage *in)
+rbusCoreError_t rbuscore_invokeRemoteMethod(const char * object_name, const char *method, rbusMessage out, int timeout_millisecs, rbusMessage *in)
 {
-    return rbus_invokeRemoteMethod2(g_connection, object_name, method, out, timeout_millisecs, in);
+    return rbuscore_invokeRemoteMethod2(g_connection, object_name, method, out, timeout_millisecs, in);
 }
 
-rbusCoreError_t rbus_invokeRemoteMethod2(rtConnection myConn, const char * object_name, const char *method, rbusMessage out, int timeout_millisecs, rbusMessage *in)
+rbusCoreError_t rbuscore_invokeRemoteMethod2(rtConnection myConn, const char * object_name, const char *method, rbusMessage out, int timeout_millisecs, rbusMessage *in)
 {
     rtError err = RT_OK;
     rbusCoreError_t ret = RBUSCORE_SUCCESS;
@@ -1109,7 +1109,7 @@ rbusCoreError_t rbus_invokeRemoteMethod2(rtConnection myConn, const char * objec
     char const *traceParent = NULL;
     char const *traceState = NULL;
 
-    rbus_getOpenTelemetryContext(&traceParent, &traceState);
+    rbuscore_getOpenTelemetryContext(&traceParent, &traceState);
 
     if(NULL == myConn)
     {
@@ -1180,16 +1180,16 @@ rbusCoreError_t rbus_invokeRemoteMethod2(rtConnection myConn, const char * objec
 
 
 /*TODO: make this really fire and forget.*/
-rbusCoreError_t rbus_pushObjNoAck(const char * object_name, rbusMessage message)
+rbusCoreError_t rbuscore_pushObjNoAck(const char * object_name, rbusMessage message)
 {
-	return rbus_pushObj(object_name, message, TIMEOUT_VALUE_FIRE_AND_FORGET);
+	return rbuscore_pushObj(object_name, message, TIMEOUT_VALUE_FIRE_AND_FORGET);
 }
 
-rbusCoreError_t rbus_pullObj(const char * object_name, int timeout_millisecs, rbusMessage *response)
+rbusCoreError_t rbuscore_pullObj(const char * object_name, int timeout_millisecs, rbusMessage *response)
 {
     rbusCoreError_t ret = RBUSCORE_SUCCESS;
     rtError err = RT_OK;
-    if((ret = rbus_invokeRemoteMethod(object_name, METHOD_GETPARAMETERVALUES, NULL, timeout_millisecs, response)) != RBUSCORE_SUCCESS)
+    if((ret = rbuscore_invokeRemoteMethod(object_name, METHOD_GETPARAMETERVALUES, NULL, timeout_millisecs, response)) != RBUSCORE_SUCCESS)
     {
         RBUSCORELOG_ERROR("Failed to send message. Error code: 0x%x", ret);
     }
@@ -1320,13 +1320,13 @@ static rbusCoreError_t install_subscription_handlers(server_object_t object)
 
     /*No subscription handlers present. Add them.*/
     RBUSCORELOG_DEBUG("Adding handler for subscription requests for %s.", object->name);
-    if((ret = rbus_registerMethod(object->name, METHOD_SUBSCRIBE, subscription_handler, object)) != RBUSCORE_SUCCESS)
+    if((ret = rbuscore_registerMethod(object->name, METHOD_SUBSCRIBE, subscription_handler, object)) != RBUSCORE_SUCCESS)
     {
         RBUSCORELOG_ERROR("Could not register add_subscription_handler.");
     }
     else
     {
-        if((ret = rbus_registerMethod(object->name, METHOD_UNSUBSCRIBE, subscription_handler, object)) != RBUSCORE_SUCCESS)
+        if((ret = rbuscore_registerMethod(object->name, METHOD_UNSUBSCRIBE, subscription_handler, object)) != RBUSCORE_SUCCESS)
         {
             RBUSCORELOG_ERROR("Could not register remove_subscription_handler.");
         }
@@ -1339,7 +1339,7 @@ static rbusCoreError_t install_subscription_handlers(server_object_t object)
     return ret;
 }
 
-rbusCoreError_t rbus_registerEvent(const char* object_name, const char * event_name, rbus_event_subscribe_callback_t callback, void * user_data)
+rbusCoreError_t rbuscore_registerEvent(const char* object_name, const char * event_name, rbus_event_subscribe_callback_t callback, void * user_data)
 {
     /*using namespace rbus_server;*/
     rbusCoreError_t ret = RBUSCORE_SUCCESS;
@@ -1392,7 +1392,7 @@ rbusCoreError_t rbus_registerEvent(const char* object_name, const char * event_n
     return ret;
 }
 
-rbusCoreError_t rbus_unregisterEvent(const char* object_name, const char * event_name)
+rbusCoreError_t rbuscore_unregisterEvent(const char* object_name, const char * event_name)
 {
     /*using namespace rbus_server;*/
     rbusCoreError_t ret = RBUSCORE_SUCCESS;
@@ -1539,7 +1539,7 @@ static rbusCoreError_t remove_subscription_callback(const char * object_name,  c
     return ret;
 }
 
-static rbusCoreError_t rbus_subscribeToEventInternal(const char * object_name,  const char * event_name, rbus_event_callback_t callback, const rbusMessage payload, void * user_data, int* providerError, int timeout, bool publishOnSubscribe, rbusMessage *response)
+static rbusCoreError_t rbuscore_subscribeToEventInternal(const char * object_name,  const char * event_name, rbus_event_callback_t callback, const rbusMessage payload, void * user_data, int* providerError, int timeout, bool publishOnSubscribe, rbusMessage *response)
 {
     /*using namespace rbus_client;*/
     rbusCoreError_t ret = RBUSCORE_SUCCESS;
@@ -1625,17 +1625,17 @@ static rbusCoreError_t rbus_subscribeToEventInternal(const char * object_name,  
     return ret;
 }
 
-rbusCoreError_t rbus_subscribeToEvent(const char * object_name,  const char * event_name, rbus_event_callback_t callback, const rbusMessage payload, void * user_data, int* providerError)
+rbusCoreError_t rbuscore_subscribeToEvent(const char * object_name,  const char * event_name, rbus_event_callback_t callback, const rbusMessage payload, void * user_data, int* providerError)
 {
-    return rbus_subscribeToEventInternal(object_name, event_name, callback, payload, user_data, providerError, 0, false, NULL);
+    return rbuscore_subscribeToEventInternal(object_name, event_name, callback, payload, user_data, providerError, 0, false, NULL);
 }
 
-rbusCoreError_t rbus_subscribeToEventTimeout(const char * object_name,  const char * event_name, rbus_event_callback_t callback, const rbusMessage payload, void * user_data, int* providerError, int timeout, bool publishOnSubscribe, rbusMessage *response)
+rbusCoreError_t rbuscore_subscribeToEventTimeout(const char * object_name,  const char * event_name, rbus_event_callback_t callback, const rbusMessage payload, void * user_data, int* providerError, int timeout, bool publishOnSubscribe, rbusMessage *response)
 {
-    return rbus_subscribeToEventInternal(object_name, event_name, callback, payload, user_data, providerError, timeout, publishOnSubscribe, response);
+    return rbuscore_subscribeToEventInternal(object_name, event_name, callback, payload, user_data, providerError, timeout, publishOnSubscribe, response);
 }
 
-rbusCoreError_t rbus_unsubscribeFromEvent(const char * object_name,  const char * event_name, const rbusMessage payload)
+rbusCoreError_t rbuscore_unsubscribeFromEvent(const char * object_name,  const char * event_name, const rbusMessage payload)
 {
     rbusCoreError_t ret = RBUSCORE_ERROR_INVALID_PARAM;
 
@@ -1662,7 +1662,7 @@ rbusCoreError_t rbus_unsubscribeFromEvent(const char * object_name,  const char 
     return ret;
 }
 
-rbusCoreError_t rbus_publishEvent(const char* object_name,  const char * event_name, rbusMessage out)
+rbusCoreError_t rbuscore_publishEvent(const char* object_name,  const char * event_name, rbusMessage out)
 {
     /*using namespace rbus_server;*/
     rbusCoreError_t ret = RBUSCORE_SUCCESS;
@@ -1724,7 +1724,7 @@ rbusCoreError_t rbus_publishEvent(const char* object_name,  const char * event_n
     return ret;
 }
 
-rbusCoreError_t rbus_registerSubscribeHandler(const char* object_name, rbus_event_subscribe_callback_t callback, void * user_data)
+rbusCoreError_t rbuscore_registerSubscribeHandler(const char* object_name, rbus_event_subscribe_callback_t callback, void * user_data)
 {
     /*using namespace rbus_server;*/
     rbusCoreError_t ret = RBUSCORE_SUCCESS;
@@ -1753,13 +1753,13 @@ rbusCoreError_t rbus_registerSubscribeHandler(const char* object_name, rbus_even
     return ret;
 }
 
-rbusCoreError_t rbus_registerMasterEventHandler(rbus_event_callback_t callback, void * user_data)
+rbusCoreError_t rbuscore_registerMasterEventHandler(rbus_event_callback_t callback, void * user_data)
 {
     g_master_event_callback = callback;
     g_master_event_user_data = user_data;
     return RBUSCORE_SUCCESS;
 }
-rbusCoreError_t rbus_registerClientDisconnectHandler(rbus_client_disconnect_callback_t callback)
+rbusCoreError_t rbuscore_registerClientDisconnectHandler(rbus_client_disconnect_callback_t callback)
 {
     lock();
     if(!g_advisory_listener_installed)
@@ -1782,7 +1782,7 @@ rbusCoreError_t rbus_registerClientDisconnectHandler(rbus_client_disconnect_call
     return RBUSCORE_SUCCESS;
 }
 
-rbusCoreError_t rbus_unregisterClientDisconnectHandler()
+rbusCoreError_t rbuscore_unregisterClientDisconnectHandler()
 {
     lock();
     if(g_advisory_listener_installed)
@@ -1794,7 +1794,7 @@ rbusCoreError_t rbus_unregisterClientDisconnectHandler()
     return RBUSCORE_SUCCESS;
 }
 
-rbusCoreError_t rbus_publishSubscriberEvent(const char* object_name,  const char * event_name, const char* listener, rbusMessage out)
+rbusCoreError_t rbuscore_publishSubscriberEvent(const char* object_name,  const char * event_name, const char* listener, rbusMessage out)
 {
     /*using namespace rbus_server;*/
     rbusCoreError_t ret = RBUSCORE_SUCCESS;
@@ -1839,7 +1839,7 @@ rbusCoreError_t rbus_publishSubscriberEvent(const char* object_name,  const char
     return ret;
 }
 
-rbusCoreError_t rbus_discoverWildcardDestinations(const char * expression, int * count, char *** destinations)
+rbusCoreError_t rbuscore_discoverWildcardDestinations(const char * expression, int * count, char *** destinations)
 {
     rbusCoreError_t ret = RBUSCORE_SUCCESS;
     rtError err = RT_OK;
@@ -1928,7 +1928,7 @@ rbusCoreError_t rbus_discoverWildcardDestinations(const char * expression, int *
     return ret;
 }
 
-rbusCoreError_t rbus_discoverObjectElements(const char * object, int * count, char *** elements)
+rbusCoreError_t rbuscore_discoverObjectElements(const char * object, int * count, char *** elements)
 {
     rtError err = RT_OK;
     rbusCoreError_t ret = RBUSCORE_SUCCESS;
@@ -2012,7 +2012,7 @@ rbusCoreError_t rbus_discoverObjectElements(const char * object, int * count, ch
     return ret;
 }
 
-rbusCoreError_t rbus_discoverElementObjects(const char* element, int * count, char *** objects)
+rbusCoreError_t rbuscore_discoverElementObjects(const char* element, int * count, char *** objects)
 {
     rbusCoreError_t ret = RBUSCORE_SUCCESS;
     rtError err = RT_OK;
@@ -2088,7 +2088,7 @@ rbusCoreError_t rbus_discoverElementObjects(const char* element, int * count, ch
     return ret;    
 }
 
-rbusCoreError_t rbus_discoverElementsObjects(int numElements, const char** elements, int * count, char *** objects)
+rbusCoreError_t rbuscore_discoverElementsObjects(int numElements, const char** elements, int * count, char *** objects)
 {
     rbusCoreError_t ret = RBUSCORE_SUCCESS;
     rtError err = RT_OK;
@@ -2169,7 +2169,7 @@ rbusCoreError_t rbus_discoverElementsObjects(int numElements, const char** eleme
                 }
                 else
                 {
-                    RBUSCORELOG_ERROR("rbus_discoverElementsObjects: failed at %s", elements[i]);
+                    RBUSCORELOG_ERROR("rbuscore_discoverElementsObjects: failed at %s", elements[i]);
                     ret = RBUSCORE_ERROR_GENERAL;
                     break;
                 }
@@ -2203,7 +2203,7 @@ rbusCoreError_t rbus_discoverElementsObjects(int numElements, const char** eleme
     return ret;    
 }
 
-rbusCoreError_t rbus_discoverRegisteredComponents(int * count, char *** components)
+rbusCoreError_t rbuscore_discoverRegisteredComponents(int * count, char *** components)
 {
     rbusCoreError_t ret = RBUSCORE_SUCCESS;
     rtError err = RT_OK;
@@ -2291,7 +2291,7 @@ rbuscore_bus_status_t rbuscore_checkBusStatus(void)
 #endif /* RBUS_SUPPORT_DISABLING */
 }
 
-rbusCoreError_t rbus_sendResponse(const rtMessageHeader* hdr, rbusMessage response)
+rbusCoreError_t rbuscore_sendResponse(const rtMessageHeader* hdr, rbusMessage response)
 {
     rtError err = RT_OK;
     uint8_t* data;
@@ -2321,7 +2321,7 @@ rbusCoreError_t rbus_sendResponse(const rtMessageHeader* hdr, rbusMessage respon
 }
 
 rbusOpenTelemetryContext*
-rbus_getOpenTelemetryContextFromThreadLocal()
+rbuscore_getOpenTelemetryContextFromThreadLocal()
 {
     pthread_once(&_open_telemetry_once, &rbus_init_open_telemeetry_thread_specific_key);
 
@@ -2340,24 +2340,24 @@ rbus_getOpenTelemetryContextFromThreadLocal()
     return ot_ctx;
 }
 
-void rbus_getOpenTelemetryContext(const char **traceParent, const char **traceState)
+void rbuscore_getOpenTelemetryContext(const char **traceParent, const char **traceState)
 {
-    rbusOpenTelemetryContext* ot_ctx = rbus_getOpenTelemetryContextFromThreadLocal();
+    rbusOpenTelemetryContext* ot_ctx = rbuscore_getOpenTelemetryContextFromThreadLocal();
 
     *traceParent = &ot_ctx->otTraceParent[0];
     *traceState = &ot_ctx->otTraceState[0];
 }
 
-void rbus_clearOpenTelemetryContext()
+void rbuscore_clearOpenTelemetryContext()
 {
-    rbusOpenTelemetryContext *ot_ctx = rbus_getOpenTelemetryContextFromThreadLocal();
+    rbusOpenTelemetryContext *ot_ctx = rbuscore_getOpenTelemetryContextFromThreadLocal();
     ot_ctx->otTraceParent[0] = '\0';
     ot_ctx->otTraceState[0] = '\0';
 }
 
 static void rbus_releaseOpenTelemetryContext()
 {
-    rbusOpenTelemetryContext *ot_ctx = rbus_getOpenTelemetryContextFromThreadLocal();
+    rbusOpenTelemetryContext *ot_ctx = rbuscore_getOpenTelemetryContextFromThreadLocal();
     if (ot_ctx)
     {
         pthread_setspecific(_open_telemetry_key, NULL);
@@ -2365,9 +2365,9 @@ static void rbus_releaseOpenTelemetryContext()
     }
 }
 
-void rbus_setOpenTelemetryContext(const char *traceParent, const char *traceState)
+void rbuscore_setOpenTelemetryContext(const char *traceParent, const char *traceState)
 {
-    rbusOpenTelemetryContext *ot_ctx = rbus_getOpenTelemetryContextFromThreadLocal();
+    rbusOpenTelemetryContext *ot_ctx = rbuscore_getOpenTelemetryContextFromThreadLocal();
 
     if (traceParent)
     {
@@ -2979,7 +2979,7 @@ rbusCoreError_t rbuscore_createPrivateConnection(const char *pParameterName, rtC
     rbusMessage_SetString(request,  pParameterName);
     rbusMessage_SetString(request,  g_daemon_address);
 
-    err = rbus_invokeRemoteMethod(pParameterName, METHOD_OPENDIRECT_CONN, request, 5000, &response);
+    err = rbuscore_invokeRemoteMethod(pParameterName, METHOD_OPENDIRECT_CONN, request, 5000, &response);
     if(RBUSCORE_SUCCESS == err)
     {
         rbusMessage_GetInt32(response, (int32_t*)&err);
@@ -3025,7 +3025,7 @@ rbusCoreError_t rbuscore_closePrivateConnection(const char *pParameterName)
         rbusMessage_SetString(request, rtConnection_GetReturnAddress(g_connection));
         rbusMessage_SetString(request, pParameterName);
 
-        err = rbus_invokeRemoteMethod(pParameterName, METHOD_CLOSEDIRECT_CONN, request, 5000, &response);
+        err = rbuscore_invokeRemoteMethod(pParameterName, METHOD_CLOSEDIRECT_CONN, request, 5000, &response);
         if(RBUSCORE_SUCCESS != err)
         {
             RBUSCORELOG_ERROR("Received error %d from RBUS Daemon for the object (%s)", err, pParameterName);

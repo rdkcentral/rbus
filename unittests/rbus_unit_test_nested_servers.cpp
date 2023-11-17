@@ -40,11 +40,11 @@ static bool OPEN_BROKER_CONNECTION2(const char* connection_name)
     bool result = false;
     rbusCoreError_t err = RBUSCORE_SUCCESS;
 
-    if((err = rbus_openBrokerConnection(connection_name)) == RBUSCORE_SUCCESS)
+    if((err = rbuscore_openBrokerConnection(connection_name)) == RBUSCORE_SUCCESS)
     {
          result = true;
     }
-    EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_openBrokerConnection failed";
+    EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbuscore_openBrokerConnection failed";
     return result;
 }
 
@@ -52,12 +52,12 @@ static bool CLOSE_BROKER_CONNECTION2()
 {
     bool result = false;
     rbusCoreError_t err = RBUSCORE_SUCCESS;
-    if((err = rbus_closeBrokerConnection()) == RBUSCORE_SUCCESS)
+    if((err = rbuscore_closeBrokerConnection()) == RBUSCORE_SUCCESS)
     {
         //printf("Successfully disconnected from bus.\n");
         result = true;
     }
-    EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_closeBrokerConnection failed";
+    EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbuscore_closeBrokerConnection failed";
     return result;
 }
 
@@ -84,13 +84,13 @@ static void CREATE_RBUS_SERVER_INSTANCE(const char * server_name, const char * o
 
     printf("Registering object %s\n", object_name);
 
-    err = rbus_registerObj(object_name, callback, NULL);
-    EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_registerObj failed";
+    err = rbuscore_registerObj(object_name, callback, NULL);
+    EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbuscore_registerObj failed";
 
     rbus_method_table_entry_t table[1] = {{METHOD_GETPARAMETERVALUES, NULL, handle_recursive_get}};
 
-    err = rbus_registerMethodTable(object_name, table, 1);
-    EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_registerMethodTable failed";
+    err = rbuscore_registerMethodTable(object_name, table, 1);
+    EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbuscore_registerMethodTable failed";
     return;
 }
 
@@ -103,7 +103,7 @@ static void RBUS_RPC(const char *object, const char* method, const char * payloa
     rbusMessage_Init(&setter);
     if(nullptr != payload)
         rbusMessage_SetString(setter, payload);
-    err = rbus_invokeRemoteMethod(object, method, setter, 1000, &response);
+    err = rbuscore_invokeRemoteMethod(object, method, setter, 1000, &response);
     EXPECT_EQ(err, expected_err) << "Nested RPC failed";
    
     if(RBUSCORE_SUCCESS == err)

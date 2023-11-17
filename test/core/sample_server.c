@@ -94,7 +94,7 @@ int main(int argc, char *argv[])
     printf("syntax: sample_server <server object name>\n");
     rtLog_SetLevel(RT_LOG_INFO);
 
-    if((err = rbus_openBrokerConnection(argv[1])) == RBUSCORE_SUCCESS)
+    if((err = rbuscore_openBrokerConnection(argv[1])) == RBUSCORE_SUCCESS)
     {
         printf("Successfully connected to bus.\n");
     }
@@ -102,21 +102,21 @@ int main(int argc, char *argv[])
     snprintf(buffer, (sizeof(buffer) - 1), "%s.obj1", argv[1]);
     printf("Registering object %s\n", buffer);
 
-    if((err = rbus_registerObj(buffer, callback, NULL)) == RBUSCORE_SUCCESS)
+    if((err = rbuscore_registerObj(buffer, callback, NULL)) == RBUSCORE_SUCCESS)
     {
         printf("Successfully registered object.\n");
     }
 
     rbus_method_table_entry_t table[2] = {{METHOD_SETPARAMETERVALUES, NULL, handle_set}, {METHOD_GETPARAMETERVALUES, NULL, handle_get}};
-    rbus_registerMethodTable(buffer, table, 2); 
+    rbuscore_registerMethodTable(buffer, table, 2); 
     buffer[0] = 1;
-    if((err = rbus_registerObj(buffer, callback, NULL)) == RBUSCORE_SUCCESS) //Negative test case
+    if((err = rbuscore_registerObj(buffer, callback, NULL)) == RBUSCORE_SUCCESS) //Negative test case
     {
         printf("Successfully registered object.\n");
     }
     pause();
 
-    if((err = rbus_closeBrokerConnection()) == RBUSCORE_SUCCESS)
+    if((err = rbuscore_closeBrokerConnection()) == RBUSCORE_SUCCESS)
     {
         printf("Successfully disconnected from bus.\n");
     }

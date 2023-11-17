@@ -40,20 +40,20 @@ int main(int argc, char *argv[])
     printf("syntax: sample_client <object to gett>\n");
     rtLog_SetLevel(RT_LOG_INFO);
 
-    if((err = rbus_openBrokerConnection("everyclient")) == RBUSCORE_SUCCESS)
+    if((err = rbuscore_openBrokerConnection("everyclient")) == RBUSCORE_SUCCESS)
     {
         printf("Successfully connected to bus.\n");
     }
 
     rbusMessage response;
-    if(RBUSCORE_SUCCESS == rbus_invokeRemoteMethod(argv[1], METHOD_GETPARAMETERVALUES, NULL, 10000, &response))
+    if(RBUSCORE_SUCCESS == rbuscore_invokeRemoteMethod(argv[1], METHOD_GETPARAMETERVALUES, NULL, 10000, &response))
     {
         dumpMessage(response);
         rbusMessage_Release(response);
     }
     else
         printf("RPC failed.\n");
-    if((err = rbus_closeBrokerConnection()) == RBUSCORE_SUCCESS)
+    if((err = rbuscore_closeBrokerConnection()) == RBUSCORE_SUCCESS)
     {
         printf("Successfully disconnected from bus.\n");
     }

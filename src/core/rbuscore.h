@@ -32,9 +32,9 @@
 #define MAX_REGISTERED_OBJECTS 64
 #define RBUS_OPEN_TELEMETRY_DATA_MAX 512
 
-void rbus_getOpenTelemetryContext(const char **s, const char **t);
-void rbus_setOpenTelemetryContext(const char *s, const char *t);
-void rbus_clearOpenTelemetryContext();
+void rbuscore_getOpenTelemetryContext(const char **s, const char **t);
+void rbuscore_setOpenTelemetryContext(const char *s, const char *t);
+void rbuscore_clearOpenTelemetryContext();
 
 #ifdef __cplusplus
 extern "C" {
@@ -56,21 +56,21 @@ typedef struct
 /*------ Common bus access APIs. ------*/
 
 /* Establish a connection with the daemon/broker and register on the bus with a component name. You can send/receive messages after this.*/
-rbusCoreError_t rbus_openBrokerConnection(const char * component_name);
-rbusCoreError_t rbus_openBrokerConnection2(const char * component_name, const char * broker_address);
+rbusCoreError_t rbuscore_openBrokerConnection(const char * component_name);
+rbusCoreError_t rbuscore_openBrokerConnection2(const char * component_name, const char * broker_address);
 
 /* Close connection with daemon. Messaging services will cease. */
-rbusCoreError_t rbus_closeBrokerConnection(void);
+rbusCoreError_t rbuscore_closeBrokerConnection(void);
 
 /* Get the underlying rtMessage connection handle */
-rtConnection rbus_getConnection();
+rtConnection rbuscore_getConnection();
 
 /* Register an object with the bus. An object is an addressable endpoint that other elements on the bus can send messages to. Any messages sent
  * on the bus with destination = object_name will be routed to this component and invoke the handler. */
-rbusCoreError_t rbus_registerObj(const char * object_name, rbus_callback_t handler, void * user_data);
+rbusCoreError_t rbuscore_registerObj(const char * object_name, rbus_callback_t handler, void * user_data);
 
 /* Unregister the given object. This makes this particular address non-reachable on the bus. */
-rbusCoreError_t rbus_unregisterObj(const char * object_name);
+rbusCoreError_t rbuscore_unregisterObj(const char * object_name);
 
 
 /* Add an element to a registered object. An element is a public attribute of an object identified by a unique name. Applications using rbus can send messages to 
@@ -82,32 +82,32 @@ rbusCoreError_t rbus_unregisterObj(const char * object_name);
  * as elements to this object. All messages sent to "foo", "xyz" and "abc" will be processed by callbacks installed for rbus object "foo". Inside those callbacks, 
  * you have the option to look at the intended recipient (foo vs xyz vs abc) and act accordingly. Elements don't get their own methods/callbacks. They rely on the 
  * callbacks installed for the parent object to get the job done. In other words, elements are an alias for the object.*/
-rbusCoreError_t rbus_addElement(const char * object_name, const char* element);
-rbusCoreError_t rbus_removeElement(const char * object_name, const char * element);
+rbusCoreError_t rbuscore_addElement(const char * object_name, const char* element);
+rbusCoreError_t rbuscore_removeElement(const char * object_name, const char * element);
 
 /* Register a remote procedure call for an object. Any messages on the bus sent to this object, bearing the registered method, will lead to the installed handler being invoked. */
-rbusCoreError_t rbus_registerMethod(const char * object_name, const char *method, rbus_callback_t handler, void * user_data);
+rbusCoreError_t rbuscore_registerMethod(const char * object_name, const char *method, rbus_callback_t handler, void * user_data);
 
 /* Unregister a remote procedure call for an object.*/ 
-rbusCoreError_t rbus_unregisterMethod(const char * object_name, const char *method);
+rbusCoreError_t rbuscore_unregisterMethod(const char * object_name, const char *method);
 
 /* Convenience function that allows components to register remote procedure calls handlers in bulk (function tables).*/
-rbusCoreError_t rbus_registerMethodTable(const char * object_name, rbus_method_table_entry_t *table, unsigned int num_entries);
+rbusCoreError_t rbuscore_registerMethodTable(const char * object_name, rbus_method_table_entry_t *table, unsigned int num_entries);
 
 /* Convenience function that allows components to unregister remote procedure calls handlers in bulk. */
-rbusCoreError_t rbus_unregisterMethodTable(const char * object_name, rbus_method_table_entry_t *table, unsigned int num_entries);
+rbusCoreError_t rbuscore_unregisterMethodTable(const char * object_name, rbus_method_table_entry_t *table, unsigned int num_entries);
 
 /* Invoke a remote procedure call 'method' on a destination/object object_name. 'out' has the input arguments necessary for the RPC, 'in' carries the result
  * of the operation when it's complete. Marshalling of input arguments and output response is the responsibility of the caller. This function blocks until it receives a response 
  * from the remote recipient, or times out after 'timeout_milliseconds'. rbus will release 'out' internally. If call is successful, it's caller's responsibility
  * to release 'in'. */
-rbusCoreError_t rbus_invokeRemoteMethod(const char * object_name, const char *method, rbusMessage out, int timeout_millisecs, rbusMessage *in);
-rbusCoreError_t rbus_invokeRemoteMethod2(rtConnection conn, const char * object_name, const char *method, rbusMessage out, int timeout_millisecs, rbusMessage *in);
+rbusCoreError_t rbuscore_invokeRemoteMethod(const char * object_name, const char *method, rbusMessage out, int timeout_millisecs, rbusMessage *in);
+rbusCoreError_t rbuscore_invokeRemoteMethod2(rtConnection conn, const char * object_name, const char *method, rbusMessage out, int timeout_millisecs, rbusMessage *in);
 
 /* Invoke a remote procedure call 'method' on a destination/object object_name. 'out' has the input arguments necessary for the RPC. This function does not block for response
  * from the remote end. It returns immediately after the outbound message is dispatched. 'callback' is invoked when it receives the response to the RPC call, or if it times out 
  * waiting for a response. The callback will contain the response from the remote end. Marshalling of input arguments and output response is the responsibility of the caller.*/
-rbusCoreError_t rbus_invokeRemoteMethodAsync(const char * object_name, const char *method, rbusMessage out, int timeout_millisecs, rbus_async_callback_t callback);
+rbusCoreError_t rbuscore_invokeRemoteMethodAsync(const char * object_name, const char *method, rbusMessage out, int timeout_millisecs, rbus_async_callback_t callback);
 /* Notes on using event APIs:
  * An object_name is a discoverable entity on the bus that is the source of some events. An event source can issue multiple types of events, where each unique type is identified
  * by event_name. A simpler object_name can issue just one type of event, with event_name = 0 always. To receive events, clients have to subscribe to an object_name. 
@@ -118,93 +118,93 @@ rbusCoreError_t rbus_invokeRemoteMethodAsync(const char * object_name, const cha
 
 /* Send an event message to all subscribers for this particular event. 'event_name' can be NULL if the object publishes only one event. 'out' is the payload of the event message. 
  * Caller is responsible for releasing 'out' after the function returns.*/
-rbusCoreError_t rbus_publishEvent(const char* object_name,  const char * event_name, rbusMessage out);
+rbusCoreError_t rbuscore_publishEvent(const char* object_name,  const char * event_name, rbusMessage out);
 
 /* Register an event with an object on the bus so that others can subscribe to it. 
  * 'callback' and 'user_data' can be NULL.  If set, 'callback' is invoked with 'user_data' when any client subscribes or unsubscribes to this event. */ 
-rbusCoreError_t rbus_registerEvent(const char* object_name, const char * event, rbus_event_subscribe_callback_t callback, void * user_data);
+rbusCoreError_t rbuscore_registerEvent(const char* object_name, const char * event, rbus_event_subscribe_callback_t callback, void * user_data);
 
 /* Unregister an event from an object on the bus */
-rbusCoreError_t rbus_unregisterEvent(const char* object_name, const char * event);
+rbusCoreError_t rbuscore_unregisterEvent(const char* object_name, const char * event);
 
 /* Add the event as an element to a registered object. */
-rbusCoreError_t rbus_addElementEvent(const char * object_name, const char* event);
+rbusCoreError_t rbuscore_addElementEvent(const char * object_name, const char* event);
 
 /* Register a callback that the framework will invoke to generate an event message that gets dispatched as a timed update event. If there are subscribers that require this event
  * to be issued at N second intervals, the installed callback will be invoked every N seconds to generate an event message. The message thus generated will be dispatched internally
  * to all subscribers.*/
-rbusCoreError_t rbus_registerTimedUpdateEventCallback(const char* object_name,  const char * event_name, rbus_timed_update_event_callback_t callback);
+rbusCoreError_t rbuscore_registerTimedUpdateEventCallback(const char* object_name,  const char * event_name, rbus_timed_update_event_callback_t callback);
 
 /* Subscribe to 'event_name' events from 'object_name' object. If the object supports only one event, event_name can be NULL. If the event_name is an alias for the object, then object_name can be NULL. The installed callback will be invoked every time 
  * a matching event is received. */
-rbusCoreError_t rbus_subscribeToEvent(const char * object_name,  const char * event_name, rbus_event_callback_t callback, const rbusMessage payload, void * user_data, int* providerError);
+rbusCoreError_t rbuscore_subscribeToEvent(const char * object_name,  const char * event_name, rbus_event_callback_t callback, const rbusMessage payload, void * user_data, int* providerError);
 
 /* Subscribe to 'event_name' events from 'object_name' object, with the specified timeout. If the timeout is less than or equal to zero, timeout will be set to 1000.
  * If the object supports only one event, event_name can be NULL. If the event_name is an alias for the object, then object_name can be NULL. The installed callback will be invoked every time 
  * a matching event is received. */
-rbusCoreError_t rbus_subscribeToEventTimeout(const char * object_name,  const char * event_name, rbus_event_callback_t callback, const rbusMessage payload, void * user_data, int* providerError, int timeout_ms, bool publishOnSubscribe, rbusMessage *response);
+rbusCoreError_t rbuscore_subscribeToEventTimeout(const char * object_name,  const char * event_name, rbus_event_callback_t callback, const rbusMessage payload, void * user_data, int* providerError, int timeout_ms, bool publishOnSubscribe, rbusMessage *response);
 
 /* Unsubscribe from receiving 'event_name' events from 'object_name' object. If the object supports only one event, event_name can be NULL. */
-rbusCoreError_t rbus_unsubscribeFromEvent(const char * object_name,  const char * event_name, const rbusMessage payload);
+rbusCoreError_t rbuscore_unsubscribeFromEvent(const char * object_name,  const char * event_name, const rbusMessage payload);
 
 /* Register a on-subscribe callback which will be called when any subscriber subscribes to any event.
    This disables the rbuscore built-in server-side event subscription handling. Used by rbus 2.0*/
-rbusCoreError_t rbus_registerSubscribeHandler(const char* object_name, rbus_event_subscribe_callback_t callback, void * user_data);
+rbusCoreError_t rbuscore_registerSubscribeHandler(const char* object_name, rbus_event_subscribe_callback_t callback, void * user_data);
 
 /* Register a on-event callback which will be called when any event is received. */
-rbusCoreError_t rbus_registerMasterEventHandler(rbus_event_callback_t callback, void * user_data);
+rbusCoreError_t rbuscore_registerMasterEventHandler(rbus_event_callback_t callback, void * user_data);
 
 /* Register a callback which will be called when any client on the bus, disconnects */
-rbusCoreError_t rbus_registerClientDisconnectHandler(rbus_client_disconnect_callback_t callback);
-rbusCoreError_t rbus_unregisterClientDisconnectHandler();
+rbusCoreError_t rbuscore_registerClientDisconnectHandler(rbus_client_disconnect_callback_t callback);
+rbusCoreError_t rbuscore_unregisterClientDisconnectHandler();
 
 /* Send an event message directly to a specific subscribe(e.g. listener) */
-rbusCoreError_t rbus_publishSubscriberEvent(const char* object_name,  const char * event_name, const char* listener, rbusMessage out);
+rbusCoreError_t rbuscore_publishSubscriberEvent(const char* object_name,  const char * event_name, const char* listener, rbusMessage out);
 
 /*------ Convenience functions built on top of base functions above. ------*/
 
 
 /* Set remote object 'object_name' to a value encoded in 'message'. This function will block (up to 'timeout_milliseconds') until remote end responds with a success or failure. 
  * Returns RBUSCORE_SUCCESS if operation is a success. rbus will release 'message' internally. */
-rbusCoreError_t rbus_pushObj(const char * object_name, rbusMessage message, int timeout_millisecs);
+rbusCoreError_t rbuscore_pushObj(const char * object_name, rbusMessage message, int timeout_millisecs);
 
 /* Set remote object 'object_name' to a value encoded in 'message'. This function does not block for remote response and will return as soon as the outbound message is sent. 
  * 'callback', if not NULL, will be invoked when the remote end responds (or when the timeout is up).*/
-rbusCoreError_t rbus_pushObjNoAck(const char * object_name, rbusMessage message);
+rbusCoreError_t rbuscore_pushObjNoAck(const char * object_name, rbusMessage message);
 
 /* Get the value of 'object_name'. This call blocks (up to 'timeout_millisecs') until it receives a response from the remote recipient. Returns RTMESSAGE_BUS_SUCESS if operation 
  * is a success.*/
-rbusCoreError_t rbus_pullObj(const char * object_name, int timeout_millisecs, rbusMessage *response);
+rbusCoreError_t rbuscore_pullObj(const char * object_name, int timeout_millisecs, rbusMessage *response);
 
 /* Subscribe to timed updates of nature specified by 'event_name'. You will receive 'event_name' events every 'interval_milliseconds'. The server that implements 'event_name' will 
  * generate and send recurring event messages to us at the interval specified here. */
-rbusCoreError_t rbus_subscribeToTimedUpdateEvents(const char * object_name,  const char * event_name, unsigned int interval_milliseconds, rbus_event_callback_t callback, void * user_data);
+rbusCoreError_t rbuscore_subscribeToTimedUpdateEvents(const char * object_name,  const char * event_name, unsigned int interval_milliseconds, rbus_event_callback_t callback, void * user_data);
 
 /* Unsubscribe from timed updates.*/
-rbusCoreError_t rbus_unsubscribeFromTimedUpdateEvents(const char * object_name,  const char * event_name);
+rbusCoreError_t rbuscore_unsubscribeFromTimedUpdateEvents(const char * object_name,  const char * event_name);
 
 /* Discover what end-points a wildcard expression resolves to.*/
-rbusCoreError_t rbus_discoverWildcardDestinations(const char * expression, int * count, char *** destinations);
+rbusCoreError_t rbuscore_discoverWildcardDestinations(const char * expression, int * count, char *** destinations);
 
-rbusCoreError_t rbus_discoverObjectElements(const char * object, int * count, char *** elements);
+rbusCoreError_t rbuscore_discoverObjectElements(const char * object, int * count, char *** elements);
 
 /* Discovers the given element to their corresponding objects. The look-up results are returned in an array 'objects' of size that is represented in count;
  Usually the length is 1 build if the given element is WildCard, it is possible to have multiple objects in return.
  It's caller's responsibility to free the individual strings in 'objects' array as well as 'objects' itself. If look-up fails for any of the elements, it will be 
  represented by an empty string in the objects array. If this function returns error, do not try to dereference/free 'objects'.*/
-rbusCoreError_t rbus_discoverElementObjects(const char* element, int * count, char *** objects);
+rbusCoreError_t rbuscore_discoverElementObjects(const char* element, int * count, char *** objects);
 
 /*same as above but for multiple elements*/
-rbusCoreError_t rbus_discoverElementsObjects(int numElements, const char** elements, int * count, char *** objects);
+rbusCoreError_t rbuscore_discoverElementsObjects(int numElements, const char** elements, int * count, char *** objects);
 
 /* Finds out all the registered application that is running with RBUS at any given point in time */
-rbusCoreError_t rbus_discoverRegisteredComponents(int * count, char *** components);
+rbusCoreError_t rbuscore_discoverRegisteredComponents(int * count, char *** components);
 
 /* Get the rbus status; to find out whether the rbus is enabled or not. The application can take action (ex: registration of events) based on this return value. */
 rbuscore_bus_status_t rbuscore_checkBusStatus(void);
 
 /* Sends reply response to the GET/SET and other methods */
-rbusCoreError_t rbus_sendResponse(const rtMessageHeader* hdr, rbusMessage response);
+rbusCoreError_t rbuscore_sendResponse(const rtMessageHeader* hdr, rbusMessage response);
 
 
 
