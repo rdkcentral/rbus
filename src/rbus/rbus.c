@@ -5580,9 +5580,9 @@ rbusError_t rbusMethod_Invoke(
     rbusObject_t* outParams)
 {
     VERIFY_HANDLE(handle);
-    struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
-    VERIFY_NULL(handle);
     VERIFY_NULL(methodName);
+    
+    struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
 
     if (handleInfo->m_handleType != RBUS_HWDL_TYPE_REGULAR)
         return RBUS_ERROR_INVALID_HANDLE;
@@ -5632,14 +5632,13 @@ rbusError_t rbusMethod_InvokeAsync(
     int timeout)
 {
     VERIFY_HANDLE(handle);
+    VERIFY_NULL(methodName);
+    VERIFY_NULL(callback);
+ 
     struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
     pthread_t pid;
     rbusMethodInvokeAsyncData_t* data;
     int err = 0;
-
-    VERIFY_NULL(handle);
-    VERIFY_NULL(methodName);
-    VERIFY_NULL(callback);
 
     if (handleInfo->m_handleType != RBUS_HWDL_TYPE_REGULAR)
         return RBUS_ERROR_INVALID_HANDLE;
