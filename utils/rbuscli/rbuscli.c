@@ -898,20 +898,6 @@ void event_receive_subscription_handler(rbusHandle_t handle, rbusEventSubscripti
       printf ("event name (%s) subscribe %s\n", subscription->eventName, error == RBUS_ERROR_SUCCESS ? "success" : "failed");
 }
 
-void message_receive_handler(rbusHandle_t handle, rbusMessage_t* msg, void * userData)
-{
-    (void)handle;
-    (void)userData;
-    runSteps = __LINE__;
-    if(g_logEvents)
-    {
-        printf("Message received on topic %s\n\r",  msg->topic);
-        printf("Message data: %.*s\n\r", msg->length, (char const *)msg->data);
-        if (userData)
-            printf("User data: %s\n\r", (const char*)userData);
-    }
-}
-
 static bool verify_rbus_open()
 {
     if(!g_busHandle)

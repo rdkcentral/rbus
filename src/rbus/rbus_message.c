@@ -24,6 +24,26 @@
 
 #define VERIFY_NULL(T) if(NULL == T){ return RBUS_ERROR_INVALID_INPUT; }
 
+#define RBUS_MESSAGE_MUTEX_LOCK()     \
+{                                                                         \
+  int err;                                                                \
+  if((err = pthread_mutex_lock(&gMutex)) != 0)                            \
+  {                                                                       \
+    RBUSLOG_ERROR("Error @ mutex lock.. Err=%d:%s ", err, strerror(err)); \
+  }                                                                       \
+}
+
+#define RBUS_MESSAGE_MUTEX_UNLOCK()   \
+{                                                                           \
+  int err;                                                                  \
+  if((err = pthread_mutex_unlock(&gMutex)) != 0)                            \
+  {                                                                         \
+    RBUSLOG_ERROR("Error @ mutex unlock.. Err=%d:%s ", err, strerror(err)); \
+  }                                                                         \
+}
+
+static pthread_mutex_t gMutex = PTHREAD_MUTEX_INITIALIZER;
+
 typedef struct
 {
     rbusHandle_t          handle;
@@ -121,10 +141,12 @@ rbusError_t rbusMessage_AddPrivateListener(
     ctx->userData = userData;
     ctx->connection = myConn;
     ctx->subscriptionId = subscriptionId;
+    RBUS_MESSAGE_MUTEX_LOCK();
     rtVector_PushBack(handle->messageCallbacks, ctx);
 
     snprintf(rawDataTopic, RBUS_MAX_NAME_LENGTH, "%d.%s", subscriptionId, expression);
     rtError e = rtConnection_AddListener(myConn, rawDataTopic, &rtMessage_CallbackHandler, ctx, subscriptionId);
+    RBUS_MESSAGE_MUTEX_UNLOCK();
     if (e != RT_OK)
     {
         RBUSLOG_WARN("rtConnection_AddListener:%s", rtStrError(e));
@@ -152,9 +174,11 @@ rbusError_t rbusMessage_AddListener(
     ctx->userData = userData;
     ctx->connection = con;
     ctx->subscriptionId = subscriptionId;
+    RBUS_MESSAGE_MUTEX_LOCK();
     rtVector_PushBack(handle->messageCallbacks, ctx);
 
     rtError e = rtConnection_AddListener(con, expression, &rtMessage_CallbackHandler, ctx, subscriptionId);
+    RBUS_MESSAGE_MUTEX_UNLOCK();
     if (e != RT_OK)
     {
         RBUSLOG_WARN("rtConnection_AddListener:%s", rtStrError(e));
@@ -179,9 +203,11 @@ rbusError_t rbusMessage_RemovePrivateListener(
     }
 
     snprintf(rawDataTopic, RBUS_MAX_NAME_LENGTH, "%d.%s", subscriptionId, expression);
+    RBUS_MESSAGE_MUTEX_LOCK();
     rtVector_RemoveItemByCompare(handle->messageCallbacks, rawDataTopic, compareContextExpression, cleanupContext);
 
     rtError e = rtConnection_RemoveListenerWithId(myConn, subscriptionId);
+    RBUS_MESSAGE_MUTEX_UNLOCK();
     if (e != RT_OK)
     {
         RBUSLOG_WARN("rtConnection_RemoveListener:%s", rtStrError(e));
@@ -199,9 +225,11 @@ rbusError_t rbusMessage_RemoveListener(
     VERIFY_NULL(handle);
     rtConnection con = ((struct _rbusHandle*)handle)->m_connection;
 
+    RBUS_MESSAGE_MUTEX_LOCK();
     rtVector_RemoveItemByCompare(handle->messageCallbacks, expression, compareContextExpression, cleanupContext);
 
     rtError e = rtConnection_RemoveListenerWithId(con, subscriptionId);
+    RBUS_MESSAGE_MUTEX_UNLOCK();
     if (e != RT_OK)
     {
         RBUSLOG_WARN("rtConnection_RemoveListener:%s", rtStrError(e));
@@ -218,6 +246,7 @@ rbusError_t rbusMessage_RemoveAllListeners(
     rtConnection con = ((struct _rbusHandle*)handle)->m_connection;
     int i, n;
 
+    RBUS_MESSAGE_MUTEX_LOCK();
     for (i = 0, n = rtVector_Size(handle->messageCallbacks); i < n; ++i)
     {
         rbusMessageHandlerContext_t* ctx = rtVector_At(handle->messageCallbacks, i);
@@ -230,6 +259,7 @@ rbusError_t rbusMessage_RemoveAllListeners(
         free(ctx->expression);
         free(ctx);
     }
+    RBUS_MESSAGE_MUTEX_UNLOCK();
     return RBUS_ERROR_SUCCESS;
 }
 
@@ -242,6 +272,7 @@ int rbusMessage_HasListener(
     VERIFY_NULL(topic);
     int i, n;
 
+    RBUS_MESSAGE_MUTEX_LOCK();
     for (i = 0, n = rtVector_Size(handle->messageCallbacks); i < n; ++i)
     {
         rbusMessageHandlerContext_t* ctx = rtVector_At(handle->messageCallbacks, i);
@@ -252,6 +283,7 @@ int rbusMessage_HasListener(
             break;
         }
     }
+    RBUS_MESSAGE_MUTEX_UNLOCK();
     return ret;
 }
 
