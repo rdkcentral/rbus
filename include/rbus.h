@@ -1903,8 +1903,6 @@ rbusError_t rbus_closeDirect(rbusHandle_t handle);
 }
 #endif
 
-#include "rbus_message.h"
-
 #endif
 
 /** @} */

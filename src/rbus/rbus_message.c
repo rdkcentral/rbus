@@ -17,6 +17,7 @@
  * limitations under the License.
 */
 #include "rbus.h"
+#include "rbus_message.h"
 #include "rbus_handle.h"
 #include "rbuscore.h"
 #include <rtMemory.h>

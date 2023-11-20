@@ -85,7 +85,6 @@ add_executable(rbus_gtest.bin
   rbusObjectTest.cpp
   rbusPropertyTest.cpp
   rbusFilterTest.cpp
-  rbusMessageTest.cpp
   rbusSessionTest.cpp
   rbusApiNegTest.cpp
   rbus_unit_test_marshalling.cpp

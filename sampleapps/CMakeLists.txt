@@ -113,14 +113,6 @@ add_dependencies(rbusBlockingProvider rbus)
 target_link_libraries(rbusBlockingProvider rbus)
 endif (BUILD_FOR_DESKTOP)
 
-add_executable(rbusMessageListener message/rbusMessageListener.c)
-add_dependencies(rbusMessageListener rbus)
-target_link_libraries(rbusMessageListener rbus)
-
-add_executable(rbusMessageSender message/rbusMessageSender.c)
-add_dependencies(rbusMessageSender rbus)
-target_link_libraries(rbusMessageSender rbus)
-
 add_executable(rbusOpenTelemetry consumer/rbusOpenTelemetry.c)
 add_dependencies(rbusOpenTelemetry rbus)
 target_link_libraries(rbusOpenTelemetry rbus)
@@ -143,8 +135,6 @@ install (TARGETS
     rbusGeneralEventConsumer
     rbusValueChangeProvider
     rbusValueChangeConsumer
-    rbusMessageListener
-    rbusMessageSender
     rbusOpenTelemetry
     rbusIntervalConsumer
     rbusIntervalProvider
