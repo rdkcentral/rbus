@@ -68,8 +68,8 @@ jobs:
           cd install/usr
           export PREFIX=$PWD
           export LD_LIBRARY_PATH=$PREFIX/lib
-          ./bin/multiRbusOpenMethodProvider > /tmp/log.multiRbusOpenMethodProvider &
-          ./bin/multiRbusOpenMethodConsumer
+          ./bin/multiRbusOpenMethodProvider &
+          ./bin/multiRbusOpenMethodConsumer &
       - name: Run multiRbusOpenSubscribe Unit test
         run: |
           cd install/usr
