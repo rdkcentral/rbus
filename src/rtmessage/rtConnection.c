@@ -1278,7 +1278,7 @@ rtConnection_RemoveListenerWithId(rtConnection con, uint32_t listenerId)
   {
     if ((con->listeners[i].in_use) && (listenerId == con->listeners[i].subscription_id))
     {
-        strncpy(expression, strdup(con->listeners[i].expression), RTMSG_HEADER_MAX_TOPIC_LENGTH);
+        strncpy(expression, con->listeners[i].expression, RTMSG_HEADER_MAX_TOPIC_LENGTH);
         con->listeners[i].in_use = 0;
         route_id = con->listeners[i].subscription_id;
         con->listeners[i].subscription_id = 0;
