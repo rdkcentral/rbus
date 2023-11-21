@@ -61,7 +61,7 @@ typedef volatile int atomic_uint_least32_t;
 #include <sys/time.h>
 
 #define RTMSG_LISTENERS_MAX 128
-#define RTCONNECTION_CREATE_SUBSCRIPTION_ID 1
+#define RTCONNECTION_CREATE_EXPRESSION_ID 1
 #ifdef  RDKC_BUILD
 #define RTMSG_SEND_BUFFER_SIZE (1024 * 8)
 #else
@@ -599,7 +599,7 @@ rtConnection_CreateInternal(rtConnection* con, char const* application_name, cha
 
   if (err == RT_OK)
   {
-    rtConnection_AddListener(c, c->inbox_name, onDefaultMessage, c, RTCONNECTION_CREATE_SUBSCRIPTION_ID);
+    rtConnection_AddListener(c, c->inbox_name, RTCONNECTION_CREATE_EXPRESSION_ID, onDefaultMessage, c);
     rtConnection_StartThreads(c);
     *con = c;
   }
@@ -1223,7 +1223,7 @@ rtConnection_SendInternal(rtConnection con, uint8_t const* buff, uint32_t n, cha
 }
 
 rtError
-rtConnection_AddListener(rtConnection con, char const* expression, rtMessageCallback callback, void* closure, uint32_t subscriptionId)
+rtConnection_AddListener(rtConnection con, char const* expression, uint32_t expressionId, rtMessageCallback callback, void* closure)
 {
   int i;
 
@@ -1246,7 +1246,7 @@ rtConnection_AddListener(rtConnection con, char const* expression, rtMessageCall
   }
 
   con->listeners[i].in_use = 1;
-  con->listeners[i].subscription_id = subscriptionId;
+  con->listeners[i].subscription_id = expressionId;
   con->listeners[i].closure = closure;
   con->listeners[i].callback = callback;
   con->listeners[i].expression = strdup(expression);
@@ -1264,7 +1264,7 @@ rtConnection_AddListener(rtConnection con, char const* expression, rtMessageCall
 }
 
 rtError
-rtConnection_RemoveListenerWithId(rtConnection con, uint32_t listenerId)
+rtConnection_RemoveListener(rtConnection con, uint32_t expressionId)
 {
   int i;
   int route_id = 0;
@@ -1276,7 +1276,7 @@ rtConnection_RemoveListenerWithId(rtConnection con, uint32_t listenerId)
   pthread_mutex_lock(&con->mutex);
   for (i = 0; i < RTMSG_LISTENERS_MAX; ++i)
   {
-    if ((con->listeners[i].in_use) && (listenerId == con->listeners[i].subscription_id))
+    if ((con->listeners[i].in_use) && (expressionId == con->listeners[i].subscription_id))
     {
         strncpy(expression, con->listeners[i].expression, RTMSG_HEADER_MAX_TOPIC_LENGTH);
         con->listeners[i].in_use = 0;

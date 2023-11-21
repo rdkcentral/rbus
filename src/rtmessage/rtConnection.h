@@ -186,7 +186,7 @@ rtConnection_SendBinaryResponse(rtConnection con, rtMessageHeader const* request
  */
 rtError
 rtConnection_AddListener(rtConnection con, char const* expression,
-  rtMessageCallback callback, void* closure, uint32_t subscriptionId);
+  uint32_t expressionId, rtMessageCallback callback, void* closure);
 
 /**
  * Remove a callback listener
@@ -195,7 +195,7 @@ rtConnection_AddListener(rtConnection con, char const* expression,
  * @return error
  */
 rtError
-rtConnection_RemoveListenerWithId(rtConnection con, uint32_t listenerId);
+rtConnection_RemoveListener(rtConnection con, uint32_t expressionId);
 
 /**
  * Add an alias to an existing listener

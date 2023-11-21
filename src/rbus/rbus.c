@@ -361,7 +361,7 @@ rbusError_t rbusOpenDirect_SubAdd(rbusHandle_t handle, rtVector eventSubs, char 
                 errorcode = rbusMessage_RemoveListener(handle, rawDataTopic, subInternal->subscriptionId);
                 if (errorcode != RBUS_ERROR_SUCCESS)
                 {
-                    RBUSLOG_WARN("rtConnection_RemoveListener failed err:%d", errorcode);
+                    RBUSLOG_WARN("rbusMessage_RemoveListener failed err:%d", errorcode);
                 }
             }
             memset(rawDataTopic, '\0', strlen(rawDataTopic));
@@ -399,7 +399,7 @@ rbusError_t rbusCloseDirect_SubRemove(rbusHandle_t handle, rtVector eventSubs, c
             errorcode = rbusMessage_RemovePrivateListener(handle, rawDataTopic, subInternal->subscriptionId);
             if (errorcode != RBUS_ERROR_SUCCESS)
             {
-                RBUSLOG_WARN("rtConnection_RemoveListener failed err:%d", errorcode);
+                RBUSLOG_WARN("rbusMessage_RemovePrivateListener failed err:%d", errorcode);
             }
             handle->m_connection = handle->m_connectionParent; /* changed the handle m_connection of direct connection to use normal m_connection and used the same to add the rawdatatopic for normal connection*/
             memset(rawDataTopic, '\0', strlen(rawDataTopic));
@@ -5105,7 +5105,7 @@ rbusError_t  rbusEvent_SubscribeRawData(
             errorcode = rbusMessage_RemoveListener(handle, rawDataTopic, subInternal->subscriptionId);
             if (errorcode != RT_OK)
             {
-                RBUSLOG_WARN("rtConnection_RemoveListener:%d", errorcode);
+                RBUSLOG_WARN("rbusMessage_RemoveListener:%d", errorcode);
             }
         }
         memset(rawDataTopic, '\0', strlen(rawDataTopic));
@@ -5393,7 +5393,7 @@ rbusError_t rbusEvent_SubscribeExRawData(
                     errorcode = rbusMessage_RemoveListener(handle, rawDataTopic, subInternal->subscriptionId);
                     if (errorcode != RT_OK)
                     {
-                        RBUSLOG_WARN("rtConnection_RemoveListener:%d", errorcode);
+                        RBUSLOG_WARN("rbusMessage_RemoveListener:%d", errorcode);
                     }
                 }
                 memset(rawDataTopic, '\0', strlen(rawDataTopic));
@@ -5585,7 +5585,7 @@ rbusError_t rbusEvent_UnsubscribeEx(
                 errorcode = rbusMessage_RemoveListener(handle, topic, subInternal->subscriptionId);
                 if (errorcode != RBUS_ERROR_SUCCESS)
                 {
-                    RBUSLOG_WARN("rtConnection_RemoveListener failed err:%d", errorcode);
+                    RBUSLOG_WARN("rbusMessage_RemoveListener failed err:%d", errorcode);
                 }
             }
             errorcode = _rbus_event_unsubscribe(handle, subInternal);
@@ -5653,7 +5653,7 @@ rbusError_t  rbusEvent_PublishRawData(
     rbusError_t rc = RBUS_ERROR_SUCCESS;
     rtListItem listItem;
     rbusSubscription_t* subscription;
-    rtError ret = RT_OK;
+    rbusCoreError_t err = RBUSCORE_SUCCESS;
     char rawDataTopic[RBUS_MAX_NAME_LENGTH] = {0};
 
     VERIFY_NULL(handle);
@@ -5678,6 +5678,8 @@ rbusError_t  rbusEvent_PublishRawData(
     {
         return RBUS_ERROR_NOSUBSCRIBERS;
     }
+
+    HANDLE_SUBS_MUTEX_LOCK(handle);
     rtList_GetFront(el->subscriptions, &listItem);
     while(listItem)
     {
@@ -5689,21 +5691,14 @@ rbusError_t  rbusEvent_PublishRawData(
                 rc = RBUS_ERROR_BUS_ERROR;
             rtListItem_GetNext(listItem, &listItem);
         }
-        const rtPrivateClientInfo *pPrivCliInfo = _rbuscore_find_server_privateconnection (subscription->eventName, subscription->listener);
-        if(pPrivCliInfo && subscription->rawData)
-        {
-            ret = rtRouteDirect_SendMessage (pPrivCliInfo, eventData->rawData, eventData->rawDataLen, subscription->eventName, subscription->subscriptionId);
-            if(RT_OK != ret)
-            {
-               rc = RBUS_ERROR_BUS_ERROR;
-            }
-        }
+        err = rbuscore_publishDirectSubscriberEvent(subscription->eventName, subscription->listener, eventData->rawData, eventData->rawDataLen, subscription->subscriptionId);
+        rc = rbusCoreError_to_rbusError(err);
         rtListItem_GetNext(listItem, &listItem);
     }
+    HANDLE_SUBS_MUTEX_UNLOCK(handle);
     snprintf(rawDataTopic, RBUS_MAX_NAME_LENGTH, "rawdata.%s", eventData->name);
-    ret = rtConnection_SendBinary(handleInfo->m_connection, eventData->rawData, eventData->rawDataLen, rawDataTopic);
-    if(RT_OK != ret)
-        rc = RBUS_ERROR_BUS_ERROR;
+    err = rbus_sendData(eventData->rawData, eventData->rawDataLen, rawDataTopic);
+    rc = rbusCoreError_to_rbusError(err);
     return rc;
 }
 
@@ -5920,9 +5915,9 @@ rbusError_t rbusMethod_Invoke(
     rbusObject_t* outParams)
 {
     VERIFY_HANDLE(handle);
-    struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
-    VERIFY_NULL(handle);
     VERIFY_NULL(methodName);
+    
+    struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
 
     if (handleInfo->m_handleType != RBUS_HWDL_TYPE_REGULAR)
         return RBUS_ERROR_INVALID_HANDLE;
@@ -5972,14 +5967,13 @@ rbusError_t rbusMethod_InvokeAsync(
     int timeout)
 {
     VERIFY_HANDLE(handle);
+    VERIFY_NULL(methodName);
+    VERIFY_NULL(callback);
+ 
     struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
     pthread_t pid;
     rbusMethodInvokeAsyncData_t* data;
     int err = 0;
-
-    VERIFY_NULL(handle);
-    VERIFY_NULL(methodName);
-    VERIFY_NULL(callback);
 
     if (handleInfo->m_handleType != RBUS_HWDL_TYPE_REGULAR)
         return RBUS_ERROR_INVALID_HANDLE;

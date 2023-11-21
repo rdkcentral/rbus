@@ -146,7 +146,7 @@ rbusError_t rbusMessage_AddPrivateListener(
     rtVector_PushBack(handle->messageCallbacks, ctx);
 
     snprintf(rawDataTopic, RBUS_MAX_NAME_LENGTH, "%d.%s", subscriptionId, expression);
-    rtError e = rtConnection_AddListener(myConn, rawDataTopic, &rtMessage_CallbackHandler, ctx, subscriptionId);
+    rtError e = rtConnection_AddListener(myConn, rawDataTopic, subscriptionId, &rtMessage_CallbackHandler, ctx);
     RBUS_MESSAGE_MUTEX_UNLOCK();
     if (e != RT_OK)
     {
@@ -178,7 +178,7 @@ rbusError_t rbusMessage_AddListener(
     RBUS_MESSAGE_MUTEX_LOCK();
     rtVector_PushBack(handle->messageCallbacks, ctx);
 
-    rtError e = rtConnection_AddListener(con, expression, &rtMessage_CallbackHandler, ctx, subscriptionId);
+    rtError e = rtConnection_AddListener(con, expression, subscriptionId, &rtMessage_CallbackHandler, ctx);
     RBUS_MESSAGE_MUTEX_UNLOCK();
     if (e != RT_OK)
     {
@@ -207,7 +207,7 @@ rbusError_t rbusMessage_RemovePrivateListener(
     RBUS_MESSAGE_MUTEX_LOCK();
     rtVector_RemoveItemByCompare(handle->messageCallbacks, rawDataTopic, compareContextExpression, cleanupContext);
 
-    rtError e = rtConnection_RemoveListenerWithId(myConn, subscriptionId);
+    rtError e = rtConnection_RemoveListener(myConn, subscriptionId);
     RBUS_MESSAGE_MUTEX_UNLOCK();
     if (e != RT_OK)
     {
@@ -229,7 +229,7 @@ rbusError_t rbusMessage_RemoveListener(
     RBUS_MESSAGE_MUTEX_LOCK();
     rtVector_RemoveItemByCompare(handle->messageCallbacks, expression, compareContextExpression, cleanupContext);
 
-    rtError e = rtConnection_RemoveListenerWithId(con, subscriptionId);
+    rtError e = rtConnection_RemoveListener(con, subscriptionId);
     RBUS_MESSAGE_MUTEX_UNLOCK();
     if (e != RT_OK)
     {
@@ -252,7 +252,7 @@ rbusError_t rbusMessage_RemoveAllListeners(
     {
         rbusMessageHandlerContext_t* ctx = rtVector_At(handle->messageCallbacks, i);
         VERIFY_NULL(ctx);
-        rtError e = rtConnection_RemoveListenerWithId(con, ctx->subscriptionId);
+        rtError e = rtConnection_RemoveListener(con, ctx->subscriptionId);
         if (e != RT_OK)
         {
             RBUSLOG_WARN("rbusMessage_RemoveAllListener %s :%s", ctx->expression, rtStrError(e));

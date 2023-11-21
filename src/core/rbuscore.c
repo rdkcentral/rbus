@@ -100,6 +100,7 @@ extern char* __progname;
 static void _freePrivateServer(void* p);
 static void _rbuscore_directconnection_load_from_cache();
 static void _rbuscore_destroy_clientPrivate_connections();
+const rtPrivateClientInfo* _rbuscore_find_server_privateconnection(const char *pParameterName, const char *pConsumerName);
 /////
 
 void server_method_create(server_method_t* meth, char const* name, rbus_callback_t callback, void* data)
@@ -810,7 +811,7 @@ rbusCoreError_t rbus_registerObj(const char * object_name, rbus_callback_t handl
     server_object_create(&obj, object_name, handler, user_data);
 
     //TODO: callback signature translation. rbusMessage uses a significantly wider signature for callbacks. Translate to something simpler.
-    err = rtConnection_AddListener(g_connection, object_name, onMessage, obj, RBUS_REGISTER_OBJECT_SUBSCRIPTION_ID);
+    err = rtConnection_AddListener(g_connection, object_name, RBUS_REGISTER_OBJECT_EXPRESSION_ID, onMessage, obj);
 
     if(RT_OK == err)
     {
@@ -956,7 +957,7 @@ rbusCoreError_t rbus_unregisterObj(const char * object_name)
         return RBUSCORE_ERROR_INVALID_PARAM;
     }
 
-    err = rtConnection_RemoveListenerWithId(g_connection, RBUS_REGISTER_OBJECT_SUBSCRIPTION_ID);
+    err = rtConnection_RemoveListener(g_connection, RBUS_REGISTER_OBJECT_EXPRESSION_ID);
     if(RT_OK != err)
     {
         RBUSCORELOG_ERROR("rtConnection_RemoveListener %s failed: Err=%d", object_name, err);
@@ -1214,6 +1215,20 @@ rbusCoreError_t rbus_pullObj(const char * object_name, int timeout_millisecs, rb
         }
     }
     return ret;
+}
+
+rbusCoreError_t rbus_sendData(const void* data, uint32_t dataLength, const char * topic)
+{
+    rtError ret;
+
+    if(NULL == g_connection)
+    {
+        RBUSCORELOG_ERROR("Not connected.");
+        return RBUSCORE_ERROR_INVALID_STATE;
+    }
+
+    ret = rtConnection_SendBinaryDirect(g_connection, data, dataLength, topic, NULL);
+    return translate_rt_error(ret);
 }
 
 static rbusCoreError_t rbus_sendMessage(rbusMessage msg, const char * destination, const char * sender)
@@ -1680,7 +1695,7 @@ rbusCoreError_t rbus_registerClientDisconnectHandler(rbus_client_disconnect_call
     lock();
     if(!g_advisory_listener_installed)
     {
-        rtError err = rtConnection_AddListener(g_connection, RTMSG_ADVISORY_TOPIC, &rtrouted_advisory_callback, g_connection, RBUS_ADVISORY_SUBSCRIPTION_ID);
+        rtError err = rtConnection_AddListener(g_connection, RTMSG_ADVISORY_TOPIC, RBUS_ADVISORY_EXPRESSION_ID, &rtrouted_advisory_callback, g_connection);
         if(err == RT_OK)
         {
             RBUSCORELOG_DEBUG("Listening for advisory messages");
@@ -1703,11 +1718,25 @@ rbusCoreError_t rbus_unregisterClientDisconnectHandler()
     lock();
     if(g_advisory_listener_installed)
     {
-        rtConnection_RemoveListenerWithId(g_connection, RBUS_ADVISORY_SUBSCRIPTION_ID);
+        rtConnection_RemoveListener(g_connection, RBUS_ADVISORY_EXPRESSION_ID);
         g_advisory_listener_installed = false;
     }
     unlock();
     return RBUSCORE_SUCCESS;
+}
+
+rbusCoreError_t rbuscore_publishDirectSubscriberEvent(const char * event_name, const char* listener, const void* data, uint32_t dataLength, uint32_t subscriptionId)
+{
+    rtError err = RT_OK;
+
+    lock();
+    const rtPrivateClientInfo *pPrivCliInfo = _rbuscore_find_server_privateconnection (event_name, listener);
+    if(pPrivCliInfo)
+    {
+        err = rtRouteDirect_SendMessage (pPrivCliInfo, data, dataLength, (char*)event_name, subscriptionId);
+    }
+    unlock();
+    return translate_rt_error(err);
 }
 
 rbusCoreError_t rbus_publishSubscriberEvent(const char* object_name,  const char * event_name, const char* listener, rbusMessage out, uint32_t subscriptionId)
@@ -1729,6 +1758,7 @@ rbusCoreError_t rbus_publishSubscriberEvent(const char* object_name,  const char
     rbusMessage_SetInt32(out, 1);/*is rbus 2.0*/ 
     rbusMessage_EndMetaSectionWrite(out);
 
+    lock();
     const rtPrivateClientInfo *pPrivCliInfo = _rbuscore_find_server_privateconnection (event_name, listener);
     if(pPrivCliInfo)
     {
@@ -1742,7 +1772,6 @@ rbusCoreError_t rbus_publishSubscriberEvent(const char* object_name,  const char
         snprintf(topic, MAX_OBJECT_NAME_LENGTH, "%d.%s", subscriptionId ,event_name);
         if(topic[strlen(topic) - 1] == '.')
             topic[strlen(topic) - 1] = '\0';
-        lock();
         server_object_t obj = get_object(object_name);
         if(NULL == obj)
         {
@@ -1755,8 +1784,8 @@ rbusCoreError_t rbus_publishSubscriberEvent(const char* object_name,  const char
         {
            RBUSCORELOG_ERROR("Couldn't send event %s::%s to %s.", object_name, event_name, listener);
         }
-        unlock();
     }
+    unlock();
     return ret;
 }
 
