@@ -1068,7 +1068,7 @@ int subscribeHandlerImpl(
     int32_t duration,
     rbusFilter_t filter,
     int rawData,
-    uint64_t** subscriptionId)
+    uint32_t* subscriptionId)
 {
     int error = RBUS_ERROR_SUCCESS;
     rbusSubscription_t* subscription = NULL;
@@ -1144,7 +1144,7 @@ int subscribeHandlerImpl(
                 return RBUS_ERROR_INVALID_INPUT; // Adding fails because of invalid input
             }
             else
-                **subscriptionId = subscription->subscriptionId;
+                *subscriptionId = subscription->subscriptionId;
         }
         else
         {
@@ -1343,16 +1343,6 @@ static void unregisterTableRow (rbusHandle_t handle, elementNode* rowInstElem)
     }
 }
 //******************************* CALLBACKS *************************************//
-static int _event_subscribe_callback_handler(elementNode* el,  char const* eventName, char const* listener, int added, int componentId, int interval, int duration, rbusFilter_t filter, void* userData, int rawData, uint64_t* subscriptionId)
-{
-    rbusHandle_t handle = (rbusHandle_t)userData;
-    rbusCoreError_t err = RBUSCORE_SUCCESS;
-
-    RBUSLOG_DEBUG("event subscribe callback for [%s] event! and element of type %d", eventName, el->type);
-
-    err = subscribeHandlerImpl(handle, added, el, eventName, listener, componentId, interval, duration, filter, rawData, &subscriptionId);
-    return err;
-}
 
 static void _client_disconnect_callback_handler(const char * listener)
 {
@@ -2493,7 +2483,7 @@ static void _subscribe_callback_handler (rbusHandle_t handle, rbusMessage reques
     int32_t componentId = 0;
     int32_t interval = 0;
     int32_t duration = 0;
-    uint64_t subscriptionId = 0;
+    uint32_t subscriptionId = 0;
     rbusFilter_t filter = NULL;
     elementNode* el = NULL;
     rbusError_t ret = RBUS_ERROR_SUCCESS;
@@ -2549,7 +2539,7 @@ static void _subscribe_callback_handler (rbusHandle_t handle, rbusMessage reques
             rbusMessage_GetInt32(request, &publishOnSubscribe);
             rbusMessage_GetInt32(request, &rawData);
             if(ret == RBUS_ERROR_SUCCESS)
-                ret = _event_subscribe_callback_handler(el, event_name, sender, added, componentId, interval, duration, filter, handle, rawData, &subscriptionId);
+                ret = subscribeHandlerImpl(handle, added, el, event_name, sender, componentId, interval, duration, filter, rawData, &subscriptionId);
             rbusMessage_SetInt32(*response, ret);
 
             if(publishOnSubscribe && ret == RBUS_ERROR_SUCCESS)

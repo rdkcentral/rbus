@@ -43,7 +43,7 @@ struct _rbusSubscriptions
 static void rbusSubscriptions_loadCache(rbusSubscriptions_t subscriptions);
 static void rbusSubscriptions_saveCache(rbusSubscriptions_t subscriptions);
 
-int subscribeHandlerImpl(rbusHandle_t handle, bool added, elementNode* el, char const* eventName, char const* listener, int32_t componentId, int32_t interval, int32_t duration, rbusFilter_t filter, int rawData, uint32_t **subscriptionId);
+int subscribeHandlerImpl(rbusHandle_t handle, bool added, elementNode* el, char const* eventName, char const* listener, int32_t componentId, int32_t interval, int32_t duration, rbusFilter_t filter, int rawData, uint32_t *subscriptionId);
 
 static int subscriptionKeyCompare(rbusSubscription_t* subscription, char const* listener, int32_t componentId,  char const* eventName, rbusFilter_t filter, int32_t interval, int32_t duration, bool rawData)
 {
@@ -740,7 +740,6 @@ void rbusSubscriptions_resubscribeElementCache(rbusHandle_t handle, rbusSubscrip
 {
     rtListItem item;
     rbusSubscription_t* sub;
-    uint32_t* subscriptionId;
 
     VERIFY_NULL(subscriptions);
     VERIFY_NULL(el);
@@ -762,8 +761,7 @@ void rbusSubscriptions_resubscribeElementCache(rbusHandle_t handle, rbusSubscrip
             RBUSLOG_INFO("resubscribing %s for %s", sub->eventName, sub->listener);
             rtListItem_GetNext(item, &next);
             rtList_RemoveItem(subscriptions->subList, item, NULL);/*remove before calling subscribeHandlerImpl to avoid dupes in cache file*/
-            subscriptionId = &sub->subscriptionId;
-            err = subscribeHandlerImpl(handle, true, el, sub->eventName, sub->listener, sub->componentId, sub->interval, sub->duration, sub->filter, sub->rawData, &subscriptionId);
+            err = subscribeHandlerImpl(handle, true, el, sub->eventName, sub->listener, sub->componentId, sub->interval, sub->duration, sub->filter, sub->rawData, &sub->subscriptionId);
             /*TODO figure out what to do if we get an error resubscribing
             It's conceivable that a provider might not like the sub due to some state change between this and the previous process run
             */
@@ -786,7 +784,6 @@ void rbusSubscriptions_resubscribeRowElementCache(rbusHandle_t handle, rbusSubsc
     rbusError_t err = RBUS_ERROR_SUCCESS;
     size_t size = 0;
     unsigned int count = 0;
-    uint32_t *subscriptionId;
     struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
 
     if(subscriptions)
@@ -811,8 +808,7 @@ void rbusSubscriptions_resubscribeRowElementCache(rbusHandle_t handle, rbusSubsc
                 {
                     RBUSLOG_INFO("resubscribing %s for %s", sub->eventName, sub->listener);
                     rtList_RemoveItem(subscriptions->subList, item, NULL);
-                    subscriptionId = &sub->subscriptionId;
-                    err = subscribeHandlerImpl(handle, true, el, sub->eventName, sub->listener, sub->componentId, sub->interval, sub->duration, sub->filter, sub->rawData, &subscriptionId);
+                    err = subscribeHandlerImpl(handle, true, el, sub->eventName, sub->listener, sub->componentId, sub->interval, sub->duration, sub->filter, sub->rawData, &sub->subscriptionId);
                     (void)err;
                     subscriptionFree(sub);
                 }

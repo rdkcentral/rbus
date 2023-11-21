@@ -277,11 +277,15 @@ int rbusMessage_HasListener(
     for (i = 0, n = rtVector_Size(handle->messageCallbacks); i < n; ++i)
     {
         rbusMessageHandlerContext_t* ctx = rtVector_At(handle->messageCallbacks, i);
-        VERIFY_NULL(ctx);
-        if(!strcmp(ctx->expression, topic))
+        if(!ctx)
+            continue;
+        else
         {
-            ret = 1;
-            break;
+            if(!strcmp(ctx->expression, topic))
+            {
+                ret = 1;
+                break;
+            }
         }
     }
     RBUS_MESSAGE_MUTEX_UNLOCK();
