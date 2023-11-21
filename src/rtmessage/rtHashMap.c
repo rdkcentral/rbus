@@ -49,6 +49,8 @@ struct _rtHashMap
 
 static rtVector rtHashMap_GetBucket(rtHashMap hashmap, const void* key)
 {
+    if(!rtVector_Size(hashmap->buckets))
+        return NULL;
     uint32_t hash = hashmap->key_hasher(hashmap, key);
     if(rtVector_Size(hashmap->buckets) > (size_t)hash)
         return rtVector_At(hashmap->buckets, hash);

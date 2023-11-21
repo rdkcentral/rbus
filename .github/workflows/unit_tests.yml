@@ -63,13 +63,13 @@ jobs:
           export LD_LIBRARY_PATH=$PREFIX/lib
           nohup ./bin/rbusTestProvider >/tmp/plog.txt &
           ./bin/rbusTestConsumer -a
-      - name: Run multiRbusOpenMethod Unit test 
+      - name: Run multiRbusOpenMethod Unit Test
         run: |
           cd install/usr
           export PREFIX=$PWD
           export LD_LIBRARY_PATH=$PREFIX/lib
-          nohup ./bin/multiRbusOpenMethodProvider >/tmp/log_multiRbusOpenMethodProvider.txt &
-          ./bin/multiRbusOpenMethodConsumer
+          ./bin/multiRbusOpenMethodProvider &
+          ./bin/multiRbusOpenMethodConsumer &
       - name: Run multiRbusOpenSubscribe Unit test
         run: |
           cd install/usr
