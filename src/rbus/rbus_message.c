@@ -207,7 +207,7 @@ rbusError_t rbusMessage_RemovePrivateListener(
     RBUS_MESSAGE_MUTEX_LOCK();
     rtVector_RemoveItemByCompare(handle->messageCallbacks, rawDataTopic, compareContextExpression, cleanupContext);
 
-    rtError e = rtConnection_RemoveListener(myConn, subscriptionId);
+    rtError e = rtConnection_RemoveListener(myConn, rawDataTopic, subscriptionId);
     RBUS_MESSAGE_MUTEX_UNLOCK();
     if (e != RT_OK)
     {
@@ -229,7 +229,7 @@ rbusError_t rbusMessage_RemoveListener(
     RBUS_MESSAGE_MUTEX_LOCK();
     rtVector_RemoveItemByCompare(handle->messageCallbacks, expression, compareContextExpression, cleanupContext);
 
-    rtError e = rtConnection_RemoveListener(con, subscriptionId);
+    rtError e = rtConnection_RemoveListener(con, expression, subscriptionId);
     RBUS_MESSAGE_MUTEX_UNLOCK();
     if (e != RT_OK)
     {
@@ -252,7 +252,7 @@ rbusError_t rbusMessage_RemoveAllListeners(
     {
         rbusMessageHandlerContext_t* ctx = rtVector_At(handle->messageCallbacks, i);
         VERIFY_NULL(ctx);
-        rtError e = rtConnection_RemoveListener(con, ctx->subscriptionId);
+        rtError e = rtConnection_RemoveListener(con, ctx->expression, ctx->subscriptionId);
         if (e != RT_OK)
         {
             RBUSLOG_WARN("rbusMessage_RemoveAllListener %s :%s", ctx->expression, rtStrError(e));

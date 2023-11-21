@@ -957,7 +957,7 @@ rbusCoreError_t rbus_unregisterObj(const char * object_name)
         return RBUSCORE_ERROR_INVALID_PARAM;
     }
 
-    err = rtConnection_RemoveListener(g_connection, RBUS_REGISTER_OBJECT_EXPRESSION_ID);
+    err = rtConnection_RemoveListener(g_connection, object_name, RBUS_REGISTER_OBJECT_EXPRESSION_ID);
     if(RT_OK != err)
     {
         RBUSCORELOG_ERROR("rtConnection_RemoveListener %s failed: Err=%d", object_name, err);
@@ -1718,7 +1718,7 @@ rbusCoreError_t rbus_unregisterClientDisconnectHandler()
     lock();
     if(g_advisory_listener_installed)
     {
-        rtConnection_RemoveListener(g_connection, RBUS_ADVISORY_EXPRESSION_ID);
+        rtConnection_RemoveListener(g_connection, RTMSG_ADVISORY_TOPIC, RBUS_ADVISORY_EXPRESSION_ID);
         g_advisory_listener_installed = false;
     }
     unlock();

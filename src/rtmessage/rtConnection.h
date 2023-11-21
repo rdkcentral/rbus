@@ -195,7 +195,7 @@ rtConnection_AddListener(rtConnection con, char const* expression,
  * @return error
  */
 rtError
-rtConnection_RemoveListener(rtConnection con, uint32_t expressionId);
+rtConnection_RemoveListener(rtConnection con, char const* expression, uint32_t expressionId);
 
 /**
  * Add an alias to an existing listener

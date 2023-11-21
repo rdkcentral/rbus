@@ -1264,11 +1264,10 @@ rtConnection_AddListener(rtConnection con, char const* expression, uint32_t expr
 }
 
 rtError
-rtConnection_RemoveListener(rtConnection con, uint32_t expressionId)
+rtConnection_RemoveListener(rtConnection con, char const* expression, uint32_t expressionId)
 {
   int i;
   int route_id = 0;
-  char expression[RTMSG_HEADER_MAX_TOPIC_LENGTH] = {0};
 
   if (!con)
     return rtErrorFromErrno(EINVAL);
@@ -1278,7 +1277,6 @@ rtConnection_RemoveListener(rtConnection con, uint32_t expressionId)
   {
     if ((con->listeners[i].in_use) && (expressionId == con->listeners[i].subscription_id))
     {
-        strncpy(expression, con->listeners[i].expression, RTMSG_HEADER_MAX_TOPIC_LENGTH);
         con->listeners[i].in_use = 0;
         route_id = con->listeners[i].subscription_id;
         con->listeners[i].subscription_id = 0;
