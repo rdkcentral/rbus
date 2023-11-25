@@ -57,7 +57,7 @@ void rbusSubscriptions_create(rbusSubscriptions_t* subscriptions, rbusHandle_t h
 void rbusSubscriptions_destroy(rbusSubscriptions_t subscriptions);
 
 /*add a new subscription with unique key [listener, eventName, filter] and the corresponding*/
-rbusSubscription_t* rbusSubscriptions_addSubscription(rbusSubscriptions_t subscriptions, char const* listener, char const* eventName, int32_t componentId, rbusFilter_t filter, int32_t interval, int32_t duration, bool autoPublish, elementNode* registryElem, bool rawData);
+rbusSubscription_t* rbusSubscriptions_addSubscription(rbusSubscriptions_t subscriptions, char const* listener, char const* eventName, int32_t componentId, rbusFilter_t filter, int32_t interval, int32_t duration, bool autoPublish, elementNode* registryElem, bool rawData, int resubscribe, int subscriptionId);
 
 /*get an existing subscription by searching for its unique key [listener, eventName, filter]*/
 rbusSubscription_t* rbusSubscriptions_getSubscription(rbusSubscriptions_t subscriptions, char const* listener, char const* eventName, int32_t componentId, rbusFilter_t filter, int32_t interval, int32_t duration, bool rawData);

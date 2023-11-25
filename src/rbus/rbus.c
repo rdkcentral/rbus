@@ -1068,7 +1068,8 @@ int subscribeHandlerImpl(
     int32_t duration,
     rbusFilter_t filter,
     int rawData,
-    uint32_t* subscriptionId)
+    uint32_t* subscriptionId,
+    int resubscribe)
 {
     int error = RBUS_ERROR_SUCCESS;
     rbusSubscription_t* subscription = NULL;
@@ -1137,7 +1138,7 @@ int subscribeHandlerImpl(
         subscription = rbusSubscriptions_getSubscription(handleInfo->subscriptions, listener, eventName, componentId, filter, interval, duration, rawData);
         if(!subscription)
         {
-            subscription = rbusSubscriptions_addSubscription(handleInfo->subscriptions, listener, eventName, componentId, filter, interval, duration, autoPublish, el, rawData);
+            subscription = rbusSubscriptions_addSubscription(handleInfo->subscriptions, listener, eventName, componentId, filter, interval, duration, autoPublish, el, rawData, resubscribe, *subscriptionId);
             if(!subscription)
             {
                 HANDLE_SUBS_MUTEX_UNLOCK(handle);
@@ -2539,7 +2540,7 @@ static void _subscribe_callback_handler (rbusHandle_t handle, rbusMessage reques
             rbusMessage_GetInt32(request, &publishOnSubscribe);
             rbusMessage_GetInt32(request, &rawData);
             if(ret == RBUS_ERROR_SUCCESS)
-                ret = subscribeHandlerImpl(handle, added, el, event_name, sender, componentId, interval, duration, filter, rawData, &subscriptionId);
+                ret = subscribeHandlerImpl(handle, added, el, event_name, sender, componentId, interval, duration, filter, rawData, &subscriptionId, 0);
             rbusMessage_SetInt32(*response, ret);
 
             if(publishOnSubscribe && ret == RBUS_ERROR_SUCCESS)
