@@ -1068,8 +1068,7 @@ int subscribeHandlerImpl(
     int32_t duration,
     rbusFilter_t filter,
     int rawData,
-    uint32_t* subscriptionId,
-    int resubscribe)
+    uint32_t* subscriptionId)
 {
     int error = RBUS_ERROR_SUCCESS;
     rbusSubscription_t* subscription = NULL;
@@ -1091,7 +1090,6 @@ int subscribeHandlerImpl(
 
     RBUSLOG_INFO("Consumer=%s %s to event=%s", listener, added ? "SUBSCRIBED" : "UNSUBSCRIBED", eventName);
 
-    HANDLE_SUBS_MUTEX_LOCK(handle);
     /* call the provider subHandler first to see if it overrides autoPublish */
     if(el->cbTable.eventSubHandler)
     {
@@ -1109,14 +1107,12 @@ int subscribeHandlerImpl(
         if(rawData && autoPublish)
         {
             RBUSLOG_DEBUG("%s raw data subscription doesn't allow autoPublish=%d", __FUNCTION__, err);
-            HANDLE_SUBS_MUTEX_UNLOCK(handle);
             return RBUS_ERROR_INVALID_INPUT;
         }
 
         if(err != RBUS_ERROR_SUCCESS)
         {
             RBUSLOG_DEBUG("provider subHandler return err=%d", err);
-            HANDLE_SUBS_MUTEX_UNLOCK(handle);
             return err;
         }
     }
@@ -1131,17 +1127,15 @@ int subscribeHandlerImpl(
         if (interval && eventName[strlen(eventName)-1] == '.')
         {
             RBUSLOG_ERROR("rbus interval subscription not supported for this event %s\n", eventName);
-            HANDLE_SUBS_MUTEX_UNLOCK(handle);
             return RBUS_ERROR_INVALID_OPERATION;
         }
 
         subscription = rbusSubscriptions_getSubscription(handleInfo->subscriptions, listener, eventName, componentId, filter, interval, duration, rawData);
         if(!subscription)
         {
-            subscription = rbusSubscriptions_addSubscription(handleInfo->subscriptions, listener, eventName, componentId, filter, interval, duration, autoPublish, el, rawData, resubscribe, *subscriptionId);
+            subscription = rbusSubscriptions_addSubscription(handleInfo->subscriptions, listener, eventName, componentId, filter, interval, duration, autoPublish, el, rawData);
             if(!subscription)
             {
-                HANDLE_SUBS_MUTEX_UNLOCK(handle);
                 return RBUS_ERROR_INVALID_INPUT; // Adding fails because of invalid input
             }
             else
@@ -1149,7 +1143,6 @@ int subscribeHandlerImpl(
         }
         else
         {
-            HANDLE_SUBS_MUTEX_UNLOCK(handle);
             return RBUS_ERROR_SUBSCRIPTION_ALREADY_EXIST;
         }
     }
@@ -1160,7 +1153,6 @@ int subscribeHandlerImpl(
         if(!subscription)
         {
             RBUSLOG_INFO("unsubscribing from event which isn't currectly subscribed to event=%s listener=%s", eventName, listener);
-            HANDLE_SUBS_MUTEX_UNLOCK(handle);
             return RBUS_ERROR_INVALID_INPUT; /*unsubscribing from event which isn't currectly subscribed to*/
         }
     }
@@ -1170,7 +1162,6 @@ int subscribeHandlerImpl(
     if(rawData && el->type != RBUS_ELEMENT_TYPE_EVENT)
     {
         RBUSLOG_INFO("rawDataSubscription is only allowed for events");
-        HANDLE_SUBS_MUTEX_UNLOCK(handle);
         return RBUS_ERROR_INVALID_INPUT;
     }
     else
@@ -1225,7 +1216,6 @@ int subscribeHandlerImpl(
     {
         rbusSubscriptions_removeSubscription(handleInfo->subscriptions, subscription);
     }
-    HANDLE_SUBS_MUTEX_UNLOCK(handle);
     return RBUS_ERROR_SUCCESS;
 }
 
@@ -2540,7 +2530,11 @@ static void _subscribe_callback_handler (rbusHandle_t handle, rbusMessage reques
             rbusMessage_GetInt32(request, &publishOnSubscribe);
             rbusMessage_GetInt32(request, &rawData);
             if(ret == RBUS_ERROR_SUCCESS)
-                ret = subscribeHandlerImpl(handle, added, el, event_name, sender, componentId, interval, duration, filter, rawData, &subscriptionId, 0);
+            {
+                HANDLE_SUBS_MUTEX_LOCK(handle);
+                ret = subscribeHandlerImpl(handle, added, el, event_name, sender, componentId, interval, duration, filter, rawData, &subscriptionId);
+                HANDLE_SUBS_MUTEX_UNLOCK(handle);
+            }
             rbusMessage_SetInt32(*response, ret);
 
             if(publishOnSubscribe && ret == RBUS_ERROR_SUCCESS)
