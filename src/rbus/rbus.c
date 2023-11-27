@@ -60,45 +60,6 @@
 #define LockMutex() pthread_mutex_lock(&gMutex)
 #define UnlockMutex() pthread_mutex_unlock(&gMutex)
 
-#define HANDLE_EVENTSUBS_MUTEX_LOCK(HANDLE)     \
-{                                                                         \
-  int err;                                                                \
-  rbusHandle_t pTmp = (rbusHandle_t) HANDLE;                              \
-  if((err = pthread_mutex_lock(&pTmp->handle_eventSubsMutex)) != 0)                 \
-  {                                                                       \
-    RBUSLOG_ERROR("Error @ mutex lock.. Err=%d:%s ", err, strerror(err)); \
-  }                                                                       \
-}
-
-#define HANDLE_EVENTSUBS_MUTEX_UNLOCK(HANDLE)   \
-{                                                                           \
-  int err;                                                                  \
-  rbusHandle_t pTmp = (rbusHandle_t) HANDLE;                                \
-  if((err = pthread_mutex_unlock(&pTmp->handle_eventSubsMutex)) != 0)                 \
-  {                                                                         \
-    RBUSLOG_ERROR("Error @ mutex unlock.. Err=%d:%s ", err, strerror(err)); \
-  }                                                                         \
-}
-
-#define HANDLE_SUBS_MUTEX_LOCK(HANDLE)     \
-{                                                                         \
-  int err;                                                                \
-  rbusHandle_t pTmp = (rbusHandle_t) HANDLE;                              \
-  if((err = pthread_mutex_lock(&pTmp->handle_subsMutex)) != 0)                 \
-  {                                                                       \
-    RBUSLOG_ERROR("Error @ mutex lock.. Err=%d:%s ", err, strerror(err)); \
-  }                                                                       \
-}
-
-#define HANDLE_SUBS_MUTEX_UNLOCK(HANDLE)   \
-{                                                                           \
-  int err;                                                                  \
-  rbusHandle_t pTmp = (rbusHandle_t) HANDLE;                                \
-  if((err = pthread_mutex_unlock(&pTmp->handle_subsMutex)) != 0)                 \
-  {                                                                         \
-    RBUSLOG_ERROR("Error @ mutex unlock.. Err=%d:%s ", err, strerror(err)); \
-  }                                                                         \
-}
 #define ERROR_CHECK(CMD) \
 { \
   int err; \
@@ -108,16 +69,6 @@
   } \
 }
 
-#define VERIFY_HANDLE(HANDLE)     \
-{                                                                           \
-    VERIFY_NULL(HANDLE);                                                    \
-    rbusHandle_t pTmp = (rbusHandle_t) HANDLE;                              \
-    if (!rbusHandleList_IsValidHandle(pTmp))                                \
-    {                                                                       \
-        RBUSLOG_ERROR("handle is invalid");                                 \
-        return RBUS_ERROR_INVALID_HANDLE;                                   \
-    }                                                                       \
-}
 //********************************************************************************//
 
 //******************************* STRUCTURES *************************************//

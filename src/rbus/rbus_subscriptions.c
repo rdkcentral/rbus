@@ -31,26 +31,6 @@
 #define VERIFY_NULL(T)         if(NULL == T){ return; }
 #define CACHE_FILE_PATH_FORMAT "%s/rbus_subs_%s"
 
-#define HANDLE_SUBS_MUTEX_LOCK(HANDLE)     \
-{                                                                         \
-  int err;                                                                \
-  rbusHandle_t pTmp = (rbusHandle_t) HANDLE;                              \
-  if((err = pthread_mutex_lock(&pTmp->handle_subsMutex)) != 0)                 \
-  {                                                                       \
-    RBUSLOG_ERROR("Error @ mutex lock.. Err=%d:%s ", err, strerror(err)); \
-  }                                                                       \
-}
-
-#define HANDLE_SUBS_MUTEX_UNLOCK(HANDLE)   \
-{                                                                           \
-  int err;                                                                  \
-  rbusHandle_t pTmp = (rbusHandle_t) HANDLE;                                \
-  if((err = pthread_mutex_unlock(&pTmp->handle_subsMutex)) != 0)                 \
-  {                                                                         \
-    RBUSLOG_ERROR("Error @ mutex unlock.. Err=%d:%s ", err, strerror(err)); \
-  }                                                                         \
-}
-
 struct _rbusSubscriptions
 {
     rbusHandle_t handle;
@@ -782,9 +762,7 @@ void rbusSubscriptions_resubscribeElementCache(rbusHandle_t handle, rbusSubscrip
             RBUSLOG_INFO("resubscribing %s for %s", sub->eventName, sub->listener);
             rtListItem_GetNext(item, &next);
             rtList_RemoveItem(subscriptions->subList, item, NULL);/*remove before calling subscribeHandlerImpl to avoid dupes in cache file*/
-            HANDLE_SUBS_MUTEX_LOCK(handle);
             err = subscribeHandlerImpl(handle, true, el, sub->eventName, sub->listener, sub->componentId, sub->interval, sub->duration, sub->filter, sub->rawData, &sub->subscriptionId);
-            HANDLE_SUBS_MUTEX_UNLOCK(handle);
             /*TODO figure out what to do if we get an error resubscribing
             It's conceivable that a provider might not like the sub due to some state change between this and the previous process run
             */
@@ -831,9 +809,7 @@ void rbusSubscriptions_resubscribeRowElementCache(rbusHandle_t handle, rbusSubsc
                 {
                     RBUSLOG_INFO("resubscribing %s for %s", sub->eventName, sub->listener);
                     rtList_RemoveItem(subscriptions->subList, item, NULL);
-                    HANDLE_SUBS_MUTEX_LOCK(handle);
                     err = subscribeHandlerImpl(handle, true, el, sub->eventName, sub->listener, sub->componentId, sub->interval, sub->duration, sub->filter, sub->rawData, &sub->subscriptionId);
-                    HANDLE_SUBS_MUTEX_UNLOCK(handle);
                     (void)err;
                     subscriptionFree(sub);
                 }
@@ -869,9 +845,7 @@ void rbusSubscriptions_handleClientDisconnect(rbusHandle_t handle, rbusSubscript
             el = retrieveInstanceElement(handleInfo->elementRoot, sub->eventName);
             if(el)
             {
-                HANDLE_SUBS_MUTEX_LOCK(handle);
                 subscribeHandlerImpl(handle, false, sub->element, sub->eventName, sub->listener, sub->componentId, 0, 0, 0, 0, 0);
-                HANDLE_SUBS_MUTEX_UNLOCK(handle);
             }
             else
             {
