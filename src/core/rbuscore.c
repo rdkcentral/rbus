@@ -1729,13 +1729,13 @@ rbusCoreError_t rbuscore_publishDirectSubscriberEvent(const char * event_name, c
 {
     rtError err = RT_OK;
 
-    lock();
+    directServerLock();
     const rtPrivateClientInfo *pPrivCliInfo = _rbuscore_find_server_privateconnection (event_name, listener);
     if(pPrivCliInfo)
     {
         err = rtRouteDirect_SendMessage (pPrivCliInfo, data, dataLength, (char*)event_name, subscriptionId);
     }
-    unlock();
+    directServerUnlock();
     return translate_rt_error(err);
 }
 
@@ -1758,7 +1758,7 @@ rbusCoreError_t rbus_publishSubscriberEvent(const char* object_name,  const char
     rbusMessage_SetInt32(out, 1);/*is rbus 2.0*/ 
     rbusMessage_EndMetaSectionWrite(out);
 
-    lock();
+    directServerLock();
     const rtPrivateClientInfo *pPrivCliInfo = _rbuscore_find_server_privateconnection (event_name, listener);
     if(pPrivCliInfo)
     {
@@ -1766,9 +1766,11 @@ rbusCoreError_t rbus_publishSubscriberEvent(const char* object_name,  const char
         uint32_t dataLength;
         rbusMessage_ToBytes(out, &data, &dataLength);
         rtRouteDirect_SendMessage (pPrivCliInfo, data, dataLength, (char*)event_name, subscriptionId);
+        directServerUnlock();
     }
     else
     {
+        directServerUnlock();
         snprintf(topic, MAX_OBJECT_NAME_LENGTH, "%d.%s", subscriptionId ,event_name);
         if(topic[strlen(topic) - 1] == '.')
             topic[strlen(topic) - 1] = '\0';
@@ -1785,7 +1787,6 @@ rbusCoreError_t rbus_publishSubscriberEvent(const char* object_name,  const char
            RBUSCORELOG_ERROR("Couldn't send event %s::%s to %s.", object_name, event_name, listener);
         }
     }
-    unlock();
     return ret;
 }
 
@@ -2549,7 +2550,6 @@ rbusServerDMLList_t* rbuscore_FindServerPrivateClient (const char *pParameterNam
     {
         size_t sz = 0, i = 0;
 
-        directServerLock();
         sz = rtVector_Size(gListOfServerDirectDMLs);
         if(sz > 0)
         {
@@ -2565,7 +2565,6 @@ rbusServerDMLList_t* rbuscore_FindServerPrivateClient (const char *pParameterNam
                 }
             }
         }
-        directServerUnlock();
     }
 
     return NULL;
