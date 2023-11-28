@@ -497,7 +497,7 @@ rtRouteDirect_AcceptClientConnection(rtListener* listener)
 }
 
 rtError
-rtRouteDirect_SendMessage(const rtPrivateClientInfo* pClient, uint8_t const* pInBuff, int inLength)
+rtRouteDirect_SendMessage(const rtPrivateClientInfo* pClient, uint8_t const* pInBuff, int inLength, char* subEventName, uint32_t subscriptionId)
 {
     rtError ret = RT_OK;
     rtMessageHeader new_header;
@@ -508,10 +508,14 @@ rtRouteDirect_SendMessage(const rtPrivateClientInfo* pClient, uint8_t const* pIn
         rtMessageHeader_Init(&new_header);
         new_header.sequence_number = 1;
         new_header.flags = rtMessageFlags_RawBinary;
-        new_header.control_data = pClient->clientID;
-     
-        strncpy(new_header.topic, pClient->clientTopic, RTMSG_HEADER_MAX_TOPIC_LENGTH-1);
-        new_header.topic_length = strlen(pClient->clientTopic);
+
+        if(subscriptionId)
+            new_header.control_data = subscriptionId; /* Rawdata unique subscription ID */
+        else
+            new_header.control_data = pClient->clientID;
+
+        snprintf(new_header.topic, RTMSG_HEADER_MAX_TOPIC_LENGTH, "%d.%s", subscriptionId ,subEventName);
+        new_header.topic_length = strlen(new_header.topic);
 
         new_header.reply_topic[0] = '\0';
         new_header.reply_topic_length = 0;

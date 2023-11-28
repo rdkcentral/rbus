@@ -39,6 +39,58 @@ extern "C" {
     46 additional listeners which can be used by the rbus_message api, other rtConnection clients or for rbus future requirements
 */
 #define RBUS_MAX_HANDLES 16
+
+#define HANDLE_EVENTSUBS_MUTEX_LOCK(HANDLE)     \
+{                                                                         \
+  int err;                                                                \
+  rbusHandle_t pTmp = (rbusHandle_t) HANDLE;                              \
+  if((err = pthread_mutex_lock(&pTmp->handle_eventSubsMutex)) != 0)                 \
+  {                                                                       \
+    RBUSLOG_ERROR("Error @ mutex lock.. Err=%d:%s ", err, strerror(err)); \
+  }                                                                       \
+}
+
+#define HANDLE_EVENTSUBS_MUTEX_UNLOCK(HANDLE)   \
+{                                                                           \
+  int err;                                                                  \
+  rbusHandle_t pTmp = (rbusHandle_t) HANDLE;                                \
+  if((err = pthread_mutex_unlock(&pTmp->handle_eventSubsMutex)) != 0)                 \
+  {                                                                         \
+    RBUSLOG_ERROR("Error @ mutex unlock.. Err=%d:%s ", err, strerror(err)); \
+  }                                                                         \
+}
+
+#define HANDLE_SUBS_MUTEX_LOCK(HANDLE)     \
+{                                                                         \
+  int err;                                                                \
+  rbusHandle_t pTmp = (rbusHandle_t) HANDLE;                              \
+  if((err = pthread_mutex_lock(&pTmp->handle_subsMutex)) != 0)                 \
+  {                                                                       \
+    RBUSLOG_ERROR("Error @ mutex lock.. Err=%d:%s ", err, strerror(err)); \
+  }                                                                       \
+}
+
+#define HANDLE_SUBS_MUTEX_UNLOCK(HANDLE)   \
+{                                                                           \
+  int err;                                                                  \
+  rbusHandle_t pTmp = (rbusHandle_t) HANDLE;                                \
+  if((err = pthread_mutex_unlock(&pTmp->handle_subsMutex)) != 0)                 \
+  {                                                                         \
+    RBUSLOG_ERROR("Error @ mutex unlock.. Err=%d:%s ", err, strerror(err)); \
+  }                                                                         \
+}
+
+#define VERIFY_HANDLE(HANDLE)     \
+{                                                                           \
+    VERIFY_NULL(HANDLE);                                                    \
+    rbusHandle_t pTmp = (rbusHandle_t) HANDLE;                              \
+    if (!rbusHandleList_IsValidHandle(pTmp))                                \
+    {                                                                       \
+        RBUSLOG_ERROR("handle is invalid");                                 \
+        return RBUS_ERROR_INVALID_HANDLE;                                   \
+    }                                                                       \
+}
+
 typedef enum _rbusHandleType
 {
     RBUS_HWDL_TYPE_REGULAR = 0xD0D0,
@@ -65,6 +117,7 @@ struct _rbusHandle
   rbusHandleType_t      m_handleType;
   pthread_mutex_t       handle_eventSubsMutex;
   pthread_mutex_t       handle_subsMutex;
+  rtConnection          m_connectionParent;
 };
 
 bool rbusHandleList_IsValidHandle(struct _rbusHandle* handle);
