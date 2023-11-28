@@ -1766,11 +1766,11 @@ rbusCoreError_t rbus_publishSubscriberEvent(const char* object_name,  const char
         uint32_t dataLength;
         rbusMessage_ToBytes(out, &data, &dataLength);
         rtRouteDirect_SendMessage (pPrivCliInfo, data, dataLength, (char*)event_name, subscriptionId);
-        directServerUnlock();
     }
-    else
+    directServerUnlock();
+    if (!pPrivCliInfo)
     {
-        directServerUnlock();
+        lock();
         snprintf(topic, MAX_OBJECT_NAME_LENGTH, "%d.%s", subscriptionId ,event_name);
         if(topic[strlen(topic) - 1] == '.')
             topic[strlen(topic) - 1] = '\0';
@@ -1786,6 +1786,7 @@ rbusCoreError_t rbus_publishSubscriberEvent(const char* object_name,  const char
         {
            RBUSCORELOG_ERROR("Couldn't send event %s::%s to %s.", object_name, event_name, listener);
         }
+        unlock();
     }
     return ret;
 }
