@@ -386,37 +386,6 @@ void show_menu(const char* command)
             printf ("\tpub Example.MyEvent! \"Hello World\"\n\r");
             printf ("\n\r");
         }
-        else if(matchCmd(command, 3, "addlistener"))
-        {
-            printf ("\e[1maddl\e[0mistener \e[4mexpression\e[0m\n\r");
-            printf ("Add a message listener.\n\r");
-            printf ("Args:\n\r");
-            printf ("\t%-20sA topic name or topic expression\n\r", "expression");
-            printf ("Examples:\n\r");
-            printf ("\taddl A.B.C\n\r");
-            printf ("\n\r");
-        }
-        else if(matchCmd(command, 3, "remlistener"))
-        {
-            printf ("\e[1mreml\e[0mistener \e[4mexpression\e[0m\n\r");
-            printf ("Remove a message listener.\n\r");
-            printf ("Args:\n\r");
-            printf ("\t%-20sA topic name or topic expression\n\r", "expression");
-            printf ("Examples:\n\r");
-            printf ("\treml A.B.C\n\r");
-            printf ("\n\r");
-        }        
-        else if(matchCmd(command, 3, "send"))
-        {
-            printf ("\e[1msend\e[0m \e[4mtopic\e[0m [\e[4mdata\e[0m]\n\r");
-            printf ("Send a message to a topic.\n\r");
-            printf ("Args:\n\r");
-            printf ("\t%-20sThe topic to send the message to\n\r", "message");
-            printf ("\t%-20sThe message data to send (as a string)\n\r", "data");
-            printf ("Examples:\n\r");
-            printf ("\tsend A.B.C \"Hello World\"\n\r");
-            printf ("\n\r");
-        }
         else if(matchCmd(command, 9, "method_noargs"))
         {
             printf ("\e[1mmethod_no\e[0margs \e[4mmethodname\e[0m\n\r");
@@ -570,9 +539,6 @@ void show_menu(const char* command)
         printf ("\t\e[1masub\e[0mscribe \e[4mevent\e[0m [\e[4moperator\e[0m \e[4mvalue\e[0m]\n\r");
         printf ("\t\e[1mpub\e[0mlish \e[4mevent\e[0m [\e[4mdata\e[0m]\n\r");
         printf ("\t\e[1mrawdatapub\e[0mlish \e[4mevent\e[0m [\e[4mdata\e[0m]\n\r");
-        printf ("\t\e[1maddl\e[0mistener \e[4mexpression\e[0m\n\r");
-        printf ("\t\e[1mreml\e[0mistener \e[4mexpression\e[0m\n\r");
-        printf ("\t\e[1msend\e[0m \e[4mtopic\e[0m [\e[4mdata\e[0m]\n\r");
         printf ("\t\e[1mcreate_ses\e[0msion\n\r");
         printf ("\t\e[1mget_ses\e[0msion\n\r");
         printf ("\t\e[1mclose_ses\e[0msion\n\r");
@@ -930,20 +896,6 @@ void event_receive_subscription_handler(rbusHandle_t handle, rbusEventSubscripti
   (void)handle;
   if (subscription)
       printf ("event name (%s) subscribe %s\n", subscription->eventName, error == RBUS_ERROR_SUCCESS ? "success" : "failed");
-}
-
-void message_receive_handler(rbusHandle_t handle, rbusMessage_t* msg, void * userData)
-{
-    (void)handle;
-    (void)userData;
-    runSteps = __LINE__;
-    if(g_logEvents)
-    {
-        printf("Message received on topic %s\n\r",  msg->topic);
-        printf("Message data: %.*s\n\r", msg->length, (char const *)msg->data);
-        if (userData)
-            printf("User data: %s\n\r", (const char*)userData);
-    }
 }
 
 static bool verify_rbus_open()
@@ -2154,8 +2106,8 @@ void validate_and_execute_publish_command(int argc, char *argv[], bool rawDataPu
     {
         rbusEventRawData_t event = {0};
         event.name = argv[2];
-        event.rawData = argv[3];
-        event.rawDataLen = strlen(argv[3]);
+        event.rawData = argc < 4 ? "default event data" : argv[3];
+        event.rawDataLen = strlen(event.rawData);
 
         rc = rbusEvent_PublishRawData(g_busHandle, &event);
         if(rc != RBUS_ERROR_SUCCESS)
@@ -2182,99 +2134,6 @@ void validate_and_execute_publish_command(int argc, char *argv[], bool rawDataPu
             printf("Publish failed err: %d\n\r", rc);
         }
         rbusObject_Release(data);
-    }
-}
-
-void validate_and_execute_listen_command(int argc, char *argv[], bool add)
-{
-    rbusError_t rc;
-    char* userData = NULL;
-    
-    if (argc < 2)
-    {
-        printf ("Invalid arguments. Please see the help\n\r");
-        return;
-    }
-
-    if (!verify_rbus_open())
-        return;    
-
-    runSteps = __LINE__;
-    if(!g_messageUserData)
-       rtList_Create(&g_messageUserData);
-
-    userData = rt_calloc(1, 256);
-    sprintf(userData, "listen %s", argv[2]);
-
-    printf("value of argv[2] = %s\n", argv[2]);
-    printf("value of userData = %s\n", userData);
-    if(add)
-    {
-        rc = rbusMessage_AddListener(g_busHandle, argv[2], message_receive_handler, userData);
-    }
-    else
-    {
-        rc = rbusMessage_RemoveListener(g_busHandle, argv[2]);
-    }
-
-    if(rc != RBUS_ERROR_SUCCESS)
-    {
-        printf("%sListener failed err: %d\n\r", add ? "Add" : "Remove", rc);
-        rt_free(userData);
-    }
-    else
-    {
-        if(add)
-        {
-            rtList_PushBack(g_messageUserData, userData, NULL);
-        }
-        else
-        {
-            /* Remove the userData from the list that are maintained for */
-            rtListItem li;
-            rtList_GetFront(g_messageUserData, &li);
-            runSteps = __LINE__;
-            while(li)
-            {
-                char* prtUserData = NULL;
-                rtListItem_GetData(li, (void**)&prtUserData);
-                if(strcmp(prtUserData, userData) == 0)
-                {
-                    rtList_RemoveItem(g_messageUserData, li, free_userdata);
-                    break;
-                }
-                rtListItem_GetNext(li, &li);
-            }
-
-            rt_free(userData);
-        }
-    }
-}
-
-void validate_and_execute_send_command(int argc, char *argv[])
-{
-    rbusError_t rc;
-    rbusMessage_t msg;
-
-    if (argc < 3)
-    {
-        printf ("Invalid arguments. Please see the help\n\r");
-        return;
-    }
-
-    if (!verify_rbus_open())
-        return;  
-
-    msg.topic = argv[2];
-    msg.data = (uint8_t const*)argv[3];
-    msg.length = strlen(argv[3]);
-
-    runSteps = __LINE__;
-    rc = rbusMessage_Send(g_busHandle, &msg, RBUS_MESSAGE_CONFIRM_RECEIPT);
-
-    if(rc != RBUS_ERROR_SUCCESS)
-    {
-        printf("Send failed err: %d\n\r", rc);
     }
 }
 
@@ -2564,18 +2423,6 @@ int handle_cmds (int argc, char *argv[])
     {
         validate_and_execute_publish_command (argc, argv, true);
     }
-    else if(matchCmd(command, 4, "addlistener"))
-    {
-        validate_and_execute_listen_command (argc, argv, true);
-    }
-    else if(matchCmd(command, 4, "remlistener"))
-    {
-        validate_and_execute_listen_command (argc, argv, false);
-    }
-    else if(matchCmd(command, 4, "send"))
-    {
-        validate_and_execute_send_command (argc, argv);
-    }
     else if(matchCmd(command, 9, "method_values"))
     {
         validate_and_execute_method_values_cmd (argc, argv);
@@ -2777,8 +2624,7 @@ void completion(const char *buf, linenoiseCompletions *lc) {
     {
         runSteps = __LINE__;
         completion = find_completion(tokens[0], 14, "get", "set", "add", "del", "getr", "getn", "disca", "discc", "disce",
-                "discw", "sub", "subint", "rawdatasub", "rawdataunsub", "unsub", "unsubint", "asub", "method_no", "method_na", "method_va", "reg", "unreg", "pub", "rawdatapub",
-                "addl", "reml", "send", "log", "quit", "opend", "closed", "help");
+                "discw", "sub", "subint", "rawdatasub", "rawdataunsub", "unsub", "unsubint", "asub", "method_no", "method_na", "method_va", "reg",                 "unreg", "pub", "rawdatapub", "log", "quit", "opend", "closed", "help");
     }
     else if(num == 2)
     {
@@ -2931,18 +2777,6 @@ char *hints(const char *buf, int *color, int *bold) {
         else if(strcmp(tokens[0], "rawdatapub") == 0)
         {
             hint = " event [data]";
-        }
-        else if(strcmp(tokens[0], "addl") == 0)
-        {
-            hint = " expression";
-        }
-        else if(strcmp(tokens[0], "reml") == 0)
-        {
-            hint = " expression";
-        }
-        else if(strcmp(tokens[0], "send") == 0)
-        {
-            hint = " topic [data]";
         }
         else if(strcmp(tokens[0], "method_va") == 0)
         {

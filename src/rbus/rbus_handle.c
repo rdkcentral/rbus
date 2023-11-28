@@ -92,11 +92,13 @@ void rbusHandleList_ClientDisconnect(char const* clientListener)
         for(i = 0; i < len; i++)
         {
             struct _rbusHandle* handle = (struct _rbusHandle*)rtVector_At(gHandleList, i);
+            HANDLE_SUBS_MUTEX_LOCK(handle);
             if(handle->subscriptions)
             {
                 /*assuming this doesn't reenter this api which could possibly deadlock*/
                 rbusSubscriptions_handleClientDisconnect(handle, handle->subscriptions, clientListener);
             }
+            HANDLE_SUBS_MUTEX_UNLOCK(handle);
         }
 
         /* Update the Direct Connection */
