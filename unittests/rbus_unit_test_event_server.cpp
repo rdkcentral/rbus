@@ -360,7 +360,7 @@ TEST_F(EventServerAPIs, rbus_publishSubscriberEvent_test1)
     RBUS_OPEN_BROKER_CONNECTION(client_name, RBUSCORE_SUCCESS);
     //Neg Test with more than MAX_OBJECT_NAME_LENGTH
     memset(object_name, 't', (sizeof(object_name)- 1));
-    err = rbus_publishSubscriberEvent(object_name, "event_1", NULL, NULL, 0);
+    err = rbus_publishSubscriberEvent(object_name, "event_1", NULL, NULL, 0, 0);
     EXPECT_EQ(err,RBUSCORE_ERROR_INVALID_PARAM) << "rbus_publishsubscriberEvent failed";
     RBUS_CLOSE_BROKER_CONNECTION(RBUSCORE_SUCCESS);
 }

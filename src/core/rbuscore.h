@@ -162,9 +162,9 @@ rbusCoreError_t rbus_registerClientDisconnectHandler(rbus_client_disconnect_call
 rbusCoreError_t rbus_unregisterClientDisconnectHandler();
 
 /* Send an event message directly to a specific subscribe(e.g. listener) */
-rbusCoreError_t rbus_publishSubscriberEvent(const char* object_name,  const char * event_name, const char* listener, rbusMessage out, uint32_t subscriptionId);
+rbusCoreError_t rbus_publishSubscriberEvent(const char* object_name,  const char * event_name, const char* listener, rbusMessage out, uint32_t subscriptionId, bool rawData);
 
-rbusCoreError_t rbuscore_publishDirectSubscriberEvent(const char * event_name, const char* listener, const void* data, uint32_t dataLength, uint32_t subscriptionId);
+rbusCoreError_t rbuscore_publishDirectSubscriberEvent(const char * event_name, const char* listener, const void* data, uint32_t dataLength, uint32_t subscriptionId, bool rawData);
 
 /*------ Convenience functions built on top of base functions above. ------*/
 
