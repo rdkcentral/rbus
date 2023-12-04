@@ -149,4 +149,5 @@ install (
   rtHashMap.h
   rtMemory.h
   rtm_discovery_api.h
+  rtrouteBase.h
   DESTINATION "include/rtmessage")
