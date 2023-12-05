@@ -599,7 +599,11 @@ rtConnection_CreateInternal(rtConnection* con, char const* application_name, cha
 
   if (err == RT_OK)
   {
-    rtConnection_AddListener(c, c->inbox_name, RTCONNECTION_CREATE_EXPRESSION_ID, onDefaultMessage, c);
+#ifdef  RDKC_BUILD
+    rtConnection_AddListener(c, c->inbox_name, onDefaultMessage, c);
+#else
+    rtConnection_AddListenerWithId(c, c->inbox_name, RTCONNECTION_CREATE_EXPRESSION_ID, onDefaultMessage, c);
+#endif
     rtConnection_StartThreads(c);
     *con = c;
   }
@@ -1223,7 +1227,17 @@ rtConnection_SendInternal(rtConnection con, uint8_t const* buff, uint32_t n, cha
 }
 
 rtError
-rtConnection_AddListener(rtConnection con, char const* expression, uint32_t expressionId, rtMessageCallback callback, void* closure)
+rtConnection_AddListener(rtConnection con, char const* expression, rtMessageCallback callback, void* closure)
+{
+#ifdef RDKC_BUILD
+    return rtConnection_AddListenerWithId(con, expression, rtConnection_GetNextSubscriptionId(), callback, closure);
+#else
+    return rtConnection_AddListenerWithId(con, expression, 0, callback, closure);
+#endif
+}
+
+rtError
+rtConnection_AddListenerWithId(rtConnection con, char const* expression, uint32_t expressionId, rtMessageCallback callback, void* closure)
 {
   int i;
 
@@ -1264,7 +1278,13 @@ rtConnection_AddListener(rtConnection con, char const* expression, uint32_t expr
 }
 
 rtError
-rtConnection_RemoveListener(rtConnection con, char const* expression, uint32_t expressionId)
+rtConnection_RemoveListener(rtConnection con, char const* expression)
+{
+    return rtConnection_RemoveListenerWithId(con, expression, 0);
+}
+
+rtError
+rtConnection_RemoveListenerWithId(rtConnection con, char const* expression, uint32_t expressionId)
 {
   int i;
   int route_id = 0;
@@ -1275,7 +1295,11 @@ rtConnection_RemoveListener(rtConnection con, char const* expression, uint32_t e
   pthread_mutex_lock(&con->mutex);
   for (i = 0; i < RTMSG_LISTENERS_MAX; ++i)
   {
+#ifdef RDKC_BUILD
+    if ((con->listeners[i].in_use) && (0 == strcmp(expression, con->listeners[i].expression)))
+#else
     if ((con->listeners[i].in_use) && (expressionId == con->listeners[i].subscription_id))
+#endif
     {
         con->listeners[i].in_use = 0;
         route_id = con->listeners[i].subscription_id;
