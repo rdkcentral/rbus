@@ -245,6 +245,15 @@ rtConnection_SendRequestInternal(
   int32_t timeout, 
   int flags);
 
+#ifdef RDKC_BUILD
+static uint32_t
+rtConnection_GetNextSubscriptionId()
+{
+  static uint32_t next_id = 1;
+  return next_id++;
+}
+#endif
+
 static int GetRunThreadsSync(rtConnection con)
 {
   int run_threads;
@@ -1296,6 +1305,7 @@ rtConnection_RemoveListenerWithId(rtConnection con, char const* expression, uint
   for (i = 0; i < RTMSG_LISTENERS_MAX; ++i)
   {
 #ifdef RDKC_BUILD
+    (void)expressionId;
     if ((con->listeners[i].in_use) && (0 == strcmp(expression, con->listeners[i].expression)))
 #else
     if ((con->listeners[i].in_use) && (expressionId == con->listeners[i].subscription_id))
