@@ -812,7 +812,11 @@ rbusCoreError_t rbus_registerObj(const char * object_name, rbus_callback_t handl
     server_object_create(&obj, object_name, handler, user_data);
 
     //TODO: callback signature translation. rbusMessage uses a significantly wider signature for callbacks. Translate to something simpler.
+#ifdef RDKC_BUILD
+    err = rtConnection_AddListener(g_connection, object_name, onMessage, obj);
+#else
     err = rtConnection_AddListenerWithId(g_connection, object_name, RBUS_REGISTER_OBJECT_EXPRESSION_ID, onMessage, obj);
+#endif
 
     if(RT_OK == err)
     {
@@ -957,8 +961,11 @@ rbusCoreError_t rbus_unregisterObj(const char * object_name)
         RBUSCORELOG_ERROR("object_name is invalid.");
         return RBUSCORE_ERROR_INVALID_PARAM;
     }
-
+#ifdef RDKC_BUILD
     err = rtConnection_RemoveListenerWithId(g_connection, object_name, RBUS_REGISTER_OBJECT_EXPRESSION_ID);
+#else
+    err = rtConnection_RemoveListener(g_connection, object_name);
+#endif
     if(RT_OK != err)
     {
         RBUSCORELOG_ERROR("rtConnection_RemoveListenerWithId %s failed: Err=%d", object_name, err);
@@ -1782,7 +1789,11 @@ rbusCoreError_t rbus_registerClientDisconnectHandler(rbus_client_disconnect_call
     lock();
     if(!g_advisory_listener_installed)
     {
+#ifdef RDKC_BUILD
+        rtError err = rtConnection_AddListener(g_connection, RTMSG_ADVISORY_TOPIC, &rtrouted_advisory_callback, g_connection);
+#else
         rtError err = rtConnection_AddListenerWithId(g_connection, RTMSG_ADVISORY_TOPIC, RBUS_ADVISORY_EXPRESSION_ID, &rtrouted_advisory_callback, g_connection);
+#endif
         if(err == RT_OK)
         {
             RBUSCORELOG_DEBUG("Listening for advisory messages");
@@ -1805,7 +1816,11 @@ rbusCoreError_t rbus_unregisterClientDisconnectHandler()
     lock();
     if(g_advisory_listener_installed)
     {
+#ifdef RDKC_BUILD
+        rtConnection_RemoveListener(g_connection, RTMSG_ADVISORY_TOPIC);
+#else
         rtConnection_RemoveListenerWithId(g_connection, RTMSG_ADVISORY_TOPIC, RBUS_ADVISORY_EXPRESSION_ID);
+#endif
         g_advisory_listener_installed = false;
     }
     unlock();

@@ -178,7 +178,11 @@ rbusError_t rbusMessage_AddListener(
     RBUS_MESSAGE_MUTEX_LOCK();
     rtVector_PushBack(handle->messageCallbacks, ctx);
 
+#ifdef RDKC_BUILD
+    rtError e = rtConnection_AddListener(con, expression, &rtMessage_CallbackHandler, ctx);
+#else
     rtError e = rtConnection_AddListenerWithId(con, expression, subscriptionId, &rtMessage_CallbackHandler, ctx);
+#endif
     RBUS_MESSAGE_MUTEX_UNLOCK();
     if (e != RT_OK)
     {
@@ -229,7 +233,11 @@ rbusError_t rbusMessage_RemoveListener(
     RBUS_MESSAGE_MUTEX_LOCK();
     rtVector_RemoveItemByCompare(handle->messageCallbacks, expression, compareContextExpression, cleanupContext);
 
+#ifdef RDKC_BUILD
+    rtError e = rtConnection_RemoveListener(con, expression);
+#else
     rtError e = rtConnection_RemoveListenerWithId(con, expression, subscriptionId);
+#endif
     RBUS_MESSAGE_MUTEX_UNLOCK();
     if (e != RT_OK)
     {
@@ -252,7 +260,11 @@ rbusError_t rbusMessage_RemoveAllListeners(
     {
         rbusMessageHandlerContext_t* ctx = rtVector_At(handle->messageCallbacks, i);
         VERIFY_NULL(ctx);
+#ifdef RDKC_BUILD
+        rtError e = rtConnection_RemoveListener(con, ctx->expression);
+#else
         rtError e = rtConnection_RemoveListenerWithId(con, ctx->expression, ctx->subscriptionId);
+#endif
         if (e != RT_OK)
         {
             RBUSLOG_WARN("rbusMessage_RemoveAllListener %s :%s", ctx->expression, rtStrError(e));
