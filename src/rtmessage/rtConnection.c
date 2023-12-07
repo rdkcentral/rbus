@@ -245,14 +245,13 @@ rtConnection_SendRequestInternal(
   int32_t timeout, 
   int flags);
 
-#ifdef RDKC_BUILD
 static uint32_t
 rtConnection_GetNextSubscriptionId()
 {
-  static uint32_t next_id = 1;
+  static uint32_t next_id = 4096; /* Keeping this number high to avoid conflict with the subscription Id added in
+                                        rbusSubscriptions_addSubscription() which starts with 1 */
   return next_id++;
 }
-#endif
 
 static int GetRunThreadsSync(rtConnection con)
 {
@@ -608,11 +607,7 @@ rtConnection_CreateInternal(rtConnection* con, char const* application_name, cha
 
   if (err == RT_OK)
   {
-#ifdef  RDKC_BUILD
-    rtConnection_AddListener(c, c->inbox_name, onDefaultMessage, c);
-#else
     rtConnection_AddListenerWithId(c, c->inbox_name, RTCONNECTION_CREATE_EXPRESSION_ID, onDefaultMessage, c);
-#endif
     rtConnection_StartThreads(c);
     *con = c;
   }
@@ -1238,11 +1233,7 @@ rtConnection_SendInternal(rtConnection con, uint8_t const* buff, uint32_t n, cha
 rtError
 rtConnection_AddListener(rtConnection con, char const* expression, rtMessageCallback callback, void* closure)
 {
-#ifdef RDKC_BUILD
     return rtConnection_AddListenerWithId(con, expression, rtConnection_GetNextSubscriptionId(), callback, closure);
-#else
-    return rtConnection_AddListenerWithId(con, expression, 0, callback, closure);
-#endif
 }
 
 rtError
@@ -1289,7 +1280,40 @@ rtConnection_AddListenerWithId(rtConnection con, char const* expression, uint32_
 rtError
 rtConnection_RemoveListener(rtConnection con, char const* expression)
 {
-    return rtConnection_RemoveListenerWithId(con, expression, 0);
+  int i;
+  int route_id = 0;
+
+  if (!con)
+    return rtErrorFromErrno(EINVAL);
+
+  pthread_mutex_lock(&con->mutex);
+  for (i = 0; i < RTMSG_LISTENERS_MAX; ++i)
+  {
+    if ((con->listeners[i].in_use) && (0 == strcmp(expression, con->listeners[i].expression)))
+    {
+        con->listeners[i].in_use = 0;
+        route_id = con->listeners[i].subscription_id;
+        con->listeners[i].subscription_id = 0;
+        con->listeners[i].closure = NULL;
+        con->listeners[i].callback = NULL;
+        free(con->listeners[i].expression);
+        con->listeners[i].expression = NULL;
+        break;
+    }
+  }
+  pthread_mutex_unlock(&con->mutex);
+
+  if (i >= RTMSG_LISTENERS_MAX)
+    return RT_ERROR_INVALID_ARG;
+
+  rtMessage m;
+  rtMessage_Create(&m);
+  rtMessage_SetInt32(m, "add", 0);
+  rtMessage_SetString(m, "topic", expression);
+  rtMessage_SetInt32(m, "route_id", route_id);
+  rtConnection_SendMessage(con, m, "_RTROUTED.INBOX.SUBSCRIBE");
+  rtMessage_Release(m);
+  return 0;
 }
 
 rtError
@@ -1304,12 +1328,7 @@ rtConnection_RemoveListenerWithId(rtConnection con, char const* expression, uint
   pthread_mutex_lock(&con->mutex);
   for (i = 0; i < RTMSG_LISTENERS_MAX; ++i)
   {
-#ifdef RDKC_BUILD
-    (void)expressionId;
-    if ((con->listeners[i].in_use) && (0 == strcmp(expression, con->listeners[i].expression)))
-#else
     if ((con->listeners[i].in_use) && (expressionId == con->listeners[i].subscription_id))
-#endif
     {
         con->listeners[i].in_use = 0;
         route_id = con->listeners[i].subscription_id;
