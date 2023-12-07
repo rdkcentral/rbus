@@ -962,9 +962,9 @@ rbusCoreError_t rbus_unregisterObj(const char * object_name)
         return RBUSCORE_ERROR_INVALID_PARAM;
     }
 #ifdef RDKC_BUILD
-    err = rtConnection_RemoveListenerWithId(g_connection, object_name, RBUS_REGISTER_OBJECT_EXPRESSION_ID);
-#else
     err = rtConnection_RemoveListener(g_connection, object_name);
+#else
+    err = rtConnection_RemoveListenerWithId(g_connection, object_name, RBUS_REGISTER_OBJECT_EXPRESSION_ID);
 #endif
     if(RT_OK != err)
     {
