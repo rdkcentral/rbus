@@ -24,7 +24,6 @@
 #include "rbuscore_types.h"
 #include "rbuscore_message.h"
 #include <rtm_discovery_api.h>
-#include "rtrouteBase.h"
 
 #define MAX_OBJECT_NAME_LENGTH RTMSG_HEADER_MAX_TOPIC_LENGTH
 #define MAX_METHOD_NAME_LENGTH 64

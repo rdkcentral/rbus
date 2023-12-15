@@ -146,11 +146,11 @@ rbusError_t rbusMessage_AddPrivateListener(
     rtVector_PushBack(handle->messageCallbacks, ctx);
 
     snprintf(rawDataTopic, RBUS_MAX_NAME_LENGTH, "%d.%s", subscriptionId, expression);
-    rtError e = rtConnection_AddListener(myConn, rawDataTopic, subscriptionId, &rtMessage_CallbackHandler, ctx);
+    rtError e = rtConnection_AddListenerWithId(myConn, rawDataTopic, subscriptionId, &rtMessage_CallbackHandler, ctx);
     RBUS_MESSAGE_MUTEX_UNLOCK();
     if (e != RT_OK)
     {
-        RBUSLOG_WARN("rtConnection_AddListener:%s", rtStrError(e));
+        RBUSLOG_WARN("rtConnection_AddListenerWithId:%s", rtStrError(e));
         return RBUS_ERROR_BUS_ERROR;
     }
 
@@ -178,11 +178,11 @@ rbusError_t rbusMessage_AddListener(
     RBUS_MESSAGE_MUTEX_LOCK();
     rtVector_PushBack(handle->messageCallbacks, ctx);
 
-    rtError e = rtConnection_AddListener(con, expression, subscriptionId, &rtMessage_CallbackHandler, ctx);
+    rtError e = rtConnection_AddListenerWithId(con, expression, subscriptionId, &rtMessage_CallbackHandler, ctx);
     RBUS_MESSAGE_MUTEX_UNLOCK();
     if (e != RT_OK)
     {
-        RBUSLOG_WARN("rtConnection_AddListener:%s", rtStrError(e));
+        RBUSLOG_WARN("rtConnection_AddListenerWithId:%s", rtStrError(e));
         return RBUS_ERROR_BUS_ERROR;
     }
 
@@ -207,11 +207,11 @@ rbusError_t rbusMessage_RemovePrivateListener(
     RBUS_MESSAGE_MUTEX_LOCK();
     rtVector_RemoveItemByCompare(handle->messageCallbacks, rawDataTopic, compareContextExpression, cleanupContext);
 
-    rtError e = rtConnection_RemoveListener(myConn, rawDataTopic, subscriptionId);
+    rtError e = rtConnection_RemoveListenerWithId(myConn, rawDataTopic, subscriptionId);
     RBUS_MESSAGE_MUTEX_UNLOCK();
     if (e != RT_OK)
     {
-        RBUSLOG_WARN("rtConnection_RemoveListener:%s", rtStrError(e));
+        RBUSLOG_WARN("rtConnection_RemoveListenerWithId:%s", rtStrError(e));
         return RBUS_ERROR_BUS_ERROR;
     }
 
@@ -229,11 +229,11 @@ rbusError_t rbusMessage_RemoveListener(
     RBUS_MESSAGE_MUTEX_LOCK();
     rtVector_RemoveItemByCompare(handle->messageCallbacks, expression, compareContextExpression, cleanupContext);
 
-    rtError e = rtConnection_RemoveListener(con, expression, subscriptionId);
+    rtError e = rtConnection_RemoveListenerWithId(con, expression, subscriptionId);
     RBUS_MESSAGE_MUTEX_UNLOCK();
     if (e != RT_OK)
     {
-        RBUSLOG_WARN("rtConnection_RemoveListener:%s", rtStrError(e));
+        RBUSLOG_WARN("rtConnection_RemoveListenerWithId:%s", rtStrError(e));
         return RBUS_ERROR_BUS_ERROR;
     }
 
@@ -252,7 +252,7 @@ rbusError_t rbusMessage_RemoveAllListeners(
     {
         rbusMessageHandlerContext_t* ctx = rtVector_At(handle->messageCallbacks, i);
         VERIFY_NULL(ctx);
-        rtError e = rtConnection_RemoveListener(con, ctx->expression, ctx->subscriptionId);
+        rtError e = rtConnection_RemoveListenerWithId(con, ctx->expression, ctx->subscriptionId);
         if (e != RT_OK)
         {
             RBUSLOG_WARN("rbusMessage_RemoveAllListener %s :%s", ctx->expression, rtStrError(e));
