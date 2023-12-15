@@ -248,8 +248,7 @@ rtConnection_SendRequestInternal(
 static uint32_t
 rtConnection_GetNextSubscriptionId()
 {
-  static uint32_t next_id = 4096; /* Keeping this number high to avoid conflict with the subscription Id added in
-                                        rbusSubscriptions_addSubscription() which starts with 1 */
+  static uint32_t next_id = 10000; /* Keeping this number high to avoid conflict with the subscription Id added in rbusSubscriptions_addSubscription() which starts with 1 */
   return next_id++;
 }
 
