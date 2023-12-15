@@ -137,8 +137,7 @@ rbusError_t multiRbusProvider_SampleDataSetHandler(rbusHandle_t handle, rbusProp
         }
         else
         {
-            rbusProperty_SetValue(prop, value);
-            //printf("%s Called Set handler with value = %d\n", name, rbusValue_GetInt32(value));
+            printf("%s Called Set handler with value = %d\n", name, rbusValue_GetInt32(value));
         }
     }
 
