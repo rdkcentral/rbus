@@ -123,9 +123,8 @@ rbusSubscription_t* rbusSubscriptions_addSubscription(rbusSubscriptions_t subscr
     rbusSubscription_t* sub;
     TokenChain* tokens;
 
-    static uint32_t subscriptionId = 4; /* Starting the subscription ID with 4 as the initial 3 values are allocated for the below add listener
+    static uint32_t subscriptionId = 3; /* Starting the subscription ID with 3 as the initial 2 values are allocated for the below add listener
                                             rtconnection create internal
-                                            rbus register object
                                             client advisory */
 
     RBUSLOG_DEBUG("adding %s %s", listener, eventName);

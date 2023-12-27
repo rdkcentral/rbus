@@ -31,8 +31,7 @@
 #define MAX_SUPPORTED_METHODS 32
 #define MAX_REGISTERED_OBJECTS 64
 #define RBUS_OPEN_TELEMETRY_DATA_MAX 512
-#define RBUS_REGISTER_OBJECT_EXPRESSION_ID 2
-#define RBUS_ADVISORY_EXPRESSION_ID 3
+#define RBUS_ADVISORY_EXPRESSION_ID 2
 
 void rbus_getOpenTelemetryContext(const char **s, const char **t);
 void rbus_setOpenTelemetryContext(const char *s, const char *t);
