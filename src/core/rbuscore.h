@@ -24,7 +24,6 @@
 #include "rbuscore_types.h"
 #include "rbuscore_message.h"
 #include <rtm_discovery_api.h>
-#include "rtrouteBase.h"
 
 #define MAX_OBJECT_NAME_LENGTH RTMSG_HEADER_MAX_TOPIC_LENGTH
 #define MAX_METHOD_NAME_LENGTH 64
@@ -32,8 +31,7 @@
 #define MAX_SUPPORTED_METHODS 32
 #define MAX_REGISTERED_OBJECTS 64
 #define RBUS_OPEN_TELEMETRY_DATA_MAX 512
-#define RBUS_REGISTER_OBJECT_EXPRESSION_ID 2
-#define RBUS_ADVISORY_EXPRESSION_ID 3
+#define RBUS_ADVISORY_EXPRESSION_ID 2
 
 void rbus_getOpenTelemetryContext(const char **s, const char **t);
 void rbus_setOpenTelemetryContext(const char *s, const char *t);
@@ -162,9 +160,9 @@ rbusCoreError_t rbus_registerClientDisconnectHandler(rbus_client_disconnect_call
 rbusCoreError_t rbus_unregisterClientDisconnectHandler();
 
 /* Send an event message directly to a specific subscribe(e.g. listener) */
-rbusCoreError_t rbus_publishSubscriberEvent(const char* object_name,  const char * event_name, const char* listener, rbusMessage out, uint32_t subscriptionId);
+rbusCoreError_t rbus_publishSubscriberEvent(const char* object_name,  const char * event_name, const char* listener, rbusMessage out, uint32_t subscriptionId, bool rawData);
 
-rbusCoreError_t rbuscore_publishDirectSubscriberEvent(const char * event_name, const char* listener, const void* data, uint32_t dataLength, uint32_t subscriptionId);
+rbusCoreError_t rbuscore_publishDirectSubscriberEvent(const char * event_name, const char* listener, const void* data, uint32_t dataLength, uint32_t subscriptionId, bool rawData);
 
 /*------ Convenience functions built on top of base functions above. ------*/
 

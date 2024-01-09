@@ -326,6 +326,7 @@ static pthread_mutex_t g_mutex;
 static pthread_mutex_t g_directCliMutex;
 static pthread_mutex_t g_directServMutex;
 static int g_mutex_init = 0;
+static bool g_run_event_client_dispatch = false;
 static rtVector g_event_subscriptions_for_client; /*client_subscription_t list. Used by the subscriber to track all active subscriptions. */
 static rtVector g_queued_requests; /*list of queued_request */
 
@@ -811,7 +812,10 @@ rbusCoreError_t rbus_registerObj(const char * object_name, rbus_callback_t handl
     server_object_create(&obj, object_name, handler, user_data);
 
     //TODO: callback signature translation. rbusMessage uses a significantly wider signature for callbacks. Translate to something simpler.
-    err = rtConnection_AddListener(g_connection, object_name, RBUS_REGISTER_OBJECT_EXPRESSION_ID, onMessage, obj);
+    err = rtConnection_AddListener(g_connection, object_name, onMessage, obj); /* Avoiding rtConnection_AddListenerWithId call here as ccsp code
+                                                                                    uses this rbus_registerObj() function call directly and usage
+                                                                                    of rtConnection_AddListenerWithId() function will result in
+                                                                                    conflict with subscriptionId */
 
     if(RT_OK == err)
     {
@@ -956,8 +960,7 @@ rbusCoreError_t rbus_unregisterObj(const char * object_name)
         RBUSCORELOG_ERROR("object_name is invalid.");
         return RBUSCORE_ERROR_INVALID_PARAM;
     }
-
-    err = rtConnection_RemoveListener(g_connection, object_name, RBUS_REGISTER_OBJECT_EXPRESSION_ID);
+    err = rtConnection_RemoveListener(g_connection, object_name);
     if(RT_OK != err)
     {
         RBUSCORELOG_ERROR("rtConnection_RemoveListener %s failed: Err=%d", object_name, err);
@@ -1445,6 +1448,85 @@ rbusCoreError_t rbus_unregisterEvent(const char* object_name, const char * event
     return ret;
 }
 
+static void master_event_callback(rtMessageHeader const* hdr, uint8_t const* data, uint32_t dataLen, void* closure)
+{
+    /*using namespace rbus_client;*/
+    rbusMessage msg = NULL;
+    const char * sender = hdr->reply_topic;
+    const char * event_name = NULL;
+    const char * object_name = NULL;
+    int32_t is_rbus_flag = 1;
+    rtError err;
+    size_t subs_len;
+    size_t i;
+    (void)closure;
+
+   /*Sanitize the incoming data.*/
+    if(MAX_OBJECT_NAME_LENGTH <= strlen(sender))
+    {
+        RBUSCORELOG_ERROR("Object name length exceeds limits.");
+        return;
+    }
+
+    rbusMessage_FromBytes(&msg, data, dataLen);
+
+    rbusMessage_BeginMetaSectionRead(msg);
+    err = rbusMessage_GetString(msg, &event_name);
+    err = rbusMessage_GetString(msg, &object_name);
+    err = rbusMessage_GetInt32(msg, &is_rbus_flag);
+    rbusMessage_EndMetaSectionRead(msg);
+    if(RT_OK != err)
+    {
+        RBUSCORELOG_ERROR("Event message doesn't contain an event name.");
+        rbusMessage_Release(msg);
+        return;
+    }
+
+    if(is_rbus_flag)
+    {
+        if(g_master_event_callback)
+        {
+            err = g_master_event_callback(sender, event_name, msg, g_master_event_user_data);
+            if(err != RBUSCORE_ERROR_EVENT_NOT_HANDLED)
+            {
+                rbusMessage_Release(msg);
+                return;
+            }
+        }
+        else
+        {
+            RBUSCORELOG_ERROR("Received rbus event but no master callback registered yet.");
+        }
+    }
+
+    lock();
+    subs_len = rtVector_Size(g_event_subscriptions_for_client);
+    for(i = 0; i < subs_len; ++i)
+    {
+        client_subscription_t sub = rtVector_At(g_event_subscriptions_for_client, i);
+
+        if( strncmp(sub->object, sender, MAX_OBJECT_NAME_LENGTH) == 0 ||
+            strncmp(sub->object, event_name, MAX_OBJECT_NAME_LENGTH) == 0 ) /* support rbus events being elements : the object name will be the event name */
+        {
+            client_event_t evt = rtVector_Find(sub->events, event_name, client_event_compare);
+
+            if(evt)
+            {
+                unlock();
+                evt->callback(sender, event_name, msg, evt->data);
+                rbusMessage_Release(msg);
+                return;
+            }
+            /* support rbus events being elements : keep searching */
+        }
+    }
+    /* If no matching objects exist in records. Create a new entry.*/
+    unlock();
+    rbusMessage_Release(msg);
+    RBUSCORELOG_WARN("Received event %s::%s for which no subscription exists.", sender, event_name);
+    return;
+}
+
 static rbusCoreError_t remove_subscription_callback(const char * object_name,  const char * event_name)
 {
     /*using namespace rbus_client;*/
@@ -1514,6 +1596,13 @@ static rbusCoreError_t rbus_subscribeToEventInternal(const char * object_name,  
    
     if(NULL == event_name)
         event_name = DEFAULT_EVENT;
+
+    if(false == g_run_event_client_dispatch)
+    {
+        RBUSCORELOG_DEBUG("Starting event dispatching.");
+        rtConnection_AddDefaultListener(g_connection, master_event_callback, NULL);
+        g_run_event_client_dispatch = true;
+    }
 
     if(g_master_event_callback == NULL)
     {
@@ -1695,7 +1784,7 @@ rbusCoreError_t rbus_registerClientDisconnectHandler(rbus_client_disconnect_call
     lock();
     if(!g_advisory_listener_installed)
     {
-        rtError err = rtConnection_AddListener(g_connection, RTMSG_ADVISORY_TOPIC, RBUS_ADVISORY_EXPRESSION_ID, &rtrouted_advisory_callback, g_connection);
+        rtError err = rtConnection_AddListenerWithId(g_connection, RTMSG_ADVISORY_TOPIC, RBUS_ADVISORY_EXPRESSION_ID, &rtrouted_advisory_callback, g_connection);
         if(err == RT_OK)
         {
             RBUSCORELOG_DEBUG("Listening for advisory messages");
@@ -1718,14 +1807,14 @@ rbusCoreError_t rbus_unregisterClientDisconnectHandler()
     lock();
     if(g_advisory_listener_installed)
     {
-        rtConnection_RemoveListener(g_connection, RTMSG_ADVISORY_TOPIC, RBUS_ADVISORY_EXPRESSION_ID);
+        rtConnection_RemoveListenerWithId(g_connection, RTMSG_ADVISORY_TOPIC, RBUS_ADVISORY_EXPRESSION_ID);
         g_advisory_listener_installed = false;
     }
     unlock();
     return RBUSCORE_SUCCESS;
 }
 
-rbusCoreError_t rbuscore_publishDirectSubscriberEvent(const char * event_name, const char* listener, const void* data, uint32_t dataLength, uint32_t subscriptionId)
+rbusCoreError_t rbuscore_publishDirectSubscriberEvent(const char * event_name, const char* listener, const void* data, uint32_t dataLength, uint32_t subscriptionId, bool rawData)
 {
     rtError err = RT_OK;
 
@@ -1733,17 +1822,16 @@ rbusCoreError_t rbuscore_publishDirectSubscriberEvent(const char * event_name, c
     const rtPrivateClientInfo *pPrivCliInfo = _rbuscore_find_server_privateconnection (event_name, listener);
     if(pPrivCliInfo)
     {
-        err = rtRouteDirect_SendMessage (pPrivCliInfo, data, dataLength, (char*)event_name, subscriptionId);
+        err = rtRouteDirect_SendMessage (pPrivCliInfo, data, dataLength, subscriptionId, rawData);
     }
     directServerUnlock();
     return translate_rt_error(err);
 }
 
-rbusCoreError_t rbus_publishSubscriberEvent(const char* object_name,  const char * event_name, const char* listener, rbusMessage out, uint32_t subscriptionId)
+rbusCoreError_t rbus_publishSubscriberEvent(const char* object_name,  const char * event_name, const char* listener, rbusMessage out, uint32_t subscriptionId, bool rawData)
 {
     /*using namespace rbus_server;*/
     rbusCoreError_t ret = RBUSCORE_SUCCESS;
-    char topic[MAX_OBJECT_NAME_LENGTH] = {0};
 
     if(NULL == event_name)
         event_name = DEFAULT_EVENT;
@@ -1765,15 +1853,12 @@ rbusCoreError_t rbus_publishSubscriberEvent(const char* object_name,  const char
         uint8_t* data;
         uint32_t dataLength;
         rbusMessage_ToBytes(out, &data, &dataLength);
-        rtRouteDirect_SendMessage (pPrivCliInfo, data, dataLength, (char*)event_name, subscriptionId);
+        rtRouteDirect_SendMessage (pPrivCliInfo, data, dataLength, subscriptionId, rawData);
     }
     directServerUnlock();
     if (!pPrivCliInfo)
     {
         lock();
-        snprintf(topic, MAX_OBJECT_NAME_LENGTH, "%d.%s", subscriptionId ,event_name);
-        if(topic[strlen(topic) - 1] == '.')
-            topic[strlen(topic) - 1] = '\0';
         server_object_t obj = get_object(object_name);
         if(NULL == obj)
         {
@@ -1782,7 +1867,7 @@ rbusCoreError_t rbus_publishSubscriberEvent(const char* object_name,  const char
             ret = RBUSCORE_ERROR_INVALID_PARAM;
         }
 
-        if(rbus_sendMessage(out, topic, object_name) != RBUSCORE_SUCCESS)
+        if(rbus_sendMessage(out, listener, object_name) != RBUSCORE_SUCCESS)
         {
            RBUSCORELOG_ERROR("Couldn't send event %s::%s to %s.", object_name, event_name, listener);
         }
@@ -2888,6 +2973,7 @@ rbusCoreError_t rbuscore_openPrivateConnectionToProvider(rtConnection *pPrivateC
             }
             *pPrivateConn = connection;
 
+            rtConnection_AddDefaultListener(connection, master_event_callback, NULL);
             RBUSCORELOG_DEBUG("pPrivateConn new = %p", connection);
             rtMessage_Release(config);
         }
