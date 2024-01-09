@@ -404,7 +404,7 @@ void show_menu(const char* command)
             printf ("\t%-20sName of a method\n\r", "methodname");
             printf ("\t%-20sName of a parameter\n\r", "parameter");
             printf ("Examples:\n\r");
-            printf ("\tGetPSMRecordValue() Deveice.Test.Psm\n\r");
+            printf ("\tGetPSMRecordValue() Device.Test.Psm\n\r");
             printf ("\n\r");
         }
         else if(matchCmd(command, 9, "method_values"))
@@ -417,7 +417,7 @@ void show_menu(const char* command)
             printf ("\t%-20sType of the parameter\n\r", "type");
             printf ("\t%-20sValue to be stored in the parameter\n\r", "value");
             printf ("Examples:\n\r");
-            printf ("\tSetPSMRecordValue() Deveice.Test.Psm string test_value\n\r");
+            printf ("\tSetPSMRecordValue() Device.Test.Psm string test_value\n\r");
             printf ("\n\r");
         }
         else if(matchCmd(command, 10, "create_session"))
@@ -3023,7 +3023,7 @@ int main( int argc, char *argv[] )
         rbus_close(g_busHandle);
         g_busHandle = 0;
     }
-
+		
     if (g_registeredProps)
     {
         runSteps = __LINE__;
