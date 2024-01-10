@@ -812,7 +812,10 @@ rbusCoreError_t rbus_registerObj(const char * object_name, rbus_callback_t handl
     server_object_create(&obj, object_name, handler, user_data);
 
     //TODO: callback signature translation. rbusMessage uses a significantly wider signature for callbacks. Translate to something simpler.
-    err = rtConnection_AddListenerWithId(g_connection, object_name, RBUS_REGISTER_OBJECT_EXPRESSION_ID, onMessage, obj);
+    err = rtConnection_AddListener(g_connection, object_name, onMessage, obj); /* Avoiding rtConnection_AddListenerWithId call here as ccsp code
+                                                                                    uses this rbus_registerObj() function call directly and usage
+                                                                                    of rtConnection_AddListenerWithId() function will result in
+                                                                                    conflict with subscriptionId */
 
     if(RT_OK == err)
     {
@@ -957,10 +960,10 @@ rbusCoreError_t rbus_unregisterObj(const char * object_name)
         RBUSCORELOG_ERROR("object_name is invalid.");
         return RBUSCORE_ERROR_INVALID_PARAM;
     }
-    err = rtConnection_RemoveListenerWithId(g_connection, object_name, RBUS_REGISTER_OBJECT_EXPRESSION_ID);
+    err = rtConnection_RemoveListener(g_connection, object_name);
     if(RT_OK != err)
     {
-        RBUSCORELOG_ERROR("rtConnection_RemoveListenerWithId %s failed: Err=%d", object_name, err);
+        RBUSCORELOG_ERROR("rtConnection_RemoveListener %s failed: Err=%d", object_name, err);
         return RBUSCORE_ERROR_GENERAL;
     }
 
