@@ -127,7 +127,8 @@ typedef enum _rbusError
     RBUS_ERROR_INVALID_METHOD,                  /**< Invalid Method           */
     RBUS_ERROR_NOSUBSCRIBERS,                   /**< No subscribers present   */
     RBUS_ERROR_SUBSCRIPTION_ALREADY_EXIST,      /**< The subscription already exists*/
-    RBUS_ERROR_INVALID_NAMESPACE               /**< Invalid namespace as per standard */
+    RBUS_ERROR_INVALID_NAMESPACE,               /**< Invalid namespace as per standard */
+    RBUS_ERROR_DIRECT_CON_NOT_EXIST             /**< Direct connection not exist */
 } rbusError_t;
 
 
@@ -1871,6 +1872,12 @@ rbusError_t rbus_setLogLevel(rbusLogLevel_t level);
  *
  *  @brief  Component use this API to open direct connection to the provider
  *
+ *  Rbus supports a mode that optimizes performance for very frequent, high data rate transfers or rbus operations that need extremely low latency.
+ *  This is known as rbus_direct mode.   While this mode improves performance, reduces CPU usage and improves latency, it also uses more memory and
+ *  resources compared with normal rbus operation.   Rbus_direct mode should only be used where it's needed and avoided where its not needed.
+ *  Developers should use normal rbus operation modes unless there are special circumstances that require rbus_direct mode.  Developers should 
+ *  NOT use rbus_direct mode for all operations.   For more information on rbus_direct see the instructions for rbus_openDirect() in rbus.h.
+ *
  *  Used by: Component that wants to use private connection to provider and avoid RBUS Daemon.
  *
  *  @param handle           Current active rbus handle
@@ -1896,8 +1903,6 @@ rbusError_t rbus_closeDirect(rbusHandle_t handle);
 #ifdef __cplusplus
 }
 #endif
-
-#include "rbus_message.h"
 
 #endif
 

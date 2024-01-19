@@ -28,7 +28,7 @@
 #include <getopt.h>
 #include <rbus.h>
 
-int loopFor = 30;
+int loopFor = 60;
 int subscribed = 0;
 
 rbusError_t eventSubHandler(rbusHandle_t handle, rbusEventSubAction_t action, const char* eventName, rbusFilter_t filter, int32_t interval, bool* autoPublish)
@@ -45,7 +45,7 @@ rbusError_t eventSubHandler(rbusHandle_t handle, rbusEventSubAction_t action, co
         action == RBUS_EVENT_ACTION_SUBSCRIBE ? "subscribe" : "unsubscribe",
         eventName);
 
-    if(!strcmp("Device.Provider1.Event", eventName))
+    if(!strcmp("Device.Provider1.Event1!", eventName))
     {
         subscribed = action == RBUS_EVENT_ACTION_SUBSCRIBE ? 1 : 0;
     }
@@ -64,7 +64,7 @@ int main(int argc, char *argv[])
     char componentName[] = "RawDataEventProvider";
 
     rbusDataElement_t dataElements[1] = {
-        {"Device.Provider1.Event", RBUS_ELEMENT_TYPE_EVENT, {NULL, NULL, NULL, NULL, eventSubHandler, NULL}}
+        {"Device.Provider1.Event1!", RBUS_ELEMENT_TYPE_EVENT, {NULL, NULL, NULL, NULL, eventSubHandler, NULL}}
     };
 
     printf("provider: start\n");

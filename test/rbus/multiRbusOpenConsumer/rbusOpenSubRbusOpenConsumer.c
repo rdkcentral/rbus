@@ -125,7 +125,7 @@ int main(int argc, char *argv[])
     rbusFilter_Release(filter);
 
     sleep(25);
-
+    printf("consumer: exit\n");
     return rc;
 }
 

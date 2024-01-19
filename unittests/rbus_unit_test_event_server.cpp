@@ -319,19 +319,19 @@ TEST_F(EventServerAPIs, rbuscore_subscribeToEventTimeout_test1)
     char event_name[130] ="0";
     rbusCoreError_t err = RBUSCORE_SUCCESS;
     //Neg test subscribe before establishing connection
-    err = rbuscore_subscribeToEventTimeout("obj_name", "event_1",&event_callback, NULL, NULL, NULL, 1000, false, NULL);
+    err = rbuscore_subscribeToEventTimeout("obj_name", "event_1",&event_callback, NULL, NULL, NULL, 1000, false, NULL, false);
     EXPECT_EQ(err,RBUSCORE_ERROR_INVALID_STATE) << "rbuscore_subscribeToEventTimeout failed";
     RBUS_OPEN_BROKER_CONNECTION(client_name,RBUSCORE_SUCCESS);
     //Neg Test with more than MAX_OBJECT_NAME_LENGTH
     memset(obj_name, 't', (sizeof(obj_name)- 1));
-    err = rbuscore_subscribeToEventTimeout(obj_name, "event_1",&event_callback, NULL, NULL, NULL, 1000, false, NULL);
+    err = rbuscore_subscribeToEventTimeout(obj_name, "event_1",&event_callback, NULL, NULL, NULL, 1000, false, NULL, false);
     EXPECT_EQ(err,RBUSCORE_ERROR_INVALID_PARAM) << "rbuscore_subscribeToEventTimeout failed";
     //Neg Test with more than MAX_EVENT_NAME_LENGTH
     memset(event_name, 't', (sizeof(obj_name)- 1));
-    err = rbuscore_subscribeToEventTimeout("object_1", event_name, &event_callback, NULL, NULL, NULL, 1000, false, NULL);
+    err = rbuscore_subscribeToEventTimeout("object_1", event_name, &event_callback, NULL, NULL, NULL, 1000, false, NULL, false);
     EXPECT_EQ(err,RBUSCORE_ERROR_INVALID_PARAM) << "rbuscore_subscribeToEventTimeout failed";
     //Neg test passing object name and callback as NULL
-    err = rbuscore_subscribeToEventTimeout(NULL, "event_1",NULL, NULL, NULL, NULL, 1000, false, NULL);
+    err = rbuscore_subscribeToEventTimeout(NULL, "event_1",NULL, NULL, NULL, NULL, 1000, false, NULL, false);
     EXPECT_EQ(err,RBUSCORE_ERROR_INVALID_PARAM) << "rbuscore_subscribeToEventTimeout failed";
     RBUS_CLOSE_BROKER_CONNECTION(RBUSCORE_SUCCESS);
 }
@@ -344,10 +344,10 @@ TEST_F(EventServerAPIs, rbuscore_unsubscribeFromEvent_test1)
     RBUS_OPEN_BROKER_CONNECTION(client_name, RBUSCORE_SUCCESS);
     //Neg Test with more than MAX_OBJECT_NAME_LENGTH
     memset(object_name, 't', (sizeof(object_name)- 1));
-    err = rbuscore_unsubscribeFromEvent(object_name, "event_1", NULL);
+    err = rbuscore_unsubscribeFromEvent(object_name, "event_1", NULL, false);
     EXPECT_EQ(err,RBUSCORE_ERROR_INVALID_PARAM) << "rbuscore_unsubscribeFromEvent failed";
     //Neg test passing NULL as object name
-    err = rbuscore_unsubscribeFromEvent(NULL, NULL,NULL);
+    err = rbuscore_unsubscribeFromEvent(NULL, NULL,NULL, false);
     EXPECT_EQ(err,RBUSCORE_ERROR_INVALID_PARAM) << "rbuscore_unsubscribeFromEvent failed";
     RBUS_CLOSE_BROKER_CONNECTION(RBUSCORE_SUCCESS);
 }
@@ -360,7 +360,7 @@ TEST_F(EventServerAPIs, rbuscore_publishSubscriberEvent_test1)
     RBUS_OPEN_BROKER_CONNECTION(client_name, RBUSCORE_SUCCESS);
     //Neg Test with more than MAX_OBJECT_NAME_LENGTH
     memset(object_name, 't', (sizeof(object_name)- 1));
-    err = rbuscore_publishSubscriberEvent(object_name, "event_1", NULL, NULL);
+    err = rbuscore_publishSubscriberEvent(object_name, "event_1", NULL, NULL, 0, 0);
     EXPECT_EQ(err,RBUSCORE_ERROR_INVALID_PARAM) << "rbus_publishsubscriberEvent failed";
     RBUS_CLOSE_BROKER_CONNECTION(RBUSCORE_SUCCESS);
 }

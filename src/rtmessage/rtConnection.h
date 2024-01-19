@@ -180,13 +180,25 @@ rtConnection_SendBinaryResponse(rtConnection con, rtMessageHeader const* request
  * Register a callback for message receipt
  * @param con
  * @param topic expression
+ * @param expression Id
  * @param callback handler
  * @param closure
  * @return error
  */
 rtError
-rtConnection_AddListener(rtConnection con, char const* expression,
-  rtMessageCallback callback, void* closure);
+rtConnection_AddListenerWithId(rtConnection con, char const* expression,
+  uint32_t expressionId, rtMessageCallback callback, void* closure);
+
+/**
+ * Register a callback for message receipt
+ * @param con
+ * @param topic expression
+ * @param callback handler
+ * @param closure
+ * @return error
+ */
+rtError
+rtConnection_AddListener(rtConnection con, char const* expression, rtMessageCallback callback, void* closure);
 
 /**
  * Remove a callback listener
@@ -196,6 +208,16 @@ rtConnection_AddListener(rtConnection con, char const* expression,
  */
 rtError
 rtConnection_RemoveListener(rtConnection con, char const* expression);
+
+/**
+ * Remove a callback listener
+ * @param con
+ * @param topic expression
+ * @param expression Id
+ * @return error
+ */
+rtError
+rtConnection_RemoveListenerWithId(rtConnection con, char const* expression, uint32_t expressionId);
 
 /**
  * Add an alias to an existing listener

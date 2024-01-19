@@ -81,6 +81,6 @@ rtError rtRouteBase_BindListener(char const* socket_name, int no_delay, int inde
 rtError rtRouteBase_CloseListener(rtListener *pListener);
 
 rtError rtRouteDirect_StartInstance(const char* socket_name, rtDriectClientHandler messageHandler);
-rtError rtRouteDirect_SendMessage(const rtPrivateClientInfo* pClient, uint8_t const* pInBuff, int inLength);
+rtError rtRouteDirect_SendMessage(const rtPrivateClientInfo* pClient, uint8_t const* pInBuff, int inLength, uint32_t subscriptionId, bool rawData);
 
 #endif /* __RTROUTEBASE_H__ */

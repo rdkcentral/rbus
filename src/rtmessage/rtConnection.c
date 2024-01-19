@@ -60,7 +60,8 @@ typedef volatile int atomic_uint_least32_t;
 #include <sys/types.h>
 #include <sys/time.h>
 
-#define RTMSG_LISTENERS_MAX 64
+#define RTMSG_LISTENERS_MAX 128
+#define RTCONNECTION_CREATE_EXPRESSION_ID 1
 #ifdef  RDKC_BUILD
 #define RTMSG_SEND_BUFFER_SIZE (1024 * 8)
 #else
@@ -247,7 +248,7 @@ rtConnection_SendRequestInternal(
 static uint32_t
 rtConnection_GetNextSubscriptionId()
 {
-  static uint32_t next_id = 1;
+  static uint32_t next_id = 10000; /* Keeping this number high to avoid conflict with the subscription Id added in rbusSubscriptions_addSubscription() which starts with 1 */
   return next_id++;
 }
 
@@ -605,7 +606,7 @@ rtConnection_CreateInternal(rtConnection* con, char const* application_name, cha
 
   if (err == RT_OK)
   {
-    rtConnection_AddListener(c, c->inbox_name, onDefaultMessage, c);
+    rtConnection_AddListenerWithId(c, c->inbox_name, RTCONNECTION_CREATE_EXPRESSION_ID, onDefaultMessage, c);
     rtConnection_StartThreads(c);
     *con = c;
   }
@@ -1231,27 +1232,18 @@ rtConnection_SendInternal(rtConnection con, uint8_t const* buff, uint32_t n, cha
 rtError
 rtConnection_AddListener(rtConnection con, char const* expression, rtMessageCallback callback, void* closure)
 {
+    return rtConnection_AddListenerWithId(con, expression, rtConnection_GetNextSubscriptionId(), callback, closure);
+}
+
+rtError
+rtConnection_AddListenerWithId(rtConnection con, char const* expression, uint32_t expressionId, rtMessageCallback callback, void* closure)
+{
   int i;
 
   if (!con)
     return rtErrorFromErrno(EINVAL);
 
   pthread_mutex_lock(&con->mutex);
-
-  /*Prevent a client from adding multiple listener callbacks to the same expression.
-    This is not the same as preventing duplicate entries in rtrouted (i.e. RT_ERROR_DUPLICATE_ENTRY).
-    This is to not break rtConnection_RemoveListener which doesn't take a callback parameter
-    and can't know which listener callback (if there were multi) you want to remove.
-    So we just prevent multi adds here to prevent RemoveListner issues*/
-  for (i = 0; i < RTMSG_LISTENERS_MAX; ++i)
-  {
-    if ((con->listeners[i].in_use) && (0 == strcmp(expression, con->listeners[i].expression)))
-    {
-      rtLog_Error("Listener already exist for %s.  Multiple callbacks to the same expression not allowed.", expression);
-      pthread_mutex_unlock(&con->mutex);
-      return RT_FAIL;
-    }
-  }
 
   /*find an open listener to use*/
   for (i = 0; i < RTMSG_LISTENERS_MAX; ++i)
@@ -1267,7 +1259,7 @@ rtConnection_AddListener(rtConnection con, char const* expression, rtMessageCall
   }
 
   con->listeners[i].in_use = 1;
-  con->listeners[i].subscription_id = rtConnection_GetNextSubscriptionId();
+  con->listeners[i].subscription_id = expressionId;
   con->listeners[i].closure = closure;
   con->listeners[i].callback = callback;
   con->listeners[i].expression = strdup(expression);
@@ -1311,13 +1303,52 @@ rtConnection_RemoveListener(rtConnection con, char const* expression)
   pthread_mutex_unlock(&con->mutex);
 
   if (i >= RTMSG_LISTENERS_MAX)
-    return RT_ERROR_INVALID_ARG; 
+    return RT_ERROR_INVALID_ARG;
 
   rtMessage m;
   rtMessage_Create(&m);
   rtMessage_SetInt32(m, "add", 0);
   rtMessage_SetString(m, "topic", expression);
-  rtMessage_SetInt32(m, "route_id", route_id); 
+  rtMessage_SetInt32(m, "route_id", route_id);
+  rtConnection_SendMessage(con, m, "_RTROUTED.INBOX.SUBSCRIBE");
+  rtMessage_Release(m);
+  return 0;
+}
+
+rtError
+rtConnection_RemoveListenerWithId(rtConnection con, char const* expression, uint32_t expressionId)
+{
+  int i;
+  int route_id = 0;
+
+  if (!con)
+    return rtErrorFromErrno(EINVAL);
+
+  pthread_mutex_lock(&con->mutex);
+  for (i = 0; i < RTMSG_LISTENERS_MAX; ++i)
+  {
+    if ((con->listeners[i].in_use) && (expressionId == con->listeners[i].subscription_id))
+    {
+        con->listeners[i].in_use = 0;
+        route_id = con->listeners[i].subscription_id;
+        con->listeners[i].subscription_id = 0;
+        con->listeners[i].closure = NULL;
+        con->listeners[i].callback = NULL;
+        free(con->listeners[i].expression);
+        con->listeners[i].expression = NULL;
+        break;
+    }
+  }
+  pthread_mutex_unlock(&con->mutex);
+
+  if (i >= RTMSG_LISTENERS_MAX)
+    return RT_ERROR_INVALID_ARG;
+
+  rtMessage m;
+  rtMessage_Create(&m);
+  rtMessage_SetInt32(m, "add", 0);
+  rtMessage_SetString(m, "topic", expression);
+  rtMessage_SetInt32(m, "route_id", route_id);
   rtConnection_SendMessage(con, m, "_RTROUTED.INBOX.SUBSCRIBE");
   rtMessage_Release(m);
   return 0;
