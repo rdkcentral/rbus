@@ -115,7 +115,7 @@ int handle_recursive_get(const char * destination, const char * method, rbusMess
         rbusMessage outbound;
         rbusMessage_Init(&outbound);
         rbusMessage_SetString(outbound, "");
-        ret = rbus_invokeRemoteMethod(level_2_object, METHOD_GETPARAMETERVALUES, outbound, 1000, &level_2_response);
+        ret = rbuscore_invokeRemoteMethod(level_2_object, METHOD_GETPARAMETERVALUES, outbound, 1000, &level_2_response);
         int result;
         int payload = 0;
         if(RBUSCORE_SUCCESS == ret )

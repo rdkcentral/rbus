@@ -132,18 +132,18 @@ static void test_bus(int reps)
         pid = fork();
         if(0 == pid)
         {
-            if((err = rbus_openBrokerConnection("loadserver")) == RBUSCORE_SUCCESS)
+            if((err = rbuscore_openBrokerConnection("loadserver")) == RBUSCORE_SUCCESS)
                 printf("Successfully connected to bus.\n");
             
-            if((err = rbus_registerObj(c_ptr->component_name.c_str(), callback, NULL)) == RBUSCORE_SUCCESS)
+            if((err = rbuscore_registerObj(c_ptr->component_name.c_str(), callback, NULL)) == RBUSCORE_SUCCESS)
                 printf("Successfully registered component %s.\n",c_ptr->component_name.c_str()); 
             
-            rbus_registerMethodTable(c_ptr->component_name.c_str(), table, 1);
+            rbuscore_registerMethodTable(c_ptr->component_name.c_str(), table, 1);
             for(const auto &leaf : c_ptr->leaves)
-                rbus_addElement(c_ptr->component_name.c_str(), leaf.c_str());
+                rbuscore_addElement(c_ptr->component_name.c_str(), leaf.c_str());
             
             pause();
-            if((err = rbus_closeBrokerConnection()) == RBUSCORE_SUCCESS)
+            if((err = rbuscore_closeBrokerConnection()) == RBUSCORE_SUCCESS)
                 printf("Successfully disconnected from bus.\n");
             break;
         }
@@ -156,7 +156,7 @@ static void test_bus(int reps)
         printf("Server applications are ready. Press enter to start testing.\n");
         getchar();
         //Test the registered datamodels from the launcher application.
-        if((err = rbus_openBrokerConnection("loadclient")) == RBUSCORE_SUCCESS)
+        if((err = rbuscore_openBrokerConnection("loadclient")) == RBUSCORE_SUCCESS)
             printf("Successfully connected to bus.\n");
         gettimeofday(&start_time, NULL);
         while(0 < reps--)
@@ -166,7 +166,7 @@ static void test_bus(int reps)
                 rtMessage result;
                 int value = 0;
                 int op_result = 0;
-                err = rbus_invokeRemoteMethod(c_ptr->component_name.c_str(), METHOD_GETPARAMETERVALUES, NULL, 1000, &result);
+                err = rbuscore_invokeRemoteMethod(c_ptr->component_name.c_str(), METHOD_GETPARAMETERVALUES, NULL, 1000, &result);
                 if((RBUSCORE_SUCCESS != err) ||
                         (RT_OK != rbus_GetInt32(result, MESSAGE_FIELD_RESULT, &op_result)) ||
                         (RT_OK != rbus_GetInt32(result, MESSAGE_FIELD_PAYLOAD, &value)) || 
@@ -177,7 +177,7 @@ static void test_bus(int reps)
                 for(const auto &leaf : c_ptr->leaves)
                 {
                     value = 0;
-                    err = rbus_invokeRemoteMethod(leaf.c_str(), METHOD_GETPARAMETERVALUES, NULL, 1000, &result);
+                    err = rbuscore_invokeRemoteMethod(leaf.c_str(), METHOD_GETPARAMETERVALUES, NULL, 1000, &result);
                     if((RBUSCORE_SUCCESS != err) ||
                         (RT_OK != rbus_GetInt32(result, MESSAGE_FIELD_RESULT, &op_result)) ||
                         (RT_OK != rbus_GetInt32(result, MESSAGE_FIELD_PAYLOAD, &value)) || 
@@ -192,7 +192,7 @@ static void test_bus(int reps)
         timersub(&end_time, &start_time, &diff);
         long long now = (diff.tv_sec * 1000000ll + diff.tv_usec);
         printf("Time consumed for test is %llu us\n", now);
-        if((err = rbus_closeBrokerConnection()) == RBUSCORE_SUCCESS)
+        if((err = rbuscore_closeBrokerConnection()) == RBUSCORE_SUCCESS)
             printf("Successfully disconnected from bus.\n");
 
     }

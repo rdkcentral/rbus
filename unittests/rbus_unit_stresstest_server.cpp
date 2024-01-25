@@ -44,12 +44,12 @@ static bool OPEN_BROKER_CONNECTION(char* connection_name)
     bool result = false;
     rbusCoreError_t err = RBUSCORE_SUCCESS;
 
-    if((err = rbus_openBrokerConnection(connection_name)) == RBUSCORE_SUCCESS)
+    if((err = rbuscore_openBrokerConnection(connection_name)) == RBUSCORE_SUCCESS)
     {
          //printf("Successfully connected to bus.\n");
          result = true;
     }
-    EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_openBrokerConnection failed";
+    EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbuscore_openBrokerConnection failed";
     return result;
 }
 
@@ -57,12 +57,12 @@ static bool CLOSE_BROKER_CONNECTION()
 {
     bool result = false;
     rbusCoreError_t err = RBUSCORE_SUCCESS;
-    if((err = rbus_closeBrokerConnection()) == RBUSCORE_SUCCESS)
+    if((err = rbuscore_closeBrokerConnection()) == RBUSCORE_SUCCESS)
     {
         //printf("Successfully disconnected from bus.\n");
         result = true;
     }
-    EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_closeBrokerConnection failed";
+    EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbuscore_closeBrokerConnection failed";
     return result;
 }
 
@@ -96,13 +96,13 @@ static void CREATE_RBUS_SERVER_INSTANCE(int handle)
     snprintf(buffer, (sizeof(buffer) - 1), "%s.obj1", server_name);
     //printf("Registering object %s\n", buffer);
 
-    err = rbus_registerObj(buffer, callback, NULL);
-    EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_registerObj failed";
+    err = rbuscore_registerObj(buffer, callback, NULL);
+    EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbuscore_registerObj failed";
 
     rbus_method_table_entry_t table[2] = {{METHOD_SETPARAMETERVALUES, NULL, handle_set1}, {METHOD_GETPARAMETERVALUES, NULL, handle_get1}};
 
-    err = rbus_registerMethodTable(buffer, table, 2);
-    EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_registerMethodTable failed";
+    err = rbuscore_registerMethodTable(buffer, table, 2);
+    EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbuscore_registerMethodTable failed";
 
     //pause();
     //printf("**********EXITING SERVER : %s ******************** \n", server_name);
@@ -114,14 +114,14 @@ static bool RBUS_PULL_OBJECT(char* expected_data, char* server_obj, rbusCoreErro
     bool result = false;
     rbusCoreError_t err = RBUSCORE_SUCCESS;
     rbusMessage response;
-    if((err = rbus_pullObj(server_obj, 1000, &response)) == RBUSCORE_SUCCESS)
+    if((err = rbuscore_pullObj(server_obj, 1000, &response)) == RBUSCORE_SUCCESS)
     {
         const char* buff = NULL;
         rbusMessage_GetString(response, &buff);
         if((NULL != expected_data) && (NULL != buff))
-            EXPECT_STREQ(buff, expected_data) << "rbus_pullObj failed to procure expected string";
+            EXPECT_STREQ(buff, expected_data) << "rbuscore_pullObj failed to procure expected string";
         else
-            EXPECT_EQ(expected_data, buff) << "rbus_pullObj failed";
+            EXPECT_EQ(expected_data, buff) << "rbuscore_pullObj failed";
         rbusMessage_Release(response);
         result = true;
     }
@@ -129,7 +129,7 @@ static bool RBUS_PULL_OBJECT(char* expected_data, char* server_obj, rbusCoreErro
     {
         printf("Could not pull object %s\n", server_obj);
     }
-    EXPECT_EQ(err, expected_err) << "rbus_pullObj failed";
+    EXPECT_EQ(err, expected_err) << "rbuscore_pullObj failed";
     return result;
 }
 
@@ -139,8 +139,8 @@ static bool RBUS_PUSH_OBJECT(char* data, char* server_obj, rbusCoreError_t expec
     rbusMessage setter;
     rbusMessage_Init(&setter);
     rbusMessage_SetString(setter, data);
-    err = rbus_pushObj(server_obj, setter, 1000);
-    EXPECT_EQ(err, expected_err) << "rbus_pushObj failed";
+    err = rbuscore_pushObj(server_obj, setter, 1000);
+    EXPECT_EQ(err, expected_err) << "rbuscore_pushObj failed";
     return true;
 }
 
@@ -174,13 +174,13 @@ static void resolveWildcardExpression(const char* expression, int expected_entri
     char ** destinations = NULL;
     int num_entries = 0;
 
-    err = rbus_discoverWildcardDestinations(expression, &num_entries, &destinations);
-    EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_discoverWildcardDestinations failed";
+    err = rbuscore_discoverWildcardDestinations(expression, &num_entries, &destinations);
+    EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbuscore_discoverWildcardDestinations failed";
 
     if(err == RBUSCORE_SUCCESS)
     {
         printf("Query for expression %s was successful.\n No. of entries : %d \n", expression, num_entries);
-        EXPECT_EQ(num_entries, expected_entries) << "rbus_discoverWildcardDestinations failed";
+        EXPECT_EQ(num_entries, expected_entries) << "rbuscore_discoverWildcardDestinations failed";
         for(int i = 0; i < num_entries; i++)
         {
             printf("Destination %d is %s\n", i, destinations[i]);
@@ -417,31 +417,31 @@ TEST_F(StressTestServer, rbus_resolveWildcardDestination_test1)
     {
         CREATE_RBUS_SERVER_INSTANCE(counter);
 
-        err = rbus_registerObj(server_obj1, callback, NULL);
-        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_registerObj failed";
+        err = rbuscore_registerObj(server_obj1, callback, NULL);
+        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbuscore_registerObj failed";
 
         for (i = 0; i < obj1_element_count; i++)
         {
-            err = rbus_addElement(server_obj1, *(obj1_elements + i));
-            EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_addElement failed";
+            err = rbuscore_addElement(server_obj1, *(obj1_elements + i));
+            EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbuscore_addElement failed";
         }
 
-        err = rbus_registerObj(server_obj2, callback, NULL);
-        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_registerObj failed";
+        err = rbuscore_registerObj(server_obj2, callback, NULL);
+        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbuscore_registerObj failed";
 
         for (i = 0; i < obj2_element_count; i++)
         {
-            err = rbus_addElement(server_obj2, *(obj2_elements + i));
-            EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_addElement failed";
+            err = rbuscore_addElement(server_obj2, *(obj2_elements + i));
+            EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbuscore_addElement failed";
         }
 
-        err = rbus_registerObj(server_obj3, callback, NULL);
-        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_registerObj failed";
+        err = rbuscore_registerObj(server_obj3, callback, NULL);
+        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbuscore_registerObj failed";
 
         for (i = 0; i < obj3_element_count; i++)
         {
-            err = rbus_addElement(server_obj3, *(obj3_elements + i));
-            EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_addElement failed";
+            err = rbuscore_addElement(server_obj3, *(obj3_elements + i));
+            EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbuscore_addElement failed";
         }
 
         printf("********** SERVER ENTERING PAUSED STATE******************** \n");
@@ -519,22 +519,22 @@ TEST_F(StressTestServer, rbus_resolveWildcardDestination_test2)
     {
         CREATE_RBUS_SERVER_INSTANCE(counter);
 
-        err = rbus_registerObj(server_obj1, callback, NULL);
-        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_registerObj failed";
+        err = rbuscore_registerObj(server_obj1, callback, NULL);
+        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbuscore_registerObj failed";
 
         for (i = 0; i < obj1_element_count; i++)
         {
-            err = rbus_addElement(server_obj1, *(obj1_elements + i));
-            EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_addElement failed";
+            err = rbuscore_addElement(server_obj1, *(obj1_elements + i));
+            EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbuscore_addElement failed";
         }
 
-        err = rbus_registerObj(server_obj2, callback, NULL);
-        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_registerObj failed";
+        err = rbuscore_registerObj(server_obj2, callback, NULL);
+        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbuscore_registerObj failed";
 
         for (i = 0; i < obj2_element_count; i++)
         {
-            err = rbus_addElement(server_obj2, *(obj2_elements + i));
-            EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_addElement failed";
+            err = rbuscore_addElement(server_obj2, *(obj2_elements + i));
+            EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbuscore_addElement failed";
         }
         printf("********** SERVER ENTERING PAUSED STATE******************** \n");
         pause();
@@ -582,22 +582,22 @@ TEST_F(StressTestServer, rbus_resolveWildcardDestination_test3)
     {
         CREATE_RBUS_SERVER_INSTANCE(counter);
 
-        err = rbus_registerObj(server_obj1, callback, NULL);
-        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_registerObj failed";
+        err = rbuscore_registerObj(server_obj1, callback, NULL);
+        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbuscore_registerObj failed";
 
         for (i = 0; i < obj1_element_count; i++)
         {
-            err = rbus_addElement(server_obj1, *(obj1_elements + i));
-            EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_addElement failed";
+            err = rbuscore_addElement(server_obj1, *(obj1_elements + i));
+            EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbuscore_addElement failed";
         }
 
-        err = rbus_registerObj(server_obj2, callback, NULL);
-        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_registerObj failed";
+        err = rbuscore_registerObj(server_obj2, callback, NULL);
+        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbuscore_registerObj failed";
 
         for (i = 0; i < obj2_element_count; i++)
         {
-            err = rbus_addElement(server_obj2, *(obj2_elements + i));
-            EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_addElement failed";
+            err = rbuscore_addElement(server_obj2, *(obj2_elements + i));
+            EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbuscore_addElement failed";
         }
         printf("********** SERVER ENTERING PAUSED STATE******************** \n");
         pause();
@@ -644,22 +644,22 @@ TEST_F(StressTestServer, rbus_resolveWildcardDestination_test4)
     {
         CREATE_RBUS_SERVER_INSTANCE(counter);
 
-        err = rbus_registerObj(server_obj1, callback, NULL);
-        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_registerObj failed";
+        err = rbuscore_registerObj(server_obj1, callback, NULL);
+        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbuscore_registerObj failed";
 
         for (i = 0; i < obj1_element_count; i++)
         {
-            err = rbus_addElement(server_obj1, *(obj1_elements + i));
-            EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_addElement failed";
+            err = rbuscore_addElement(server_obj1, *(obj1_elements + i));
+            EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbuscore_addElement failed";
         }
 
-        err = rbus_registerObj(server_obj2, callback, NULL);
-        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_registerObj failed";
+        err = rbuscore_registerObj(server_obj2, callback, NULL);
+        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbuscore_registerObj failed";
 
         for (i = 0; i < obj2_element_count; i++)
         {
-            err = rbus_addElement(server_obj2, *(obj2_elements + i));
-            EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_addElement failed";
+            err = rbuscore_addElement(server_obj2, *(obj2_elements + i));
+            EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbuscore_addElement failed";
         }
         printf("********** SERVER ENTERING PAUSED STATE******************** \n");
         pause();
@@ -707,22 +707,22 @@ TEST_F(StressTestServer, rbus_resolveWildcardDestination_test5)
     {
         CREATE_RBUS_SERVER_INSTANCE(counter);
 
-        err = rbus_registerObj(server_obj1, callback, NULL);
-        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_registerObj failed";
+        err = rbuscore_registerObj(server_obj1, callback, NULL);
+        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbuscore_registerObj failed";
 
         for (i = 0; i < obj1_element_count; i++)
         {
-            err = rbus_addElement(server_obj1, *(obj1_elements + i));
-            EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_addElement failed";
+            err = rbuscore_addElement(server_obj1, *(obj1_elements + i));
+            EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbuscore_addElement failed";
         }
 
-        err = rbus_registerObj(server_obj2, callback, NULL);
-        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_registerObj failed";
+        err = rbuscore_registerObj(server_obj2, callback, NULL);
+        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbuscore_registerObj failed";
 
         for (i = 0; i < obj2_element_count; i++)
         {
-            err = rbus_addElement(server_obj2, *(obj2_elements + i));
-            EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_addElement failed";
+            err = rbuscore_addElement(server_obj2, *(obj2_elements + i));
+            EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbuscore_addElement failed";
         }
         printf("********** SERVER ENTERING PAUSED STATE******************** \n");
         pause();
@@ -760,7 +760,7 @@ TEST_F(StressTestServer, rbus_resolveWildcardDestination_test5)
     }
 }
 
-TEST_F(StressTestServer, rbus_addElement_test1)
+TEST_F(StressTestServer, rbuscore_addElement_test1)
 {
     int counter = 4, i = 0;
     char client_name[] = "TEST_CLIENT_1";
@@ -775,8 +775,8 @@ TEST_F(StressTestServer, rbus_addElement_test1)
     if(pid == 0)
     {
         CREATE_RBUS_SERVER_INSTANCE(counter);
-        err = rbus_addElement(server_obj,server_element);
-        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_addElement failed";
+        err = rbuscore_addElement(server_obj,server_element);
+        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbuscore_addElement failed";
         printf("********** SERVER ENTERING PAUSED STATE******************** \n");
         pause();
     }
@@ -820,8 +820,8 @@ TEST_F(StressTestServer, rbusMessage_GetElementsAddedByObject_test1)
     if(pid == 0)
     {
         CREATE_RBUS_SERVER_INSTANCE(counter);
-        err = rbus_addElement(server_obj,server_element);
-        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_addElement failed";
+        err = rbuscore_addElement(server_obj,server_element);
+        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbuscore_addElement failed";
         printf("********** SERVER ENTERING PAUSED STATE******************** \n");
         pause();
     }
@@ -829,13 +829,13 @@ TEST_F(StressTestServer, rbusMessage_GetElementsAddedByObject_test1)
     {
         sleep(2);
         //Neg test discovering Object before connection
-        err = rbus_discoverObjectElements("test.", NULL, &objects);
+        err = rbuscore_discoverObjectElements("test.", NULL, &objects);
         EXPECT_EQ(err, RBUSCORE_ERROR_INVALID_STATE) << "rbusMessage_discoverObjectElements failed";
         conn_status = OPEN_BROKER_CONNECTION(client_name);
         //Neg test passing NULL as count
-        err = rbus_discoverObjectElements("test.", NULL, &objects);
+        err = rbuscore_discoverObjectElements("test.", NULL, &objects);
         EXPECT_EQ(err, RBUSCORE_ERROR_INVALID_PARAM) << "rbusMessage_discoverObjectElements failed";
-        err = rbus_discoverObjectElements("test.", &num_objects, &objects);
+        err = rbuscore_discoverObjectElements("test.", &num_objects, &objects);
         EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbusMessage_discoverObjectElements failed";
 
         if(objects != NULL){
@@ -856,7 +856,7 @@ TEST_F(StressTestServer, rbusMessage_GetElementsAddedByObject_test1)
     }
 }
 
-TEST_F(StressTestServer, rbus_discoverElementObjects_test1)
+TEST_F(StressTestServer, rbuscore_discoverElementObjects_test1)
 {
     int counter = 5;
     char client_name[] = "TEST_CLIENT_1";
@@ -873,8 +873,8 @@ TEST_F(StressTestServer, rbus_discoverElementObjects_test1)
     if(pid == 0)
     {
         CREATE_RBUS_SERVER_INSTANCE(counter);
-        err = rbus_addElement(server_obj,server_element);
-        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_addElement failed";
+        err = rbuscore_addElement(server_obj,server_element);
+        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbuscore_addElement failed";
         printf("********** SERVER ENTERING PAUSED STATE******************** \n");
         pause();
     }
@@ -882,7 +882,7 @@ TEST_F(StressTestServer, rbus_discoverElementObjects_test1)
     {
         sleep(2);
         conn_status = OPEN_BROKER_CONNECTION(client_name);
-        err = rbus_discoverElementObjects(server_element, &num_objects, &objects);
+        err = rbuscore_discoverElementObjects(server_element, &num_objects, &objects);
         EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbusMessage_discoverElementObjects failed";
 
         for(i = 0; i < num_objects; ++i)
@@ -901,7 +901,7 @@ TEST_F(StressTestServer, rbus_discoverElementObjects_test1)
     }
 }
 
-TEST_F(StressTestServer, rbus_discoverElementObjects_test2)
+TEST_F(StressTestServer, rbuscore_discoverElementObjects_test2)
 {
     int counter = 5;
     char client_name[] = "TEST_CLIENT_1";
@@ -924,7 +924,7 @@ TEST_F(StressTestServer, rbus_discoverElementObjects_test2)
         sleep(2);
         conn_status = OPEN_BROKER_CONNECTION(client_name);
         //Testing with element to be NULL
-        err = rbus_discoverElementObjects(NULL, &num_objects, &objects);
+        err = rbuscore_discoverElementObjects(NULL, &num_objects, &objects);
         EXPECT_EQ(err, RBUSCORE_ERROR_INVALID_PARAM) << "rbusMessage_discoverElementObjects failed";
 
         if(conn_status)
@@ -939,7 +939,7 @@ TEST_F(StressTestServer, rbus_discoverElementObjects_test2)
     }
 }
 
-TEST_F(StressTestServer, rbus_discoverElementsObjects_test1)
+TEST_F(StressTestServer, rbuscore_discoverElementsObjects_test1)
 {
     int counter = 5;
     char client_name[] = "TEST_CLIENT_1";
@@ -959,8 +959,8 @@ TEST_F(StressTestServer, rbus_discoverElementsObjects_test1)
         CREATE_RBUS_SERVER_INSTANCE(counter);
         for(i=0; i < num_elements; i++)
         {
-            err = rbus_addElement(server_obj,*(server_element + i));
-            EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_addElement failed";
+            err = rbuscore_addElement(server_obj,*(server_element + i));
+            EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbuscore_addElement failed";
         }
         printf("********** SERVER ENTERING PAUSED STATE******************** \n");
         pause();
@@ -968,7 +968,7 @@ TEST_F(StressTestServer, rbus_discoverElementsObjects_test1)
     else if (pid > 0){
         sleep(2);
         conn_status = OPEN_BROKER_CONNECTION(client_name);
-        err = rbus_discoverElementsObjects(num_elements, server_element, &num_objects, &objects);
+        err = rbuscore_discoverElementsObjects(num_elements, server_element, &num_objects, &objects);
         EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbusMessage_discoverElementsObjects failed";
 
         for(i = 0; i < num_objects; ++i)
@@ -987,7 +987,7 @@ TEST_F(StressTestServer, rbus_discoverElementsObjects_test1)
     }
 }
 
-TEST_F(StressTestServer, rbus_discoverElementsObjects_test2)
+TEST_F(StressTestServer, rbuscore_discoverElementsObjects_test2)
 {
     int counter = 5;
     char client_name[] = "TEST_CLIENT_1";
@@ -1010,7 +1010,7 @@ TEST_F(StressTestServer, rbus_discoverElementsObjects_test2)
         sleep(2);
         conn_status = OPEN_BROKER_CONNECTION(client_name);
         //Testing with elements to be NULL
-        err = rbus_discoverElementsObjects(num_elements, NULL, &num_objects, &objects);
+        err = rbuscore_discoverElementsObjects(num_elements, NULL, &num_objects, &objects);
         EXPECT_EQ(err, RBUSCORE_ERROR_INVALID_PARAM) << "rbusMessage_discoverElementsObjects failed";
 
         if(conn_status)
@@ -1025,7 +1025,7 @@ TEST_F(StressTestServer, rbus_discoverElementsObjects_test2)
     }
 }
 
-TEST_F(StressTestServer, rbus_addElementEvent_test1)
+TEST_F(StressTestServer, rbuscore_addElementEvent_test1)
 {
     int counter = 4, i = 0;
     char client_name[] = "TEST_CLIENT_1";
@@ -1042,11 +1042,11 @@ TEST_F(StressTestServer, rbus_addElementEvent_test1)
     {
         CREATE_RBUS_SERVER_INSTANCE(counter);
         printf("******Registering Event %s with object %s****** \n", server_event, server_obj);
-        err = rbus_registerEvent(server_obj,server_event,sub1_callback,data);
-        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_registerEvent failed";
-        printf("*******Adding Event %s as an Element using rbus_addElementEvent******\n", server_event);
-        err = rbus_addElementEvent(server_obj,server_event);
-        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_addElementEvent failed";
+        err = rbuscore_registerEvent(server_obj,server_event,sub1_callback,data);
+        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbuscore_registerEvent failed";
+        printf("*******Adding Event %s as an Element using rbuscore_addElementEvent******\n", server_event);
+        err = rbuscore_addElementEvent(server_obj,server_event);
+        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbuscore_addElementEvent failed";
         printf("********** SERVER ENTERING PAUSED STATE******************** \n");
         pause();
     }
@@ -1071,7 +1071,7 @@ TEST_F(StressTestServer, rbus_addElementEvent_test1)
     }
 }
 
-TEST_F(StressTestServer, rbus_addElementEvent_test2)
+TEST_F(StressTestServer, rbuscore_addElementEvent_test2)
 {
     int counter = 4, i = 0;
     char client_name[] = "TEST_CLIENT_1";
@@ -1088,16 +1088,16 @@ TEST_F(StressTestServer, rbus_addElementEvent_test2)
     {
         CREATE_RBUS_SERVER_INSTANCE(counter);
         printf("******Registering Event %s with object %s****** \n", server_event, server_obj);
-        err = rbus_registerEvent(server_obj,server_event,sub1_callback,data);
-        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_registerEvent failed";
-        printf("*******Adding Event %s as an Element using rbus_addElementEvent******\n", server_event);
-        err = rbus_addElementEvent(server_obj,server_event);
-        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_addElementEvent failed";
+        err = rbuscore_registerEvent(server_obj,server_event,sub1_callback,data);
+        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbuscore_registerEvent failed";
+        printf("*******Adding Event %s as an Element using rbuscore_addElementEvent******\n", server_event);
+        err = rbuscore_addElementEvent(server_obj,server_event);
+        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbuscore_addElementEvent failed";
         //Testing Duplicate Entry
-        err = rbus_addElementEvent(server_obj,server_event);
-        EXPECT_EQ(err, RBUSCORE_ERROR_DUPLICATE_ENTRY) << "rbus_addElementEvent failed";
-        err = rbus_addElementEvent(server_obj,server_event);
-        EXPECT_EQ(err, RBUSCORE_ERROR_DUPLICATE_ENTRY) << "rbus_addElementEvent failed";
+        err = rbuscore_addElementEvent(server_obj,server_event);
+        EXPECT_EQ(err, RBUSCORE_ERROR_DUPLICATE_ENTRY) << "rbuscore_addElementEvent failed";
+        err = rbuscore_addElementEvent(server_obj,server_event);
+        EXPECT_EQ(err, RBUSCORE_ERROR_DUPLICATE_ENTRY) << "rbuscore_addElementEvent failed";
         printf("********** SERVER ENTERING PAUSED STATE******************** \n");
         pause();
     }
@@ -1122,7 +1122,7 @@ TEST_F(StressTestServer, rbus_addElementEvent_test2)
     }
 }
 
-TEST_F(StressTestServer, rbus_registerClientDisconnectHandler_test1)
+TEST_F(StressTestServer, rbuscore_registerClientDisconnectHandler_test1)
 {
     int counter = 4, i = 0;
     char client_name[] = "TEST_CLIENT_1";
@@ -1134,8 +1134,8 @@ TEST_F(StressTestServer, rbus_registerClientDisconnectHandler_test1)
     if(pid == 0)
     {
         CREATE_RBUS_SERVER_INSTANCE(counter);
-        rbus_registerClientDisconnectHandler(_client_disconnect_callback_handler);
-        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_registerClientDisconnectHandler failed";
+        rbuscore_registerClientDisconnectHandler(_client_disconnect_callback_handler);
+        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbuscore_registerClientDisconnectHandler failed";
         printf("********** SERVER ENTERING PAUSED STATE******************** \n");
         pause();
     }
@@ -1153,11 +1153,11 @@ TEST_F(StressTestServer, rbus_registerClientDisconnectHandler_test1)
     {
         printf("fork failed.\n");
     }
-    rbus_unregisterClientDisconnectHandler();
-    EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_unregisterClientDisconnectHandler failed";
+    rbuscore_unregisterClientDisconnectHandler();
+    EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbuscore_unregisterClientDisconnectHandler failed";
 }
 
-TEST_F(StressTestServer, rbus_removeElement_test1)
+TEST_F(StressTestServer, rbuscore_removeElement_test1)
 {
     int counter = 4, i = 0;
     char client_name[] = "TEST_CLIENT_1";
@@ -1172,10 +1172,10 @@ TEST_F(StressTestServer, rbus_removeElement_test1)
     if(pid == 0)
     {
         CREATE_RBUS_SERVER_INSTANCE(counter);
-        err = rbus_addElement(server_obj,server_element);
-        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_addElement failed";
-        err = rbus_removeElement(server_obj,server_element);
-        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_removeElement failed";
+        err = rbuscore_addElement(server_obj,server_element);
+        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbuscore_addElement failed";
+        err = rbuscore_removeElement(server_obj,server_element);
+        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbuscore_removeElement failed";
         printf("********** SERVER ENTERING PAUSED STATE******************** \n");
         pause();
     }
@@ -1202,7 +1202,7 @@ TEST_F(StressTestServer, rbus_removeElement_test1)
     }
 }
 
-TEST_F(StressTestServer, rbus_unregisterMethod_test1)
+TEST_F(StressTestServer, rbuscore_unregisterMethod_test1)
 {
     int counter = 3;
     char client_name[] = "TEST_CLIENT_1";
@@ -1218,8 +1218,8 @@ TEST_F(StressTestServer, rbus_unregisterMethod_test1)
     {
         CREATE_RBUS_SERVER_INSTANCE(counter);
         reset_stored_data();
-        err = rbus_unregisterMethod(server_obj,METHOD_SETPARAMETERVALUES);
-        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_unregisterMethod failed";
+        err = rbuscore_unregisterMethod(server_obj,METHOD_SETPARAMETERVALUES);
+        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbuscore_unregisterMethod failed";
         printf("********** SERVER ENTERING PAUSED STATE******************** \n");
         pause();
     }
@@ -1244,7 +1244,7 @@ TEST_F(StressTestServer, rbus_unregisterMethod_test1)
     }
 }
 
-TEST_F(StressTestServer, rbus_unregisterMethodTable_test1)
+TEST_F(StressTestServer, rbuscore_unregisterMethodTable_test1)
 {
     int counter = 3;
     char client_name[] = "TEST_CLIENT_1";
@@ -1262,8 +1262,8 @@ TEST_F(StressTestServer, rbus_unregisterMethodTable_test1)
         reset_stored_data();
 
         rbus_method_table_entry_t table[1] = {{METHOD_SETPARAMETERVALUES, NULL, handle_set1}};
-        err = rbus_unregisterMethodTable(server_obj, table, 1);
-        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_unregisterMethodTable failed";
+        err = rbuscore_unregisterMethodTable(server_obj, table, 1);
+        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbuscore_unregisterMethodTable failed";
         printf("********** SERVER ENTERING PAUSED STATE******************** \n");
         pause();
     }
@@ -1288,7 +1288,7 @@ TEST_F(StressTestServer, rbus_unregisterMethodTable_test1)
     }
 }
 
-TEST_F(StressTestServer, rbus_unregisterMethodTable_test2)
+TEST_F(StressTestServer, rbuscore_unregisterMethodTable_test2)
 {
     int counter = 3;
     char client_name[] = "TEST_CLIENT_1";
@@ -1304,8 +1304,8 @@ TEST_F(StressTestServer, rbus_unregisterMethodTable_test2)
         CREATE_RBUS_SERVER_INSTANCE(counter);
         reset_stored_data();
         rbus_method_table_entry_t table[2] = {{METHOD_SETPARAMETERVALUES, NULL, handle_set1}, {METHOD_GETPARAMETERVALUES, NULL, handle_get1}};
-        err = rbus_unregisterMethodTable(server_obj, table, 2);
-        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_unregisterMethodTable failed";
+        err = rbuscore_unregisterMethodTable(server_obj, table, 2);
+        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbuscore_unregisterMethodTable failed";
         printf("********** SERVER ENTERING PAUSED STATE******************** \n");
         pause();
     }
@@ -1329,7 +1329,7 @@ TEST_F(StressTestServer, rbus_unregisterMethodTable_test2)
     }
 }
 
-TEST_F(StressTestServer, rbus_registerMethod_test1)
+TEST_F(StressTestServer, rbuscore_registerMethod_test1)
 {
     int counter = 3, i = 0;
     char client_name[] = "TEST_CLIENT_1";
@@ -1342,10 +1342,10 @@ TEST_F(StressTestServer, rbus_registerMethod_test1)
     if(pid == 0)
     {
         CREATE_RBUS_SERVER_INSTANCE(counter);
-        err = rbus_registerMethod(server_obj,METHOD_GET_BINARY_RPC,handle_getBinaryData,NULL);
-        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_unregisterMethod failed";
-        err = rbus_registerMethod(server_obj,METHOD_SET_BINARY_RPC,handle_setBinaryData,NULL);
-        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_unregisterMethod failed";
+        err = rbuscore_registerMethod(server_obj,METHOD_GET_BINARY_RPC,handle_getBinaryData,NULL);
+        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbuscore_unregisterMethod failed";
+        err = rbuscore_registerMethod(server_obj,METHOD_SET_BINARY_RPC,handle_setBinaryData,NULL);
+        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbuscore_unregisterMethod failed";
         printf("********** SERVER ENTERING PAUSED STATE******************** \n");
         pause();
     }
@@ -1364,7 +1364,7 @@ TEST_F(StressTestServer, rbus_registerMethod_test1)
         rbusMessage_Init(&setter);
         rbusMessage_SetBytes(setter, (uint8_t*)&client_data, sizeof(client_data));
 
-        err = rbus_invokeRemoteMethod(server_obj, METHOD_SET_BINARY_RPC, setter, 1000, &response);
+        err = rbuscore_invokeRemoteMethod(server_obj, METHOD_SET_BINARY_RPC, setter, 1000, &response);
         EXPECT_EQ(err, RBUSCORE_SUCCESS) << "RPC invocation failed";
         if(NULL != response)
         {
@@ -1372,7 +1372,7 @@ TEST_F(StressTestServer, rbus_registerMethod_test1)
             response = NULL;
         }
 
-        if((err = rbus_invokeRemoteMethod(server_obj, METHOD_GET_BINARY_RPC, NULL, 1000, &response)) == RBUSCORE_SUCCESS)
+        if((err = rbuscore_invokeRemoteMethod(server_obj, METHOD_GET_BINARY_RPC, NULL, 1000, &response)) == RBUSCORE_SUCCESS)
         {
             unsigned int size = 0;
             const test_array_data_t * data_procurred = NULL;
@@ -1400,7 +1400,7 @@ TEST_F(StressTestServer, rbus_registerMethod_test1)
     }
 }
 
-TEST_F(StressTestServer, rbus_unregisterMethod_test2)
+TEST_F(StressTestServer, rbuscore_unregisterMethod_test2)
 {
     int counter = 3, i = 0;
     char client_name[] = "TEST_CLIENT_1";
@@ -1413,12 +1413,12 @@ TEST_F(StressTestServer, rbus_unregisterMethod_test2)
     if(pid == 0)
     {
         CREATE_RBUS_SERVER_INSTANCE(counter);
-        err = rbus_registerMethod(server_obj,METHOD_GET_BINARY_RPC,handle_getBinaryData,NULL);
-        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_unregisterMethod failed";
-        err = rbus_registerMethod(server_obj,METHOD_SET_BINARY_RPC,handle_setBinaryData,NULL);
-        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_unregisterMethod failed";
-        err = rbus_unregisterMethod(server_obj,METHOD_SET_BINARY_RPC);
-        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_unregisterMethod failed";
+        err = rbuscore_registerMethod(server_obj,METHOD_GET_BINARY_RPC,handle_getBinaryData,NULL);
+        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbuscore_unregisterMethod failed";
+        err = rbuscore_registerMethod(server_obj,METHOD_SET_BINARY_RPC,handle_setBinaryData,NULL);
+        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbuscore_unregisterMethod failed";
+        err = rbuscore_unregisterMethod(server_obj,METHOD_SET_BINARY_RPC);
+        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbuscore_unregisterMethod failed";
         printf("********** SERVER ENTERING PAUSED STATE******************** \n");
         pause();
     }
@@ -1437,7 +1437,7 @@ TEST_F(StressTestServer, rbus_unregisterMethod_test2)
         rbusMessage_Init(&setter);
         rbusMessage_SetBytes(setter, (uint8_t *)&client_data, sizeof(client_data));
 
-        err = rbus_invokeRemoteMethod(server_obj, METHOD_SET_BINARY_RPC, setter, 1000, &response);
+        err = rbuscore_invokeRemoteMethod(server_obj, METHOD_SET_BINARY_RPC, setter, 1000, &response);
         EXPECT_EQ(err, RBUSCORE_SUCCESS) << "RPC invocation failed";
         if(NULL != response)
         {
@@ -1445,7 +1445,7 @@ TEST_F(StressTestServer, rbus_unregisterMethod_test2)
             response = NULL;
         }
 
-        if((err = rbus_invokeRemoteMethod(server_obj, METHOD_GET_BINARY_RPC, NULL, 1000, &response)) == RBUSCORE_SUCCESS)
+        if((err = rbuscore_invokeRemoteMethod(server_obj, METHOD_GET_BINARY_RPC, NULL, 1000, &response)) == RBUSCORE_SUCCESS)
         {
             unsigned int size = 0;
             const test_array_data_t * data_procurred = NULL;
@@ -1486,8 +1486,8 @@ TEST_F(StressTestServer, rbus_invokeMethodWithTimeout_test1)
     if(pid == 0)
     {
         CREATE_RBUS_SERVER_INSTANCE(counter);
-        err = rbus_registerMethod(server_obj,METHOD_SET_TIMEOUT_RPC,handle_timeout,NULL);
-        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_unregisterMethod failed";
+        err = rbuscore_registerMethod(server_obj,METHOD_SET_TIMEOUT_RPC,handle_timeout,NULL);
+        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbuscore_unregisterMethod failed";
         printf("********** SERVER ENTERING PAUSED STATE******************** \n");
         pause();
     }
@@ -1505,7 +1505,7 @@ TEST_F(StressTestServer, rbus_invokeMethodWithTimeout_test1)
         //printf("Set test_name : %s \n","rbus_invokeMethodWithTimeout_test1");
         rbusMessage_SetInt32(setter, timeout);
         //printf("Set time out : %d  \n", timeout);
-        err = rbus_invokeRemoteMethod(server_obj, METHOD_SET_TIMEOUT_RPC, setter, ((timeout * 1000) + BUS_LATENCY_MARGIN), &response);
+        err = rbuscore_invokeRemoteMethod(server_obj, METHOD_SET_TIMEOUT_RPC, setter, ((timeout * 1000) + BUS_LATENCY_MARGIN), &response);
         EXPECT_EQ(err, RBUSCORE_SUCCESS) << "RPC invocation failed";
 
         if(NULL != response)
@@ -1540,8 +1540,8 @@ TEST_F(StressTestServer, rbus_invokeMethodWithTimeout_test2)
     if(pid == 0)
     {
         CREATE_RBUS_SERVER_INSTANCE(counter);
-        err = rbus_registerMethod(server_obj,METHOD_SET_TIMEOUT_RPC,handle_timeout,NULL);
-        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_unregisterMethod failed";
+        err = rbuscore_registerMethod(server_obj,METHOD_SET_TIMEOUT_RPC,handle_timeout,NULL);
+        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbuscore_unregisterMethod failed";
         printf("********** SERVER ENTERING PAUSED STATE******************** \n");
         pause();
     }
@@ -1557,7 +1557,7 @@ TEST_F(StressTestServer, rbus_invokeMethodWithTimeout_test2)
         int timeout = 10;
         rbusMessage_SetString(setter, "rbus_invokeMethodWithTimeout_test2");
         rbusMessage_SetInt32(setter, timeout);
-        err = rbus_invokeRemoteMethod(server_obj, METHOD_SET_TIMEOUT_RPC, setter,
+        err = rbuscore_invokeRemoteMethod(server_obj, METHOD_SET_TIMEOUT_RPC, setter,
                                       ((timeout * 1000) + BUS_LATENCY_MARGIN), &response);
         EXPECT_EQ(err, RBUSCORE_SUCCESS) << "RPC invocation failed";
 
@@ -1593,8 +1593,8 @@ TEST_F(StressTestServer, rbus_invokeMethodWithTimeout_test3)
     if(pid == 0)
     {
         CREATE_RBUS_SERVER_INSTANCE(counter);
-        err = rbus_registerMethod(server_obj,METHOD_SET_TIMEOUT_RPC,handle_timeout,NULL);
-        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_unregisterMethod failed";
+        err = rbuscore_registerMethod(server_obj,METHOD_SET_TIMEOUT_RPC,handle_timeout,NULL);
+        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbuscore_unregisterMethod failed";
         printf("********** SERVER ENTERING PAUSED STATE******************** \n");
         pause();
     }
@@ -1611,7 +1611,7 @@ TEST_F(StressTestServer, rbus_invokeMethodWithTimeout_test3)
         int waitTime = timeout - 2;
         rbusMessage_SetString(setter, "rbus_invokeMethodWithTimeout_test3");
         rbusMessage_SetInt32(setter, timeout);
-        err = rbus_invokeRemoteMethod(server_obj, METHOD_SET_TIMEOUT_RPC, setter,
+        err = rbuscore_invokeRemoteMethod(server_obj, METHOD_SET_TIMEOUT_RPC, setter,
                                       ((waitTime * 1000) + BUS_LATENCY_MARGIN), &response);
         EXPECT_EQ(err, RBUSCORE_ERROR_REMOTE_TIMED_OUT) << "Expected time out error. But we got some thing different";
         //EXPECT_EQ(err, RBUSCORE_ERROR_GENERAL) << "Expected time out error. But we got some thing different";
@@ -1647,8 +1647,8 @@ TEST_F(StressTestServer, rbus_invokeMethodWithTimeout_test4)
     if(pid == 0)
     {
         CREATE_RBUS_SERVER_INSTANCE(counter);
-        err = rbus_registerMethod(server_obj,METHOD_SET_TIMEOUT_RPC,handle_timeout,NULL);
-        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_unregisterMethod failed";
+        err = rbuscore_registerMethod(server_obj,METHOD_SET_TIMEOUT_RPC,handle_timeout,NULL);
+        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbuscore_unregisterMethod failed";
         printf("********** SERVER ENTERING PAUSED STATE******************** \n");
         pause();
     }
@@ -1664,7 +1664,7 @@ TEST_F(StressTestServer, rbus_invokeMethodWithTimeout_test4)
         int timeout = 5;  // In seconds
         rbusMessage_SetString(setter, "rbus_invokeMethodWithTimeout_test4");
         rbusMessage_SetInt32(setter, timeout);
-        err = rbus_invokeRemoteMethod(server_obj, METHOD_SET_TIMEOUT_RPC, setter,
+        err = rbuscore_invokeRemoteMethod(server_obj, METHOD_SET_TIMEOUT_RPC, setter,
                                       ((timeout * 1000) - MIN_WAIT_TIME_DIFFERENCE + BUS_LATENCY_MARGIN), &response);
         EXPECT_EQ(err, RBUSCORE_ERROR_REMOTE_TIMED_OUT) << "Expected time out error. But we got some thing different";
         //EXPECT_EQ(err, RBUSCORE_ERROR_GENERAL) << "Expected time out error. But we got some thing different";
@@ -1701,10 +1701,10 @@ TEST_F(StressTestServer, rbus_invokeMethodMsgSize_test1)
     if(pid == 0)
     {
         CREATE_RBUS_SERVER_INSTANCE(counter);
-        err = rbus_registerMethod(server_obj,METHOD_SET_BINARY_DATA_SIZE_RPC,handle_setBinaryDataSize,NULL);
-        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_registerMethod failed";
-        err = rbus_registerMethod(server_obj,METHOD_GET_LARGE_BINARY_RPC,handle_getLargeBinaryData,NULL);
-        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_registerMethod failed";
+        err = rbuscore_registerMethod(server_obj,METHOD_SET_BINARY_DATA_SIZE_RPC,handle_setBinaryDataSize,NULL);
+        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbuscore_registerMethod failed";
+        err = rbuscore_registerMethod(server_obj,METHOD_GET_LARGE_BINARY_RPC,handle_getLargeBinaryData,NULL);
+        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbuscore_registerMethod failed";
         printf("********** SERVER ENTERING PAUSED STATE******************** \n");
         pause();
     }
@@ -1720,11 +1720,11 @@ TEST_F(StressTestServer, rbus_invokeMethodMsgSize_test1)
 
         rbusMessage_Init(&setter);
         rbusMessage_SetInt32(setter, data_chunk_size);
-        err = rbus_invokeRemoteMethod(server_obj, METHOD_SET_BINARY_DATA_SIZE_RPC, setter, 1000, &response);
+        err = rbuscore_invokeRemoteMethod(server_obj, METHOD_SET_BINARY_DATA_SIZE_RPC, setter, 1000, &response);
         EXPECT_EQ(err, RBUSCORE_SUCCESS) << "RPC - handle_setBinaryDataSize invocation failed";
         rbusMessage_Release(response);
 
-        if((err = rbus_invokeRemoteMethod(server_obj, METHOD_GET_LARGE_BINARY_RPC, NULL, 1000, &response)) == RBUSCORE_SUCCESS)
+        if((err = rbuscore_invokeRemoteMethod(server_obj, METHOD_GET_LARGE_BINARY_RPC, NULL, 1000, &response)) == RBUSCORE_SUCCESS)
         {
             unsigned int size = 0;
             for(i = 1; i <= data_chunk_size; i++)
@@ -1768,10 +1768,10 @@ TEST_F(StressTestServer, rbus_invokeMethodMsgSize_test2)
     if(pid == 0)
     {
         CREATE_RBUS_SERVER_INSTANCE(counter);
-        err = rbus_registerMethod(server_obj,METHOD_SET_BINARY_DATA_SIZE_RPC,handle_setBinaryDataSize,NULL);
-        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_registerMethod failed";
-        err = rbus_registerMethod(server_obj,METHOD_GET_LARGE_BINARY_RPC,handle_getLargeBinaryData,NULL);
-        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_registerMethod failed";
+        err = rbuscore_registerMethod(server_obj,METHOD_SET_BINARY_DATA_SIZE_RPC,handle_setBinaryDataSize,NULL);
+        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbuscore_registerMethod failed";
+        err = rbuscore_registerMethod(server_obj,METHOD_GET_LARGE_BINARY_RPC,handle_getLargeBinaryData,NULL);
+        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbuscore_registerMethod failed";
         printf("********** SERVER ENTERING PAUSED STATE******************** \n");
         pause();
     }
@@ -1787,11 +1787,11 @@ TEST_F(StressTestServer, rbus_invokeMethodMsgSize_test2)
 
         rbusMessage_Init(&setter);
         rbusMessage_SetInt32(setter, data_chunk_size);
-        err = rbus_invokeRemoteMethod(server_obj, METHOD_SET_BINARY_DATA_SIZE_RPC, setter, 1000, &response);
+        err = rbuscore_invokeRemoteMethod(server_obj, METHOD_SET_BINARY_DATA_SIZE_RPC, setter, 1000, &response);
         EXPECT_EQ(err, RBUSCORE_SUCCESS) << "RPC - handle_setBinaryDataSize invocation failed";
         rbusMessage_Release(response);
 
-        if((err = rbus_invokeRemoteMethod(server_obj, METHOD_GET_LARGE_BINARY_RPC, NULL, 1000, &response)) == RBUSCORE_SUCCESS)
+        if((err = rbuscore_invokeRemoteMethod(server_obj, METHOD_GET_LARGE_BINARY_RPC, NULL, 1000, &response)) == RBUSCORE_SUCCESS)
         {
             unsigned int size = 0;
             const unsigned char * data_procurred = NULL;
@@ -1822,7 +1822,7 @@ TEST_F(StressTestServer, rbus_invokeMethodMsgSize_test2)
     }
 }
 
-TEST_F(StressTestServer, rbus_registerSubscribeHandler_test1)
+TEST_F(StressTestServer, rbuscore_registerSubscribeHandler_test1)
 {
     int counter = 3;
     char client_name[] = "TEST_CLIENT_1";
@@ -1842,16 +1842,16 @@ TEST_F(StressTestServer, rbus_registerSubscribeHandler_test1)
     {
         sleep(4);
         conn_status = OPEN_BROKER_CONNECTION(client_name);
-        err = rbus_registerObj(server_obj, callback, NULL);
-        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_registerObj failed";
+        err = rbuscore_registerObj(server_obj, callback, NULL);
+        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbuscore_registerObj failed";
         //Neg test passing object name as NULL
-        err = rbus_registerSubscribeHandler(NULL, event_subscribe_callback, NULL);
-        EXPECT_EQ(err,RBUSCORE_ERROR_INVALID_PARAM) << "rbus_registerSubscribeHandler failed";
+        err = rbuscore_registerSubscribeHandler(NULL, event_subscribe_callback, NULL);
+        EXPECT_EQ(err,RBUSCORE_ERROR_INVALID_PARAM) << "rbuscore_registerSubscribeHandler failed";
         //Neg test passing invalid object name
-        err = rbus_registerSubscribeHandler("obj_name", event_subscribe_callback, NULL);
-        EXPECT_EQ(err,RBUSCORE_ERROR_INVALID_PARAM) << "rbus_registerSubscribeHandler failed";
-        err = rbus_registerSubscribeHandler(server_obj, event_subscribe_callback, NULL);
-        EXPECT_EQ(err,RBUSCORE_SUCCESS) << "rbus_registerSubscribeHandler failed";
+        err = rbuscore_registerSubscribeHandler("obj_name", event_subscribe_callback, NULL);
+        EXPECT_EQ(err,RBUSCORE_ERROR_INVALID_PARAM) << "rbuscore_registerSubscribeHandler failed";
+        err = rbuscore_registerSubscribeHandler(server_obj, event_subscribe_callback, NULL);
+        EXPECT_EQ(err,RBUSCORE_SUCCESS) << "rbuscore_registerSubscribeHandler failed";
         if(conn_status)
             CLOSE_BROKER_CONNECTION();
 

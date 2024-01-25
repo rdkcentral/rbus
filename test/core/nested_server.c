@@ -41,7 +41,7 @@ static int handle_get(const char * destination, const char * method, rbusMessage
     {
         /* Make the nested call */
         rbusMessage nestedResponse;
-        if(RBUSCORE_SUCCESS != rbus_invokeRemoteMethod(nested_object_name, METHOD_GETPARAMETERVALUES,
+        if(RBUSCORE_SUCCESS != rbuscore_invokeRemoteMethod(nested_object_name, METHOD_GETPARAMETERVALUES,
                     NULL, 1000, &nestedResponse))
         {
             printf("Nested call failed.\n");
@@ -97,26 +97,26 @@ int main(int argc, char *argv[])
 
     rtLog_SetLevel(RT_LOG_INFO);
 
-    if((err = rbus_openBrokerConnection(argv[1])) == RBUSCORE_SUCCESS)
+    if((err = rbuscore_openBrokerConnection(argv[1])) == RBUSCORE_SUCCESS)
     {
         printf("Successfully connected to bus.\n");
     }
 
-    if((err = rbus_registerObj(object_name, callback, NULL)) == RBUSCORE_SUCCESS)
+    if((err = rbuscore_registerObj(object_name, callback, NULL)) == RBUSCORE_SUCCESS)
     {
         printf("Successfully registered object.\n");
     }
 
-    if((err = rbus_registerObj(nested_object_name, callback, NULL)) == RBUSCORE_SUCCESS)
+    if((err = rbuscore_registerObj(nested_object_name, callback, NULL)) == RBUSCORE_SUCCESS)
     {
         printf("Successfully registered object.\n");
     }
     rbus_method_table_entry_t table[1] = {{METHOD_GETPARAMETERVALUES, NULL, handle_get}};
-    rbus_registerMethodTable(object_name, table, 1); 
-    rbus_registerMethodTable(nested_object_name, table, 1); 
+    rbuscore_registerMethodTable(object_name, table, 1); 
+    rbuscore_registerMethodTable(nested_object_name, table, 1); 
     pause();
 
-    if((err = rbus_closeBrokerConnection()) == RBUSCORE_SUCCESS)
+    if((err = rbuscore_closeBrokerConnection()) == RBUSCORE_SUCCESS)
     {
         printf("Successfully disconnected from bus.\n");
     }

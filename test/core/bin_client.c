@@ -48,7 +48,7 @@ int main(int argc, char *argv[])
     rtLog_SetLevel(RT_LOG_INFO);
     fill_mystruct();
 
-    if((err = rbus_openBrokerConnection(argv[1])) == RBUSCORE_SUCCESS)
+    if((err = rbuscore_openBrokerConnection(argv[1])) == RBUSCORE_SUCCESS)
     {
         printf("Successfully connected to bus.\n");
     }
@@ -57,7 +57,7 @@ int main(int argc, char *argv[])
 
     /*Pull the object from remote end.*/
     rbusMessage response;
-    if((err = rbus_pullObj(argv[2], 1000, &response)) == RBUSCORE_SUCCESS)
+    if((err = rbuscore_pullObj(argv[2], 1000, &response)) == RBUSCORE_SUCCESS)
     {
         printf("Received object %s\n", argv[2]);
         const binstruct_t * ptr;
@@ -75,7 +75,7 @@ int main(int argc, char *argv[])
     rbusMessage setter;
     rbusMessage_Init(&setter);
     rbusMessage_SetBytes(setter, (void *)&mystruct, sizeof(mystruct));
-    if((err = rbus_pushObj(argv[2], setter, 1000)) == RBUSCORE_SUCCESS)
+    if((err = rbuscore_pushObj(argv[2], setter, 1000)) == RBUSCORE_SUCCESS)
     {
         printf("Push object %s\n", argv[2]);
     }
@@ -86,7 +86,7 @@ int main(int argc, char *argv[])
     rbusMessage_Release(setter);
 
     /* Pull again to make sure that "set" worked. */
-    if((err = rbus_pullObj(argv[2], 1000, &response)) == RBUSCORE_SUCCESS)
+    if((err = rbuscore_pullObj(argv[2], 1000, &response)) == RBUSCORE_SUCCESS)
     {
         printf("Received object %s\n", argv[2]);
         const binstruct_t * ptr;
@@ -99,7 +99,7 @@ int main(int argc, char *argv[])
     {
         printf("Could not pull object %s\n", argv[2]);
     }
-    if((err = rbus_closeBrokerConnection()) == RBUSCORE_SUCCESS)
+    if((err = rbuscore_closeBrokerConnection()) == RBUSCORE_SUCCESS)
     {
         printf("Successfully disconnected from bus.\n");
     }

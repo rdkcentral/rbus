@@ -100,7 +100,7 @@ int main(int argc, char *argv[])
     rtLog_SetLevel(RT_LOG_INFO);
     printf("syntax: sample_server <server object name>\n");
     fill_mystruct();
-    if((err = rbus_openBrokerConnection(argv[1])) == RBUSCORE_SUCCESS)
+    if((err = rbuscore_openBrokerConnection(argv[1])) == RBUSCORE_SUCCESS)
     {
         printf("Successfully connected to bus.\n");
     }
@@ -108,16 +108,16 @@ int main(int argc, char *argv[])
     snprintf(buffer, (sizeof(buffer) - 1), "%s", argv[1]);
     printf("Registering object %s\n", buffer);
 
-    if((err = rbus_registerObj(buffer, callback, NULL)) == RBUSCORE_SUCCESS)
+    if((err = rbuscore_registerObj(buffer, callback, NULL)) == RBUSCORE_SUCCESS)
     {
         printf("Successfully registered object.\n");
     }
 
     rbus_method_table_entry_t table[2] = {{METHOD_SETPARAMETERVALUES, NULL, handle_set}, {METHOD_GETPARAMETERVALUES, NULL, handle_get}};
-    rbus_registerMethodTable(buffer, table, 2); 
+    rbuscore_registerMethodTable(buffer, table, 2); 
     pause();
 
-    if((err = rbus_closeBrokerConnection()) == RBUSCORE_SUCCESS)
+    if((err = rbuscore_closeBrokerConnection()) == RBUSCORE_SUCCESS)
     {
         printf("Successfully disconnected from bus.\n");
     }

@@ -186,7 +186,7 @@ static void run_test(int reps, int separation)
         int index = g_index.load();
         
         clock_gettime(CLOCK_TYPE, &g_rpc_start[index]);
-        err = rbus_invokeRemoteMethod(OBJECT_NAME, METHOD_GETPARAMETERVALUES, NULL, 1000, &result);
+        err = rbuscore_invokeRemoteMethod(OBJECT_NAME, METHOD_GETPARAMETERVALUES, NULL, 1000, &result);
         clock_gettime(CLOCK_TYPE, &g_rpc_end[index]);
 
         if(RBUSCORE_SUCCESS != err)
@@ -258,20 +258,20 @@ int main(int argc, char *argv[])
     else
         printf("Separation is %ld ms\n", separation);
 
-    if((err = rbus_openBrokerConnection2(APPLICATION_NAME, argv[6])) == RBUSCORE_SUCCESS)
+    if((err = rbuscore_openBrokerConnection2(APPLICATION_NAME, argv[6])) == RBUSCORE_SUCCESS)
     {
         printf("Successfully connected to bus.\n");
     }
 
     if((HYBRID == g_mode) || (SERVER == g_mode))
     {
-        if((err = rbus_registerObj(OBJECT_NAME, callback, NULL)) == RBUSCORE_SUCCESS)
+        if((err = rbuscore_registerObj(OBJECT_NAME, callback, NULL)) == RBUSCORE_SUCCESS)
         {
             printf("Successfully registered object.\n");
         }
 
         rbus_method_table_entry_t table[1] = {{METHOD_GETPARAMETERVALUES, NULL, handle_get}};
-        rbus_registerMethodTable(OBJECT_NAME, table, 1); 
+        rbuscore_registerMethodTable(OBJECT_NAME, table, 1); 
     }
     if(0 == strncmp("taint", argv[5], strlen("taint")))
         _rtConnection_TaintMessages(1);
@@ -283,7 +283,7 @@ int main(int argc, char *argv[])
     if((HYBRID == g_mode) || (SERVER == g_mode))
         delete [] g_data;
     
-    if((err = rbus_closeBrokerConnection()) == RBUSCORE_SUCCESS)
+    if((err = rbuscore_closeBrokerConnection()) == RBUSCORE_SUCCESS)
     {
         printf("Successfully disconnected from bus.\n");
     }
