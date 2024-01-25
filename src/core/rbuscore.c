@@ -1559,7 +1559,6 @@ static rbusCoreError_t remove_subscription_callback(const char * object_name,  c
     return ret;
 }
 
-static rbusCoreError_t rbuscore_subscribeToEventInternal(const char * object_name,  const char * event_name, rbus_event_callback_t callback, const rbusMessage payload, void * user_data, int* providerError, int timeout, bool publishOnSubscribe, rbusMessage *response)
 static rbusCoreError_t rbuscore_subscribeToEventInternal(const char * object_name,  const char * event_name, rbus_event_callback_t callback, const rbusMessage payload, void * user_data, int* providerError, int timeout, bool publishOnSubscribe, rbusMessage *response, bool rawData)
 {
     /*using namespace rbus_client;*/
@@ -1651,7 +1650,7 @@ rbusCoreError_t rbuscore_subscribeToEvent(const char * object_name,  const char 
     return rbuscore_subscribeToEventInternal(object_name, event_name, callback, payload, user_data, providerError, 0, false, NULL, false);
 }
 
-rbusCoreError_t rbus_subscribeToEventTimeout(const char * object_name,  const char * event_name, rbus_event_callback_t callback, const rbusMessage payload, void * user_data, int* providerError, int timeout, bool publishOnSubscribe, rbusMessage *response, bool rawData)
+rbusCoreError_t rbuscore_subscribeToEventTimeout(const char * object_name,  const char * event_name, rbus_event_callback_t callback, const rbusMessage payload, void * user_data, int* providerError, int timeout, bool publishOnSubscribe, rbusMessage *response, bool rawData)
 {
     return rbuscore_subscribeToEventInternal(object_name, event_name, callback, payload, user_data, providerError, timeout, publishOnSubscribe, response, rawData);
 }
