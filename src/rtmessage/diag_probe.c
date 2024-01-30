@@ -21,6 +21,7 @@
 #include "rtConnection.h"
 #include "rtLog.h"
 #include "rtMessage.h"
+#include "rbuscore_message.h"
 #include "rtrouter_diag.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -66,13 +67,13 @@ int main(int argc, char * argv[])
         rtConnection con;
         rtLog_SetLevel(RT_LOG_INFO);
         rtConnection_Create(&con, "APP2", "unix:///tmp/rtrouted");
-        rtMessage out;
-        rtMessage_Create(&out);
-        rtMessage_SetString(out, RTROUTER_DIAG_CMD_KEY, argv[1]);
+        rbusMessage out;
+        rbusMessage_Init(&out);
+        rbusMessage_SetString(out, argv[1]);
 
         /* This is usually used when you want to pass additional information to the broker */
         if (argv[2] != NULL)
-            rtMessage_SetString(out, RTROUTER_DIAG_CMD_VALUE, argv[2]);
+            rbusMessage_SetString(out, argv[2]);
 
         rtConnection_SendMessage(con, out, RTROUTER_DIAG_DESTINATION);
 

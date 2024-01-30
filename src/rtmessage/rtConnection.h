@@ -24,6 +24,7 @@
 #include "rtError.h"
 #include "rtMessage.h"
 #include "rtMessageHeader.h"
+#include "rbuscore_message.h"
 
 #define RTMSG_DEFAULT_ROUTER_LOCATION "tcp://127.0.0.1:10001"
 #define RTROUTED_TRANSACTION_TIME_INFO "TransactionTime"
@@ -61,7 +62,7 @@ rtConnection_Create(rtConnection* con, char const* application_name, char const*
  * @return error
  */
 rtError
-rtConnection_CreateWithConfig(rtConnection* con, rtMessage const conf);
+rtConnection_CreateWithConfig(rtConnection* con, rbusMessage const conf);
 
 /**
  * Destroy an rtConnection
@@ -83,7 +84,7 @@ rtConnection_Destroy(rtConnection con);
  * @return error
  */
 rtError
-rtConnection_SendMessage(rtConnection con, rtMessage msg, char const* topic);
+rtConnection_SendMessage(rtConnection con, rbusMessage msg, char const* topic);
 
 /**
  * Send a message to a specific listener on a topic
@@ -94,7 +95,7 @@ rtConnection_SendMessage(rtConnection con, rtMessage msg, char const* topic);
  * @return error
  */
 rtError
-rtConnection_SendMessageDirect(rtConnection con, rtMessage msg, char const* topic, char const* listener);
+rtConnection_SendMessageDirect(rtConnection con, rbusMessage msg, char const* topic, char const* listener);
 
 /**
  * Sends a request and receive a response
@@ -106,8 +107,8 @@ rtConnection_SendMessageDirect(rtConnection con, rtMessage msg, char const* topi
  * @return error
  */
 rtError
-rtConnection_SendRequest(rtConnection con, rtMessage const req, char const* topic,
-  rtMessage* res, int32_t timeout);
+rtConnection_SendRequest(rtConnection con, rbusMessage const req, char const* topic,
+  rbusMessage* res, int32_t timeout);
 
 /**
  * Sends a response to a request
@@ -117,8 +118,9 @@ rtConnection_SendRequest(rtConnection con, rtMessage const req, char const* topi
  * @param timeout
  * @return error
  */
+
 rtError
-rtConnection_SendResponse(rtConnection con, rtMessageHeader const* request_hdr, rtMessage const res,
+rtConnection_SendResponse(rtConnection con, rtMessageHeader const* request_hdr, rbusMessage const res,
   int32_t timeout);
 
 /******************************************************************************************

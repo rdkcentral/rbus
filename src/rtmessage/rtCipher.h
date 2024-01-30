@@ -47,7 +47,7 @@ typedef struct _rtCipher rtCipher;
 rtError 
 rtCipher_CreateCipherSpake2Plus(
   rtCipher** cipher, 
-  rtMessage const opts);
+  rbusMessage const opts);
 
 rtError 
 rtCipher_Destroy(

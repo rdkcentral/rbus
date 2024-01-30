@@ -18,6 +18,7 @@
 # limitations under the License.
 ##########################################################################
 */
+#include "rbuscore_message.h"
 #include "rtMessage.h"
 #include "rtConnection.h"
 #include "rtCipher.h"
@@ -129,7 +130,7 @@ struct _rtConnection
   rtCipher*               cipher;
   uint8_t*                encryption_buffer;
   uint8_t*                decryption_buffer;
-  rtMessage               spakeconfig;
+  rbusMessage               spakeconfig;
   int                     check_remote_router;
 #endif
   pid_t                   read_tid;
@@ -422,13 +423,13 @@ rtConnection_ConnectAndRegister(rtConnection con, rtTime_t* reconnect_time)
   {
     if (con->listeners[i].in_use)
     {
-      rtMessage m;
-      rtMessage_Create(&m);
-      rtMessage_SetInt32(m, "add", 1);
-      rtMessage_SetString(m, "topic", con->listeners[i].expression);
-      rtMessage_SetInt32(m, "route_id", con->listeners[i].subscription_id);
+      rbusMessage m;
+      rbusMessage_Init(&m);
+      rbusMessage_SetInt32(m, 1);
+      rbusMessage_SetString(m, con->listeners[i].expression);
+      rbusMessage_SetInt32(m, con->listeners[i].subscription_id);
       rtConnection_SendMessage(con, m, "_RTROUTED.INBOX.SUBSCRIBE");
-      rtMessage_Release(m);
+      rbusMessage_Release(m);
 
       /*TODO: we need to readd all the aliases too -- would this allow rbus to recover from broker crash ?*/
     }
@@ -624,7 +625,7 @@ rtConnection_Create(rtConnection* con, char const* application_name, char const*
 }
 
 rtError
-rtConnection_CreateWithConfig(rtConnection* con, rtMessage const conf)
+rtConnection_CreateWithConfig(rtConnection* con, rbusMessage const conf)
 {
   rtError err = RT_OK;
   char const* application_name = NULL;
@@ -633,11 +634,11 @@ rtConnection_CreateWithConfig(rtConnection* con, rtMessage const conf)
   int max_retries = DEFAULT_MAX_RETRIES;
   int remote_router=0;
 
-  rtMessage_GetString(conf, "appname", &application_name);
-  rtMessage_GetString(conf, "uri", &router_config);
-  rtMessage_GetInt32(conf, "start_router", &start_router);
-  rtMessage_GetInt32(conf, "max_retries", &max_retries);
-  rtMessage_GetInt32(conf, "check_remote_router",&remote_router);
+  rbusMessage_GetString(conf, &application_name);
+  rbusMessage_GetString(conf, &router_config);
+  rbusMessage_GetInt32(conf, &start_router);
+  rbusMessage_GetInt32(conf, &max_retries);
+  rbusMessage_GetInt32(conf,&remote_router);
 
   err = rtConnection_CreateInternal(con, application_name, router_config, max_retries);
   #ifdef WITH_SPAKE2
@@ -649,13 +650,13 @@ rtConnection_CreateWithConfig(rtConnection* con, rtMessage const conf)
   {
     char const* spake2_psk = NULL;
 
-    rtMessage_GetString(conf, "spake2_psk", &spake2_psk);
+    rbusMessage_GetString(conf, &spake2_psk);
 
     if(spake2_psk)
     {
       rtLog_Info("enabling secure messaging");
 
-      rtMessage_Clone(conf, &(*con)->spakeconfig);
+      rbusMessage_GetMessage(conf, &(*con)->spakeconfig);
 
       err = rtCipher_CreateCipherSpake2Plus(&(*con)->cipher, conf);
       if(err != RT_OK)
@@ -760,7 +761,7 @@ rtConnection_Destroy(rtConnection con)
 }
 
 rtError
-rtConnection_SendMessage(rtConnection con, rtMessage msg, char const* topic)
+rtConnection_SendMessage(rtConnection con, rbusMessage msg, char const* topic)
 {
   if (!con)
     return rtErrorFromErrno(EINVAL);
@@ -769,7 +770,7 @@ rtConnection_SendMessage(rtConnection con, rtMessage msg, char const* topic)
 }
 
 rtError
-rtConnection_SendMessageDirect(rtConnection con, rtMessage msg, char const* topic, char const* listener)
+rtConnection_SendMessageDirect(rtConnection con, rbusMessage msg, char const* topic, char const* listener)
 {
   if (!con)
     return rtErrorFromErrno(EINVAL);
@@ -781,7 +782,7 @@ rtConnection_SendMessageDirect(rtConnection con, rtMessage msg, char const* topi
     uint32_t n;
     rtError err;
     uint32_t sequence_number;
-    rtMessage_ToByteArrayWithSize(msg, &p, DEFAULT_SEND_BUFFER_SIZE, &n);  /*FIXME unification is this needed ? rtMessage_FreeByteArray(p);*/
+    rbusMessage_ToBytes(msg, &p, &n);
 
     pthread_mutex_lock(&con->mutex);
 #ifdef C11_ATOMICS_SUPPORTED
@@ -791,7 +792,6 @@ rtConnection_SendMessageDirect(rtConnection con, rtMessage msg, char const* topi
 #endif
     err = rtConnection_SendInternal(con, p, n, topic, listener, 0, sequence_number, 0, 0, 0);
     pthread_mutex_unlock(&con->mutex);
-    rtMessage_FreeByteArray(p);
 
     if(err == RT_NO_CONNECTION)
     {
@@ -806,30 +806,28 @@ rtConnection_SendMessageDirect(rtConnection con, rtMessage msg, char const* topi
 }
 
 rtError
-rtConnection_SendRequest(rtConnection con, rtMessage const req, char const* topic,
-  rtMessage* res, int32_t timeout)
+rtConnection_SendRequest(rtConnection con, rbusMessage const req, char const* topic,
+  rbusMessage* res, int32_t timeout)
 {
   uint8_t* p;
   uint32_t n;
   rtMessageInfo* resMsg;
   rtError err;
-
   if (!con)
     return rtErrorFromErrno(EINVAL);
 
-  rtMessage_ToByteArrayWithSize(req, &p, DEFAULT_SEND_BUFFER_SIZE, &n);
+  rbusMessage_ToBytes(req, &p, &n);
   err = rtConnection_SendRequestInternal(con, p, n, topic, &resMsg, timeout, 0);
-  rtMessage_FreeByteArray(p);
   if(err == RT_OK)
   {
-    rtMessage_FromBytes(res, resMsg->data, resMsg->dataLength);
+    rbusMessage_FromBytes(res, resMsg->data, resMsg->dataLength);
     rtMessageInfo_Release(resMsg);
   }
   return err;
 }
 
 rtError
-rtConnection_SendResponse(rtConnection con, rtMessageHeader const* request_hdr, rtMessage const res, int32_t timeout)
+rtConnection_SendResponse(rtConnection con, rtMessageHeader const* request_hdr, rbusMessage const res, int32_t timeout)
 {
   if (!con)
     return rtErrorFromErrno(EINVAL);
@@ -842,12 +840,11 @@ rtConnection_SendResponse(rtConnection con, rtMessageHeader const* request_hdr, 
     uint8_t* p;
     uint32_t n;
 
-    rtMessage_ToByteArrayWithSize(res, &p, DEFAULT_SEND_BUFFER_SIZE, &n);
+    rbusMessage_ToBytes(res, &p, &n);
     pthread_mutex_lock(&con->mutex);
   //TODO: should we send response on reconnect ?
     err = rtConnection_SendInternal(con, p, n, request_hdr->reply_topic, request_hdr->topic, rtMessageFlags_Response, request_hdr->sequence_number, 0, 0, 0);
     pthread_mutex_unlock(&con->mutex);
-    rtMessage_FreeByteArray(p);
 
     if(err == RT_NO_CONNECTION)
     {
@@ -1074,7 +1071,7 @@ rtConnection_SendRequestInternal(rtConnection con, uint8_t const* pReq, uint32_t
         {
           /*caller must call rtMessageInfo_Release on the response*/
 
-          *res = queue_entry.response; 
+          *res = queue_entry.response;
         }
       }
       else
@@ -1264,14 +1261,14 @@ rtConnection_AddListenerWithId(rtConnection con, char const* expression, uint32_
   con->listeners[i].callback = callback;
   con->listeners[i].expression = strdup(expression);
   pthread_mutex_unlock(&con->mutex);
-  
-  rtMessage m;
-  rtMessage_Create(&m);
-  rtMessage_SetInt32(m, "add", 1);
-  rtMessage_SetString(m, "topic", expression);
-  rtMessage_SetInt32(m, "route_id", con->listeners[i].subscription_id); 
+
+  rbusMessage m;
+  rbusMessage_Init(&m);
+  rbusMessage_SetInt32(m, 1);
+  rbusMessage_SetString(m, expression);
+  rbusMessage_SetInt32(m, con->listeners[i].subscription_id);
   rtConnection_SendMessage(con, m, "_RTROUTED.INBOX.SUBSCRIBE");
-  rtMessage_Release(m);
+  rbusMessage_Release(m);
 
   return RT_OK;
 }
@@ -1305,13 +1302,14 @@ rtConnection_RemoveListener(rtConnection con, char const* expression)
   if (i >= RTMSG_LISTENERS_MAX)
     return RT_ERROR_INVALID_ARG;
 
-  rtMessage m;
-  rtMessage_Create(&m);
-  rtMessage_SetInt32(m, "add", 0);
-  rtMessage_SetString(m, "topic", expression);
-  rtMessage_SetInt32(m, "route_id", route_id);
+  rbusMessage m;
+  rbusMessage_Init(&m);
+  rbusMessage_SetInt32(m, 0);
+  rbusMessage_SetString(m, expression);
+  rbusMessage_SetInt32(m, route_id);
   rtConnection_SendMessage(con, m, "_RTROUTED.INBOX.SUBSCRIBE");
-  rtMessage_Release(m);
+  rbusMessage_Release(m);
+
   return 0;
 }
 
@@ -1344,13 +1342,13 @@ rtConnection_RemoveListenerWithId(rtConnection con, char const* expression, uint
   if (i >= RTMSG_LISTENERS_MAX)
     return RT_ERROR_INVALID_ARG;
 
-  rtMessage m;
-  rtMessage_Create(&m);
-  rtMessage_SetInt32(m, "add", 0);
-  rtMessage_SetString(m, "topic", expression);
-  rtMessage_SetInt32(m, "route_id", route_id);
+  rbusMessage m;
+  rbusMessage_Init(&m);
+  rbusMessage_SetInt32(m, 0);
+  rbusMessage_SetString(m, expression);
+  rbusMessage_SetInt32(m, route_id);
   rtConnection_SendMessage(con, m, "_RTROUTED.INBOX.SUBSCRIBE");
-  rtMessage_Release(m);
+  rbusMessage_Release(m);
   return 0;
 }
 
@@ -1369,25 +1367,28 @@ rtConnection_AddAlias(rtConnection con, char const* existing, const char *alias)
     {
       if(0 == strncmp(con->listeners[i].expression, existing, (strlen(con->listeners[i].expression) + 1)))
       {
-        rtMessage m;
-        rtMessage res;
-        rtMessage_Create(&m);
-        rtMessage_SetInt32(m, "add", 1);
-        rtMessage_SetString(m, "topic", alias);
-        rtMessage_SetInt32(m, "route_id", con->listeners[i].subscription_id); 
+        rbusMessage m;
+        rbusMessage res;
+        rbusMessage_Init(&m);
+        rbusMessage_SetInt32(m, 1);
+        rbusMessage_SetString(m, alias);
+        rbusMessage_SetInt32(m, con->listeners[i].subscription_id);
         ret = rtConnection_SendRequest(con, m, "_RTROUTED.INBOX.SUBSCRIBE", &res, 6000);
         if(RT_OK == ret)
         {
+            uint8_t* p;
+            uint32_t n;
+            rbusMessage_ToBytes(res, &p, &n);
             int result = 0;
-            rtMessage_GetInt32(res, "result", &result);
+            rbusMessage_GetInt32(res, &result);
             ret = result;
             if(RT_ERROR_DUPLICATE_ENTRY == result)
                 rtLog_Error("Failed to register %s. Duplicate entry", alias);
             else if (RT_ERROR_PROTOCOL_ERROR == result)
                 rtLog_Error("Failed to register %s because the scaler or table is already registered", alias);
-            rtMessage_Release(res);
+            rbusMessage_Release(res);
         }
-        rtMessage_Release(m);
+        rbusMessage_Release(m);
         break;
       }
     }
@@ -1412,13 +1413,13 @@ rtConnection_RemoveAlias(rtConnection con, char const* existing, const char *ali
     {
       if(0 == strncmp(con->listeners[i].expression, existing, (strlen(con->listeners[i].expression) + 1)))
       {
-        rtMessage m;
-        rtMessage_Create(&m);
-        rtMessage_SetInt32(m, "add", 0);
-        rtMessage_SetString(m, "topic", alias);
-        rtMessage_SetInt32(m, "route_id", con->listeners[i].subscription_id); 
+        rbusMessage m;
+        rbusMessage_Init(&m);
+        rbusMessage_SetInt32(m, 0);
+        rbusMessage_SetString(m, alias);
+        rbusMessage_SetInt32(m, con->listeners[i].subscription_id);
         rtConnection_SendMessage(con, m, "_RTROUTED.INBOX.SUBSCRIBE");
-        rtMessage_Release(m);
+        rbusMessage_Release(m);
         break;
       }
     }
@@ -1620,17 +1621,17 @@ rtConnection_Read(rtConnection con, int32_t timeout)
       /* The listItem is not present in the pending_requests_list, as it is been removed from the list because of request timeout */
       if(listItem == NULL)
       {
-        rtMessage m;
-        rtMessage_Create(&m);
-        rtMessage_SetInt32(m, "T1", msginfo->header.T1);
-        rtMessage_SetInt32(m, "T2", msginfo->header.T2);
-        rtMessage_SetInt32(m, "T3", msginfo->header.T3);
-        rtMessage_SetInt32(m, "T4", msginfo->header.T4);
-        rtMessage_SetInt32(m, "T5", msginfo->header.T5);
-        rtMessage_SetString(m, "topic", msginfo->header.topic);
-        rtMessage_SetString(m, "reply_topic", msginfo->header.reply_topic);
+        rbusMessage m;
+        rbusMessage_Init(&m);
+        rbusMessage_SetInt32(m, msginfo->header.T1);
+        rbusMessage_SetInt32(m, msginfo->header.T2);
+        rbusMessage_SetInt32(m, msginfo->header.T3);
+        rbusMessage_SetInt32(m, msginfo->header.T4);
+        rbusMessage_SetInt32(m, msginfo->header.T5);
+        rbusMessage_SetString(m, msginfo->header.topic);
+        rbusMessage_SetString(m, msginfo->header.reply_topic);
         rtConnection_SendMessage(con, m, RTROUTED_TRANSACTION_TIME_INFO);
-        rtMessage_Release(m);
+        rbusMessage_Release(m);
       }
 #endif
     }

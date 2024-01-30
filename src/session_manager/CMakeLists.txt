@@ -19,6 +19,7 @@
 include_directories(.
                     ../core
 	            ../rtmessage)
+include_directories(${CMAKE_INSTALL_PREFIX}/include/rtmessage)
 
 add_executable(rbus_session_mgr session_manager.c)
 add_dependencies(rbus_session_mgr rbuscore)

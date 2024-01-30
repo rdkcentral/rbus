@@ -23,6 +23,7 @@
 
 #include "rtError.h"
 #include <stdbool.h>
+#include "rbuscore_message.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -117,7 +118,7 @@ rtMessage_AddString(rtMessage message, char const* name, char const* value);
  * @return rtError
  **/
 rtError
-rtMessage_AddBinaryData(rtMessage message, char const* name, void const * ptr, const uint32_t size);
+rtMessage_AddBinaryData(rbusMessage message, void const * ptr, const uint32_t size);
 /**
  * Add message field to array in message
  * @param message to be modified
@@ -208,7 +209,7 @@ rtMessage_GetString(rtMessage const m, char const* name, char const** value);
  * @return rtError
  **/
 rtError
-rtMessage_GetBinaryData(rtMessage message, char const* name, void ** ptr, uint32_t *size);
+rtMessage_GetBinaryData(rbusMessage message, void ** ptr, uint32_t *size);
 
 /**
  * Get field value of type string using field name.
