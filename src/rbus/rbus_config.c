@@ -34,7 +34,6 @@
 #define RBUS_SET_DEFAULT_TIMEOUT 15000      /* default timeout in miliseconds for SET API */
 #define RBUS_GET_TIMEOUT_OVERRIDE "/tmp/rbus_timeout_get"
 #define RBUS_SET_TIMEOUT_OVERRIDE "/tmp/rbus_timeout_set"
-#define RBUS_GET_DEFAULT_TIMEOUT_FOR_WILDCARD 60000
 
 #define initStr(P,N) \
 { \
