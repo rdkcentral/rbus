@@ -103,7 +103,7 @@ TEST(rbusregDataNegTest, test1)
 
     handle = (struct _rbusHandle *) malloc(sizeof(struct _rbusHandle));
     rc = rbus_regDataElements(handle, 1, NULL);
-    EXPECT_EQ(rc,RBUS_ERROR_INVALID_INPUT);
+    EXPECT_EQ(rc,RBUS_ERROR_INVALID_HANDLE);
     free(handle);
 }
 
@@ -131,7 +131,7 @@ TEST(rbusregDataNegTest, test3)
 
     handle = (struct _rbusHandle *) malloc(sizeof(struct _rbusHandle));
     rc = rbus_regDataElements(handle, 0, dataElements);
-    EXPECT_EQ(rc,RBUS_ERROR_INVALID_INPUT);
+    EXPECT_EQ(rc,RBUS_ERROR_INVALID_HANDLE);
     free(handle);
 }
 
@@ -142,7 +142,7 @@ TEST(rbusUnregDataNegTest, test1)
 
     handle = (struct _rbusHandle *) malloc(sizeof(struct _rbusHandle));
     rc=rbus_unregDataElements(handle, 1, NULL);
-    EXPECT_EQ(rc,RBUS_ERROR_INVALID_INPUT);
+    EXPECT_EQ(rc,RBUS_ERROR_INVALID_HANDLE);
     free(handle);
 }
 
@@ -157,7 +157,7 @@ TEST(rbusUnregDataNegTest, test2)
 
     handle = (struct _rbusHandle *) malloc(sizeof(struct _rbusHandle));
     rc=rbus_unregDataElements(handle, 0, dataElements);
-    EXPECT_EQ(rc,RBUS_ERROR_INVALID_INPUT);
+    EXPECT_EQ(rc,RBUS_ERROR_INVALID_HANDLE);
     free(handle);
 }
 
@@ -347,7 +347,7 @@ TEST(rbusSetNegTest, test1)
 
     handle = (struct _rbusHandle *) malloc(sizeof(struct _rbusHandle));
     rc = rbus_set(handle, "test.params", value, NULL);
-    EXPECT_EQ(rc,RBUS_ERROR_INVALID_INPUT);
+    EXPECT_EQ(rc,RBUS_ERROR_INVALID_HANDLE);
     free(handle);
 }
 
@@ -360,7 +360,7 @@ TEST(rbusSetNegTest, test2)
     handle = (struct _rbusHandle *) malloc(sizeof(struct _rbusHandle));
     rbusValue_Init(&value);
     rc = rbus_set(handle, NULL, value, NULL);
-    EXPECT_EQ(rc,RBUS_ERROR_INVALID_INPUT);
+    EXPECT_EQ(rc,RBUS_ERROR_INVALID_HANDLE);
     rbusValue_Release(value);
     free(handle);
 }
@@ -577,7 +577,7 @@ TEST(rbusSubsNegTest, test1)
 
     handle = (struct _rbusHandle *) malloc(sizeof(struct _rbusHandle));
     rc = rbusEvent_Subscribe(handle,"Device.rbusProvider.", NULL, userData, 30);
-    EXPECT_EQ(rc,RBUS_ERROR_INVALID_INPUT);
+    EXPECT_EQ(rc,RBUS_ERROR_INVALID_HANDLE);
     free(handle);
 }
 
@@ -590,7 +590,7 @@ TEST(rbusSubsNegTest, test2)
 
     handle = (struct _rbusHandle *) malloc(sizeof(struct _rbusHandle));
     rc = rbusEvent_Subscribe(handle, NULL, handler, userData, 30);
-    EXPECT_EQ(rc,RBUS_ERROR_INVALID_INPUT);
+    EXPECT_EQ(rc,RBUS_ERROR_INVALID_HANDLE);
     free(handle);
 }
 
@@ -614,7 +614,7 @@ TEST(rbusSubAsyncNegTest, test1)
 
     handle = (struct _rbusHandle *) malloc(sizeof(struct _rbusHandle));
     rc = rbusEvent_SubscribeAsync(handle, "Device.rbusProvider.", handler, NULL, userData, 30);
-    EXPECT_EQ(rc,RBUS_ERROR_INVALID_INPUT);
+    EXPECT_EQ(rc,RBUS_ERROR_INVALID_HANDLE);
     free(handle);
 }
 
@@ -626,7 +626,7 @@ TEST(rbusSubAsyncNegTest, test2)
 
     handle = (struct _rbusHandle *) malloc(sizeof(struct _rbusHandle));
     rc = rbusEvent_SubscribeAsync(handle, "Device.rbusProvider.", NULL,subscribeHandler, userData, 30);
-    EXPECT_EQ(rc,RBUS_ERROR_INVALID_INPUT);
+    EXPECT_EQ(rc,RBUS_ERROR_INVALID_HANDLE);
     free(handle);
 }
 
@@ -639,7 +639,7 @@ TEST(rbusSubAsyncNegTest, test3)
 
     handle = (struct _rbusHandle *) malloc(sizeof(struct _rbusHandle));
     rc = rbusEvent_SubscribeAsync(handle, NULL, handler,subscribeHandler, userData, 30);
-    EXPECT_EQ(rc,RBUS_ERROR_INVALID_INPUT);
+    EXPECT_EQ(rc,RBUS_ERROR_INVALID_HANDLE);
     free(handle);
 }
 
@@ -721,7 +721,7 @@ TEST(rbusUnsubNegTest, test2)
 
     handle = (struct _rbusHandle *) malloc(sizeof(struct _rbusHandle));
     rc = rbusEvent_Unsubscribe(handle, NULL);
-    EXPECT_EQ(rc,RBUS_ERROR_INVALID_INPUT);
+    EXPECT_EQ(rc,RBUS_ERROR_INVALID_HANDLE);
     free(handle);
 }
 
@@ -784,7 +784,7 @@ TEST(rbusSubExNegTest, test2)
 
     handle = (struct _rbusHandle *) malloc(sizeof(struct _rbusHandle));
     rc = rbusEvent_SubscribeEx(handle, &subscription, 0, 0);
-    EXPECT_EQ(rc,RBUS_ERROR_INVALID_INPUT);
+    EXPECT_EQ(rc,RBUS_ERROR_INVALID_HANDLE);
     free(eventReceiveHandler);
     free(handle);
 }
@@ -796,7 +796,7 @@ TEST(rbusSubExNegTest, test3)
 
     handle = (struct _rbusHandle *) malloc(sizeof(struct _rbusHandle));
     rc = rbusEvent_SubscribeEx(handle, NULL, 1, 0);
-    EXPECT_EQ(rc,RBUS_ERROR_INVALID_INPUT);
+    EXPECT_EQ(rc,RBUS_ERROR_INVALID_HANDLE);
     free(handle);
 }
 
@@ -974,7 +974,7 @@ TEST(rbusInvokeAsyncNegTest, test2)
     rbusObject_Init(&inParams, NULL);
     handle = (struct _rbusHandle *) malloc(sizeof(struct _rbusHandle));
     rc = rbusMethod_InvokeAsync(handle, NULL, inParams, asyncMethodHandler, 0);
-    EXPECT_EQ(rc, RBUS_ERROR_INVALID_INPUT);
+    EXPECT_EQ(rc, RBUS_ERROR_INVALID_HANDLE);
     rbusObject_Release(inParams);
     free(handle);
 }
@@ -988,7 +988,7 @@ TEST(rbusInvokeAsyncNegTest, test3)
     rbusObject_Init(&inParams, NULL);
     handle = (struct _rbusHandle *) malloc(sizeof(struct _rbusHandle));
     rc = rbusMethod_InvokeAsync(handle, "Device.Methods.AsyncMethod()", inParams, NULL, 0);
-    EXPECT_EQ(rc, RBUS_ERROR_INVALID_INPUT);
+    EXPECT_EQ(rc, RBUS_ERROR_INVALID_HANDLE);
     rbusObject_Release(inParams);
     free(handle);
 }

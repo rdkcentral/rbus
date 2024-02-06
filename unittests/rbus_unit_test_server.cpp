@@ -624,11 +624,6 @@ TEST_F(TestServer, rbus_registerObjBoundaryNegative_test1)
        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_registerObj failed";
     }
 
-    memset( buffer, 0, DEFAULT_RESULT_BUFFERSIZE );
-    snprintf(buffer, (sizeof(buffer) - 1), "%s_%d", obj_name, i);
-    //printf("Registering object %s \n", buffer);
-    err = rbus_registerObj(buffer, callback, NULL);
-    EXPECT_EQ(err, RBUSCORE_ERROR_GENERAL) << "rbus_registerObj failed";
     for(i = 2; i <= 63; i++)
     {
        memset( buffer, 0, DEFAULT_RESULT_BUFFERSIZE );

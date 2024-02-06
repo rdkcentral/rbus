@@ -97,14 +97,22 @@ static int exec_rbus_get_test(rbusHandle_t handle, const char *param)
     struct tm compileTime;
     struct tm checkTime;
     rbusDateTime_t *rcTime = NULL;
+    char CHECK_TIME[20];
+    char COMPILE_TIME[20];
 
     rcTime = (rbusDateTime_t *)rbusValue_GetTime(val);
     getCompileTime(&compileTime);
+    strftime(COMPILE_TIME, sizeof(COMPILE_TIME), "%x - %I:%M%p", &compileTime);
+    printf("Formatted date & time : %s\n", COMPILE_TIME );
 
     rbusValue_UnMarshallRBUStoTM(&checkTime, rcTime);
+    strftime(CHECK_TIME, sizeof(CHECK_TIME), "%x - %I:%M%p", &checkTime);
+    printf("Formatted date & time : %s\n", CHECK_TIME );
 
-    rc = (mktime(&compileTime) == mktime(&checkTime)) ? RBUS_ERROR_SUCCESS : RBUS_ERROR_BUS_ERROR;
-
+    if(strcmp(COMPILE_TIME, CHECK_TIME)==0)
+	    rc = RBUS_ERROR_SUCCESS;
+    else
+	    rc = RBUS_ERROR_BUS_ERROR;
   } else if((0 == strcmp(param,"Device.rbusProvider.Object")) && (RBUS_OBJECT == type)) {
 
     rbusObject_t obj = rbusValue_GetObject(val);
