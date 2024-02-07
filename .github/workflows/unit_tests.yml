@@ -91,6 +91,14 @@ jobs:
           export LD_LIBRARY_PATH=$PREFIX/lib
           nohup ./bin/multiRbusOpenRbusGetProvider >/tmp/log_multiRbusOpenRbusSetProvider.txt &
           ./bin/multiRbusOpenRbusSetConsumer
+      - name: Run Gtest Cases
+        run: |
+          cd build/rbus
+          nohup ./src/session_manager/rbus_session_mgr &
+          ./unittests/rbus_gtest.bin
+      - name: Stop SessionManager
+        run: |
+          killall -9 rbus_session_mgr
       - name: Stop rtrouted
         run: |
           killall -9 rtrouted
