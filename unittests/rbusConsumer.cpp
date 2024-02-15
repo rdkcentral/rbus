@@ -78,7 +78,7 @@ static int exec_rbus_get_test(rbusHandle_t handle, const char *param)
     ) {
     rc = RBUS_ERROR_SUCCESS;
 
-  } else if ((0 == strcmp(param,"Device.rbuscoreProvider.GetLegBytes")) && (RBUS_BYTE == type)) {
+  } else if ((0 == strcmp(param,"Device.rbuscoreProvider.GetLegByte")) && (RBUS_BYTE == type)) {
       rc = (rbusValue_GetByte(val) == 65) ? RBUS_ERROR_SUCCESS : RBUS_ERROR_BUS_ERROR;
   } else if ((0 == strcmp(param,"Device.rbuscoreProvider.GetLegBase64")) && (RBUS_BYTES == type)) {
 
