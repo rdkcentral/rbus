@@ -549,7 +549,7 @@ static int handle_get(const char * destination, const char * method, rbusMessage
       break;
     case RBUS_GTEST_GET19:
       rbusMessage_SetInt32(*response, RBUS_LEGACY_BYTE);
-      snprintf(buffer, sizeof(buffer), "%s", GTEST_VAL_STRING);
+      snprintf(buffer, sizeof(buffer), "%s", "A");
       break;
     case RBUS_GTEST_GET20:
       {
@@ -598,7 +598,7 @@ int rbuscoreProvider(rbusGtest_t test, pid_t pid, int *consumer_status)
     case RBUS_GTEST_GET16: object_name = "Device.rbuscoreProvider.GetLegULong";    break;
     case RBUS_GTEST_GET17: object_name = "Device.rbuscoreProvider.GetLegFloat";    break;
     case RBUS_GTEST_GET18: object_name = "Device.rbuscoreProvider.GetLegDouble";   break;
-    case RBUS_GTEST_GET19: object_name = "Device.rbuscoreProvider.GetLegBytes";    break;
+    case RBUS_GTEST_GET19: object_name = "Device.rbuscoreProvider.GetLegByte";    break;
     case RBUS_GTEST_GET20: object_name = "Device.rbuscoreProvider.GetLegDateTime"; break;
     case RBUS_GTEST_GET21: object_name = "Device.rbuscoreProvider.GetLegBase64";   break;
     case RBUS_GTEST_GET22: object_name = "Device.rbuscoreProvider.GetLegString";   break;

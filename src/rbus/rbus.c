@@ -69,6 +69,8 @@
   } \
 }
 
+#define RBUS_GET_DEFAULT_TIMEOUT_FOR_WILDCARD 120000  /* default timeout in miliseconds for GET API wildcard query*/
+
 //********************************************************************************//
 
 //******************************* STRUCTURES *************************************//
@@ -394,9 +396,8 @@ static bool _parse_rbusData_to_value (char const* pBuff, rbusLegacyDataType_t le
             }
             case RBUS_LEGACY_BYTE:
             {
-                rbusValue_SetBytes(value, (uint8_t*)pBuff, strlen(pBuff));
-                rc = true;
-                break;
+                rc = rbusValue_SetFromString(value, RBUS_BYTE, pBuff);
+		break;
             }
             case RBUS_LEGACY_DATETIME:
             {
@@ -406,8 +407,8 @@ static bool _parse_rbusData_to_value (char const* pBuff, rbusLegacyDataType_t le
             case RBUS_LEGACY_BASE64:
             {
                 RBUSLOG_WARN("RBUS_LEGACY_BASE64_TYPE: Base64 type was never used in CCSP so far. So, Rbus did not support it till now. Since this is the first Base64 query, please report to get it fixed.");
-                rbusValue_SetString(value, pBuff);
-                rc = true;
+                rbusValue_SetBytes(value, (uint8_t*)pBuff, strlen(pBuff));
+	        rc = true;
                 break;
             }
             default:
@@ -3464,7 +3465,8 @@ rbusError_t rbus_getExt(rbusHandle_t handle, int paramCount, char const** pParam
                     rbusMessage_SetInt32(request, 1);
                     rbusMessage_SetString(request, pParamNames[0]);
                     /* Invoke the method */
-                    err = rbus_invokeRemoteMethod(destinations[i], METHOD_GETPARAMETERVALUES, request, rbusConfig_ReadGetTimeout(), &response);
+                    err = rbus_invokeRemoteMethod(destinations[i], METHOD_GETPARAMETERVALUES,
+                            request, rbusConfig_ReadWildcardGetTimeout(), &response);
 
                     if(err != RBUSCORE_SUCCESS)
                     {
@@ -3813,6 +3815,7 @@ rbusError_t rbus_setMulti(rbusHandle_t handle, int numProps, rbusProperty_t prop
 {
     rbusError_t errorcode = RBUS_ERROR_INVALID_INPUT;
     rbusCoreError_t err = RBUSCORE_SUCCESS;
+    VERIFY_HANDLE(handle);	
     rbusMessage setRequest, setResponse;
     struct _rbusHandle* handleInfo = (struct _rbusHandle*) handle;
     rbusValueType_t type = RBUS_NONE;
