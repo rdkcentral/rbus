@@ -3815,6 +3815,7 @@ rbusError_t rbus_setMulti(rbusHandle_t handle, int numProps, rbusProperty_t prop
 {
     rbusError_t errorcode = RBUS_ERROR_INVALID_INPUT;
     rbusCoreError_t err = RBUSCORE_SUCCESS;
+    VERIFY_HANDLE(handle);	
     rbusMessage setRequest, setResponse;
     struct _rbusHandle* handleInfo = (struct _rbusHandle*) handle;
     rbusValueType_t type = RBUS_NONE;
