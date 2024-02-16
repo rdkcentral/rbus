@@ -25,7 +25,7 @@ jobs:
           cmake-version: '3.16.x'
       - name: Install packages
         run: >
-          sudo apt update && sudo apt install -y libcurl4-openssl-dev libgtest-dev
+          sudo apt update && sudo apt install -y libcurl4-openssl-dev libgtest-dev lcov gcovr
       - name: Checkout rbus
         if: steps.cache.outputs.cache-hit != 'true'
         uses: actions/checkout@v3
@@ -39,7 +39,8 @@ jobs:
           -B build/rbus 
           -DCMAKE_INSTALL_PREFIX="${{github.workspace}}/install/usr" 
           -DBUILD_FOR_DESKTOP=ON
-          -DENABLE_UNIT_TESTING=ON          
+          -DENABLE_UNIT_TESTING=ON
+          -DENABLE_CODE_COVERAGE=ON          
           -DCMAKE_BUILD_TYPE=Debug
       - name: Build Rbus
         if: steps.cache.outputs.cache-hit != 'true'
@@ -102,4 +103,8 @@ jobs:
       - name: Stop rtrouted
         run: |
           killall -9 rtrouted
-          
+      - name:  Run CodeCoverage
+        run: |
+            rm -rf /tmp/rtrouted*
+            cd build/rbus
+            make rbusCodeCoverageUI 
