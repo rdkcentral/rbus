@@ -51,6 +51,11 @@ set(CMAKE_C_FLAGS_RELEASE "-fPIC -Wall -Werror -Wextra ${CMAKE_C_FLAGS_RELEASE} 
 set(CMAKE_CXX_FLAGS_DEBUG "-fPIC -Wall -Werror -Wextra -Wno-type-limits -fno-inline ${CMAKE_C_FLAGS_DEBUG} -DRBUS_ALWAYS_ON ")
 set(CMAKE_CXX_FLAGS_RELEASE "-fPIC -Wall -Werror -Wextra ${CMAKE_C_FLAGS_RELEASE} -DRBUS_ALWAYS_ON ")
 
+if(ENABLE_ADDRESS_SANITIZER)
+	set(CMAKE_C_FLAGS "-fsanitize=address ${CMAKE_C_FLAGS}")
+	set(CMAKE_CXX_FLAGS "-fsanitize=address ${CMAKE_CXX_FLAGS}")
+endif(ENABLE_ADDRESS_SANITIZER)
+
 include(GNUInstallDirs)
 
 IF (NOT DEFINED CMAKE_INSTALL_BINDIR)
