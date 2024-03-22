@@ -1000,7 +1000,7 @@ void testValue_ToString()
         
     rbusValue_SetBoolean(v, true);
     s = rbusValue_ToString(v,0,0);
-    TEST(!strcmp(s, "1"));
+    TEST(!strcmp(s, "true"));
     free(s);
 
     rbusValue_SetChar(v, 'a');
@@ -1120,7 +1120,7 @@ void testValue_ToDebugString()
 
     rbusValue_SetBoolean(v, true);
     s = rbusValue_ToDebugString(v,0,0);
-    TEST(!strcmp(s, "rbusValue type:RBUS_BOOLEAN value:1"));
+    TEST(!strcmp(s, "rbusValue type:RBUS_BOOLEAN value:true"));
     free(s);
 
     rbusValue_SetChar(v, 'a');

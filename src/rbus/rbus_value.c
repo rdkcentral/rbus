@@ -260,7 +260,7 @@ char* rbusValue_ToString(rbusValue_t v, char* buf, size_t buflen)
             n = (2 * v->d.bytes->posWrite) + 1;
             break;
         case RBUS_BOOLEAN:
-            n = snprintf(p, 0, "%d", (int)v->d.b)+1;
+            n = snprintf(p, 0, "%s", (int)v->d.b ? "true" : "false")+1;
             break;
         case RBUS_INT32:
             n = snprintf(p, 0, "%d", v->d.i32)+1;
@@ -322,7 +322,7 @@ char* rbusValue_ToString(rbusValue_t v, char* buf, size_t buflen)
         break;
     }
     case RBUS_BOOLEAN:
-        snprintf(p, n, "%d", (int)v->d.b);
+        snprintf(p, n, "%s", (int)v->d.b ? "true" : "false");
         break;
     case RBUS_INT32:
         snprintf(p, n, "%d", v->d.i32);
