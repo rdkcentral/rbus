@@ -30,6 +30,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <pthread.h>
+#include "rbuscore_message.h"
 
 struct _rtMessage
 {
@@ -298,14 +299,14 @@ rtMessage_GetString(rtMessage const  message, const char* name, char const** val
  * @return rtError
  **/
 rtError
-rtMessage_GetBinaryData(rtMessage message, char const* name, void ** ptr, uint32_t *size)
+rtMessage_GetBinaryData(rbusMessage message, void ** ptr, uint32_t *size)
 {
-  cJSON* p = cJSON_GetObjectItem(message->json, name);
-  if (p)
+  rtError ret;
+  char const* value;
+  ret = rbusMessage_GetString(message, &value);
+  if (value && (ret==0))
   {
-    const unsigned char * value;
-    value = (unsigned char *)p->valuestring;
-	if(RT_OK == rtBase64_decode(value, strlen((const char *)value), ptr, size))
+	if(RT_OK == rtBase64_decode((const unsigned char*) value, strlen((const char*) value), ptr, size))
 	{
       return RT_OK;
 	}
@@ -466,14 +467,14 @@ rtMessage_AddString(rtMessage m, char const* name, char const* value)
  * @return rtError
  **/
 rtError
-rtMessage_AddBinaryData(rtMessage message, char const* name, void const * ptr, const uint32_t size)
+rtMessage_AddBinaryData(rbusMessage message, void const * ptr, const uint32_t size)
 {
   unsigned char * encoded_string = NULL;
   uint32_t encoded_string_size = 0;
 
   if(RT_OK == rtBase64_encode((const unsigned char *)ptr, size, &encoded_string, &encoded_string_size))
   {
-    rtMessage_SetString(message, name, (char *)encoded_string);
+    rbusMessage_SetString(message, (char *)encoded_string);
     free(encoded_string);
     return RT_OK;
   }

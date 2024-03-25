@@ -197,15 +197,15 @@ _rtdirect_OnMessage(rtConnectedClient* sender, rtMessageHeader* hdr, uint8_t con
   (void) mySubs;
   if (strcmp(hdr->topic, "_RTROUTED.INBOX.SUBSCRIBE") == 0)
   {
-    rtMessage m;
+    rbusMessage m;
     char const* expression = NULL;
     uint32_t route_id = 0;
     int32_t add_subscrption = 0;
 
-    rtMessage_FromBytes(&m, buff, n);
-    if((RT_OK == rtMessage_GetInt32(m, "add", &add_subscrption)) &&
-       (RT_OK == rtMessage_GetString(m, "topic", &expression)) &&
-       (RT_OK == rtMessage_GetInt32(m, "route_id", (int32_t *)&route_id)))
+    rbusMessage_FromBytes(&m, buff, n);
+    if((RT_OK == rbusMessage_GetInt32(m, &add_subscrption)) &&
+       (RT_OK == rbusMessage_GetString(m, &expression)) &&
+       (RT_OK == rbusMessage_GetInt32(m, (int32_t *)&route_id)))
     {
       if(1 == add_subscrption)
       {
@@ -221,7 +221,7 @@ _rtdirect_OnMessage(rtConnectedClient* sender, rtMessageHeader* hdr, uint8_t con
           }
       }
     }
-    rtMessage_Release(m);
+    rbusMessage_Release(m);
   }
   else
   {

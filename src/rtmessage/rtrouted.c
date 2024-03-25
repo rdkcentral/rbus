@@ -54,6 +54,7 @@
 #include <sys/stat.h>
 #include <time.h>
 #include <cjson/cJSON.h>
+#include "rbuscore_message.h"
 
 #ifdef ENABLE_RDKLOGGER
 #include "rdk_debug.h"
@@ -482,7 +483,7 @@ rtConnectedClient_Destroy(rtConnectedClient* clnt)
 }
 
 static rtError
-rtRouted_SendMessage(rtMessageHeader * request_hdr, rtMessage message, rtConnectedClient* skipClient)
+rtRouted_SendMessage(rtMessageHeader * request_hdr, rbusMessage message, rtConnectedClient* skipClient)
 {
   rtError ret = RT_OK;
   ssize_t bytes_sent;
@@ -493,7 +494,7 @@ rtRouted_SendMessage(rtMessageHeader * request_hdr, rtMessage message, rtConnect
   rtListItem item;
   int found_dest = 0;
 
-  rtMessage_ToByteArray(message, &buffer, &size);
+  rbusMessage_ToBytes(message, &buffer, &size);
   request_hdr->payload_length = size;
 
   /*Find the route to populate control_id field.*/
@@ -550,7 +551,6 @@ rtRouted_SendMessage(rtMessageHeader * request_hdr, rtMessage message, rtConnect
         rtLog_Warn("Could not find route to destination. Topic=%s ", request_hdr->topic);
     }
   }
-  rtMessage_FreeByteArray(buffer);
   return ret;
 }
 
@@ -752,11 +752,12 @@ rtRouted_OnMessageSubscribe(rtConnectedClient* sender, rtMessageHeader* hdr, uin
   uint32_t route_id = 0;
   uint32_t i = 0;
   int32_t add_subscrption = 0;
-  rtMessage m;
-  rtMessage response = NULL;
+  rbusMessage m = NULL;
+  rbusMessage response = NULL;
   rtError rc = RT_OK;
+  rbusMessage_FromBytes(&m, buff, n);
 
-  if(RT_OK != rtMessage_FromBytes(&m, buff, n))
+  if(!m)
   {
     rtLog_Warn("Bad Subscribe message");
     rtLog_Warn("Sender %s", sender->ident);
@@ -764,9 +765,9 @@ rtRouted_OnMessageSubscribe(rtConnectedClient* sender, rtMessageHeader* hdr, uin
   }
   else
   {
-    if((RT_OK == rtMessage_GetInt32(m, "add", &add_subscrption)) &&
-       (RT_OK == rtMessage_GetString(m, "topic", &expression)) &&
-       (RT_OK == rtMessage_GetInt32(m, "route_id", (int32_t *)&route_id)) &&
+    if((RT_OK == rbusMessage_GetInt32(m, &add_subscrption)) &&
+       (RT_OK == rbusMessage_GetString(m, &expression)) &&
+       (RT_OK == rbusMessage_GetInt32(m, (int32_t *)&route_id)) &&
        (0 == validate_string(expression, RTMSG_MAX_EXPRESSION_LEN)))
     {
       if(1 == add_subscrption)
@@ -823,18 +824,20 @@ rtRouted_OnMessageSubscribe(rtConnectedClient* sender, rtMessageHeader* hdr, uin
       rc = RT_ERROR_INVALID_ARG;
     }
   }
-  rtMessage_Release(m);
+  rbusMessage_Release(m);
 
   /* Send Response */
   if(hdr->flags & rtMessageFlags_Request)
   {
-      rtMessage_Create(&response);
-      rtMessage_SetInt32(response, "result", rc);
+      rbusMessage_Init(&response);
+      rbusMessage_SetInt32(response, rc);
       rtMessageHeader new_header;
       prep_reply_header_from_request(&new_header, hdr);
-      if(RT_OK != rtRouted_SendMessage(&new_header, response, NULL))
-          rtLog_Info("%s() Response couldn't be sent.", __func__);
-      rtMessage_Release(response);
+      rtError err;
+      err = rtRouted_SendMessage(&new_header, response, NULL);
+      if(RT_OK != err)
+          rtLog_Info("%s() Response couldn't be sent.Err:%s", __func__, strerror(err));
+      rbusMessage_Release(response);
   }
 }
 
@@ -842,22 +845,22 @@ static void
 rtRouted_OnMessageHello(rtConnectedClient* sender, rtMessageHeader* hdr, uint8_t const* buff, int n)
 {
   char const* inbox = NULL;
-  rtMessage m;
-
-  if(RT_OK != rtMessage_FromBytes(&m, buff, n))
+  rbusMessage m = NULL;
+  rbusMessage_FromBytes(&m, buff, n);
+  if(!m)
   {
     rtLog_Warn("Bad Hello message");
     rtLog_Warn("Sender %s", sender->ident);
     return;
   }
-  rtMessage_GetString(m, "inbox", &inbox);
+  rbusMessage_GetString(m, &inbox);
 
   rtSubscription* subscription = (rtSubscription *) rt_malloc(sizeof(rtSubscription));
   subscription->id = 0;
   subscription->client = sender;
   rtRouted_AddRoute(rtRouted_ForwardMessage, inbox, subscription);
 
-  rtMessage_Release(m);
+  rbusMessage_Release(m);
   
   (void)hdr;
 }
@@ -866,31 +869,32 @@ rtRouted_OnMessageHello(rtConnectedClient* sender, rtMessageHeader* hdr, uint8_t
 static void
 rtRouted_OnMessageTimeOut(rtConnectedClient* sender, rtMessageHeader* hdr, uint8_t const* buff, int n)
 {
-  rtMessage m;
+  rbusMessage m;
   char const* topic = NULL;
   char const* reply_topic = NULL;
   rtMessageHeader header;
 
-  if(RT_OK != rtMessage_FromBytes(&m, buff, n))
+  rbusMessage_FromBytes(&m, buff, n);
+  if(!m)
   {
     rtLog_Warn("Bad message");
     rtLog_Warn("Sender %s", sender->ident);
     return;
   }
   rtMessageHeader_Init(&header);
-  rtMessage_GetInt32(m, "T1", (int32_t *)&header.T1);
-  rtMessage_GetInt32(m, "T2", (int32_t *)&header.T2);
-  rtMessage_GetInt32(m, "T3", (int32_t *)&header.T3);
-  rtMessage_GetInt32(m, "T4", (int32_t *)&header.T4);
-  rtMessage_GetInt32(m, "T5", (int32_t *)&header.T5);
-  rtMessage_GetString(m, "topic", &topic);
-  rtMessage_GetString(m, "reply_topic", &reply_topic);
+  rbusMessage_GetInt32(m, (int32_t *)&header.T1);
+  rbusMessage_GetInt32(m, (int32_t *)&header.T2);
+  rbusMessage_GetInt32(m, (int32_t *)&header.T3);
+  rbusMessage_GetInt32(m, (int32_t *)&header.T4);
+  rbusMessage_GetInt32(m, (int32_t *)&header.T5);
+  rbusMessage_GetString(m, &topic);
+  rbusMessage_GetString(m, &reply_topic);
   snprintf(header.topic, sizeof(header.topic), "%s", topic);
   snprintf(header.reply_topic, sizeof(header.reply_topic), "%s", reply_topic);
   rtLog_Info("Consumer exist but the request timed out");
   rtRouted_TransactionTimingDetails(header);
 
-  rtMessage_Release(m);
+  rbusMessage_Release(m);
   (void)hdr;
 }
 #endif
@@ -899,9 +903,9 @@ static void
 rtRouted_OnMessageDiscoverRegisteredComponents(rtConnectedClient* sender, rtMessageHeader* hdr, uint8_t const* buff, int n)
 {
   uint32_t i = 0;
-  rtMessage response = NULL;
-
-  if((hdr->flags & rtMessageFlags_Request) && (RT_OK == rtMessage_Create(&response)))
+  rbusMessage response = NULL;
+  rbusMessage_Init(&response);
+  if((hdr->flags & rtMessageFlags_Request) && (response))
   {
       int counter = 0, pass = 0;
       for (pass = 0; pass <= 1; pass ++)
@@ -914,18 +918,18 @@ rtRouted_OnMessageDiscoverRegisteredComponents(rtConnectedClient* sender, rtMess
                   if(pass == 0)
                       counter++;
                   else
-                      rtMessage_AddString(response, RTM_DISCOVERY_ITEMS, route->expression);
+                      rbusMessage_SetString(response, route->expression);
               }
           }
           if (pass == 0)
-              rtMessage_SetInt32(response, RTM_DISCOVERY_COUNT, counter);
+              rbusMessage_SetInt32(response, counter);
       }
 
       rtMessageHeader new_header;
       prep_reply_header_from_request(&new_header, hdr);
       if(RT_OK != rtRouted_SendMessage(&new_header, response, NULL))
           rtLog_Info("%s() Response couldn't be sent.", __func__);
-      rtMessage_Release(response);
+      rbusMessage_Release(response);
   }
   else
   {
@@ -941,27 +945,28 @@ static void
 rtRouted_OnMessageDiscoverWildcardDestinations(rtConnectedClient* sender, rtMessageHeader* hdr, uint8_t const* buff, int n)
 {
   char const* expression = NULL;
-  rtMessage m, response = NULL;
+  rbusMessage m, response = NULL;
 
-  if(RT_OK != rtMessage_FromBytes(&m, buff, n))
+  rbusMessage_FromBytes(&m, buff, n);
+  if(!m)
   {
     rtLog_Warn("Bad DiscoverWildcard message");
     rtLog_Warn("Sender %s", sender->ident);
     return;
   }
-
-  if((hdr->flags & rtMessageFlags_Request) && (RT_OK == rtMessage_Create(&response)))
+  rbusMessage_Init(&response);
+  if((hdr->flags & rtMessageFlags_Request) && (response))
   {
     /*Construct the outbound message.*/
-    if(RT_OK == rtMessage_GetString(m, RTM_DISCOVERY_EXPRESSION, &expression) && (NULL != expression) &&
+    if(RT_OK == rbusMessage_GetString(m, &expression) && (NULL != expression) &&
         (0 == validate_string(expression, RTMSG_MAX_EXPRESSION_LEN)))
     {
       size_t count = 0;
       rtListItem item;
-      rtMessage_SetInt32(response, RTM_DISCOVERY_RESULT, RT_OK);
+      rbusMessage_SetInt32(response, RT_OK);
       rtRoutingTree_ResolvePartialPath(gRoutingTree, expression, g_discovery_result);
       rtList_GetSize(g_discovery_result, &count);
-      rtMessage_SetInt32(response, RTM_DISCOVERY_COUNT, (int32_t)count);
+      rbusMessage_SetInt32(response, (int32_t)count);
       rtList_GetFront(g_discovery_result, &item);
       while(item)
       {
@@ -969,13 +974,13 @@ rtRouted_OnMessageDiscoverWildcardDestinations(rtConnectedClient* sender, rtMess
         rtListItem_GetData(item, (void**)&topic);
         rtListItem_GetNext(item, &item);
         if(topic)
-          rtMessage_AddString(response, RTM_DISCOVERY_ITEMS, topic);
+          rbusMessage_SetString(response, topic);
       }
       rtList_RemoveAllItems(g_discovery_result, NULL);
     }
     else
     {
-      rtMessage_SetInt32(response, RTM_DISCOVERY_RESULT, RT_ERROR);
+      rbusMessage_SetInt32(response, RT_ERROR);
       rtLog_Error("Bad discovery message.");
     }
     /* Send this message back to the requestor.*/ 
@@ -983,12 +988,12 @@ rtRouted_OnMessageDiscoverWildcardDestinations(rtConnectedClient* sender, rtMess
     prep_reply_header_from_request(&new_header, hdr);
     if(RT_OK != rtRouted_SendMessage(&new_header, response, NULL))
       rtLog_Info("%s() Response couldn't be sent.", __func__);
-    rtMessage_Release(response);
+    rbusMessage_Release(response);
   }
   else
     rtLog_Error("Cannot create response message to discovery.");
 
-  rtMessage_Release(m);
+  rbusMessage_Release(m);
 
   (void)sender;
 }
@@ -996,20 +1001,21 @@ rtRouted_OnMessageDiscoverWildcardDestinations(rtConnectedClient* sender, rtMess
 static void
 rtRouted_OnMessageDiscoverObjectElements(rtConnectedClient* sender, rtMessageHeader* hdr, uint8_t const* buff, int n)
 {
-  rtMessage m = NULL;
-  rtMessage response = NULL;
+  rbusMessage m = NULL;
+  rbusMessage response = NULL;
   char const* expression = NULL;
 
-  if(RT_OK != rtMessage_FromBytes(&m, buff, n))
+  rbusMessage_FromBytes(&m, buff, n);
+  if(!m)
   {
     rtLog_Warn("Bad DiscoverObjectElements message");
     rtLog_Warn("Sender %s", sender->ident);
     return;
   }
-
-  if((hdr->flags & rtMessageFlags_Request) && (RT_OK == rtMessage_Create(&response)))
+  rbusMessage_Init(&response);
+  if((hdr->flags & rtMessageFlags_Request) && (response))
   {
-    if(RT_OK == rtMessage_GetString(m, RTM_DISCOVERY_EXPRESSION, &expression) && (NULL != expression))
+    if(RT_OK == rbusMessage_GetString(m, &expression) && (NULL != expression))
     {
       unsigned int i;
       rtList list;
@@ -1034,12 +1040,12 @@ rtRouted_OnMessageDiscoverObjectElements(rtConnectedClient* sender, rtMessageHea
       if(!found)
       {
         //rtLog_Debug("ElementEnumeration couldn't find route for expression=%s", expression);
-        rtMessage_SetInt32(response, RTM_DISCOVERY_COUNT, 0);
+        rbusMessage_SetInt32(response, 0);
       }
       else
       {
         rtList_GetSize(list, &count);
-        rtMessage_SetInt32(response, RTM_DISCOVERY_COUNT, (int32_t)count);
+        rbusMessage_SetInt32(response, (int32_t)count);
         //rtLog_Debug("ElementEnumeration route has %d elements", (int32_t)count);
 
         rtList_GetFront(list, &item);
@@ -1047,7 +1053,7 @@ rtRouted_OnMessageDiscoverObjectElements(rtConnectedClient* sender, rtMessageHea
         {
             rtTreeTopic* treeTopic;
             rtListItem_GetData(item, (void**)&treeTopic);
-            rtMessage_AddString(response, RTM_DISCOVERY_ITEMS, treeTopic->fullName);
+            rbusMessage_SetString(response, treeTopic->fullName);
             //rtLog_Debug("ElementEnumeration add element=%s", treeTopic->fullName);
             rtListItem_GetNext(item, &item);
         }
@@ -1056,12 +1062,12 @@ rtRouted_OnMessageDiscoverObjectElements(rtConnectedClient* sender, rtMessageHea
       prep_reply_header_from_request(&new_header, hdr);
       if (RT_OK != rtRouted_SendMessage(&new_header, response, NULL))
         rtLog_Info("%s() Response couldn't be sent.", __func__);
-      rtMessage_Release(response);   
+      rbusMessage_Release(response);
     }
   }
   else
     rtLog_Error("Cannot create response message to registered components.");
-  rtMessage_Release(m);
+  rbusMessage_Release(m);
 
   (void)sender;
   (void)hdr;
@@ -1070,27 +1076,29 @@ rtRouted_OnMessageDiscoverObjectElements(rtConnectedClient* sender, rtMessageHea
 static void
 rtRouted_OnMessageDiscoverElementObjects(rtConnectedClient* sender, rtMessageHeader* hdr, uint8_t const* buff, int n)
 {
-  rtMessage msgIn = NULL;
-  rtMessage response = NULL;
+  rbusMessage msgIn = NULL;
+  rbusMessage response = NULL;
   char const *expression = NULL;
   int i;
 
-  if(RT_OK != rtMessage_FromBytes(&msgIn, buff, n))
+  rbusMessage_FromBytes(&msgIn, buff, n);
+  if(!msgIn)
   {
     rtLog_Warn("Bad DiscoverElementObjects message");
     rtLog_Warn("Sender %s", sender->ident);
     return;
   }
 
-  if ((hdr->flags & rtMessageFlags_Request) && (RT_OK == rtMessage_Create(&response)))
+  rbusMessage_Init(&response);
+  if ((hdr->flags & rtMessageFlags_Request) && (response))
   {
     int length = 0;
-    if (RT_OK == rtMessage_GetInt32(msgIn, RTM_DISCOVERY_COUNT, &length) && (0 < length))
+    if (RT_OK == rbusMessage_GetInt32(msgIn, &length) && (0 < length))
     {
-      rtMessage_SetInt32(response, RTM_DISCOVERY_RESULT, RT_OK);
+      rbusMessage_SetInt32(response, RT_OK);
       for (i = 0; i < length; i++)
       {
-        if (RT_OK == rtMessage_GetStringItem(msgIn, RTM_DISCOVERY_ITEMS, i, &expression) && (NULL != expression))
+        if (RT_OK == rbusMessage_GetString(msgIn, &expression) && (NULL != expression))
         {
           rtList routes;
           rtListItem item;
@@ -1101,7 +1109,7 @@ rtRouted_OnMessageDiscoverElementObjects(rtConnectedClient* sender, rtMessageHea
             size_t count;
             rtList_GetSize(routes, &count);
 
-            rtMessage_SetInt32(response, RTM_DISCOVERY_COUNT, (int32_t)count);
+            rbusMessage_SetInt32(response, (int32_t)count);
             rtList_GetFront(routes, &item);
             while(item)
             {
@@ -1112,29 +1120,30 @@ rtRouted_OnMessageDiscoverElementObjects(rtConnectedClient* sender, rtMessageHea
               route = treeRoute->route;
               if(route)
               {
-                rtMessage_AddString(response, RTM_DISCOVERY_ITEMS, route->expression);
+                rbusMessage_SetString(response, route->expression);
                 set = 1;
               }
             }
           }
           if(!set)
           {
-            rtMessage_SetInt32(response, RTM_DISCOVERY_COUNT, 0);
+            rbusMessage_SetInt32(response, 0);
           }
         }
         else
         {
           rtLog_Warn("Bad trace request. Failed to extract element name.");
-          rtMessage_Release(response); //This was contaminated because we already added a 'success' result to this message.
-          if (RT_OK == rtMessage_Create(&response))
+          rbusMessage_Release(response); //This was contaminated because we already added a 'success' result to this message.
+          rbusMessage_Init(&response);
+          if (response)
           {
-            rtMessage_SetInt32(response, RTM_DISCOVERY_RESULT, RT_ERROR);
+            rbusMessage_SetInt32(response, RT_ERROR);
             break;
           }
           else
           {
             rtLog_Error("Cannot create response message to trace request");
-            rtMessage_Release(msgIn);
+            rbusMessage_Release(msgIn);
             return;
           }
         }
@@ -1143,18 +1152,18 @@ rtRouted_OnMessageDiscoverElementObjects(rtConnectedClient* sender, rtMessageHea
     else
     {
       rtLog_Warn("Bad trace request. Could not get length / bad length.");
-      rtMessage_SetInt32(response, RTM_DISCOVERY_RESULT, RT_ERROR);
+      rbusMessage_SetInt32(response, RT_ERROR);
     }
     
     rtMessageHeader new_header;
     prep_reply_header_from_request(&new_header, hdr);
     if (RT_OK != rtRouted_SendMessage(&new_header, response, NULL))
       rtLog_Info("Response to trace request couldn't be sent.");
-    rtMessage_Release(response);
+    rbusMessage_Release(response);
   }
   else
     rtLog_Error("Cannot create response message to trace request");
-  rtMessage_Release(msgIn);
+  rbusMessage_Release(msgIn);
 
   (void)sender;
 }
@@ -1162,12 +1171,12 @@ rtRouted_OnMessageDiscoverElementObjects(rtConnectedClient* sender, rtMessageHea
 static void
 rtRouted_OnMessageDiagnostics(rtConnectedClient* sender, rtMessageHeader* hdr, uint8_t const* buff, int n)
 {
-  rtMessage msg;
+  rbusMessage msg;
   const char * cmd;
 
-  rtMessage_FromBytes(&msg, buff, n);
+  rbusMessage_FromBytes(&msg, buff, n);
 
-  rtMessage_GetString(msg, RTROUTER_DIAG_CMD_KEY, &cmd);
+  rbusMessage_GetString(msg, &cmd);
 
   if(0 == strncmp(RTROUTER_DIAG_CMD_ENABLE_VERBOSE_LOGS, cmd, sizeof(RTROUTER_DIAG_CMD_ENABLE_VERBOSE_LOGS)))
     rtLog_SetLevel(RT_LOG_DEBUG);
@@ -1189,7 +1198,7 @@ rtRouted_OnMessageDiagnostics(rtConnectedClient* sender, rtMessageHeader* hdr, u
     rtListener* listener = NULL;
 
     /* Get the socket */
-    rtMessage_GetString(msg, RTROUTER_DIAG_CMD_VALUE, &socket);
+    rbusMessage_GetString(msg, &socket);
 
     if (NULL != socket)
     {
@@ -1233,7 +1242,7 @@ rtRouted_OnMessageDiagnostics(rtConnectedClient* sender, rtMessageHeader* hdr, u
   }
   else
     rtLog_Error("Unknown diag command: %s", cmd);
-  rtMessage_Release(msg);
+  rbusMessage_Release(msg);
   (void)sender;
   (void)hdr;
 }
@@ -1241,12 +1250,12 @@ rtRouted_OnMessageDiagnostics(rtConnectedClient* sender, rtMessageHeader* hdr, u
 static void
 rtRouted_SendAdvisoryMessage(rtConnectedClient* clnt, rtAdviseEvent event)
 {
-  rtMessage msg;
+  rbusMessage msg;
   rtMessageHeader hdr;
 
-  rtMessage_Create(&msg);
-  rtMessage_SetInt32(msg, RTMSG_ADVISE_EVENT, event);
-  rtMessage_SetString(msg, RTMSG_ADVISE_INBOX, clnt->inbox);
+  rbusMessage_Init(&msg);
+  rbusMessage_SetInt32(msg, event);
+  rbusMessage_SetString(msg, clnt->inbox);
 
   rtMessageHeader_Init(&hdr);
   hdr.topic_length = strlen(RTMSG_ADVISORY_TOPIC);
@@ -1256,7 +1265,7 @@ rtRouted_SendAdvisoryMessage(rtConnectedClient* clnt, rtAdviseEvent event)
   if (RT_OK != rtRouted_SendMessage(&hdr, msg, clnt))
     rtLog_Info("Failed to send advisory");
 
-  rtMessage_Release(msg);
+  rbusMessage_Release(msg);
 }
 
 #ifdef WITH_SPAKE2
@@ -1265,7 +1274,7 @@ static rtError
 rtRouted_CreateSpake2CipherInstance(rtCipher** cipher)
 {
   rtError err;
-  rtMessage config;
+  rbusMessage config;
 
   if(!g_spake2_L || !g_spake2_w0)
   {
@@ -1273,14 +1282,14 @@ rtRouted_CreateSpake2CipherInstance(rtCipher** cipher)
     return RT_ERROR;
   }
 
-  rtMessage_Create(&config);
-  rtMessage_SetString(config, RT_CIPHER_SPAKE2_VERIFY_L, g_spake2_L);
-  rtMessage_SetString(config, RT_CIPHER_SPAKE2_VERIFY_W0, g_spake2_w0);
-  rtMessage_SetBool(config, RT_CIPHER_SPAKE2_IS_SERVER, true);
+  rbusMessage_Init(&config);
+  rbusMessage_SetString(config, g_spake2_L);
+  rbusMessage_SetString(config, g_spake2_w0);
+  rbusMessage_SetBool(config, true);
 
   err = rtCipher_CreateCipherSpake2Plus(cipher, config);
 
-  rtMessage_Release(config);
+  rbusMessage_Release(config);
 
   if(err != RT_OK)
   {
@@ -1295,14 +1304,14 @@ static void
 rtRouted_OnMessageKeyExchange(rtConnectedClient* sender, rtMessageHeader* hdr, uint8_t const* buff, int n)
 {
   rtError err;
-  rtMessage msg;
+  rbusMessage msg;
   const char * type = NULL;
   rtMessage response = NULL;
 
   (void)hdr;
 
-  rtMessage_FromBytes(&msg, buff, n);
-  err = rtMessage_GetString(msg, "type", &type);
+  rbusMessage_FromBytes(&msg, buff, n);
+  err = rbusMessage_GetString(msg, &type);
   if (err != RT_OK || !type)
     return;
 

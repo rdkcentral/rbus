@@ -35,10 +35,10 @@
 #include "spake2plus.h"
 #include "common.h"
 
-#define APPLY_STRING_OPTION(message, option, variable, default)\
+#define APPLY_STRING_OPTION(message, variable, default)\
   {\
     const char* sVal;\
-    if (rtMessage_GetString(message, option, &sVal) == RT_OK)\
+    if (rbusMessage_GetString(message, &sVal) == RT_OK)\
       snprintf(variable, sizeof(variable), "%s", sVal);\
     else\
       snprintf(variable, sizeof(variable), "%s", default);\
@@ -52,7 +52,7 @@ struct _rtCipher
 };
 
 static rtError
-CreateSpake2PlusInstance(rtMessage const opts, SPAKE2PLUS** spake2_ctx)
+CreateSpake2PlusInstance(rbusMessage const opts, SPAKE2PLUS** spake2_ctx)
 {
   // https://tools.ietf.org/id/draft-irtf-cfrg-spake2-10.html
   #define OPT_STR_MAX_LEN 256
@@ -74,12 +74,12 @@ CreateSpake2PlusInstance(rtMessage const opts, SPAKE2PLUS** spake2_ctx)
   int             client_or_server;
   bool            is_server;
 
-  APPLY_STRING_OPTION(opts, RT_CIPHER_SPAKE2_CLIENT_ID,     client_id,    "client");
-  APPLY_STRING_OPTION(opts, RT_CIPHER_SPAKE2_SERVER_ID,     server_id,    "server");
-  APPLY_STRING_OPTION(opts, RT_CIPHER_SPAKE2_AUTH_DATA,     auth_data,    "Use SPAKE2+ latest version.");
-  APPLY_STRING_OPTION(opts, RT_CIPHER_SPAKE2_GROUP_NAME,    group_name,   SPAKE2PLUS_GROUP_P256_SEARCH_NAME);
-  APPLY_STRING_OPTION(opts, RT_CIPHER_SPAKE2_EVPMD_NAME,    evpmd_name,   SPAKE2PLUS_HASH_SHA256_SEARCH_NAME);
-  APPLY_STRING_OPTION(opts, RT_CIPHER_SPAKE2_MACFUNC_NAME,  macfunc_name, SPAKE2PLUS_HMAC_SEARCH_NAME);
+  APPLY_STRING_OPTION(opts,     client_id,    "client");
+  APPLY_STRING_OPTION(opts,     server_id,    "server");
+  APPLY_STRING_OPTION(opts,     auth_data,    "Use SPAKE2+ latest version.");
+  APPLY_STRING_OPTION(opts,    group_name,   SPAKE2PLUS_GROUP_P256_SEARCH_NAME);
+  APPLY_STRING_OPTION(opts,    evpmd_name,   SPAKE2PLUS_HASH_SHA256_SEARCH_NAME);
+  APPLY_STRING_OPTION(opts,  macfunc_name, SPAKE2PLUS_HMAC_SEARCH_NAME);
 
   is_server = false;
   if (rtMessage_GetBool(opts, RT_CIPHER_SPAKE2_IS_SERVER, &is_server) == RT_OK && is_server)
@@ -90,7 +90,7 @@ CreateSpake2PlusInstance(rtMessage const opts, SPAKE2PLUS** spake2_ctx)
   // psk is a required parameter
   if (is_server)
   {
-    if(rtMessage_GetString(opts, RT_CIPHER_SPAKE2_VERIFY_L, &verify_L_str) != RT_OK)
+    if(rbusMessage_GetString(opts, &verify_L_str) != RT_OK)
     {
       rtLog_Error("Failed to intiailize spake2+.  %s parameter is required but not found.", RT_CIPHER_SPAKE2_VERIFY_L);
       return rtErrorFromErrno(EINVAL);
@@ -102,7 +102,7 @@ CreateSpake2PlusInstance(rtMessage const opts, SPAKE2PLUS** spake2_ctx)
       return rtErrorFromErrno(EINVAL);
     }
 
-    if(rtMessage_GetString(opts, RT_CIPHER_SPAKE2_VERIFY_W0, &verify_w0_str) != RT_OK)
+    if(rbusMessage_GetString(opts, &verify_w0_str) != RT_OK)
     {
       rtLog_Error("Failed to intiailize spake2+.  %s parameter is required but not found.", RT_CIPHER_SPAKE2_VERIFY_W0);
       return rtErrorFromErrno(EINVAL);
@@ -116,7 +116,7 @@ CreateSpake2PlusInstance(rtMessage const opts, SPAKE2PLUS** spake2_ctx)
   }
   else
   {
-    if(rtMessage_GetString(opts, RT_CIPHER_SPAKE2_PSK, &psk) != RT_OK)
+    if(rbusMessage_GetString(opts, &psk) != RT_OK)
     {
       rtLog_Error("Failed to intiailize spake2+.  %s parameter is required but not found.", RT_CIPHER_SPAKE2_PSK);
       return rtErrorFromErrno(EINVAL);
@@ -283,9 +283,9 @@ rtCipher_RunKeyExchangeClient(rtCipher* cipher, rtConnection con)
 {
   rtError err;
   int ret = 0;
-  rtMessage msg1 = NULL;
-  rtMessage msg2 = NULL;
-  rtMessage res1 = NULL;
+  rbusMessage msg1 = NULL;
+  rbusMessage msg2 = NULL;
+  rbusMessage res1 = NULL;
   uint8_t *pA = NULL;
   size_t pA_len = 0;
   uint8_t *pB = NULL;
@@ -297,9 +297,9 @@ rtCipher_RunKeyExchangeClient(rtCipher* cipher, rtConnection con)
 
   rtLog_Info("spake2+ running client key exchange using messages");
 
-  rtMessage_Create(&msg1);
-  rtMessage_SetString(msg1, "type", "spake2plus");
-  rtMessage_SetInt32(msg1, "step", 1);
+  rbusMessage_Init(&msg1);
+  rbusMessage_SetString(msg1, "spake2plus");
+  rbusMessage_SetInt32(msg1, 1);
 
   //
   // setup for new key
@@ -402,9 +402,9 @@ rtCipher_RunKeyExchangeClient(rtCipher* cipher, rtConnection con)
   //
   //  add our Fa to a final message
   //
-  rtMessage_Create(&msg2);
-  rtMessage_SetString(msg2, "type", "spake2plus");
-  rtMessage_SetInt32(msg2, "step", 2);
+  rbusMessage_Init(&msg2);
+  rbusMessage_SetString(msg2, "spake2plus");
+  rbusMessage_SetInt32(msg2, 2);
 
   rtLog_Info("spake2+ add Fa to response");
   err = rtMessage_AddBinaryData(msg2, "Fa", Fa, Fa_len);
@@ -463,17 +463,17 @@ on_cleanup:
   if(Fb)
     free(Fb);
   if(msg1)
-    rtMessage_Release(msg1);
+    rbusMessage_Release(msg1);
   if(msg2)
-    rtMessage_Release(msg2);
+    rbusMessage_Release(msg2);
   if(res1)
-    rtMessage_Release(res1);
+    rbusMessage_Release(res1);
 
   return err;
 }
 
 rtError
-rtCipher_RunKeyExchangeServer(rtCipher* cipher, rtMessage request, rtMessage* response, uint8_t** key)
+rtCipher_RunKeyExchangeServer(rtCipher* cipher, rbusMessage request, rbusMessage* response, uint8_t** key)
 {
   rtError err;
   int ret = 1;
@@ -491,7 +491,7 @@ rtCipher_RunKeyExchangeServer(rtCipher* cipher, rtMessage request, rtMessage* re
 
   *response = NULL;
 
-  if(rtMessage_GetInt32(request, "step", &step) != RT_OK)
+  if(rbusMessage_GetInt32(request, &step) != RT_OK)
   {
     rtLog_Error("rtCipher_HandleServerMessage missing step parameter");
     goto on_err;
@@ -554,7 +554,7 @@ rtCipher_RunKeyExchangeServer(rtCipher* cipher, rtMessage request, rtMessage* re
     //
     rtLog_Info("spake2+ add pB to response");
 
-    rtMessage_Create(response);
+    rbusMessage_Init(response);
 
     err = rtMessage_AddBinaryData(*response, "pB", pB, pB_len);
     if (err != RT_OK)
@@ -945,7 +945,7 @@ rtError rtCipher_RunKeyExchange(rtCipher* cipher, int sock, uint8_t** key)
 rtError 
 rtCipher_CreateCipherSpake2Plus(
   rtCipher** RT_UNUSED(cipher), 
-  rtMessage const RT_UNUSED(opts))
+  rbusMessage const RT_UNUSED(opts))
 {
   rtLog_Error("spake2+ support not enabled");
   return RT_ERROR_INVALID_OPERATION;

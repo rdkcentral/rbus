@@ -1097,8 +1097,6 @@ static rtError rbus_sendRequest(rtConnection con, rbusMessage req, char const* t
         rbusMessage_FromBytes(res, rspData, rspDataLength);
     }
 
-    rtMessage_FreeByteArray(rspData);
-
     return err;
 }
 
@@ -1291,7 +1289,7 @@ static int subscription_handler(const char *not_used, const char * method_name, 
 
 static void rtrouted_advisory_callback(rtMessageHeader const* hdr, uint8_t const* data, uint32_t dataLen, void* closure)
 {
-    rtMessage msg;
+    rbusMessage msg;
     (void)hdr;
     (void)closure;
     int32_t advisory_event;
@@ -1299,13 +1297,13 @@ static void rtrouted_advisory_callback(rtMessageHeader const* hdr, uint8_t const
     if(!g_client_disconnect_callback)
         return;
 
-    rtMessage_FromBytes(&msg, data, dataLen);
-    if(rtMessage_GetInt32(msg, RTMSG_ADVISE_EVENT, &advisory_event) == RT_OK)
+    rbusMessage_FromBytes(&msg, data, dataLen);
+    if(rbusMessage_GetInt32(msg, &advisory_event) == RT_OK)
     {
         if(advisory_event == rtAdviseClientDisconnect)
         {
             const char* listener;
-            if(rtMessage_GetString(msg, RTMSG_ADVISE_INBOX, &listener) == RT_OK)
+            if(rbusMessage_GetString(msg, &listener) == RT_OK)
             {
                 RBUSCORELOG_DEBUG("Advisory event: client disconnect %s", listener);
                 g_client_disconnect_callback(listener);
@@ -1321,7 +1319,7 @@ static void rtrouted_advisory_callback(rtMessageHeader const* hdr, uint8_t const
         RBUSCORELOG_ERROR("Failed to get event from advisory msg");
     }
 
-    rtMessage_Release(msg);
+    rbusMessage_Release(msg);
 
     return;
 }
@@ -1880,7 +1878,7 @@ rbusCoreError_t rbus_discoverWildcardDestinations(const char * expression, int *
 {
     rbusCoreError_t ret = RBUSCORE_SUCCESS;
     rtError err = RT_OK;
-    rtMessage msg, rsp;
+    rbusMessage msg, rsp;
 
     if(NULL == g_connection)
     {
@@ -1894,12 +1892,12 @@ rbusCoreError_t rbus_discoverWildcardDestinations(const char * expression, int *
         return RBUSCORE_ERROR_INVALID_PARAM;
     }
 
-    rtMessage_Create(&msg);
-    rtMessage_SetString(msg, RTM_DISCOVERY_EXPRESSION, expression);
+    rbusMessage_Init(&msg);
+    rbusMessage_SetString(msg, expression);
 
     err = rtConnection_SendRequest(g_connection, msg, RTM_DISCOVER_WILDCARD_DESTINATIONS, &rsp, TIMEOUT_VALUE_FIRE_AND_FORGET);
 
-    rtMessage_Release(msg);
+    rbusMessage_Release(msg);
     msg = rsp;
 
     if(RT_OK == err)
@@ -1907,29 +1905,23 @@ rbusCoreError_t rbus_discoverWildcardDestinations(const char * expression, int *
         int result;
         const char * value = NULL;
 
-        if((RT_OK == rtMessage_GetInt32(msg, RTM_DISCOVERY_RESULT, &result)) && (RT_OK == result))
+        if((RT_OK == rbusMessage_GetInt32(msg, &result)) && (RT_OK == result))
         {
-            int32_t size, length, i;
+            int32_t size, i;
 
-            rtMessage_GetInt32(msg, RTM_DISCOVERY_COUNT, &size);
-            rtMessage_GetArrayLength(msg, RTM_DISCOVERY_ITEMS, &length);
+            rbusMessage_GetInt32(msg, &size);
 
-            if(size != length)
-            {
-                RBUSCORELOG_ERROR("rbus_resolveWildcardDestination size missmatch");
-            }
-
-            if(size && length)
+            if(size)
             {
                 char **array_ptr = (char **)rt_try_malloc(size * sizeof(char *));
                 *count = size;
                 if (NULL != array_ptr)
                 {
                     *destinations = array_ptr;
-                    memset(array_ptr, 0, (length * sizeof(char *)));
-                    for (i = 0; i < length; i++)
+                    memset(array_ptr, 0, (size * sizeof(char *)));
+                    for (i = 0; i < size; i++)
                     {
-                        if ((RT_OK != rtMessage_GetStringItem(msg, RTM_DISCOVERY_ITEMS, i, &value)) || (NULL == (array_ptr[i] = strndup(value, MAX_OBJECT_NAME_LENGTH))))
+                        if ((RT_OK != rbusMessage_GetString(msg, &value)) || (NULL == (array_ptr[i] = strndup(value, MAX_OBJECT_NAME_LENGTH))))
                         {
                             for (int j = 0; j < i; j++)
                                 free(array_ptr[j]);
@@ -1947,7 +1939,7 @@ rbusCoreError_t rbus_discoverWildcardDestinations(const char * expression, int *
                 }
             }
 
-            rtMessage_Release(msg);
+            rbusMessage_Release(msg);
 
             ret = RBUSCORE_SUCCESS;
 
@@ -1955,7 +1947,7 @@ rbusCoreError_t rbus_discoverWildcardDestinations(const char * expression, int *
         else
         {
             ret = RBUSCORE_ERROR_GENERAL;
-            rtMessage_Release(msg);
+            rbusMessage_Release(msg);
         }
     }
     else
@@ -1969,7 +1961,7 @@ rbusCoreError_t rbus_discoverObjectElements(const char * object, int * count, ch
 {
     rtError err = RT_OK;
     rbusCoreError_t ret = RBUSCORE_SUCCESS;
-    rtMessage msg, rsp;
+    rbusMessage msg, rsp;
 
     if(NULL == g_connection)
     {
@@ -1983,41 +1975,35 @@ rbusCoreError_t rbus_discoverObjectElements(const char * object, int * count, ch
         return RBUSCORE_ERROR_INVALID_PARAM;
     }
 
-    rtMessage_Create(&msg);
-    rtMessage_SetString(msg, RTM_DISCOVERY_EXPRESSION, object);
+    rbusMessage_Init(&msg);
+    rbusMessage_SetString(msg, object);
 
     err = rtConnection_SendRequest(g_connection, msg, RTM_DISCOVER_OBJECT_ELEMENTS, &rsp, TIMEOUT_VALUE_FIRE_AND_FORGET);
 
-    rtMessage_Release(msg);
+    rbusMessage_Release(msg);
     msg = rsp;
 
     if(RT_OK == err)
     {
-        int32_t size, length, i;
+        int32_t size, i;
         const char * value = NULL;
         char **array_ptr = NULL;
 
         *elements = NULL;
 
-        rtMessage_GetInt32(msg, RTM_DISCOVERY_COUNT, &size);
-        rtMessage_GetArrayLength(msg, RTM_DISCOVERY_ITEMS, &length);
-
-        if(size != length)
-        {
-            RBUSCORELOG_ERROR("rbus_GetElementsAddedByObject size missmatch");
-        }
+        rbusMessage_GetInt32(msg, &size);
 
         *count = size;
-        if(size && length)
+        if(size)
         {
             array_ptr = (char **)rt_try_malloc(size * sizeof(char *));
             if (NULL != array_ptr)
             {
                 *elements = array_ptr;
-                memset(array_ptr, 0, (length * sizeof(char *)));
-                for (i = 0; i < length; i++)
+                memset(array_ptr, 0, (size * sizeof(char *)));
+                for (i = 0; i < size; i++)
                 {
-                    if ((RT_OK != rtMessage_GetStringItem(msg, RTM_DISCOVERY_ITEMS, i, &value)) || (NULL == (array_ptr[i] = strndup(value, MAX_OBJECT_NAME_LENGTH))))
+                    if ((RT_OK != rbusMessage_GetString(msg, &value)) || (NULL == (array_ptr[i] = strndup(value, MAX_OBJECT_NAME_LENGTH))))
                     {
                         for (int j = 0; j < i; j++)
                             free(array_ptr[j]);
@@ -2037,7 +2023,7 @@ rbusCoreError_t rbus_discoverObjectElements(const char * object, int * count, ch
             }
         }
 
-        rtMessage_Release(msg);
+        rbusMessage_Release(msg);
 
         ret = RBUSCORE_SUCCESS;
     }
@@ -2053,24 +2039,24 @@ rbusCoreError_t rbus_discoverElementObjects(const char* element, int * count, ch
 {
     rbusCoreError_t ret = RBUSCORE_SUCCESS;
     rtError err = RT_OK;
-    rtMessage msg, rsp;
+    rbusMessage msg, rsp;
 
-    rtMessage_Create(&msg);
+    rbusMessage_Init(&msg);
     if(NULL != element)
     {
-        rtMessage_SetInt32(msg, RTM_DISCOVERY_COUNT, 1);
-        rtMessage_AddString(msg, RTM_DISCOVERY_ITEMS, element);
+        rbusMessage_SetInt32(msg, 1);
+        rbusMessage_SetString(msg, element);
     }
     else
     {
         RBUSCORELOG_ERROR("Null entries in element list.");
-        rtMessage_Release(msg);
+        rbusMessage_Release(msg);
         return RBUSCORE_ERROR_INVALID_PARAM;
     }
 
     err = rtConnection_SendRequest(g_connection, msg, RTM_DISCOVER_ELEMENT_OBJECTS, &rsp, TIMEOUT_VALUE_FIRE_AND_FORGET);
 
-    rtMessage_Release(msg);
+    rbusMessage_Release(msg);
     msg = rsp;
 
     if(RT_OK == err)
@@ -2078,10 +2064,10 @@ rbusCoreError_t rbus_discoverElementObjects(const char* element, int * count, ch
         int result;
         const char * value = NULL;
 
-        if((RT_OK == rtMessage_GetInt32(msg, RTM_DISCOVERY_RESULT, &result)) && (RT_OK == result))
+        if((RT_OK == rbusMessage_GetInt32(msg, &result)) && (RT_OK == result))
         {
             int num_elements = 0;
-            rtMessage_GetInt32(msg, RTM_DISCOVERY_COUNT, &num_elements);
+            rbusMessage_GetInt32(msg, &num_elements);
             *count = num_elements;
 
             if(num_elements)
@@ -2093,7 +2079,7 @@ rbusCoreError_t rbus_discoverElementObjects(const char* element, int * count, ch
                     memset(array_ptr, 0, (num_elements * sizeof(char *)));
                     for (int i = 0; i < num_elements; i++)
                     {
-                        if ((RT_OK != rtMessage_GetStringItem(msg, RTM_DISCOVERY_ITEMS, i, &value)) || (NULL == (array_ptr[i] = strndup(value, MAX_OBJECT_NAME_LENGTH))))
+                        if ((RT_OK != rbusMessage_GetString(msg, &value)) || (NULL == (array_ptr[i] = strndup(value, MAX_OBJECT_NAME_LENGTH))))
                         {
                             for (int j = 0; j < i; j++)
                                 free(array_ptr[j]);
@@ -2115,7 +2101,7 @@ rbusCoreError_t rbus_discoverElementObjects(const char* element, int * count, ch
         {
             ret = RBUSCORE_ERROR_GENERAL;
         }
-        rtMessage_Release(msg);
+        rbusMessage_Release(msg);
     }
     else
     {
@@ -2129,37 +2115,37 @@ rbusCoreError_t rbus_discoverElementsObjects(int numElements, const char** eleme
 {
     rbusCoreError_t ret = RBUSCORE_SUCCESS;
     rtError err = RT_OK;
-    rtMessage msg, rsp;
+    rbusMessage msg, rsp;
     char** array_ptr = NULL;
     int array_count = 0;
 
     *count = 0;
 
-    rtMessage_Create(&msg);
+    rbusMessage_Init(&msg);
     if(NULL != elements)
     {
         int i;
-        rtMessage_SetInt32(msg, RTM_DISCOVERY_COUNT, numElements);
+        rbusMessage_SetInt32(msg, numElements);
         for(i = 0; i < numElements; ++i)
-            rtMessage_AddString(msg, RTM_DISCOVERY_ITEMS, elements[i]);
+            rbusMessage_SetString(msg, elements[i]);
     }
     else
     {
         RBUSCORELOG_ERROR("Null entries in element list.");
-        rtMessage_Release(msg);
+        rbusMessage_Release(msg);
         return RBUSCORE_ERROR_INVALID_PARAM;
     }
 
     err = rtConnection_SendRequest(g_connection, msg, RTM_DISCOVER_ELEMENT_OBJECTS, &rsp, TIMEOUT_VALUE_FIRE_AND_FORGET);
 
-    rtMessage_Release(msg);
+    rbusMessage_Release(msg);
     msg = rsp;
 
     if(RT_OK == err)
     {
         int result;
 
-        if((RT_OK == rtMessage_GetInt32(msg, RTM_DISCOVERY_RESULT, &result)) && (RT_OK == result))
+        if((RT_OK == rbusMessage_GetInt32(msg, &result)) && (RT_OK == result))
         {
             int i;
 
@@ -2168,7 +2154,7 @@ rbusCoreError_t rbus_discoverElementsObjects(int numElements, const char** eleme
                 int numComponents = 0;
                 const char* component = NULL;
 
-                if(rtMessage_GetInt32(msg, RTM_DISCOVERY_COUNT, &numComponents) == RT_OK)
+                if(rbusMessage_GetInt32(msg, &numComponents) == RT_OK)
                 {
                     char **next = NULL;
                     if(numComponents)
@@ -2186,7 +2172,7 @@ rbusCoreError_t rbus_discoverElementsObjects(int numElements, const char** eleme
                         array_ptr = next;
                         for (int j = 0; j < numComponents; j++)
                         {
-                            if (RT_OK != rtMessage_GetStringItem(msg, RTM_DISCOVERY_ITEMS, array_count, &component))
+                            if (RT_OK != rbusMessage_GetString(msg, &component))
                             {
                                 RBUSCORELOG_ERROR("Read item failure");
                                 ret = RBUSCORE_ERROR_GENERAL;
@@ -2216,7 +2202,7 @@ rbusCoreError_t rbus_discoverElementsObjects(int numElements, const char** eleme
         {
             ret = RBUSCORE_ERROR_GENERAL;
         }
-        rtMessage_Release(msg);
+        rbusMessage_Release(msg);
     }
     else
     {
@@ -2244,15 +2230,15 @@ rbusCoreError_t rbus_discoverRegisteredComponents(int * count, char *** componen
 {
     rbusCoreError_t ret = RBUSCORE_SUCCESS;
     rtError err = RT_OK;
-    rtMessage msg;
-    rtMessage out;
-    rtMessage_Create(&out);
-    rtMessage_SetInt32(out, "dummy", 0);
+    rbusMessage msg;
+    rbusMessage out;
+    rbusMessage_Init(&out);
+    rbusMessage_SetInt32(out, 0);
     
     if(NULL == g_connection)
     {
         RBUSCORELOG_ERROR("Not connected.");
-        rtMessage_Release(out);
+        rbusMessage_Release(out);
         return RBUSCORE_ERROR_INVALID_STATE;
     }
 
@@ -2260,30 +2246,23 @@ rbusCoreError_t rbus_discoverRegisteredComponents(int * count, char *** componen
 
     if(RT_OK == err)
     {
-        int32_t size, length, i;
+        int32_t size, i;
         const char * value = NULL;
 
-        rtMessage_GetInt32(msg, RTM_DISCOVERY_COUNT, &size);
-        rtMessage_GetArrayLength(msg, RTM_DISCOVERY_ITEMS, &length);
-
-        if(size != length)
-        {
-            RBUSCORELOG_ERROR("rbus_registeredComponents size missmatch");
-        }
+        rbusMessage_GetInt32(msg, &size);
 
         char **array_ptr = (char **)rt_try_malloc(size * sizeof(char *));
         *count = size;
         if (NULL != array_ptr)
         {
             *components = array_ptr;
-            memset(array_ptr, 0, (length * sizeof(char *)));
-            for (i = 0; i < length; i++)
+            memset(array_ptr, 0, (size * sizeof(char *)));
+            for (i = 0; i < size; i++)
             {
-                if ((RT_OK != rtMessage_GetStringItem(msg, RTM_DISCOVERY_ITEMS, i, &value)) || (NULL == (array_ptr[i] = strndup(value, MAX_OBJECT_NAME_LENGTH))))
+                if ((RT_OK != rbusMessage_GetString(msg, &value)) || (NULL == (array_ptr[i] = strndup(value, MAX_OBJECT_NAME_LENGTH))))
                 {
                     for (int j = 0; j < i; j++)
                         free(array_ptr[j]);
-                    free(array_ptr);
                     RBUSCORELOG_ERROR("Read/Memory allocation failure");
                     ret = RBUSCORE_ERROR_GENERAL;
                     break;
@@ -2296,8 +2275,8 @@ rbusCoreError_t rbus_discoverRegisteredComponents(int * count, char *** componen
             ret = RBUSCORE_ERROR_INSUFFICIENT_MEMORY;
         }
 
-        rtMessage_Release(msg);
-        rtMessage_Release(out);
+        rbusMessage_Release(msg);
+        rbusMessage_Release(out);
         ret = RBUSCORE_SUCCESS;
     }
     else
@@ -2945,7 +2924,7 @@ rbusCoreError_t rbuscore_openPrivateConnectionToProvider(rtConnection *pPrivateC
 {
     rtError       err;
     rbusCoreError_t ret = RBUSCORE_SUCCESS;
-    rtMessage     config;
+    rbusMessage     config;
     rtConnection  connection;
     rbusClientDMLList_t *obj = NULL;
 
@@ -2957,17 +2936,17 @@ rbusCoreError_t rbuscore_openPrivateConnectionToProvider(rtConnection *pPrivateC
         {
             RBUSCORELOG_INFO("Connection does not exist; create new");
 
-            rtMessage_Create(&config);
-            rtMessage_SetString(config, "appname", "rbus");
-            rtMessage_SetString(config, "uri", pPrivateConnAddress);
-            rtMessage_SetInt32(config, "max_retries", 5);
-            rtMessage_SetInt32(config, "start_router", 0);
+            rbusMessage_Init(&config);
+            rbusMessage_SetString(config, "rbus");
+            rbusMessage_SetString(config, pPrivateConnAddress);
+            rbusMessage_SetInt32(config, 5);
+            rbusMessage_SetInt32(config, 0);
 
             err = rtConnection_CreateWithConfig(&connection, config);
             if (err != RT_OK)
             {
                 RBUSCORELOG_ERROR("failed to create connection to router %s. %s", pPrivateConnAddress, rtStrError(err));
-                rtMessage_Release(config);
+                rbusMessage_Release(config);
                 directClientUnlock();
                 return RBUSCORE_ERROR_GENERAL;
             }
@@ -2975,7 +2954,7 @@ rbusCoreError_t rbuscore_openPrivateConnectionToProvider(rtConnection *pPrivateC
 
             rtConnection_AddDefaultListener(connection, master_event_callback, NULL);
             RBUSCORELOG_DEBUG("pPrivateConn new = %p", connection);
-            rtMessage_Release(config);
+            rbusMessage_Release(config);
         }
         else
         {

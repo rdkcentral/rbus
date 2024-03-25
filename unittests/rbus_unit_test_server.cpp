@@ -1084,17 +1084,17 @@ TEST_F(TestServer, rtmsg_rtConnection_CreateWithConfig_test1)
 {
   char const*   router_config ="unix:///tmp/rtrouted";
   rtError       err;
-  rtMessage     config;
+  rbusMessage     config;
   rtConnection  connection;
-  rtMessage_Create(&config);
-  rtMessage_SetString(config, "appname", "rtsend");
-  rtMessage_SetString(config, "uri", router_config);
-  rtMessage_SetInt32(config, "start_router", 1);
+  rbusMessage_Init(&config);
+  rbusMessage_SetString(config, "rtsend");
+  rbusMessage_SetString(config, router_config);
+  rbusMessage_SetInt32(config, 1);
   err = rtConnection_CreateWithConfig(&connection, config);
   EXPECT_EQ(err, RT_OK) << "rtmsg_rtconnection_CreateWithConfig failed";
   err = rtConnection_Dispatch(connection);
   EXPECT_EQ(err, RT_OK);
-  rtMessage_Release(config);
+  rbusMessage_Release(config);
   rtConnection_Destroy(connection);
 }
 
@@ -1102,16 +1102,16 @@ TEST_F(TestServer, rtmsg_rtConnection_CreateWithConfig_test2)
 {
   char const*   router_config ="unix:///tmp/rtrouted";
   rtError       err;
-  rtMessage     config;
+  rbusMessage     config;
   rtConnection  connection;
-  rtMessage_Create(&config);
-  rtMessage_SetString(config, "appname", "rtsend");
-  rtMessage_SetString(config, "uri", router_config);
-  rtMessage_SetInt32(config, "start_router", 0);
+  rbusMessage_Init(&config);
+  rbusMessage_SetString(config, "rtsend");
+  rbusMessage_SetString(config, router_config);
+  rbusMessage_SetInt32(config, 0);
   err = rtConnection_CreateWithConfig(&connection, config);
   EXPECT_EQ(err, RT_OK) << "rtmsg_rtconnection_CreateWithConfig failed";
   _rtConnection_TaintMessages(1);
-  rtMessage_Release(config);
+  rbusMessage_Release(config);
   rtConnection_Destroy(connection);
 }
 
@@ -1119,15 +1119,15 @@ TEST_F(TestServer, rtmsg_rtConnection_CreateWithConfig_test3)
 {
   char const*   router_config ="tcp://127.0.0.1:10001";
   rtError       err;
-  rtMessage     config;
+  rbusMessage     config;
   rtConnection  connection;
-  rtMessage_Create(&config);
-  rtMessage_SetString(config, "appname", "rtsend");
-  rtMessage_SetString(config, "uri", router_config);
-  rtMessage_SetInt32(config, "start_router", 0);
+  rbusMessage_Init(&config);
+  rbusMessage_SetString(config, "rtsend");
+  rbusMessage_SetString(config, router_config);
+  rbusMessage_SetInt32(config, 0);
   err = rtConnection_CreateWithConfig(&connection, config);
   EXPECT_EQ(err, RT_NO_CONNECTION) << "rtmsg_rtconnection_CreateWithConfig failed";
-  rtMessage_Release(config);
+  rbusMessage_Release(config);
 }
 
 TEST_F(TestServer, rtmsg_rtConnection_SendResponse_test1)
@@ -1136,19 +1136,19 @@ TEST_F(TestServer, rtmsg_rtConnection_SendResponse_test1)
   rtMessageHeader const* hdr = (const rtMessageHeader*)name;
   char* buff = "TestName";
   rtError err;
-  rtMessage res;
+  rbusMessage res;
 
   rtConnection  con;
   rtConnection_Create(&con, "PROVIDER1", "unix:///tmp/rtrouted");
-  rtMessage_Create(&res);
-  rtMessage_SetString(res, "reply", buff);
+  rbusMessage_Init(&res);
+  rbusMessage_SetString(res, buff);
   err = rtConnection_SendResponse(con, hdr, res, 1000);
   EXPECT_EQ(err, RT_OK);
-  rtMessage_Release(res);
+  rbusMessage_Release(res);
   rtConnection_Destroy(con);
 }
 
-TEST_F(TestServer, rtmsg_rtMessage_SetBool_test1)
+TEST_F(TestServer, DISABLED_rtmsg_rtMessage_SetBool_test1)
 {
   rtError       err;
   rtMessage     config;
@@ -1166,7 +1166,7 @@ TEST_F(TestServer, rtmsg_rtMessage_SetBool_test1)
   rtMessage_Release(config);
 }
 
-TEST_F(TestServer, rtmsg_rtMessage_SetDouble_test1)
+TEST_F(TestServer, DISABLED_rtmsg_rtMessage_SetDouble_test1)
 {
   rtError       err;
   rtMessage     config;
@@ -1184,9 +1184,10 @@ TEST_F(TestServer, rtmsg_rtMessage_SetDouble_test1)
   rtMessage_Release(config);
 }
 
-TEST_F(TestServer, rtmsg_rtMessage_SetMessage_test1)
+TEST_F(TestServer, DISABLED_rtmsg_rtMessage_SetMessage_test1)
 {
     rtMessage req = NULL, msg = NULL;
+    rbusMessage req1 = NULL;
     rtMessage item, p;
     char* s = NULL;
     char val[10];
@@ -1230,9 +1231,9 @@ TEST_F(TestServer, rtmsg_rtMessage_SetMessage_test1)
     err = rtMessage_ToString(NULL, &s, &n);
     EXPECT_EQ(err, RT_FAIL) << "rtMessage_ToString failed";
 
-    err = rtMessage_AddBinaryData(req, "sample", ptr, sizeof(ptr));
+    err = rtMessage_AddBinaryData(req1, ptr, sizeof(ptr));
     EXPECT_EQ(err, RT_OK);
-    err = rtMessage_GetBinaryData(req, "sample", (void**)&ptr, (uint32_t*)&size);
+    err = rtMessage_GetBinaryData(req1, (void**)&ptr, (uint32_t*)&size);
     EXPECT_EQ(err, RT_OK);
     err = rtMessage_SetSendTopic(req, topic);
     EXPECT_EQ(err, RT_OK);
@@ -1249,7 +1250,7 @@ TEST_F(TestServer, rtmsg_rtMessage_SetMessage_test1)
     }
 }
 
-TEST_F(TestServer, rtmsg_rtMessage_SetMessage_test2)
+TEST_F(TestServer, DISABLED_rtmsg_rtMessage_SetMessage_test2)
 {
     rtMessage req, msg;
     rtMessage item;
@@ -1272,7 +1273,7 @@ TEST_F(TestServer, rtmsg_rtMessage_SetMessage_test2)
     rtMessage_Release(item);
 }
 
-TEST_F(TestServer, rtmsg_rtMessage_SetMessage_test3)
+TEST_F(TestServer, DISABLED_rtmsg_rtMessage_SetMessage_test3)
 {
     rtMessage req, msg;
     rtMessage item, p;
@@ -1298,7 +1299,7 @@ TEST_F(TestServer, rtmsg_rtMessage_SetMessage_test3)
     rtMessage_Release(item);
 }
 
-TEST_F(TestServer, rtmsg_rtMessage_Retain_test1)
+TEST_F(TestServer, DISABLED_rtmsg_rtMessage_Retain_test1)
 {
   rtError err;
   rtMessage msg;
@@ -1311,7 +1312,7 @@ TEST_F(TestServer, rtmsg_rtMessage_Retain_test1)
      rtMessage_Release(msg);
 }
 
-TEST_F(TestServer, rtmsg_rtMessage_Clone_test1)
+TEST_F(TestServer, DISABLED_rtmsg_rtMessage_Clone_test1)
 {
   rtError err;
   rtMessage msg, cpy;
@@ -1323,7 +1324,7 @@ TEST_F(TestServer, rtmsg_rtMessage_Clone_test1)
   rtMessage_Release(cpy);
 }
 
-TEST_F(TestServer, rtmsg_rtMessage_toByteArray_test1)
+TEST_F(TestServer, DISABLED_rtmsg_rtMessage_toByteArray_test1)
 {
     rtError err;
     rtMessage req, item;

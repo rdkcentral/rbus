@@ -17,7 +17,7 @@
 # limitations under the License.
 ##########################################################################
 add_subdirectory(rtmessage)
-
+include_directories(${PROJECT_SOURCE_DIR}/include)
 IF (NOT BUILD_ONLY_RTMESSAGE)
  add_subdirectory(core)
 

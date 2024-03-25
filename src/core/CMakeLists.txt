@@ -17,6 +17,8 @@
 # limitations under the License.
 ##########################################################################
 include_directories(${PROJECT_SOURCE_DIR}/src/rtmessage)
+include_directories(${CMAKE_INSTALL_PREFIX}/include/rbus)
+include_directories(${PROJECT_SOURCE_DIR}/include)
 add_library(
     rbuscore
     SHARED
@@ -36,4 +38,4 @@ install (TARGETS rbuscore
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 
-install (FILES rbuscore.h rbuscore_message.h  rbuscore_types.h  DESTINATION "include/rbus")
+install (FILES rbuscore.h rbuscore_types.h  DESTINATION "include/rbus")

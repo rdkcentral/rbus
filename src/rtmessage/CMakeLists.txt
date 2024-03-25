@@ -19,6 +19,8 @@
 
 set(OPENSSL_REQUIRED FALSE)
 
+include_directories(${PROJECT_SOURCE_DIR}/include)
+include_directories(${CMAKE_INSTALL_PREFIX}/include/rtmessage)
 if (WITH_SPAKE2)
   message("spake2 enabled")
   set(OPENSSL_REQUIRED TRUE)
@@ -26,6 +28,7 @@ if (WITH_SPAKE2)
   if (BUILD_FOR_DESKTOP)
     add_definitions(-DWITH_SPAKE2_TEST_PIN=1)
     include_directories(${CMAKE_INSTALL_PREFIX}/include)
+    include_directories(${CMAKE_INSTALL_PREFIX}/include/rtmessage)
     link_directories(${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR})
   endif (BUILD_FOR_DESKTOP)
   set(LIBEXCHANGER_PATH ${CMAKE_CURRENT_SOURCE_DIR}/../../../../../libexchanger)
@@ -82,12 +85,14 @@ add_library(
       rtHashMap.c
       rtMemory.c
       rtrouteBase.c
+      ../core/rbuscore_message.c
       local_benchmarking.c)
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 include_directories(${RDKLOGGER_INCLUDE_DIRS})
 add_dependencies(rtMessage cjson)
 target_link_libraries(rtMessage -pthread ${CJSON_LIBRARIES})
+target_link_libraries(rtMessage ${MSGPACK_LIBRARIES} -lpthread)
 
 if (ENABLE_RDKLOGGER)
     add_dependencies(rtMessage rdklogger)
@@ -149,4 +154,9 @@ install (
   rtHashMap.h
   rtMemory.h
   rtm_discovery_api.h
+  rtrouteBase.h
+  rtCipher.h
+  rtSocket.h
   DESTINATION "include/rtmessage")
+
+install (FILES ${PROJECT_SOURCE_DIR}/include/rbuscore_message.h DESTINATION "include/rtmessage")
