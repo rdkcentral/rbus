@@ -1386,6 +1386,8 @@ static int _master_event_callback_handler(char const* sender, char const* eventN
     {
         RBUSLOG_DEBUG("Received master event callback: sender=%s eventName=%s, but no subscription found", sender, event.name);
         HANDLE_EVENTSUBS_MUTEX_UNLOCK(handleInfo);
+        if(event.data)
+            rbusObject_Release(event.data);
         return RBUSCORE_ERROR_EVENT_NOT_HANDLED;
     }
 exit_1:
@@ -2537,8 +2539,8 @@ static void _subscribe_callback_handler (rbusHandle_t handle, rbusMessage reques
                                                            rbusEvent_SubscribeWithRetries() function call */
                     rbusEventData_appendToMessage(&event, filter, interval, duration, handleInfo->componentId, *response);
                     rbusProperty_Release(tmpProperties);
-                    rbusObject_Release(data);
                 }
+                rbusObject_Release(data);
             }
             if(payload)
             {
@@ -3510,6 +3512,7 @@ rbusError_t rbus_getExt(rbusHandle_t handle, int paramCount, char const** pParam
                                     }
                                 }
                             }
+                            rbusProperty_Release(tmpProperties);
                         }
                     }
                     if (errorcode != RBUS_ERROR_SUCCESS)
@@ -4820,6 +4823,8 @@ static rbusError_t rbusEvent_SubscribeWithRetries(
             {
                 RBUSLOG_WARN("EVENT_SUBSCRIPTION_FAIL_INVALID_INPUT  %s", eventName);/*RDKB-33658-AC9*/
                 rbusEventSubscription_free(sub);
+                if(response)
+                    rbusMessage_Release(response);
                 return providerError;
             }
         }

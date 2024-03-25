@@ -1522,8 +1522,8 @@ static void master_event_callback(rtMessageHeader const* hdr, uint8_t const* dat
     }
     /* If no matching objects exist in records. Create a new entry.*/
     unlock();
-    rbusMessage_Release(msg);
     RBUSCORELOG_WARN("Received event %s::%s for which no subscription exists.", sender, event_name);
+    rbusMessage_Release(msg);
     return;
 }
 

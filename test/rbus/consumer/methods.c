@@ -331,6 +331,8 @@ void testMethods(rbusHandle_t handle, int* countPass, int* countFail)
 
     rbusObject_Release(inParams);
 
+    if(outParams)
+       rbusObject_Release(outParams);
     /*cleanup*/
     rbusTable_removeRow(handle, row2);
     rbusTable_removeRow(handle, row1);
