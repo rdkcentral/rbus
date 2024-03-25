@@ -177,7 +177,7 @@ static void rbusAsyncSubscribeRetrier_SendSubscriptionRequests()
             rbusCoreError_t coreerr;
             int elapsed;
             int providerError;
-            rbusMessage response;
+            rbusMessage response = NULL;
             uint32_t subscriptionId = 0;
 
 
@@ -230,6 +230,8 @@ static void rbusAsyncSubscribeRetrier_SendSubscriptionRequests()
                         rbusMessage_GetUInt32(response, &subscriptionId);
                     RBUSLOG_INFO("%s subscribe retries succeeded", item->subscription->eventName);
                     responseErr = RBUS_ERROR_SUCCESS;
+                    if(response)
+                        rbusMessage_Release(response);
                 }
                 else
                 {
@@ -250,6 +252,8 @@ static void rbusAsyncSubscribeRetrier_SendSubscriptionRequests()
                         RBUSLOG_INFO("%s subscribe retries failed due to core error %d", item->subscription->eventName, coreerr);
                         responseErr = RBUS_ERROR_BUS_ERROR;
                     }
+                    if(response)
+                        rbusMessage_Release(response);
                 }
 
                 _subscribe_async_callback_handler(item->subscription->handle, item->subscription, responseErr, subscriptionId);

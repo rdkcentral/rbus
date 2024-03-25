@@ -85,12 +85,11 @@ rbusError_t getVCHandler(rbusHandle_t handle, rbusProperty_t property, rbusGetHa
 
     rbusValue_SetInt32(value, mydata);
   } else if(strcmp("Device.rbusProvider.DateTime",name) == 0) {
-    rbusDateTime_t timeVal;
-    memset(&timeVal,0,sizeof(timeVal));
     struct tm compileTime;
     getCompileTime(&compileTime);
-    memcpy(&(timeVal.m_time), &compileTime, sizeof(struct tm));
-    rbusValue_SetTime(value, &(timeVal));
+    rbusDateTime_t tv1;
+    rbusValue_MarshallTMtoRBUS(&tv1, &compileTime);
+    rbusValue_SetTime(value, &(tv1));
   } else if(strcmp("Device.rbusProvider.Object",name) == 0) {
     rbusObject_t obj = NULL;
     rbusObject_Init(&obj, name);

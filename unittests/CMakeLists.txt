@@ -33,7 +33,8 @@ if (NOT GTEST_INCLUDE_DIR)
 
     ExternalProject_Add(
       gtest
-      URL https://github.com/google/googletest/archive/master.zip
+      GIT_REPOSITORY    https://github.com/google/googletest.git
+      GIT_TAG           release-1.12.0
       PREFIX ${CMAKE_CURRENT_BINARY_DIR}/gtest
       INSTALL_COMMAND "")
 
