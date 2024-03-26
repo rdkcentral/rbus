@@ -1132,17 +1132,19 @@ TEST_F(TestServer, rtmsg_rtConnection_CreateWithConfig_test3)
 
 TEST_F(TestServer, rtmsg_rtConnection_SendResponse_test1)
 {
-  char *name = "sample_test";
-  rtMessageHeader const* hdr = (const rtMessageHeader*)name;
+  rtMessageHeader hdr;
   char* buff = "TestName";
   rtError err;
   rtMessage res;
 
   rtConnection  con;
   rtConnection_Create(&con, "PROVIDER1", "unix:///tmp/rtrouted");
+  #ifdef MSG_ROUNDTRIP_TIME
+  rtMessageHeader_Init(&hdr);
+  #endif
   rtMessage_Create(&res);
   rtMessage_SetString(res, "reply", buff);
-  err = rtConnection_SendResponse(con, hdr, res, 1000);
+  err = rtConnection_SendResponse(con, &hdr, res, 1000);
   EXPECT_EQ(err, RT_OK);
   rtMessage_Release(res);
   rtConnection_Destroy(con);
