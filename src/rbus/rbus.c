@@ -183,6 +183,9 @@ static rbusError_t rbusCoreError_to_rbusError(rtError e)
     case RBUSCORE_ERROR_SUBSCRIBE_NOT_HANDLED:
       err = RBUS_ERROR_INVALID_OPERATION;
       break;
+    case RBUSCORE_ERROR_ENTRY_NOT_FOUND:
+      err = RBUS_ERROR_DESTINATION_NOT_FOUND;
+      break;
     default:
       err = RBUS_ERROR_BUS_ERROR;
       break;
@@ -3995,7 +3998,7 @@ rbusError_t rbus_setMulti(rbusHandle_t handle, int numProps, rbusProperty_t prop
         }
         else
         {
-            errorcode = RBUS_ERROR_DESTINATION_NOT_REACHABLE;
+            errorcode = RBUS_ERROR_DESTINATION_NOT_FOUND;
             RBUSLOG_ERROR("Discover component names failed with error %d and counts %d/%d", errorcode, numProps, numComponents);
             for(i = 0; i < numComponents; i++)
             {
@@ -4615,7 +4618,7 @@ static rbusError_t _rbus_event_unsubscribe(
 
     if(coreerr != RBUSCORE_SUCCESS)
     {
-        if(coreerr == RBUSCORE_ERROR_DESTINATION_UNREACHABLE)
+        if(coreerr == RBUSCORE_ERROR_ENTRY_NOT_FOUND)
         {
             subInternal->dirty = true;
             RBUSLOG_DEBUG ("n%s unsubscription failed because no provider could be found"
@@ -4721,7 +4724,7 @@ static rbusError_t rbusEvent_SubscribeWithRetries(
 
         coreerr = rbus_subscribeToEventTimeout(NULL, sub->eventName, _event_callback_handler, payload, sub, &providerError, destNotFoundTimeout, publishOnSubscribe, &response, rawData);
         
-        if(coreerr == RBUSCORE_ERROR_DESTINATION_UNREACHABLE && destNotFoundTimeout > 0)
+        if(coreerr == RBUSCORE_ERROR_ENTRY_NOT_FOUND && destNotFoundTimeout > 0)
         {
             int sleepTime = destNotFoundSleep;
 
@@ -4785,7 +4788,7 @@ static rbusError_t rbusEvent_SubscribeWithRetries(
     }
     else
     {
-        if(coreerr == RBUSCORE_ERROR_DESTINATION_UNREACHABLE)
+        if(coreerr == RBUSCORE_ERROR_ENTRY_NOT_FOUND)
         {
             RBUSLOG_DEBUG("%s all subscribe retries failed because no provider could be found", eventName);
             RBUSLOG_WARN("EVENT_SUBSCRIPTION_FAIL_NO_PROVIDER_COMPONENT  %s", eventName);/*RDKB-33658-AC7*/
@@ -5044,7 +5047,7 @@ rbusError_t rbusEvent_Unsubscribe(
         else
         {
             
-            if(coreerr == RBUSCORE_ERROR_DESTINATION_UNREACHABLE)
+            if(coreerr == RBUSCORE_ERROR_ENTRY_NOT_FOUND)
             {
                 subInternal->dirty = true;
                 RBUSLOG_INFO ("%s unsubscription failed because no provider could be found"
