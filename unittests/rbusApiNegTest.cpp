@@ -944,7 +944,7 @@ TEST(rbusInvokeNegTest, test3)
 
     rbusObject_Init(&inParams, NULL);
     rc = rbusMethod_Invoke(handle, method, inParams, &outParams);
-    EXPECT_EQ(rc, RBUS_ERROR_DESTINATION_NOT_REACHABLE);
+    EXPECT_EQ(rc, RBUS_ERROR_DESTINATION_NOT_FOUND);
     if(outParams)
         rbusObject_Release(outParams);
     if(inParams)

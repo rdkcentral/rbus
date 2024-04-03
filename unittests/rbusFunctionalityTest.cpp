@@ -131,7 +131,7 @@ static void exec_func_test(rbusGtest_t test)
           break;
         case RBUS_GTEST_SET_MULTI3:
         case RBUS_GTEST_SET3:
-          expected_consumer_status = RBUS_ERROR_DESTINATION_NOT_REACHABLE;
+          expected_consumer_status = RBUS_ERROR_DESTINATION_NOT_FOUND;
           break;
         case RBUS_GTEST_SET_MULTI5:
         case RBUS_GTEST_SET2:
