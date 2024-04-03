@@ -631,10 +631,10 @@ TEST_F(MultipleObjectsTest, DISABLED_rbus_multipleElement_test5)
         snprintf(name_buf, (sizeof(name_buf) - 1), "student_info.obj.element10");
         snprintf(data_buf, (sizeof(data_buf) - 1), "student_element10_data");
 
-//        RBUS_PUSH_OBJECT1(data_buf, name_buf, RBUSCORE_ERROR_DESTINATION_UNREACHABLE);
+//        RBUS_PUSH_OBJECT1(data_buf, name_buf, RBUSCORE_ERROR_ENTRY_NOT_FOUND);
 
         /*Trying to pull data from an undefined element*/
-        RBUS_PULL_OBJECT1(data_buf, name_buf, RBUSCORE_ERROR_DESTINATION_UNREACHABLE);
+        RBUS_PULL_OBJECT1(data_buf, name_buf, RBUSCORE_ERROR_ENTRY_NOT_FOUND);
 
         if(conn_status)
             CLOSE_BROKER_CONNECTION1();
@@ -672,10 +672,10 @@ TEST_F(MultipleObjectsTest, DISABLED_rbus_multipleElement_test6)
         snprintf(name_buf, (sizeof(name_buf) - 1), "student_info.obj.elementNone");
         snprintf(data_buf, (sizeof(data_buf) - 1), "student_data_none");
 
-        RBUS_PUSH_OBJECT1(data_buf, name_buf, RBUSCORE_ERROR_DESTINATION_UNREACHABLE);
+        RBUS_PUSH_OBJECT1(data_buf, name_buf, RBUSCORE_ERROR_ENTRY_NOT_FOUND);
 
         /*Trying to pull data from an undefined element*/
-        RBUS_PULL_OBJECT1(data_buf, name_buf, RBUSCORE_ERROR_DESTINATION_UNREACHABLE);
+        RBUS_PULL_OBJECT1(data_buf, name_buf, RBUSCORE_ERROR_ENTRY_NOT_FOUND);
 
         if(conn_status)
             CLOSE_BROKER_CONNECTION1();

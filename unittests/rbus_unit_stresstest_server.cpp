@@ -362,8 +362,8 @@ TEST_F(StressTestServer, dataPushPull_test3)
         sleep(2);
         conn_status = OPEN_BROKER_CONNECTION(client_name);
 
-        RBUS_PUSH_OBJECT(test_string, test_server_obj, RBUSCORE_ERROR_DESTINATION_UNREACHABLE);
-        RBUS_PULL_OBJECT(test_string, test_server_obj, RBUSCORE_ERROR_DESTINATION_UNREACHABLE);
+        RBUS_PUSH_OBJECT(test_string, test_server_obj, RBUSCORE_ERROR_ENTRY_NOT_FOUND);
+        RBUS_PULL_OBJECT(test_string, test_server_obj, RBUSCORE_ERROR_ENTRY_NOT_FOUND);
 
         if(conn_status)
             CLOSE_BROKER_CONNECTION();
@@ -1186,8 +1186,8 @@ TEST_F(StressTestServer, rbus_removeElement_test1)
 
         for(i = 0; i < 100; i++)
         {
-            RBUS_PUSH_OBJECT(test_string, server_element, RBUSCORE_ERROR_DESTINATION_UNREACHABLE);
-            RBUS_PULL_OBJECT(test_string, server_element, RBUSCORE_ERROR_DESTINATION_UNREACHABLE);
+            RBUS_PUSH_OBJECT(test_string, server_element, RBUSCORE_ERROR_ENTRY_NOT_FOUND);
+            RBUS_PULL_OBJECT(test_string, server_element, RBUSCORE_ERROR_ENTRY_NOT_FOUND);
         }
 
         if(conn_status)

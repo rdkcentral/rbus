@@ -762,7 +762,7 @@ static rbusCoreError_t send_subscription_request(const char * object_name, const
         else
             rbusMessage_Release(internal_response);
     }
-    else if(RBUSCORE_ERROR_DESTINATION_UNREACHABLE == ret)
+    else if(RBUSCORE_ERROR_ENTRY_NOT_FOUND == ret)
     {
         RBUSCORELOG_DEBUG("Error %s subscription for %s::%s. Provider not found. %d", (activate? "adding" : "removing"), object_name, event_name, ret);
         //keep ret as RBUSCORE_ERROR_DESTINATION_UNREACHABLE
@@ -1141,7 +1141,7 @@ rbusCoreError_t rbus_invokeRemoteMethod2(rtConnection myConn, const char * objec
         if(RT_OBJECT_NO_LONGER_AVAILABLE == err)
         {
             RBUSCORELOG_DEBUG("Cannot reach object %s.", object_name);
-            ret = RBUSCORE_ERROR_DESTINATION_UNREACHABLE;
+            ret = RBUSCORE_ERROR_ENTRY_NOT_FOUND;
         }
         else if(RT_ERROR_TIMEOUT == err)
         {
