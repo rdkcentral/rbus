@@ -3998,7 +3998,7 @@ rbusError_t rbus_setMulti(rbusHandle_t handle, int numProps, rbusProperty_t prop
         }
         else
         {
-            errorcode = RBUS_ERROR_DESTINATION_NOT_REACHABLE;
+            errorcode = RBUS_ERROR_DESTINATION_NOT_FOUND;
             RBUSLOG_ERROR("Discover component names failed with error %d and counts %d/%d", errorcode, numProps, numComponents);
             for(i = 0; i < numComponents; i++)
             {
