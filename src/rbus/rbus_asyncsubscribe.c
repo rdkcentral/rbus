@@ -190,7 +190,7 @@ static void rbusAsyncSubscribeRetrier_SendSubscriptionRequests()
 
             elapsed = rtTime_Elapsed(&item->startTime, &now);
 
-            if(coreerr == RBUSCORE_ERROR_DESTINATION_UNREACHABLE &&  /*the only error that means provider not found yet*/
+            if(coreerr == RBUSCORE_ERROR_ENTRY_NOT_FOUND &&  /*the only error that means provider not found yet*/
              elapsed < rbusConfig_Get()->subscribeTimeout)    /*if we haven't timeout out yet*/
             {
                 if(item->nextWaitTime == 0)
@@ -235,7 +235,7 @@ static void rbusAsyncSubscribeRetrier_SendSubscriptionRequests()
                 }
                 else
                 {
-                    if(coreerr == RBUSCORE_ERROR_DESTINATION_UNREACHABLE)
+                    if(coreerr == RBUSCORE_ERROR_ENTRY_NOT_FOUND)
                     {
                         RBUSLOG_INFO("%s all subscribe retries failed and no provider found", item->subscription->eventName);
                         RBUSLOG_WARN("EVENT_SUBSCRIPTION_FAIL_NO_PROVIDER_COMPONENT  %s", item->subscription->eventName);/*RDKB-33658-AC7*/
