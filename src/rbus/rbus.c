@@ -3664,7 +3664,7 @@ rbusError_t rbus_getExt(rbusHandle_t handle, int paramCount, char const** pParam
         }
         else
         {
-            errorcode = RBUS_ERROR_DESTINATION_NOT_REACHABLE;
+            errorcode = RBUS_ERROR_DESTINATION_NOT_FOUND;
             RBUSLOG_ERROR("Discover component names failed with error %d and counts %d/%d", errorcode, paramCount, numComponents);
         }
         if(componentNames)
