@@ -450,7 +450,7 @@ int rbusConsumer(rbusGtest_t test, pid_t pid, int runtime)
       {
         const char *param = "Device.rbusProvider.Param2";
         isElementPresent(handle, param);
-        rc = exec_rbus_set_test(handle, RBUS_ERROR_DESTINATION_NOT_REACHABLE, "Device.rbusProvider.Param4", "Gtest set value");
+        rc = exec_rbus_set_test(handle, RBUS_ERROR_DESTINATION_NOT_FOUND, "Device.rbusProvider.Param4", "Gtest set value");
       }
       break;
     case RBUS_GTEST_SET4:
@@ -524,7 +524,7 @@ int rbusConsumer(rbusGtest_t test, pid_t pid, int runtime)
         const char *param1 = "Device.rbusProvider.Param2";
         const char *param2 = "Device.rbusProvider.Param4";
         isElementPresent(handle, param1);
-        rc = exec_rbus_multi_test(handle, RBUS_ERROR_DESTINATION_NOT_REACHABLE, 2, param1, param2);
+        rc = exec_rbus_multi_test(handle, RBUS_ERROR_DESTINATION_NOT_FOUND, 2, param1, param2);
       }
       break;
     case RBUS_GTEST_SET_MULTI4:
