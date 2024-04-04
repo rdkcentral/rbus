@@ -1368,7 +1368,7 @@ static int _master_event_callback_handler(char const* sender, char const* eventN
         if(subInternal->dirty)
         {
             errorcode =  _rbus_event_unsubscribe(handleInfo, subInternal);
-            if(errorcode != RBUS_ERROR_DESTINATION_NOT_REACHABLE)
+            if(errorcode != RBUS_ERROR_DESTINATION_NOT_FOUND)
             {
                 rbusEventSubscriptionInternal_free(subInternal);
                 errorcode = RBUS_ERROR_SUCCESS;
@@ -2995,7 +2995,7 @@ rbusError_t rbus_close(rbusHandle_t handle)
             rbusEventSubscriptionInternal_t* subInternal = NULL;
             subInternal = (rbusEventSubscriptionInternal_t*)rtVector_At(handleInfo->eventSubs, 0);
             ret = _rbus_event_unsubscribe(handle, subInternal);
-            if (ret == RBUS_ERROR_DESTINATION_NOT_REACHABLE)
+            if (ret == RBUS_ERROR_DESTINATION_NOT_FOUND)
             {
                 rtVector_RemoveItem(handleInfo->eventSubs, subInternal, rbusEventSubscriptionInternal_free);
             }
@@ -4623,7 +4623,7 @@ static rbusError_t _rbus_event_unsubscribe(
             subInternal->dirty = true;
             RBUSLOG_DEBUG ("n%s unsubscription failed because no provider could be found"
                     "and subscriber marked as dirty", subscription->eventName);
-            errorcode = RBUS_ERROR_DESTINATION_NOT_REACHABLE;
+            errorcode = RBUS_ERROR_DESTINATION_NOT_FOUND;
         }
         else
         {
@@ -4860,7 +4860,7 @@ static void _subscribe_rawdata_handler(rbusHandle_t handle, rbusMessage_t* msg, 
             if (subInternal && subInternal->dirty)
             {
                 errorcode =  _rbus_event_unsubscribe(handle, subInternal);
-                if(errorcode == RBUS_ERROR_DESTINATION_NOT_REACHABLE)
+                if(errorcode == RBUS_ERROR_DESTINATION_NOT_FOUND)
                 {
                     RBUSLOG_DEBUG ("%s unsubscription failed because no provider could be found"
                             "and subscriber marked as dirty", subInternal->sub->eventName);
@@ -5096,7 +5096,7 @@ rbusError_t rbusEvent_UnsubscribeRawData(
     if (subInternal)
     {
         errorcode = _rbus_event_unsubscribe(handle, subInternal);
-        if(errorcode != RBUS_ERROR_DESTINATION_NOT_REACHABLE)
+        if(errorcode != RBUS_ERROR_DESTINATION_NOT_FOUND)
         {
             rbusEventSubscriptionInternal_free(subInternal);
         }
@@ -5326,7 +5326,7 @@ rbusError_t rbusEvent_UnsubscribeExRawData(
         if(subInternal)
         {
             errorcode = _rbus_event_unsubscribe(handle, subInternal);
-            if(errorcode != RBUS_ERROR_DESTINATION_NOT_REACHABLE)
+            if(errorcode != RBUS_ERROR_DESTINATION_NOT_FOUND)
             {
                 rbusEventSubscriptionInternal_free(subInternal);
             }
@@ -5412,7 +5412,7 @@ rbusError_t rbusEvent_UnsubscribeEx(
                 }
             }
             errorcode = _rbus_event_unsubscribe(handle, subInternal);
-            if(errorcode != RBUS_ERROR_DESTINATION_NOT_REACHABLE)
+            if(errorcode != RBUS_ERROR_DESTINATION_NOT_FOUND)
             {
                 rbusEventSubscriptionInternal_free(subInternal);
             }
