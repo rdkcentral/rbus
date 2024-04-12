@@ -32,7 +32,7 @@
     </rbus>
 
     <xwrbus>
-     <dependencies>xwrdklogger, xwcjson, xwlibexchanger</dependencies>
+     <dependencies>xwrdklogger, xwcjson, xwmsgpack, xwlibexchanger</dependencies>
      <paths>
       <scripts>xw/opensource/src/rbus/</scripts>
       <target>xw/opensource/</target>
