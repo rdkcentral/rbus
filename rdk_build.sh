@@ -49,7 +49,7 @@ export RDK_TOOLCHAIN_PATH=${RDK_TOOLCHAIN_PATH-`readlink -m $RDK_PROJECT_ROOT_PA
 # default component name
 export RDK_COMPONENT_NAME=${RDK_COMPONENT_NAME-`basename $RDK_SOURCE_PATH`}
 export RDK_DIR=$RDK_PROJECT_ROOT_PATH
-export RDK_DUMP_SYMS=${RDK_PROJECT_ROOT_PATH}/utility/prebuilts/breakpad-prebuilts/x86/dump_syms
+export RDK_DUMP_SYMS=${RDK_PROJECT_ROOT_PATH}/build/components/amba/opensource/prebuilts/breakpad-prebuilts/x86/dump_syms
 export INSTALL_PATH="$RDK_FSROOT_PATH/usr"
 
 if [ "$XCAM_MODEL" == "SCHC2" ]; then
