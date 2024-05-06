@@ -3470,7 +3470,7 @@ rbusError_t rbus_getExt(rbusHandle_t handle, int paramCount, char const** pParam
                     rbusMessage_SetInt32(request, 1);
                     rbusMessage_SetString(request, pParamNames[0]);
                     /* Invoke the method */
-                    err = rbus_invokeRemoteMethod(destinations[i], METHOD_GETPARAMETERVALUES,
+                    err = rbuscore_invokeRemoteMethod(destinations[i], METHOD_GETPARAMETERVALUES,
                             request, rbusConfig_ReadWildcardGetTimeout(), &response);
                     if(err != RBUSCORE_SUCCESS)
                     {
