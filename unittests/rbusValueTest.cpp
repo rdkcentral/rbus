@@ -113,9 +113,9 @@ static void exec_validate_test(rbusValueType_t type,char *buffer)
   pRet = rbusValue_ToString(val, NULL, 0);
   if(type == RBUS_BOOLEAN) {
     if(strcmp(buffer,"true") == 0)
-      EXPECT_STREQ(pRet,"1");
+      EXPECT_STREQ(pRet,"true");
     if(strcmp(buffer,"false") == 0)
-      EXPECT_STREQ(pRet,"0");
+      EXPECT_STREQ(pRet,"false");
   } else if(type == RBUS_BYTE) {
       char tmp[4] = {0};
       sprintf(tmp,"%x",buffer[0]);
@@ -141,9 +141,9 @@ static void exec_validate_test(rbusValueType_t type,char *buffer)
     len = strlen(pRet);
     if(type == RBUS_BOOLEAN) {
       if(strcmp(buffer,"true") == 0)
-        EXPECT_EQ(strncmp(pRet,"1",len-1),0);
+        EXPECT_EQ(strncmp(pRet,"true",len-1),0);
       if(strcmp(buffer,"false") == 0)
-        EXPECT_EQ(strncmp(pRet,"0",len-1),0);
+        EXPECT_EQ(strncmp(pRet,"false",len-1),0);
     } else if(type == RBUS_BYTE) {
       char tmp[4] = {0};
       sprintf(tmp,"%x",buffer[0]);

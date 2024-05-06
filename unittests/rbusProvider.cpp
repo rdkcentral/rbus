@@ -85,12 +85,11 @@ rbusError_t getVCHandler(rbusHandle_t handle, rbusProperty_t property, rbusGetHa
 
     rbusValue_SetInt32(value, mydata);
   } else if(strcmp("Device.rbusProvider.DateTime",name) == 0) {
-    rbusDateTime_t timeVal;
-    memset(&timeVal,0,sizeof(timeVal));
     struct tm compileTime;
     getCompileTime(&compileTime);
-    memcpy(&(timeVal.m_time), &compileTime, sizeof(struct tm));
-    rbusValue_SetTime(value, &(timeVal));
+    rbusDateTime_t tv1;
+    rbusValue_MarshallTMtoRBUS(&tv1, &compileTime);
+    rbusValue_SetTime(value, &(tv1));
   } else if(strcmp("Device.rbusProvider.Object",name) == 0) {
     rbusObject_t obj = NULL;
     rbusObject_Init(&obj, name);
@@ -549,7 +548,7 @@ static int handle_get(const char * destination, const char * method, rbusMessage
       break;
     case RBUS_GTEST_GET19:
       rbusMessage_SetInt32(*response, RBUS_LEGACY_BYTE);
-      snprintf(buffer, sizeof(buffer), "%s", GTEST_VAL_STRING);
+      snprintf(buffer, sizeof(buffer), "%s", "A");
       break;
     case RBUS_GTEST_GET20:
       {
@@ -598,7 +597,7 @@ int rbuscoreProvider(rbusGtest_t test, pid_t pid, int *consumer_status)
     case RBUS_GTEST_GET16: object_name = "Device.rbuscoreProvider.GetLegULong";    break;
     case RBUS_GTEST_GET17: object_name = "Device.rbuscoreProvider.GetLegFloat";    break;
     case RBUS_GTEST_GET18: object_name = "Device.rbuscoreProvider.GetLegDouble";   break;
-    case RBUS_GTEST_GET19: object_name = "Device.rbuscoreProvider.GetLegBytes";    break;
+    case RBUS_GTEST_GET19: object_name = "Device.rbuscoreProvider.GetLegByte";    break;
     case RBUS_GTEST_GET20: object_name = "Device.rbuscoreProvider.GetLegDateTime"; break;
     case RBUS_GTEST_GET21: object_name = "Device.rbuscoreProvider.GetLegBase64";   break;
     case RBUS_GTEST_GET22: object_name = "Device.rbuscoreProvider.GetLegString";   break;

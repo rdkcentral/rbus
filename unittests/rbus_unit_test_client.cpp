@@ -215,7 +215,7 @@ rbusCoreError_t CREATE_SESSION()
     }
     else{
         printf("RPC with session manager failed.\n");
-        ret = RBUSCORE_ERROR_DESTINATION_UNREACHABLE;
+        ret = RBUSCORE_ERROR_ENTRY_NOT_FOUND;
         rbusMessage_Release(response);
         return ret;
     }
@@ -255,7 +255,7 @@ rbusCoreError_t PRINT_CURRENT_SESSION_ID()
     }
     else{
         printf("RPC with session manager failed.\n");
-        ret = RBUSCORE_ERROR_DESTINATION_UNREACHABLE;
+        ret = RBUSCORE_ERROR_ENTRY_NOT_FOUND;
         rbusMessage_Release(response);
         return ret;
     }
@@ -293,7 +293,7 @@ rbusCoreError_t END_SESSION(int session)
     }
     else{
         printf("RPC with session manager failed.\n");
-        ret = RBUSCORE_ERROR_DESTINATION_UNREACHABLE;
+        ret = RBUSCORE_ERROR_ENTRY_NOT_FOUND;
         rbusMessage_Release(response);
         return ret;
     }

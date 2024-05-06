@@ -69,6 +69,8 @@
   } \
 }
 
+#define RBUS_GET_DEFAULT_TIMEOUT_FOR_WILDCARD 120000  /* default timeout in miliseconds for GET API wildcard query*/
+
 //********************************************************************************//
 
 //******************************* STRUCTURES *************************************//
@@ -180,6 +182,9 @@ static rbusError_t rbusCoreError_to_rbusError(rtError e)
       break;
     case RBUSCORE_ERROR_SUBSCRIBE_NOT_HANDLED:
       err = RBUS_ERROR_INVALID_OPERATION;
+      break;
+    case RBUSCORE_ERROR_ENTRY_NOT_FOUND:
+      err = RBUS_ERROR_DESTINATION_NOT_FOUND;
       break;
     default:
       err = RBUS_ERROR_BUS_ERROR;
@@ -394,9 +399,8 @@ static bool _parse_rbusData_to_value (char const* pBuff, rbusLegacyDataType_t le
             }
             case RBUS_LEGACY_BYTE:
             {
-                rbusValue_SetBytes(value, (uint8_t*)pBuff, strlen(pBuff));
-                rc = true;
-                break;
+                rc = rbusValue_SetFromString(value, RBUS_BYTE, pBuff);
+		break;
             }
             case RBUS_LEGACY_DATETIME:
             {
@@ -406,8 +410,8 @@ static bool _parse_rbusData_to_value (char const* pBuff, rbusLegacyDataType_t le
             case RBUS_LEGACY_BASE64:
             {
                 RBUSLOG_WARN("RBUS_LEGACY_BASE64_TYPE: Base64 type was never used in CCSP so far. So, Rbus did not support it till now. Since this is the first Base64 query, please report to get it fixed.");
-                rbusValue_SetString(value, pBuff);
-                rc = true;
+                rbusValue_SetBytes(value, (uint8_t*)pBuff, strlen(pBuff));
+	        rc = true;
                 break;
             }
             default:
@@ -1364,7 +1368,7 @@ static int _master_event_callback_handler(char const* sender, char const* eventN
         if(subInternal->dirty)
         {
             errorcode =  _rbus_event_unsubscribe(handleInfo, subInternal);
-            if(errorcode != RBUS_ERROR_DESTINATION_NOT_REACHABLE)
+            if(errorcode != RBUS_ERROR_DESTINATION_NOT_FOUND)
             {
                 rbusEventSubscriptionInternal_free(subInternal);
                 errorcode = RBUS_ERROR_SUCCESS;
@@ -1385,6 +1389,8 @@ static int _master_event_callback_handler(char const* sender, char const* eventN
     {
         RBUSLOG_DEBUG("Received master event callback: sender=%s eventName=%s, but no subscription found", sender, event.name);
         HANDLE_EVENTSUBS_MUTEX_UNLOCK(handleInfo);
+        if(event.data)
+            rbusObject_Release(event.data);
         return RBUSCORE_ERROR_EVENT_NOT_HANDLED;
     }
 exit_1:
@@ -2536,8 +2542,8 @@ static void _subscribe_callback_handler (rbusHandle_t handle, rbusMessage reques
                                                            rbusEvent_SubscribeWithRetries() function call */
                     rbusEventData_appendToMessage(&event, filter, interval, duration, handleInfo->componentId, *response);
                     rbusProperty_Release(tmpProperties);
-                    rbusObject_Release(data);
                 }
+                rbusObject_Release(data);
             }
             if(payload)
             {
@@ -2989,7 +2995,7 @@ rbusError_t rbus_close(rbusHandle_t handle)
             rbusEventSubscriptionInternal_t* subInternal = NULL;
             subInternal = (rbusEventSubscriptionInternal_t*)rtVector_At(handleInfo->eventSubs, 0);
             ret = _rbus_event_unsubscribe(handle, subInternal);
-            if (ret == RBUS_ERROR_DESTINATION_NOT_REACHABLE)
+            if (ret == RBUS_ERROR_DESTINATION_NOT_FOUND)
             {
                 rtVector_RemoveItem(handleInfo->eventSubs, subInternal, rbusEventSubscriptionInternal_free);
             }
@@ -3464,8 +3470,8 @@ rbusError_t rbus_getExt(rbusHandle_t handle, int paramCount, char const** pParam
                     rbusMessage_SetInt32(request, 1);
                     rbusMessage_SetString(request, pParamNames[0]);
                     /* Invoke the method */
-                    err = rbuscore_invokeRemoteMethod(destinations[i], METHOD_GETPARAMETERVALUES, request, rbusConfig_ReadGetTimeout(), &response);
-
+                    err = rbus_invokeRemoteMethod(destinations[i], METHOD_GETPARAMETERVALUES,
+                            request, rbusConfig_ReadWildcardGetTimeout(), &response);
                     if(err != RBUSCORE_SUCCESS)
                     {
                         RBUSLOG_ERROR("get by %s failed; Received error %d from RBUS Daemon for the object %s", handle->componentName, err, destinations[i]);
@@ -3508,6 +3514,7 @@ rbusError_t rbus_getExt(rbusHandle_t handle, int paramCount, char const** pParam
                                     }
                                 }
                             }
+                            rbusProperty_Release(tmpProperties);
                         }
                     }
                     if (errorcode != RBUS_ERROR_SUCCESS)
@@ -3656,7 +3663,7 @@ rbusError_t rbus_getExt(rbusHandle_t handle, int paramCount, char const** pParam
         }
         else
         {
-            errorcode = RBUS_ERROR_DESTINATION_NOT_REACHABLE;
+            errorcode = RBUS_ERROR_DESTINATION_NOT_FOUND;
             RBUSLOG_ERROR("Discover component names failed with error %d and counts %d/%d", errorcode, paramCount, numComponents);
         }
         if(componentNames)
@@ -3813,6 +3820,7 @@ rbusError_t rbus_setMulti(rbusHandle_t handle, int numProps, rbusProperty_t prop
 {
     rbusError_t errorcode = RBUS_ERROR_INVALID_INPUT;
     rbusCoreError_t err = RBUSCORE_SUCCESS;
+    VERIFY_HANDLE(handle);	
     rbusMessage setRequest, setResponse;
     struct _rbusHandle* handleInfo = (struct _rbusHandle*) handle;
     rbusValueType_t type = RBUS_NONE;
@@ -3989,7 +3997,7 @@ rbusError_t rbus_setMulti(rbusHandle_t handle, int numProps, rbusProperty_t prop
         }
         else
         {
-            errorcode = RBUS_ERROR_DESTINATION_NOT_REACHABLE;
+            errorcode = RBUS_ERROR_DESTINATION_NOT_FOUND;
             RBUSLOG_ERROR("Discover component names failed with error %d and counts %d/%d", errorcode, numProps, numComponents);
             for(i = 0; i < numComponents; i++)
             {
@@ -4609,12 +4617,12 @@ static rbusError_t _rbus_event_unsubscribe(
 
     if(coreerr != RBUSCORE_SUCCESS)
     {
-        if(coreerr == RBUSCORE_ERROR_DESTINATION_UNREACHABLE)
+        if(coreerr == RBUSCORE_ERROR_ENTRY_NOT_FOUND)
         {
             subInternal->dirty = true;
             RBUSLOG_DEBUG ("n%s unsubscription failed because no provider could be found"
                     "and subscriber marked as dirty", subscription->eventName);
-            errorcode = RBUS_ERROR_DESTINATION_NOT_REACHABLE;
+            errorcode = RBUS_ERROR_DESTINATION_NOT_FOUND;
         }
         else
         {
@@ -4715,7 +4723,7 @@ static rbusError_t rbusEvent_SubscribeWithRetries(
 
         coreerr = rbuscore_subscribeToEventTimeout(NULL, sub->eventName, _event_callback_handler, payload, sub, &providerError, destNotFoundTimeout, publishOnSubscribe, &response, rawData);
         
-        if(coreerr == RBUSCORE_ERROR_DESTINATION_UNREACHABLE && destNotFoundTimeout > 0)
+        if(coreerr == RBUSCORE_ERROR_ENTRY_NOT_FOUND && destNotFoundTimeout > 0)
         {
             int sleepTime = destNotFoundSleep;
 
@@ -4779,7 +4787,7 @@ static rbusError_t rbusEvent_SubscribeWithRetries(
     }
     else
     {
-        if(coreerr == RBUSCORE_ERROR_DESTINATION_UNREACHABLE)
+        if(coreerr == RBUSCORE_ERROR_ENTRY_NOT_FOUND)
         {
             RBUSLOG_DEBUG("%s all subscribe retries failed because no provider could be found", eventName);
             RBUSLOG_WARN("EVENT_SUBSCRIPTION_FAIL_NO_PROVIDER_COMPONENT  %s", eventName);/*RDKB-33658-AC7*/
@@ -4817,6 +4825,8 @@ static rbusError_t rbusEvent_SubscribeWithRetries(
             {
                 RBUSLOG_WARN("EVENT_SUBSCRIPTION_FAIL_INVALID_INPUT  %s", eventName);/*RDKB-33658-AC9*/
                 rbusEventSubscription_free(sub);
+                if(response)
+                    rbusMessage_Release(response);
                 return providerError;
             }
         }
@@ -4849,7 +4859,7 @@ static void _subscribe_rawdata_handler(rbusHandle_t handle, rbusMessage_t* msg, 
             if (subInternal && subInternal->dirty)
             {
                 errorcode =  _rbus_event_unsubscribe(handle, subInternal);
-                if(errorcode == RBUS_ERROR_DESTINATION_NOT_REACHABLE)
+                if(errorcode == RBUS_ERROR_DESTINATION_NOT_FOUND)
                 {
                     RBUSLOG_DEBUG ("%s unsubscription failed because no provider could be found"
                             "and subscriber marked as dirty", subInternal->sub->eventName);
@@ -5035,7 +5045,7 @@ rbusError_t rbusEvent_Unsubscribe(
         else
         {
             
-            if(coreerr == RBUSCORE_ERROR_DESTINATION_UNREACHABLE)
+            if(coreerr == RBUSCORE_ERROR_ENTRY_NOT_FOUND)
             {
                 subInternal->dirty = true;
                 RBUSLOG_INFO ("%s unsubscription failed because no provider could be found"
@@ -5084,7 +5094,7 @@ rbusError_t rbusEvent_UnsubscribeRawData(
     if (subInternal)
     {
         errorcode = _rbus_event_unsubscribe(handle, subInternal);
-        if(errorcode != RBUS_ERROR_DESTINATION_NOT_REACHABLE)
+        if(errorcode != RBUS_ERROR_DESTINATION_NOT_FOUND)
         {
             rbusEventSubscriptionInternal_free(subInternal);
         }
@@ -5314,7 +5324,7 @@ rbusError_t rbusEvent_UnsubscribeExRawData(
         if(subInternal)
         {
             errorcode = _rbus_event_unsubscribe(handle, subInternal);
-            if(errorcode != RBUS_ERROR_DESTINATION_NOT_REACHABLE)
+            if(errorcode != RBUS_ERROR_DESTINATION_NOT_FOUND)
             {
                 rbusEventSubscriptionInternal_free(subInternal);
             }
@@ -5400,7 +5410,7 @@ rbusError_t rbusEvent_UnsubscribeEx(
                 }
             }
             errorcode = _rbus_event_unsubscribe(handle, subInternal);
-            if(errorcode != RBUS_ERROR_DESTINATION_NOT_REACHABLE)
+            if(errorcode != RBUS_ERROR_DESTINATION_NOT_FOUND)
             {
                 rbusEventSubscriptionInternal_free(subInternal);
             }

@@ -321,7 +321,7 @@ void testMethods(rbusHandle_t handle, int* countPass, int* countFail)
      */
     printf("\n##########################################\n# TEST rbusMethod_InvokeAsync(%s) \n#\n", "Device.TestProvider.ShouldNotExist()");
     asyncCalled = false;
-    asyncError = RBUS_ERROR_DESTINATION_NOT_REACHABLE;
+    asyncError = RBUS_ERROR_DESTINATION_NOT_FOUND;
     err = rbusMethod_InvokeAsync(handle, "Device.TestProvider.ShouldNotExist()", inParams, asyncMethodHandler1, 0);
     printf("consumer: rbusMethod_InvokeAsync(%s) %s\n", "Device.TestProvider.ShouldNotExist()",
         err == RBUS_ERROR_SUCCESS ? "success" : "fail");
@@ -331,6 +331,8 @@ void testMethods(rbusHandle_t handle, int* countPass, int* countFail)
 
     rbusObject_Release(inParams);
 
+    if(outParams)
+       rbusObject_Release(outParams);
     /*cleanup*/
     rbusTable_removeRow(handle, row2);
     rbusTable_removeRow(handle, row1);

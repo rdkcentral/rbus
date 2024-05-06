@@ -177,7 +177,7 @@ static void rbusAsyncSubscribeRetrier_SendSubscriptionRequests()
             rbusCoreError_t coreerr;
             int elapsed;
             int providerError;
-            rbusMessage response;
+            rbusMessage response = NULL;
             uint32_t subscriptionId = 0;
 
 
@@ -189,7 +189,7 @@ static void rbusAsyncSubscribeRetrier_SendSubscriptionRequests()
 
             elapsed = rtTime_Elapsed(&item->startTime, &now);
 
-            if(coreerr == RBUSCORE_ERROR_DESTINATION_UNREACHABLE &&  /*the only error that means provider not found yet*/
+            if(coreerr == RBUSCORE_ERROR_ENTRY_NOT_FOUND &&  /*the only error that means provider not found yet*/
              elapsed < rbusConfig_Get()->subscribeTimeout)    /*if we haven't timeout out yet*/
             {
                 if(item->nextWaitTime == 0)
@@ -229,10 +229,12 @@ static void rbusAsyncSubscribeRetrier_SendSubscriptionRequests()
                         rbusMessage_GetUInt32(response, &subscriptionId);
                     RBUSLOG_INFO("%s subscribe retries succeeded", item->subscription->eventName);
                     responseErr = RBUS_ERROR_SUCCESS;
+                    if(response)
+                        rbusMessage_Release(response);
                 }
                 else
                 {
-                    if(coreerr == RBUSCORE_ERROR_DESTINATION_UNREACHABLE)
+                    if(coreerr == RBUSCORE_ERROR_ENTRY_NOT_FOUND)
                     {
                         RBUSLOG_INFO("%s all subscribe retries failed and no provider found", item->subscription->eventName);
                         RBUSLOG_WARN("EVENT_SUBSCRIPTION_FAIL_NO_PROVIDER_COMPONENT  %s", item->subscription->eventName);/*RDKB-33658-AC7*/
@@ -249,6 +251,8 @@ static void rbusAsyncSubscribeRetrier_SendSubscriptionRequests()
                         RBUSLOG_INFO("%s subscribe retries failed due to core error %d", item->subscription->eventName, coreerr);
                         responseErr = RBUS_ERROR_BUS_ERROR;
                     }
+                    if(response)
+                        rbusMessage_Release(response);
                 }
 
                 _subscribe_async_callback_handler(item->subscription->handle, item->subscription, responseErr, subscriptionId);

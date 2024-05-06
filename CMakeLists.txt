@@ -22,10 +22,10 @@ cmake_minimum_required (VERSION 2.8.12)
 
 if (POLICY CMP0048)
   cmake_policy(SET CMP0048 NEW)
-  project(rbus VERSION 2.0.11)
+  project(rbus VERSION 2.0.12)
 else ()
   project(rbus)
-  set(PROJECT_VERSION "2.0.11")
+  set(PROJECT_VERSION "2.0.12")
 endif (POLICY CMP0048)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/")
@@ -50,6 +50,11 @@ set(CMAKE_C_FLAGS_RELEASE "-fPIC -Wall -Werror -Wextra ${CMAKE_C_FLAGS_RELEASE} 
 
 set(CMAKE_CXX_FLAGS_DEBUG "-fPIC -Wall -Werror -Wextra -Wno-type-limits -fno-inline ${CMAKE_C_FLAGS_DEBUG} -DRBUS_ALWAYS_ON ")
 set(CMAKE_CXX_FLAGS_RELEASE "-fPIC -Wall -Werror -Wextra ${CMAKE_C_FLAGS_RELEASE} -DRBUS_ALWAYS_ON ")
+
+if(ENABLE_ADDRESS_SANITIZER)
+	set(CMAKE_C_FLAGS "-fsanitize=address ${CMAKE_C_FLAGS}")
+	set(CMAKE_CXX_FLAGS "-fsanitize=address ${CMAKE_CXX_FLAGS}")
+endif(ENABLE_ADDRESS_SANITIZER)
 
 include(GNUInstallDirs)
 

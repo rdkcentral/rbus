@@ -74,12 +74,13 @@ static int exec_rbus_get_test(rbusHandle_t handle, const char *param)
       ((0 == strcmp(param,"Device.rbuscoreProvider.GetLegFloat")) && (RBUS_SINGLE == type) && (GTEST_VAL_SINGLE == rbusValue_GetSingle(val))) ||
       ((0 == strcmp(param,"Device.rbuscoreProvider.GetLegUInt32")) && (RBUS_UINT32 == type) && (GTEST_VAL_UINT32 == rbusValue_GetUInt32(val))) ||
       ((0 == strcmp(param,"Device.rbuscoreProvider.GetLegBoolean")) && (RBUS_BOOLEAN == type) && (GTEST_VAL_BOOL == rbusValue_GetBoolean(val))) ||
-      ((0 == strcmp(param,"Device.rbuscoreProvider.GetLegBase64")) && (RBUS_STRING == type) && (strcmp(rbusValue_GetString(val,NULL), GTEST_VAL_STRING) == 0)) ||
       ((0 == strcmp(param,"Device.rbuscoreProvider.GetLegString")) && (RBUS_STRING == type) && (strcmp(rbusValue_GetString(val,NULL), GTEST_VAL_STRING) == 0))
     ) {
     rc = RBUS_ERROR_SUCCESS;
 
-  } else if ((0 == strcmp(param,"Device.rbuscoreProvider.GetLegBytes")) && (RBUS_BYTES == type)) {
+  } else if ((0 == strcmp(param,"Device.rbuscoreProvider.GetLegByte")) && (RBUS_BYTE == type)) {
+      rc = (rbusValue_GetByte(val) == 65) ? RBUS_ERROR_SUCCESS : RBUS_ERROR_BUS_ERROR;
+  } else if ((0 == strcmp(param,"Device.rbuscoreProvider.GetLegBase64")) && (RBUS_BYTES == type)) {
 
     int len = 0;
     const uint8_t *ptr = rbusValue_GetBytes(val, &len);
@@ -97,14 +98,22 @@ static int exec_rbus_get_test(rbusHandle_t handle, const char *param)
     struct tm compileTime;
     struct tm checkTime;
     rbusDateTime_t *rcTime = NULL;
+    char CHECK_TIME[20];
+    char COMPILE_TIME[20];
 
     rcTime = (rbusDateTime_t *)rbusValue_GetTime(val);
     getCompileTime(&compileTime);
+    strftime(COMPILE_TIME, sizeof(COMPILE_TIME), "%x - %I:%M%p", &compileTime);
+    printf("Formatted date & time : %s\n", COMPILE_TIME );
 
     rbusValue_UnMarshallRBUStoTM(&checkTime, rcTime);
+    strftime(CHECK_TIME, sizeof(CHECK_TIME), "%x - %I:%M%p", &checkTime);
+    printf("Formatted date & time : %s\n", CHECK_TIME );
 
-    rc = (mktime(&compileTime) == mktime(&checkTime)) ? RBUS_ERROR_SUCCESS : RBUS_ERROR_BUS_ERROR;
-
+    if(strcmp(COMPILE_TIME, CHECK_TIME)==0)
+	    rc = RBUS_ERROR_SUCCESS;
+    else
+	    rc = RBUS_ERROR_BUS_ERROR;
   } else if((0 == strcmp(param,"Device.rbusProvider.Object")) && (RBUS_OBJECT == type)) {
 
     rbusObject_t obj = rbusValue_GetObject(val);
@@ -441,7 +450,7 @@ int rbusConsumer(rbusGtest_t test, pid_t pid, int runtime)
       {
         const char *param = "Device.rbusProvider.Param2";
         isElementPresent(handle, param);
-        rc = exec_rbus_set_test(handle, RBUS_ERROR_DESTINATION_NOT_REACHABLE, "Device.rbusProvider.Param4", "Gtest set value");
+        rc = exec_rbus_set_test(handle, RBUS_ERROR_DESTINATION_NOT_FOUND, "Device.rbusProvider.Param4", "Gtest set value");
       }
       break;
     case RBUS_GTEST_SET4:
@@ -515,7 +524,7 @@ int rbusConsumer(rbusGtest_t test, pid_t pid, int runtime)
         const char *param1 = "Device.rbusProvider.Param2";
         const char *param2 = "Device.rbusProvider.Param4";
         isElementPresent(handle, param1);
-        rc = exec_rbus_multi_test(handle, RBUS_ERROR_DESTINATION_NOT_REACHABLE, 2, param1, param2);
+        rc = exec_rbus_multi_test(handle, RBUS_ERROR_DESTINATION_NOT_FOUND, 2, param1, param2);
       }
       break;
     case RBUS_GTEST_SET_MULTI4:
@@ -631,7 +640,7 @@ int rbusConsumer(rbusGtest_t test, pid_t pid, int runtime)
       break;
     case RBUS_GTEST_GET19:
       {
-        rc = exec_rbus_get_test(handle, "Device.rbuscoreProvider.GetLegBytes");
+        rc = exec_rbus_get_test(handle, "Device.rbuscoreProvider.GetLegByte");
       }
       break;
     case RBUS_GTEST_GET20:
