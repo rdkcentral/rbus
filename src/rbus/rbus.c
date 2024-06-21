@@ -3532,8 +3532,16 @@ rbusError_t rbus_getExt(rbusHandle_t handle, int paramCount, char const** pParam
                 for(i = 0; i < numDestinations; i++)
                     free(destinations[i]);
                 free(destinations);
+                if ((*retProperties != NULL) && (errorcode != RBUS_ERROR_SUCCESS))
+                {
+                    RBUSLOG_WARN("Query for expression %s was partially successful", pParamNames[0]);
+                    return RBUS_ERROR_SUCCESS;
+                }
+                else 
+                {
+                    return errorcode;
+                }
 
-                return errorcode;
             }
         }
         else
