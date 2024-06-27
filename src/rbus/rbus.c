@@ -3494,7 +3494,7 @@ rbusError_t rbus_getExt(rbusHandle_t handle, int paramCount, char const** pParam
                         }
                         else
                         {
-                            rbusProperty_t tmpProperties;
+                            rbusProperty_t tmpProperties = NULL;
 
                             if((errorcode = _getExt_response_parser(response, &tmpNumOfValues, &tmpProperties)) != RBUS_ERROR_SUCCESS)
                             {
@@ -3642,7 +3642,7 @@ rbusError_t rbus_getExt(rbusHandle_t handle, int paramCount, char const** pParam
                     }
                     else
                     {
-                        rbusProperty_t batchResult;
+                        rbusProperty_t batchResult = NULL;
                         int batchNumVals;
                         if((errorcode = _getExt_response_parser(response, &batchNumVals, &batchResult)) != RBUS_ERROR_SUCCESS)
                         {
