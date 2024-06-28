@@ -66,7 +66,7 @@ typedef struct elementNode
     elementNode*            nextSibling;    /* Right */
     elementNode*            nextPrune;
     rbusElementType_t       type;           /* Type w/ Object=0 */
-    rbusCallbackTable_t     cbTable;        /* Callback table for the element */
+    rbusElementCallbackTable_t cbTable;     /* Callback table for the element */
     rtList                  subscriptions;  /* The list of rbusSubscription_t to this element */
     char*                   alias;          /* For table rows */
     char*                   changeComp;     /* For properties, the last component to set the value */
@@ -82,6 +82,7 @@ elementNode* insertElement(elementNode* root, rbusDataElement_t* elem);
 void removeElement(elementNode* element);
 elementNode* retrieveElement(elementNode* root, const char* name);
 elementNode* retrieveInstanceElement(elementNode* root, const char* name);
+elementNode* retrieveInstanceElementEx(rbusHandle_t handle, elementNode* root, const char* name, bool syncTables);
 void printRegisteredElements(elementNode* root, int level);
 void fprintRegisteredElements(FILE* f, elementNode* root, int level);
 void addElementSubscription(elementNode* node, rbusSubscription_t* sub, bool checkIfExists);
