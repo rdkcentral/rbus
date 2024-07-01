@@ -928,7 +928,7 @@ void execute_discover_registered_components_cmd(int argc, char* argv[])
         return;
 
     runSteps = __LINE__;
-    rc = rbus_discoverRegisteredComponents(&componentCnt, &pComponentNames);
+    rc = rbuscore_discoverRegisteredComponents(&componentCnt, &pComponentNames);
     if(RBUSCORE_SUCCESS == rc)
     {
         int i;
@@ -1053,7 +1053,7 @@ void execute_discover_wildcard_dests_cmd(int argc, char* argv[])
         return;
 
     runSteps = __LINE__;
-    rc = rbus_discoverWildcardDestinations(argv[2], &numDestinations, &destinations);
+    rc = rbuscore_discoverWildcardDestinations(argv[2], &numDestinations, &destinations);
     
     if(RBUSCORE_SUCCESS == rc)
     {

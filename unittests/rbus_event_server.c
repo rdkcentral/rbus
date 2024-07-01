@@ -44,7 +44,7 @@ int main(int argc, char *argv[])
     printf("syntax: sample_server <server object name>\n");
 
     reset_stored_data();
-    if((err = rbus_openBrokerConnection(argv[1])) == RBUSCORE_SUCCESS)
+    if((err = rbuscore_openBrokerConnection(argv[1])) == RBUSCORE_SUCCESS)
     {
         printf("Successfully connected to bus.\n");
     }
@@ -54,7 +54,7 @@ int main(int argc, char *argv[])
     snprintf(buffer, (sizeof(buffer) - 1), "%s.obj1", argv[1]);
     printf("Registering object %s\n", buffer);
 
-    if((err = rbus_registerObj(buffer, callback, NULL)) == RBUSCORE_SUCCESS)
+    if((err = rbuscore_registerObj(buffer, callback, NULL)) == RBUSCORE_SUCCESS)
     {
         printf("Successfully registered object %s \n", buffer);
     }
@@ -62,21 +62,21 @@ int main(int argc, char *argv[])
     rbus_method_table_entry_t table[2] = {{METHOD_SETPARAMETERVALUES, (void *)data1, handle_set2}, {METHOD_GETPARAMETERVALUES, (void *)data1, handle_get2}};
 
     /* registered the Methods */
-    rbus_registerMethodTable(buffer, table, 2); 
+    rbuscore_registerMethodTable(buffer, table, 2); 
    
     /* addelement to the object1 */
-    rbus_addElement(buffer, "alpha_alias");
+    rbuscore_addElement(buffer, "alpha_alias");
 
     /*registered the Events with name events */
     char data1[] = "data1";
-    rbus_registerEvent(buffer,"event_1",sub1_callback, data1);
+    rbuscore_registerEvent(buffer,"event_1",sub1_callback, data1);
 
     rbusMessage msg1;
     rbusMessage_Init(&msg1);
 
     rbusMessage_SetString(msg1, "bar");
 
-    rbus_publishEvent(buffer, "event_1", msg1);
+    rbuscore_publishEvent(buffer, "event_1", msg1);
 
     rbusMessage_Release(msg1);
 
@@ -84,7 +84,7 @@ int main(int argc, char *argv[])
 
     pause();
 
-    if((err = rbus_closeBrokerConnection()) == RBUSCORE_SUCCESS)
+    if((err = rbuscore_closeBrokerConnection()) == RBUSCORE_SUCCESS)
     {
         printf("Successfully disconnected from bus.\n");
     }

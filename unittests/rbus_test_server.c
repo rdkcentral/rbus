@@ -39,7 +39,7 @@ int main(int argc, char *argv[])
     printf("syntax: sample_server <server object name>\n");
 
     reset_stored_data();
-    if((err = rbus_openBrokerConnection(argv[1])) == RBUSCORE_SUCCESS)
+    if((err = rbuscore_openBrokerConnection(argv[1])) == RBUSCORE_SUCCESS)
     {
         printf("Successfully connected to bus.\n");
     }
@@ -49,14 +49,14 @@ int main(int argc, char *argv[])
     snprintf(buffer, (sizeof(buffer) - 1), "%s.obj1", argv[1]);
     printf("Registering object %s\n", buffer);
 
-    if((err = rbus_registerObj(buffer, callback, NULL)) == RBUSCORE_SUCCESS)
+    if((err = rbuscore_registerObj(buffer, callback, NULL)) == RBUSCORE_SUCCESS)
     {
         printf("Successfully registered object %s \n", buffer);
     }
 
     rbus_method_table_entry_t table[4] = {{METHOD_SETPARAMETERVALUES, NULL, handle_set1}, {METHOD_GETPARAMETERVALUES, NULL, handle_get1},
                                           {METHOD_SETPARAMETERATTRIBUTES, NULL, handle_setAttributes1}, {METHOD_GETPARAMETERATTRIBUTES, NULL, handle_getAttributes1}};
-    rbus_registerMethodTable(buffer, table, 4); 
+    rbuscore_registerMethodTable(buffer, table, 4); 
 
 
     /*Creating Object 2*/
@@ -64,20 +64,20 @@ int main(int argc, char *argv[])
     snprintf(buffer2, (sizeof(buffer2) - 1), "%s.obj2", argv[1]);
     printf("Registering object %s\n", buffer2);
 
-    if((err = rbus_registerObj(buffer2, callback, NULL)) == RBUSCORE_SUCCESS)
+    if((err = rbuscore_registerObj(buffer2, callback, NULL)) == RBUSCORE_SUCCESS)
     {
         printf("Successfully registered object %s \n",buffer2);
     }
 
     rbus_method_table_entry_t table2[4] = {{METHOD_SETPARAMETERVALUES, NULL, handle_set2}, {METHOD_GETPARAMETERVALUES, NULL, handle_get2},
                                           {METHOD_SETPARAMETERATTRIBUTES, NULL, handle_setAttributes2}, {METHOD_GETPARAMETERATTRIBUTES, NULL, handle_getAttributes2}};
-    rbus_registerMethodTable(buffer2, table2, 4); 
+    rbuscore_registerMethodTable(buffer2, table2, 4); 
 
     fflush(stdout);
 
     pause();
 
-    if((err = rbus_closeBrokerConnection()) == RBUSCORE_SUCCESS)
+    if((err = rbuscore_closeBrokerConnection()) == RBUSCORE_SUCCESS)
     {
         printf("Successfully disconnected from bus.\n");
     }

@@ -80,57 +80,57 @@ int main(int argc, char *argv[])
     rbusCoreError_t err = RBUSCORE_SUCCESS;
     rtLog_SetLevel(RT_LOG_INFO);
 
-    if((err = rbus_openBrokerConnection("wildcard_server")) == RBUSCORE_SUCCESS)
+    if((err = rbuscore_openBrokerConnection("wildcard_server")) == RBUSCORE_SUCCESS)
     {
         printf("Successfully connected to bus.\n");
     }
 
 
-    if((err = rbus_registerObj("foo", callback, NULL)) == RBUSCORE_SUCCESS)
+    if((err = rbuscore_registerObj("foo", callback, NULL)) == RBUSCORE_SUCCESS)
     {
         printf("Successfully registered object.\n");
     }
-    if((err = rbus_registerObj("bar", callback, NULL)) == RBUSCORE_SUCCESS)
+    if((err = rbuscore_registerObj("bar", callback, NULL)) == RBUSCORE_SUCCESS)
     {
         printf("Successfully registered object.\n");
     }
 
     rbus_method_table_entry_t table[2] = {{METHOD_SETPARAMETERVALUES, (void *)data1, handle_set}, {METHOD_GETPARAMETERVALUES, (void *)data1, handle_get}};
-    rbus_registerMethodTable("foo", table, 2);
-    rbus_registerMethodTable("bar", table, 2);
-    rbus_addElement("foo", "footree.1");
-    rbus_addElement("foo", "footree.2");
-    rbus_addElement("foo", "footree.3");
-    rbus_addElement("foo", "footree.4");
-    rbus_addElement("foo", "footree.5");
+    rbuscore_registerMethodTable("foo", table, 2);
+    rbuscore_registerMethodTable("bar", table, 2);
+    rbuscore_addElement("foo", "footree.1");
+    rbuscore_addElement("foo", "footree.2");
+    rbuscore_addElement("foo", "footree.3");
+    rbuscore_addElement("foo", "footree.4");
+    rbuscore_addElement("foo", "footree.5");
 
-    rbus_addElement("bar", "bartree.1");
-    rbus_addElement("bar", "bartree.2");
-    rbus_addElement("bar", "bartree.3");
-    rbus_addElement("bar", "bartree.4");
-    rbus_addElement("bar", "bartree.5");
+    rbuscore_addElement("bar", "bartree.1");
+    rbuscore_addElement("bar", "bartree.2");
+    rbuscore_addElement("bar", "bartree.3");
+    rbuscore_addElement("bar", "bartree.4");
+    rbuscore_addElement("bar", "bartree.5");
     
     printf("Press enter to remove object foo.\n");
     getchar();
-    rbus_unregisterObj("foo");
+    rbuscore_unregisterObj("foo");
     
     printf("Press enter to remove some elements of bar.\n");
     getchar();
-    rbus_removeElement("bar", "bartree.2");
-    rbus_removeElement("bar", "bartree.3");
+    rbuscore_removeElement("bar", "bartree.2");
+    rbuscore_removeElement("bar", "bartree.3");
     
     printf("Press enter to test some negative cases.\n");
     getchar();
-    rbus_removeElement("bar", "bartree.3");
-    rbus_unregisterObj("foo");
+    rbuscore_removeElement("bar", "bartree.3");
+    rbuscore_unregisterObj("foo");
     
     printf("Press enter to remove bar as well.\n");
     getchar();
-    rbus_unregisterObj("bar");
+    rbuscore_unregisterObj("bar");
     
     printf("Press enter to disconnect and exit.\n");
     getchar();
-    if((err = rbus_closeBrokerConnection()) == RBUSCORE_SUCCESS)
+    if((err = rbuscore_closeBrokerConnection()) == RBUSCORE_SUCCESS)
     {
         printf("Successfully disconnected from bus.\n");
     }

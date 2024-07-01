@@ -44,7 +44,7 @@ int main(int argc, char *argv[])
     printf("syntax: sample_client <name of object to pull>\n");
     rtLog_SetLevel(RT_LOG_INFO);
 
-    if((err = rbus_openBrokerConnection("everyclient")) == RBUSCORE_SUCCESS)
+    if((err = rbuscore_openBrokerConnection("everyclient")) == RBUSCORE_SUCCESS)
     {
         printf("Successfully connected to bus.\n");
     }
@@ -52,7 +52,7 @@ int main(int argc, char *argv[])
 
     /*Pull the object from remote end.*/
     rbusMessage response;
-    if((err = rbus_pullObj(argv[1], 1000, &response)) == RBUSCORE_SUCCESS)
+    if((err = rbuscore_pullObj(argv[1], 1000, &response)) == RBUSCORE_SUCCESS)
     {
         const char* buff = NULL;
         printf("Received object %s\n", argv[1]);
@@ -64,7 +64,7 @@ int main(int argc, char *argv[])
         printf("Could not pull object %s\n", argv[1]);
     }
 
-    if((err = rbus_closeBrokerConnection()) == RBUSCORE_SUCCESS)
+    if((err = rbuscore_closeBrokerConnection()) == RBUSCORE_SUCCESS)
     {
         printf("Successfully disconnected from bus.\n");
     }

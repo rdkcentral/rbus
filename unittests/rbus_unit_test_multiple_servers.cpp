@@ -41,12 +41,12 @@ static bool OPEN_BROKER_CONNECTION2(char* connection_name)
     bool result = false;
     rbusCoreError_t err = RBUSCORE_SUCCESS;
 
-    if((err = rbus_openBrokerConnection(connection_name)) == RBUSCORE_SUCCESS)
+    if((err = rbuscore_openBrokerConnection(connection_name)) == RBUSCORE_SUCCESS)
     {
          //printf("Successfully connected to bus.\n");
          result = true;
     }
-    EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_openBrokerConnection failed";
+    EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbuscore_openBrokerConnection failed";
     return result;
 }
 
@@ -54,12 +54,12 @@ static bool CLOSE_BROKER_CONNECTION2()
 {
     bool result = false;
     rbusCoreError_t err = RBUSCORE_SUCCESS;
-    if((err = rbus_closeBrokerConnection()) == RBUSCORE_SUCCESS)
+    if((err = rbuscore_closeBrokerConnection()) == RBUSCORE_SUCCESS)
     {
         //printf("Successfully disconnected from bus.\n");
         result = true;
     }
-    EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_closeBrokerConnection failed";
+    EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbuscore_closeBrokerConnection failed";
     return result;
 }
 
@@ -99,13 +99,13 @@ static void CREATE_RBUS_SERVER_INSTANCE2(int handle, int obj_count)
         printf("Registering object %s\n", buffer);
         strncpy(*(test_buffer + i), buffer, 100);
 
-        err = rbus_registerObj(buffer, callback, NULL);
-        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_registerObj failed";
+        err = rbuscore_registerObj(buffer, callback, NULL);
+        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbuscore_registerObj failed";
 
         rbus_method_table_entry_t table[2] = {{METHOD_SETPARAMETERVALUES, (void *)(test_buffer + i), handle_setStudentInfo}, {METHOD_GETPARAMETERVALUES, (void *)(test_buffer + i), handle_getStudentInfo}};
 
-        err = rbus_registerMethodTable(buffer, table, 2);
-        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_registerMethodTable failed";
+        err = rbuscore_registerMethodTable(buffer, table, 2);
+        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbuscore_registerMethodTable failed";
     }
     return;
 }
@@ -129,15 +129,15 @@ static void CREATE_RBUS_SERVER_INSTANCE3(const char * app_prefix, int num)
     signal(SIGTERM, handle_term2);
     reset_stored_data();
 
-    err = rbus_openBrokerConnection(server_name.c_str());
-    EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_openBrokerConnection2() failed";
+    err = rbuscore_openBrokerConnection(server_name.c_str());
+    EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbuscore_openBrokerConnection2() failed";
     
     std::string obj_name = std::string(app_prefix) + num_string + ".obj";
-    err = rbus_registerObj(obj_name.c_str(), callback, NULL);
-    EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_registerObj failed";
-    err = rbus_addElement(obj_name.c_str(), std::string(app_prefix + num_string + std::string(".element")).c_str());
-    EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_addElement failed";
-    rbus_addElement(obj_name.c_str(), std::string("common.element." + num_string).c_str());
+    err = rbuscore_registerObj(obj_name.c_str(), callback, NULL);
+    EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbuscore_registerObj failed";
+    err = rbuscore_addElement(obj_name.c_str(), std::string(app_prefix + num_string + std::string(".element")).c_str());
+    EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbuscore_addElement failed";
+    rbuscore_addElement(obj_name.c_str(), std::string("common.element." + num_string).c_str());
     return;
 }
 
@@ -146,19 +146,19 @@ static void RBUS_PULL_OBJECT2(char* expected_data, char* server_obj, rbusCoreErr
 {
     rbusCoreError_t err = RBUSCORE_SUCCESS;
     rbusMessage response;
-    if((err = rbus_pullObj(server_obj, 1000, &response)) == RBUSCORE_SUCCESS)
+    if((err = rbuscore_pullObj(server_obj, 1000, &response)) == RBUSCORE_SUCCESS)
     {
         const char* buff = NULL;
         rbusMessage_GetString(response, &buff);
         printf("%s: rbus pull returned : %s \n", __FUNCTION__, buff);
-        EXPECT_STREQ(buff, expected_data) << "rbus_pullObj failed to procure expected string";
+        EXPECT_STREQ(buff, expected_data) << "rbuscore_pullObj failed to procure expected string";
         rbusMessage_Release(response);
     }
     else
     {
         printf("Could not pull object %s\n", server_obj);
     }
-    EXPECT_EQ(err, expected_err) << "rbus_pullObj failed";
+    EXPECT_EQ(err, expected_err) << "rbuscore_pullObj failed";
     return;
 }
 
@@ -168,8 +168,8 @@ static void RBUS_PUSH_OBJECT2(char* data, char* server_obj, rbusCoreError_t expe
     rbusMessage setter;
     rbusMessage_Init(&setter);
     rbusMessage_SetString(setter, data);
-    err = rbus_pushObj(server_obj, setter, 1000);
-    EXPECT_EQ(err, expected_err) << "rbus_pushObj failed";
+    err = rbuscore_pushObj(server_obj, setter, 1000);
+    EXPECT_EQ(err, expected_err) << "rbuscore_pushObj failed";
     return;
 }
 
@@ -231,11 +231,11 @@ TEST_F(MultipleServerTest, rbus_multipleServer_test1)
         char** components = NULL;
         rbusCoreError_t err;
         //Neg test discover Registered components without connection
-        err = rbus_discoverRegisteredComponents(&num_comps, &components);
-        EXPECT_EQ(err, RBUSCORE_ERROR_INVALID_STATE) << "rbus_discoverRegisteredComponents failed";
+        err = rbuscore_discoverRegisteredComponents(&num_comps, &components);
+        EXPECT_EQ(err, RBUSCORE_ERROR_INVALID_STATE) << "rbuscore_discoverRegisteredComponents failed";
         conn_status = OPEN_BROKER_CONNECTION2(client_name);
-        err = rbus_discoverRegisteredComponents(&num_comps, &components);
-        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_discoverRegisteredComponents failed";
+        err = rbuscore_discoverRegisteredComponents(&num_comps, &components);
+        EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbuscore_discoverRegisteredComponents failed";
         std::vector <std::string> object_list;
         if(RBUSCORE_SUCCESS == err)
         {
@@ -250,7 +250,7 @@ TEST_F(MultipleServerTest, rbus_multipleServer_test1)
                 free(components[i]);
             }
             free(components);
-            EXPECT_EQ(reg_object_count, (server_count * object_count)) << "rbus_discoverRegisteredComponents returned wrong size";
+            EXPECT_EQ(reg_object_count, (server_count * object_count)) << "rbuscore_discoverRegisteredComponents returned wrong size";
         }
         
         for(j = 1; j <= server_count; j++)
@@ -513,26 +513,26 @@ TEST_F(MultipleServerTest, rbus_multipleServer_test6)
     if (is_parent)
     {
         rbusCoreError_t err;
-	rbus_openBrokerConnection("lookup_client");
+	rbuscore_openBrokerConnection("lookup_client");
         const char *inputs[] = {"lookup_test0.obj", "lookup_test0.element", "lookup_test1.obj", "lookup_test1.element1", "lookup_test0.", "lookup_test1.", "abcd", "common.", "common.element.0", "common.element.1"};
         constexpr int in_length = sizeof(inputs) / sizeof(char *);
         const char *expected_output[] = {"lookup_test0.obj", "lookup_test0.obj", "lookup_test1.obj", "lookup_test1.obj", "lookup_test0.obj", "lookup_test1.obj", "", "", "lookup_test0.obj", "lookup_test1.obj"};
         char **output = nullptr;
         sleep(3);//Allow servers to set up.
-        err = rbus_discoverElementObjects(inputs, in_length, &output);
-        EXPECT_EQ(RBUSCORE_SUCCESS, err) << "rbus_discoverElementObjects failed.";
+        err = rbuscore_discoverElementObjects(inputs, in_length, &output);
+        EXPECT_EQ(RBUSCORE_SUCCESS, err) << "rbuscore_discoverElementObjects failed.";
         if(RBUSCORE_SUCCESS == err)
         {
             printf("Multi-lookup returned success. Printing mapping information...\n");
             for (int i = 0; i < in_length; i++)
             {
                 //printf("%s mapped to %s\n", inputs[i], output[i]);
-                EXPECT_EQ(0, strcmp(expected_output[i], output[i])) << "rbus_discoverElementObjects returned wrong data";
+                EXPECT_EQ(0, strcmp(expected_output[i], output[i])) << "rbuscore_discoverElementObjects returned wrong data";
                 free(output[i]);
             }
             free(output);
         }
-        rbus_closeBrokerConnection();
+        rbuscore_closeBrokerConnection();
 
         for(int i = 0; i < server_count; i++)
             kill(pid[i], SIGTERM);
