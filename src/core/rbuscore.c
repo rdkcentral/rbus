@@ -2297,7 +2297,6 @@ rbusCoreError_t rbuscore_discoverRegisteredComponents(int * count, char *** comp
         }
 
         rtMessage_Release(msg);
-        rtMessage_Release(out);
         ret = RBUSCORE_SUCCESS;
     }
     else
@@ -2305,7 +2304,8 @@ rbusCoreError_t rbuscore_discoverRegisteredComponents(int * count, char *** comp
         RBUSCORELOG_ERROR("Failed with error code %d", err);
         ret = RBUSCORE_ERROR_GENERAL;
     }
-    
+
+    rtMessage_Release(out);
     return ret;
 }
 
