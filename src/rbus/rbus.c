@@ -5869,70 +5869,83 @@ rbusError_t rbus_createSession(rbusHandle_t handle, uint32_t *pSessionId)
 {
     (void)handle;
     rbusError_t rc = RBUS_ERROR_SUCCESS;
-    rbusCoreError_t err = RBUSCORE_SUCCESS;
-    rbusMessage response  = NULL;
+    rbusObject_t outParams = NULL;
     if (pSessionId && handle)
     {
         *pSessionId = 0;
-        if((err = rbus_invokeRemoteMethod(RBUS_SMGR_DESTINATION_NAME, RBUS_SMGR_METHOD_REQUEST_SESSION_ID, NULL, rbusConfig_ReadSetTimeout(), &response)) == RBUSCORE_SUCCESS)
+        if ((rc = rbusMethod_Invoke(handle, RBUS_SMGR_METHOD_REQUEST_SESSION_ID, NULL, &outParams)) == RBUS_ERROR_SUCCESS)
         {
-            rbusMessage_GetInt32(response, /*MESSAGE_FIELD_RESULT,*/ (int*) &err);
-            if(RBUSCORE_SUCCESS != err)
+            rbusProperty_t prop = NULL;
+            prop = rbusObject_GetProperties(outParams);
+            int result = rbusValue_GetInt32(rbusProperty_GetValue(prop));
+            if (RBUS_ERROR_SUCCESS != result)
             {
-                RBUSLOG_ERROR("Session manager reports internal error %d for the object %s", err, RBUS_SMGR_DESTINATION_NAME);
+                RBUSLOG_ERROR("Session manager reports internal error %d from %s for the object %s", rc, handle->componentName, RBUS_SMGR_DESTINATION_NAME);
                 rc = RBUS_ERROR_SESSION_ALREADY_EXIST;
             }
             else
             {
-                rbusMessage_GetInt32(response, /*MESSAGE_FIELD_PAYLOAD,*/ (int*) pSessionId);
-                RBUSLOG_INFO("Received new session id %u", *pSessionId);
+                prop = rbusProperty_GetNext(prop);
+                /* Get current session id*/
+                if (prop)
+                {
+                   *pSessionId = rbusValue_GetInt32(rbusProperty_GetValue(prop));
+                    RBUSLOG_INFO("Received new session id %u", *pSessionId);
+                }
+                else
+                    RBUSLOG_ERROR("Malformed response from session manager.\n");
             }
         }
         else
         {
             RBUSLOG_ERROR("Failed to communicated with session manager.");
-            rc = rbusCoreError_to_rbusError(err);
         }
-	rbusMessage_Release(response);
     }
     else
     {
         RBUSLOG_WARN("Invalid Input passed..");
         rc = RBUS_ERROR_INVALID_INPUT;
     }
-    return rc;
-}
+     return rc;
+ }
 
 rbusError_t rbus_getCurrentSession(rbusHandle_t handle, uint32_t *pSessionId)
 {
     (void)handle;
     rbusError_t rc = RBUS_ERROR_SUCCESS;
-    rbusCoreError_t err = RBUSCORE_SUCCESS;
-    rbusMessage response = NULL;
+    rbusObject_t outParams = NULL;
 
     if (pSessionId && handle)
     {
         *pSessionId = 0;
-        if((err = rbus_invokeRemoteMethod(RBUS_SMGR_DESTINATION_NAME, RBUS_SMGR_METHOD_GET_CURRENT_SESSION_ID, NULL, rbusConfig_ReadGetTimeout(), &response)) == RBUSCORE_SUCCESS)
+        if ((rc =  rbusMethod_Invoke(handle, RBUS_SMGR_METHOD_GET_CURRENT_SESSION_ID, NULL, &outParams)) == RBUS_ERROR_SUCCESS)
         {
-            rbusMessage_GetInt32(response, /*MESSAGE_FIELD_RESULT,*/ (int*) &err);
-            if(RBUSCORE_SUCCESS != err)
+            rbusProperty_t prop = NULL;
+            prop = rbusObject_GetProperties(outParams);
+            int result = rbusValue_GetInt32(rbusProperty_GetValue(prop));
+            if (RBUS_ERROR_SUCCESS != result)
             {
-                RBUSLOG_ERROR("Session manager reports internal error %d from %s for the object %s", err, handle->componentName, RBUS_SMGR_DESTINATION_NAME);
+                RBUSLOG_ERROR("Session manager reports internal error %d from %s for the object %s", rc, handle->componentName, RBUS_SMGR_DESTINATION_NAME);
                 rc = RBUS_ERROR_SESSION_ALREADY_EXIST;
             }
             else
             {
-                rbusMessage_GetInt32(response, /*MESSAGE_FIELD_PAYLOAD,*/ (int*) pSessionId);
-                RBUSLOG_INFO("Received new session id %u", *pSessionId);
+                prop = rbusProperty_GetNext(prop);
+                /* Get current session id*/
+                if (prop)
+                {
+                    *pSessionId = rbusValue_GetInt32(rbusProperty_GetValue(prop));
+                    RBUSLOG_INFO("Received new session id %u", *pSessionId);
+                }
+                else
+                    RBUSLOG_ERROR("Malformed response from session manager.\n");
             }
         }
         else
         {
             RBUSLOG_ERROR("Failed to communicated with session manager.");
-            rc = rbusCoreError_to_rbusError(err);
+            return rc;
         }
-	rbusMessage_Release(response);
     }
     else
     {
@@ -5946,44 +5959,46 @@ rbusError_t rbus_closeSession(rbusHandle_t handle, uint32_t sessionId)
 {
     (void)handle;
     rbusError_t rc = RBUS_ERROR_SUCCESS;
-    rbusCoreError_t err = RBUSCORE_SUCCESS;
 
     if (handle)
     {
-        rbusMessage inputSession;
-        rbusMessage response = NULL;
-
         if (sessionId == 0)
         {
             RBUSLOG_WARN("Passing default session ID which is 0");
             return RBUS_ERROR_SUCCESS;
         }
-        rbusMessage_Init(&inputSession);
-        rbusMessage_SetInt32(inputSession, /*MESSAGE_FIELD_PAYLOAD,*/ sessionId);
-        if((err = rbus_invokeRemoteMethod(RBUS_SMGR_DESTINATION_NAME, RBUS_SMGR_METHOD_END_SESSION, inputSession, rbusConfig_ReadSetTimeout(), &response)) == RBUSCORE_SUCCESS)
+
+        rbusObject_t inParams = NULL, outParams = NULL;
+        rbusObject_Init(&inParams, NULL);
+        rbusValue_t inputSession;
+        rbusValue_Init(&inputSession);
+        rbusValue_SetInt32(inputSession, sessionId);
+        rbusObject_SetValue(inParams, "session", inputSession);
+
+        if ((rc = rbusMethod_Invoke(handle, RBUS_SMGR_METHOD_END_SESSION, inParams, &outParams)) == RBUS_ERROR_SUCCESS)
         {
-            rbusMessage_GetInt32(response, /*MESSAGE_FIELD_RESULT,*/ (int*) &err);
-            if(RBUSCORE_SUCCESS != err)
+            VERIFY_NULL(outParams);
+            rbusProperty_t prop = NULL;
+            prop = rbusObject_GetProperties(outParams);
+            rc = rbusValue_GetInt32(rbusProperty_GetValue(prop));
+
+            if (RBUS_ERROR_SUCCESS == rc)
             {
-                RBUSLOG_ERROR("Session manager reports internal error %d from %s for the object %s", err, handle->componentName, RBUS_SMGR_DESTINATION_NAME);
-                rc = RBUS_ERROR_SESSION_ALREADY_EXIST;
+                RBUSLOG_INFO("Successfully ended session %u.", sessionId);
             }
             else
-                RBUSLOG_INFO("Successfully ended session %u.", sessionId);
+                RBUSLOG_ERROR("Session manager reports internal error %d from %s for the object %s", rc, handle->componentName, RBUS_SMGR_DESTINATION_NAME);
         }
         else
         {
             RBUSLOG_ERROR("Failed to communicated with session manager.");
-            rc = rbusCoreError_to_rbusError(err);
         }
-        rbusMessage_Release(response);
     }
     else
     {
         RBUSLOG_WARN("Invalid Input passed..");
         rc = RBUS_ERROR_INVALID_INPUT;
     }
-
     return rc;
 }
 
