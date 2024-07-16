@@ -5980,14 +5980,17 @@ rbusError_t rbus_closeSession(rbusHandle_t handle, uint32_t sessionId)
             VERIFY_NULL(outParams);
             rbusProperty_t prop = NULL;
             prop = rbusObject_GetProperties(outParams);
-            rc = rbusValue_GetInt32(rbusProperty_GetValue(prop));
+            int result = rbusValue_GetInt32(rbusProperty_GetValue(prop));
 
-            if (RBUS_ERROR_SUCCESS == rc)
+            if (RBUS_ERROR_SUCCESS == result)
             {
                 RBUSLOG_INFO("Successfully ended session %u.", sessionId);
             }
             else
-                RBUSLOG_ERROR("Session manager reports internal error %d from %s for the object %s", rc, handle->componentName, RBUS_SMGR_DESTINATION_NAME);
+            {
+                RBUSLOG_ERROR("Session manager reports internal error %d from %s for the object %s", result, handle->componentName, RBUS_SMGR_DESTINATION_NAME);
+                rc = RBUS_ERROR_SESSION_ALREADY_EXIST;
+            }
         }
         else
         {

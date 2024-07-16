@@ -47,7 +47,7 @@ static rbusError_t sessionManager_methodHandler(rbusHandle_t handle,
         rbusValue_t return_value, sessionid_value;
         rbusValue_Init(&return_value);
         rbusValue_Init(&sessionid_value);
-        rbusValue_SetInt32(return_value, RBUS_ERROR_SUCCESS);
+        rbusValue_SetInt32(return_value, RBUSCORE_SUCCESS);
         rbusValue_SetInt32(sessionid_value, g_current_session_id);
         rbusObject_SetValue(outParams, "return_value", return_value);
         rbusObject_SetValue(outParams, "sessionid", sessionid_value);
@@ -66,7 +66,7 @@ static rbusError_t sessionManager_methodHandler(rbusHandle_t handle,
             rbusValue_t return_value, sessionid_value;
             rbusValue_Init(&return_value);
             rbusValue_Init(&sessionid_value);
-            rbusValue_SetInt32(return_value, RBUS_ERROR_SUCCESS);
+            rbusValue_SetInt32(return_value, RBUSCORE_SUCCESS);
             rbusValue_SetInt32(sessionid_value, g_current_session_id);
             rbusObject_SetValue(outParams, "return_value", return_value);
             rbusObject_SetValue(outParams, "sessionid", sessionid_value);
@@ -78,18 +78,17 @@ static rbusError_t sessionManager_methodHandler(rbusHandle_t handle,
             printf("Cannot create new session when session %d is active.\n", g_current_session_id);
             rbusValue_t return_value;
             rbusValue_Init(&return_value);
-            rbusValue_SetInt32(return_value, RBUS_ERROR_SESSION_ALREADY_EXIST);
+            rbusValue_SetInt32(return_value, RBUSCORE_ERROR_INVALID_STATE);
             rbusObject_SetValue(outParams, "return_value", return_value);
             rbusValue_Release(return_value);
         }
-
         rbusEvent_t event = {0};
         rbusObject_t data;
         rbusValue_t return_value, sessionid_value;
         rbusValue_Init(&return_value);
         rbusValue_Init(&sessionid_value);
         rbusObject_Init(&data, NULL);
-        rbusValue_SetInt32(return_value, RBUS_ERROR_SUCCESS);
+        rbusValue_SetInt32(return_value, RBUSCORE_SUCCESS);
         rbusValue_SetInt32(sessionid_value, g_current_session_id);
         rbusObject_SetValue(data, "return_value", return_value);
         rbusObject_SetValue(data, "sessionid", sessionid_value);
@@ -120,6 +119,7 @@ static rbusError_t sessionManager_methodHandler(rbusHandle_t handle,
             {
                 printf("End of session %d\n", g_current_session_id);
                 g_current_session_id = 0;
+                result = RBUS_ERROR_SUCCESS;
             }
             else
             {
@@ -163,15 +163,16 @@ static rbusError_t sessionManager_methodHandler(rbusHandle_t handle,
         rbusObject_Release(data);
 
         if (rc != RBUS_ERROR_SUCCESS)
-            printf("rbusEvent_Publish failed with ret = %d\n", result);
+            printf("provider: rbusEvent_Publish Event failed: %d\n", rc);
     }
     else
     {
         return RBUS_ERROR_BUS_ERROR;
     }
-    return rc;
+    return RBUS_ERROR_SUCCESS;
 }
 
+#if 0
 static int callback(const char * destination, const char * method, rbusMessage message, void * user_data, rbusMessage *response, const rtMessageHeader* hdr)
 {
     (void) user_data;
@@ -189,6 +190,7 @@ static int callback(const char * destination, const char * method, rbusMessage m
 
     return 0;
 }
+#endif
 /*Signal handler for closing broker connection*/
 static void handle_signal(int sig)
 {
@@ -241,16 +243,16 @@ int main(int argc, char *argv[])
         }
     }
 
+#if 0
     if ((rc = rbus_unregisterObj(RBUS_SMGR_DESTINATION_NAME)) == RBUSCORE_SUCCESS)
     {
         printf("Successfully Unregistered object.\n");
     }
-
     if ((rc = rbus_registerObj(RBUS_SMGR_DESTINATION_NAME, callback, NULL)) == RBUSCORE_SUCCESS)
     {
         printf("Successfully registered object.\n");
     }
-
+#endif
     if ((rc = rbus_regDataElements(g_busHandle, 4, dataElements)) == RBUS_ERROR_SUCCESS)
         printf("Successfully registered Event.\n");
 
