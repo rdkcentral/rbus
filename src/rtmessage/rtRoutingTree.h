@@ -104,7 +104,7 @@ rtRoutingTree:
             Instead it returns topics which can be used to find the route when sent to rtrouted.
             If it wants to return aliases/topics then why not just the first one the component registers during rbus_open.
             The fact that the topic returned is seamingly random is confussing until you understand thats its only used
-            to route the rbus_invokeRemoteMethod call. But its still confusing because on the provider side, the message header topic
+            to route the rbuscore_invokeRemoteMethod call. But its still confusing because on the provider side, the message header topic
             will be this random topic name owned by that component. 
             To be continue ...
 

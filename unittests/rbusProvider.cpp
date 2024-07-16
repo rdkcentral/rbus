@@ -605,15 +605,15 @@ int rbuscoreProvider(rbusGtest_t test, pid_t pid, int *consumer_status)
     case RBUS_GTEST_GET24: object_name = "Device.rbuscoreProvider.GetLegCrInt32";  break;
   }
 
-  err = rbus_openBrokerConnection(object_name);
+  err = rbuscore_openBrokerConnection(object_name);
   EXPECT_EQ(err,RBUSCORE_SUCCESS);
   if(RBUSCORE_SUCCESS != err) goto exit1;
 
-  err = rbus_registerObj(object_name, handle_get, NULL);
+  err = rbuscore_registerObj(object_name, handle_get, NULL);
   EXPECT_EQ(err,RBUSCORE_SUCCESS);
   if(RBUSCORE_SUCCESS != err) goto exit2;
 
-  err = rbus_registerMethodTable(object_name, table, 1);
+  err = rbuscore_registerMethodTable(object_name, table, 1);
   EXPECT_EQ(err,RBUSCORE_SUCCESS);
   if(RBUSCORE_SUCCESS != err) goto exit2;
 
@@ -624,7 +624,7 @@ int rbuscoreProvider(rbusGtest_t test, pid_t pid, int *consumer_status)
   rc = (wait_ret != pid) ? RBUS_ERROR_BUS_ERROR : RBUS_ERROR_SUCCESS;
 
 exit2:
-  err = rbus_closeBrokerConnection();
+  err = rbuscore_closeBrokerConnection();
   EXPECT_EQ(err,RBUSCORE_SUCCESS);
   rc |= (RBUSCORE_SUCCESS == err) ? RBUS_ERROR_SUCCESS : RBUS_ERROR_BUS_ERROR;
 

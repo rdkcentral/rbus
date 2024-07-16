@@ -177,7 +177,7 @@ static void* PublishingThreadFunc(void* rec)
         rbusEventData_appendToMessage(&event, sub->filter, sub->interval, sub->duration, sub->componentId, msg);
 
         RBUSLOG_DEBUG("rbusEvent_Publish: publishing event %s to listener %s interval %d", sub->eventName, sub->listener, sub->interval);
-        error = rbus_publishSubscriberEvent(
+        error = rbuscore_publishSubscriberEvent(
                 handleInfo->componentName,
                 sub->eventName/*use the same eventName the consumer subscribed with; not event instance name eventData->name*/,
                 sub->listener,

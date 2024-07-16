@@ -59,10 +59,10 @@ static int request_session_id(const char * destination, const char * method, rbu
     rbusMessage_Init(&msg);
     rbusMessage_SetInt32(msg, RBUSCORE_SUCCESS);
     rbusMessage_SetInt32(msg, (int32_t)g_current_session_id);
-    err = rbus_publishEvent(RBUS_SMGR_DESTINATION_NAME, CCSP_CURRENT_SESSION_ID_SIGNAL, msg);
+    err = rbuscore_publishEvent(RBUS_SMGR_DESTINATION_NAME, CCSP_CURRENT_SESSION_ID_SIGNAL, msg);
     if(err != RBUSCORE_SUCCESS)
     {
-        printf("rbus_publishEvent failed with ret = %d\n", err);
+        printf("rbuscore_publishEvent failed with ret = %d\n", err);
     }
     rbusMessage_Release(msg);
 
@@ -118,10 +118,10 @@ static int end_session(const char * destination, const char * method, rbusMessag
     rbusMessage_Init(&msg);
     rbusMessage_SetInt32(msg, RBUSCORE_SUCCESS);
     rbusMessage_SetInt32(msg, (int32_t)g_current_session_id);
-    result = rbus_publishEvent(RBUS_SMGR_DESTINATION_NAME, CCSP_CURRENT_SESSION_ID_SIGNAL, msg);
+    result = rbuscore_publishEvent(RBUS_SMGR_DESTINATION_NAME, CCSP_CURRENT_SESSION_ID_SIGNAL, msg);
     if(result != RBUSCORE_SUCCESS)
     {
-        printf("rbus_publishEvent failed with ret = %d\n", result);
+        printf("rbuscore_publishEvent failed with ret = %d\n", result);
     }
     rbusMessage_Release(msg);
     return 0;
@@ -149,7 +149,7 @@ static int callback(const char * destination, const char * method, rbusMessage m
 static void handle_signal(int sig)
 {
     (void) sig;
-    rbus_closeBrokerConnection();
+    rbuscore_closeBrokerConnection();
     printf("rbus session manager exiting.\n");
     exit(0);
 }
@@ -174,7 +174,7 @@ int main(int argc, char *argv[])
 
     while(1)
     {
-        if((err = rbus_openBrokerConnection(RBUS_SMGR_DESTINATION_NAME)) == RBUSCORE_SUCCESS)
+        if((err = rbuscore_openBrokerConnection(RBUS_SMGR_DESTINATION_NAME)) == RBUSCORE_SUCCESS)
         {
             printf("Successfully connected to bus.\n");
             break;
@@ -186,12 +186,12 @@ int main(int argc, char *argv[])
         }
     }
 
-    if((err = rbus_registerObj(RBUS_SMGR_DESTINATION_NAME, callback, NULL)) == RBUSCORE_SUCCESS)
+    if((err = rbuscore_registerObj(RBUS_SMGR_DESTINATION_NAME, callback, NULL)) == RBUSCORE_SUCCESS)
     {
         printf("Successfully registered object.\n");
     }
 
-    if((err = rbus_registerEvent(RBUS_SMGR_DESTINATION_NAME, CCSP_CURRENT_SESSION_ID_SIGNAL, NULL, NULL)) == RBUSCORE_SUCCESS)
+    if((err = rbuscore_registerEvent(RBUS_SMGR_DESTINATION_NAME, CCSP_CURRENT_SESSION_ID_SIGNAL, NULL, NULL)) == RBUSCORE_SUCCESS)
     {
         printf("Successfully registered Event.\n");
     }
@@ -200,10 +200,10 @@ int main(int argc, char *argv[])
         {RBUS_SMGR_METHOD_GET_CURRENT_SESSION_ID, NULL, get_session_id}, 
         {RBUS_SMGR_METHOD_REQUEST_SESSION_ID, NULL, request_session_id}, 
         {RBUS_SMGR_METHOD_END_SESSION, NULL, end_session}};
-    rbus_registerMethodTable(RBUS_SMGR_DESTINATION_NAME, table, 3); 
+    rbuscore_registerMethodTable(RBUS_SMGR_DESTINATION_NAME, table, 3); 
     pause();
 
-    if((err = rbus_closeBrokerConnection()) == RBUSCORE_SUCCESS)
+    if((err = rbuscore_closeBrokerConnection()) == RBUSCORE_SUCCESS)
     {
         printf("Successfully disconnected from bus.\n");
     }

@@ -50,31 +50,31 @@ int main(int argc, char *argv[])
     printf("syntax: sample_client <name of client instance> <destination object name>\n");
     rtLog_SetLevel(RT_LOG_INFO);
 
-    if((err = rbus_openBrokerConnection(argv[1])) == RBUSCORE_SUCCESS)
+    if((err = rbuscore_openBrokerConnection(argv[1])) == RBUSCORE_SUCCESS)
     {
         printf("Successfully connected to bus.\n");
     }
 
     printf("Registering event callback.\n");
 
-    rbus_subscribeToEvent("non_object", "event_2", &event_callback, NULL, NULL, NULL); //Negative test case.
-    rbus_subscribeToEvent("non_object", NULL, &event_callback, NULL, NULL, NULL); //Negative test case.
-    rbus_subscribeToEvent(OBJ1_NAME, "event3", &event_callback, NULL, NULL, NULL); //Negative test case.
-    rbus_subscribeToEvent(OBJ1_NAME, "event1", &event_callback, NULL, NULL, NULL);
-    rbus_subscribeToEvent(OBJ1_NAME, "event1", &event_callback, NULL, NULL, NULL); //Negative test case.
-    rbus_subscribeToEvent(OBJ1_NAME, "event2", &event_callback, NULL, NULL, NULL);
-    rbus_subscribeToEvent(OBJ2_NAME, NULL, &event_callback, NULL, NULL, NULL);
+    rbuscore_subscribeToEvent("non_object", "event_2", &event_callback, NULL, NULL, NULL); //Negative test case.
+    rbuscore_subscribeToEvent("non_object", NULL, &event_callback, NULL, NULL, NULL); //Negative test case.
+    rbuscore_subscribeToEvent(OBJ1_NAME, "event3", &event_callback, NULL, NULL, NULL); //Negative test case.
+    rbuscore_subscribeToEvent(OBJ1_NAME, "event1", &event_callback, NULL, NULL, NULL);
+    rbuscore_subscribeToEvent(OBJ1_NAME, "event1", &event_callback, NULL, NULL, NULL); //Negative test case.
+    rbuscore_subscribeToEvent(OBJ1_NAME, "event2", &event_callback, NULL, NULL, NULL);
+    rbuscore_subscribeToEvent(OBJ2_NAME, NULL, &event_callback, NULL, NULL, NULL);
 
     //support rbus events being elements
-    rbus_subscribeToEvent(NULL, "event4", &event_callback, NULL, NULL, NULL);
+    rbuscore_subscribeToEvent(NULL, "event4", &event_callback, NULL, NULL, NULL);
 
     sleep(10);
-    rbus_unsubscribeFromEvent(OBJ1_NAME, "event2", NULL);
+    rbuscore_unsubscribeFromEvent(OBJ1_NAME, "event2", NULL);
     sleep(1);
 #if 1
     /*Pull the object from remote end.*/
     rbusMessage response;
-    if((err = rbus_pullObj(OBJ1_NAME, 1000, &response)) == RBUSCORE_SUCCESS)
+    if((err = rbuscore_pullObj(OBJ1_NAME, 1000, &response)) == RBUSCORE_SUCCESS)
     {
         const char* buff = NULL;
         printf("Received object %s\n", OBJ1_NAME);
@@ -89,7 +89,7 @@ int main(int argc, char *argv[])
 
     //Check whether aliases work.
 
-    if((err = rbus_pullObj("obj1_alias", 1000, &response)) == RBUSCORE_SUCCESS)
+    if((err = rbuscore_pullObj("obj1_alias", 1000, &response)) == RBUSCORE_SUCCESS)
     {
         const char* buff = NULL;
         printf("Received object %s\n", "obj1_alias");
@@ -101,7 +101,7 @@ int main(int argc, char *argv[])
     {
         printf("Could not pull object %s\n", OBJ1_NAME);
     }
-    if((err = rbus_pullObj("obj1_alias2", 1000, &response)) == RBUSCORE_SUCCESS)
+    if((err = rbuscore_pullObj("obj1_alias2", 1000, &response)) == RBUSCORE_SUCCESS)
     {
         const char* buff = NULL;
         printf("Received object %s\n", "obj1_alias2");
@@ -114,7 +114,7 @@ int main(int argc, char *argv[])
         printf("Could not pull object %s\n", OBJ1_NAME);
     }
     
-    if((err = rbus_pullObj(OBJ2_NAME, 1000, &response)) == RBUSCORE_SUCCESS)
+    if((err = rbuscore_pullObj(OBJ2_NAME, 1000, &response)) == RBUSCORE_SUCCESS)
     {
         const char* buff = NULL;
         printf("Received object %s\n", OBJ2_NAME);
@@ -131,7 +131,7 @@ int main(int argc, char *argv[])
     rbusMessage setter;
     rbusMessage_Init(&setter);
     rbusMessage_SetString(setter, "foobar");
-    if((err = rbus_pushObj(OBJ1_NAME, setter, 1000)) == RBUSCORE_SUCCESS)
+    if((err = rbuscore_pushObj(OBJ1_NAME, setter, 1000)) == RBUSCORE_SUCCESS)
     {
         printf("Push object %s\n", OBJ1_NAME);
     }
@@ -141,7 +141,7 @@ int main(int argc, char *argv[])
     }
 
     /* Pull again to make sure that "set" worked. */
-    if((err = rbus_pullObj(OBJ1_NAME, 1000, &response)) == RBUSCORE_SUCCESS)
+    if((err = rbuscore_pullObj(OBJ1_NAME, 1000, &response)) == RBUSCORE_SUCCESS)
     {
         const char* buff = NULL;
         printf("Received object %s\n", OBJ1_NAME);
@@ -154,7 +154,7 @@ int main(int argc, char *argv[])
         printf("Could not pull object %s\n", OBJ1_NAME);
     }
 #endif
-    if((err = rbus_closeBrokerConnection()) == RBUSCORE_SUCCESS)
+    if((err = rbuscore_closeBrokerConnection()) == RBUSCORE_SUCCESS)
     {
         printf("Successfully disconnected from bus.\n");
     }

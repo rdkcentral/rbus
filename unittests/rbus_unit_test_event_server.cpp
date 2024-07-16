@@ -41,24 +41,24 @@ static bool RBUS_OPEN_BROKER_CONNECTION(char* server_name, rbusCoreError_t expec
     bool result = false;
     rbusCoreError_t err = RBUSCORE_SUCCESS;
 
-    if((err = rbus_openBrokerConnection(server_name)) == RBUSCORE_SUCCESS)
+    if((err = rbuscore_openBrokerConnection(server_name)) == RBUSCORE_SUCCESS)
     {
          printf("Successfully connected to bus.\n");
          result = true;
     }
-    EXPECT_EQ(err, expected_status) << "rbus_openBrokerConnection failed";
+    EXPECT_EQ(err, expected_status) << "rbuscore_openBrokerConnection failed";
     return result;
 }
 static bool RBUS_CLOSE_BROKER_CONNECTION(rbusCoreError_t expected_status)
 {
     bool result = false;
     rbusCoreError_t err = RBUSCORE_SUCCESS;
-    if((err = rbus_closeBrokerConnection()) == RBUSCORE_SUCCESS)
+    if((err = rbuscore_closeBrokerConnection()) == RBUSCORE_SUCCESS)
     {
         printf("Successfully disconnected from bus.\n");
         result = true;
     }
-    EXPECT_EQ(err, expected_status) << "rbus_openBrokerConnection failed";
+    EXPECT_EQ(err, expected_status) << "rbuscore_openBrokerConnection failed";
     return result;
 }
 
@@ -98,9 +98,9 @@ void CREATE_RBUS_SERVER(int handle)
 
     printf("Registering obj %s \n", buffer);
 
-    err = rbus_registerObj(buffer, callback, NULL);
+    err = rbuscore_registerObj(buffer, callback, NULL);
 
-    EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_registerObj failed";
+    EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbuscore_registerObj failed";
 
     memset( buff, 0, DEFAULT_RESULT_BUFFERSIZE );
 
@@ -109,8 +109,8 @@ void CREATE_RBUS_SERVER(int handle)
     printf("Registering method %s \n", buff);
 
     rbus_method_table_entry_t table[2] = {{METHOD_SETPARAMETERVALUES, NULL, handle_set1}, {METHOD_GETPARAMETERVALUES, NULL, handle_get1}};
-    err = rbus_registerMethodTable(buffer, table, 2);
-    EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_registerMethodTable failed";
+    err = rbuscore_registerMethodTable(buffer, table, 2);
+    EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbuscore_registerMethodTable failed";
 
     printf("**********EXITING SERVER : %s ******************** \n", server_name);
     return;
@@ -153,7 +153,7 @@ TEST_F(EventServerAPIs, sample_test)
 }
 
 
-TEST_F(EventServerAPIs, rbus_registerEvent_test1)
+TEST_F(EventServerAPIs, rbuscore_registerEvent_test1)
 {
     int counter = 1;
     bool conn_status = false;
@@ -167,28 +167,28 @@ TEST_F(EventServerAPIs, rbus_registerEvent_test1)
     printf("Registering Event using %s \n", obj_name);
 
     //Test with invalid objname passed
-        err = rbus_registerEvent(NULL,"event1",sub1_callback,data);
-        EXPECT_EQ(err, RBUSCORE_ERROR_INVALID_PARAM) << "rbus_registerEvent failed";
+        err = rbuscore_registerEvent(NULL,"event1",sub1_callback,data);
+        EXPECT_EQ(err, RBUSCORE_ERROR_INVALID_PARAM) << "rbuscore_registerEvent failed";
     //Test with empty Event name.
-       err = rbus_registerEvent(obj_name,NULL,sub1_callback,data);
-       EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_registerEvent failed";
+       err = rbuscore_registerEvent(obj_name,NULL,sub1_callback,data);
+       EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbuscore_registerEvent failed";
      //Test with valid Event Name
-      err = rbus_registerEvent(obj_name,"event1",sub1_callback,data);
-      EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_registerEvent failed";
+      err = rbuscore_registerEvent(obj_name,"event1",sub1_callback,data);
+      EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbuscore_registerEvent failed";
     //Test the same Event Name to registered
-     err = rbus_registerEvent(obj_name,"event1",sub1_callback,data);
-     EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_registerEvent failed";
+     err = rbuscore_registerEvent(obj_name,"event1",sub1_callback,data);
+     EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbuscore_registerEvent failed";
      //Test with too long Event Name
      memset(event_name, 'o', (sizeof(event_name)- 1));
-     err = rbus_registerEvent(obj_name,event_name,sub1_callback,data);
-     EXPECT_EQ(err, RBUSCORE_ERROR_INVALID_PARAM) << "rbus_registerEvent failed";
+     err = rbuscore_registerEvent(obj_name,event_name,sub1_callback,data);
+     EXPECT_EQ(err, RBUSCORE_ERROR_INVALID_PARAM) << "rbuscore_registerEvent failed";
     conn_status = RBUS_CLOSE_BROKER_CONNECTION(RBUSCORE_SUCCESS);
     ASSERT_EQ(conn_status, true) << "RBUS_OPEN_BROKER_CONNECTION failed";
   return;
 
 }
 
-TEST_F(EventServerAPIs, rbus_unregisterEvent_test1)
+TEST_F(EventServerAPIs, rbuscore_unregisterEvent_test1)
 {
     int counter = 2;
     bool conn_status = false;
@@ -200,19 +200,19 @@ TEST_F(EventServerAPIs, rbus_unregisterEvent_test1)
     CREATE_RBUS_SERVER(counter);
 
     //Test with  objname to be NULL
-    err = rbus_unregisterEvent(obj_name1, "event2");
-    EXPECT_EQ(err, RBUSCORE_ERROR_INVALID_PARAM) << "rbus_unregisterEvent failed";
+    err = rbuscore_unregisterEvent(obj_name1, "event2");
+    EXPECT_EQ(err, RBUSCORE_ERROR_INVALID_PARAM) << "rbuscore_unregisterEvent failed";
     //Test with Event name to be NULL
-    err = rbus_unregisterEvent(obj_name, "NULL");
-    EXPECT_EQ(err, RBUSCORE_ERROR_INVALID_PARAM) << "rbus_unregisterEvent failed";
+    err = rbuscore_unregisterEvent(obj_name, "NULL");
+    EXPECT_EQ(err, RBUSCORE_ERROR_INVALID_PARAM) << "rbuscore_unregisterEvent failed";
     //Test with valid Event Name
-    err = rbus_registerEvent(obj_name,"event2",sub1_callback,data);
-    EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_registerEvent failed";
-    err = rbus_unregisterEvent(obj_name, "event2");
-    EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_unregisterEvent failed";
+    err = rbuscore_registerEvent(obj_name,"event2",sub1_callback,data);
+    EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbuscore_registerEvent failed";
+    err = rbuscore_unregisterEvent(obj_name, "event2");
+    EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbuscore_unregisterEvent failed";
     //Test the same Event Name to unregistered
-    err = rbus_unregisterEvent(obj_name, "event2");
-    EXPECT_EQ(err, RBUSCORE_ERROR_INVALID_PARAM) << "rbus_unregisterEvent failed";
+    err = rbuscore_unregisterEvent(obj_name, "event2");
+    EXPECT_EQ(err, RBUSCORE_ERROR_INVALID_PARAM) << "rbuscore_unregisterEvent failed";
     conn_status = RBUS_CLOSE_BROKER_CONNECTION(RBUSCORE_SUCCESS);
     ASSERT_EQ(conn_status, true) << "RBUS_OPEN_BROKER_CONNECTION failed";
 
@@ -220,7 +220,7 @@ TEST_F(EventServerAPIs, rbus_unregisterEvent_test1)
 
 }
 
-TEST_F(EventServerAPIs, rbus_publishEvent_test1)
+TEST_F(EventServerAPIs, rbuscore_publishEvent_test1)
 {
     int counter = 3;
     bool conn_status = false;
@@ -231,14 +231,14 @@ TEST_F(EventServerAPIs, rbus_publishEvent_test1)
     CREATE_RBUS_SERVER(counter);
 
     //Test with valid Event Name
-    err = rbus_registerEvent(obj_name,"event3",sub1_callback,data);
-    EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_registerEvent failed";
+    err = rbuscore_registerEvent(obj_name,"event3",sub1_callback,data);
+    EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbuscore_registerEvent failed";
     rbusMessage_Init(&msg1);
     rbusMessage_SetString(msg1, "bar");
     //Neg Test with invalid object name
-    err = rbus_publishEvent("server_obj", "event1", msg1);
-    EXPECT_EQ(err, RBUSCORE_ERROR_INVALID_PARAM) << "rbus_publishEvent failed";
-    err = rbus_publishEvent(obj_name, "event1", msg1);
+    err = rbuscore_publishEvent("server_obj", "event1", msg1);
+    EXPECT_EQ(err, RBUSCORE_ERROR_INVALID_PARAM) << "rbuscore_publishEvent failed";
+    err = rbuscore_publishEvent(obj_name, "event1", msg1);
     rbusMessage_Release(msg1);
     conn_status = RBUS_CLOSE_BROKER_CONNECTION(RBUSCORE_SUCCESS);
     ASSERT_EQ(conn_status, true) << "RBUS_OPEN_BROKER_CONNECTION failed";
@@ -248,7 +248,7 @@ TEST_F(EventServerAPIs, rbus_publishEvent_test1)
 }
 
 
-TEST_F(EventServerAPIs, rbus_publishEvent_test2)
+TEST_F(EventServerAPIs, rbuscore_publishEvent_test2)
 {
     int counter = 3;
     bool conn_status = false;
@@ -261,12 +261,12 @@ TEST_F(EventServerAPIs, rbus_publishEvent_test2)
 
     //Boundary Test with MAX_OBJECT_NAME_LENGTH
     memset(obj_name, 't', (sizeof(obj_name)- 1));
-    err = rbus_registerEvent(obj_name,"event3",sub1_callback,data);
-    EXPECT_EQ(err, RBUSCORE_ERROR_INVALID_PARAM) << "rbus_registerEvent failed";
+    err = rbuscore_registerEvent(obj_name,"event3",sub1_callback,data);
+    EXPECT_EQ(err, RBUSCORE_ERROR_INVALID_PARAM) << "rbuscore_registerEvent failed";
     rbusMessage_Init(&msg1);
     rbusMessage_SetString(msg1, "bar");
-    rbus_publishEvent(obj_name, "event1", msg1);
-    EXPECT_EQ(err, RBUSCORE_ERROR_INVALID_PARAM) << "rbus_registerEvent failed";
+    rbuscore_publishEvent(obj_name, "event1", msg1);
+    EXPECT_EQ(err, RBUSCORE_ERROR_INVALID_PARAM) << "rbuscore_registerEvent failed";
     rbusMessage_Release(msg1);
 
     conn_status = RBUS_CLOSE_BROKER_CONNECTION(RBUSCORE_SUCCESS);
@@ -287,56 +287,56 @@ TEST_F(EventServerAPIs, addElementEvent_test1)
     char data[] = "data";
 
     CREATE_RBUS_SERVER(counter);
-    err = rbus_registerObj(server_obj, callback, NULL);
-    EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_registerObj failed";
+    err = rbuscore_registerObj(server_obj, callback, NULL);
+    EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbuscore_registerObj failed";
     printf("******Registering Event %s with object %s****** \n", server_event, server_obj);
-    err = rbus_registerEvent(server_obj,server_event,sub1_callback,data);
-    EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_registerEvent failed";
-    printf("*******Adding Event %s as an Element using rbus_addElementEvent******\n", server_event);
-    err = rbus_addElementEvent(server_obj,server_event);
-    EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_addElementEvent failed";
+    err = rbuscore_registerEvent(server_obj,server_event,sub1_callback,data);
+    EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbuscore_registerEvent failed";
+    printf("*******Adding Event %s as an Element using rbuscore_addElementEvent******\n", server_event);
+    err = rbuscore_addElementEvent(server_obj,server_event);
+    EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbuscore_addElementEvent failed";
     //Neg test with Duplicate Entry
-    err = rbus_addElementEvent(server_obj,server_event);
-    EXPECT_EQ(err, RBUSCORE_ERROR_DUPLICATE_ENTRY) << "rbus_addElementEvent failed";
+    err = rbuscore_addElementEvent(server_obj,server_event);
+    EXPECT_EQ(err, RBUSCORE_ERROR_DUPLICATE_ENTRY) << "rbuscore_addElementEvent failed";
     //Neg test with too long object Name
     memset(obj_name, 'o', (sizeof(obj_name)- 1));
-    err = rbus_addElementEvent(obj_name,server_event);
-    EXPECT_EQ(err, RBUSCORE_ERROR_INVALID_PARAM) << "rbus_addElementEvent failed";
+    err = rbuscore_addElementEvent(obj_name,server_event);
+    EXPECT_EQ(err, RBUSCORE_ERROR_INVALID_PARAM) << "rbuscore_addElementEvent failed";
     //Neg test passing NULL as obj name
-    err = rbus_addElementEvent(NULL,server_event);
-    EXPECT_EQ(err, RBUSCORE_ERROR_INVALID_PARAM) << "rbus_addElementEvent failed";
-    err = rbus_unregisterObj(server_obj);
-    EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_unregisterObj failed";
+    err = rbuscore_addElementEvent(NULL,server_event);
+    EXPECT_EQ(err, RBUSCORE_ERROR_INVALID_PARAM) << "rbuscore_addElementEvent failed";
+    err = rbuscore_unregisterObj(server_obj);
+    EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbuscore_unregisterObj failed";
     RBUS_CLOSE_BROKER_CONNECTION(RBUSCORE_SUCCESS);
 
     return;
 }
 
-TEST_F(EventServerAPIs, rbus_subscribeToEventTimeout_test1)
+TEST_F(EventServerAPIs, rbuscore_subscribeToEventTimeout_test1)
 {
     char client_name[MAX_SERVER_NAME] = "Event_Server_1";
     char obj_name[130] = "0";
     char event_name[130] ="0";
     rbusCoreError_t err = RBUSCORE_SUCCESS;
     //Neg test subscribe before establishing connection
-    err = rbus_subscribeToEventTimeout("obj_name", "event_1",&event_callback, NULL, NULL, NULL, 1000, false, NULL, false);
-    EXPECT_EQ(err,RBUSCORE_ERROR_INVALID_STATE) << "rbus_subscribeToEventTimeout failed";
+    err = rbuscore_subscribeToEventTimeout("obj_name", "event_1",&event_callback, NULL, NULL, NULL, 1000, false, NULL, false);
+    EXPECT_EQ(err,RBUSCORE_ERROR_INVALID_STATE) << "rbuscore_subscribeToEventTimeout failed";
     RBUS_OPEN_BROKER_CONNECTION(client_name,RBUSCORE_SUCCESS);
     //Neg Test with more than MAX_OBJECT_NAME_LENGTH
     memset(obj_name, 't', (sizeof(obj_name)- 1));
-    err = rbus_subscribeToEventTimeout(obj_name, "event_1",&event_callback, NULL, NULL, NULL, 1000, false, NULL, false);
-    EXPECT_EQ(err,RBUSCORE_ERROR_INVALID_PARAM) << "rbus_subscribeToEventTimeout failed";
+    err = rbuscore_subscribeToEventTimeout(obj_name, "event_1",&event_callback, NULL, NULL, NULL, 1000, false, NULL, false);
+    EXPECT_EQ(err,RBUSCORE_ERROR_INVALID_PARAM) << "rbuscore_subscribeToEventTimeout failed";
     //Neg Test with more than MAX_EVENT_NAME_LENGTH
     memset(event_name, 't', (sizeof(obj_name)- 1));
-    err = rbus_subscribeToEventTimeout("object_1", event_name, &event_callback, NULL, NULL, NULL, 1000, false, NULL, false);
-    EXPECT_EQ(err,RBUSCORE_ERROR_INVALID_PARAM) << "rbus_subscribeToEventTimeout failed";
+    err = rbuscore_subscribeToEventTimeout("object_1", event_name, &event_callback, NULL, NULL, NULL, 1000, false, NULL, false);
+    EXPECT_EQ(err,RBUSCORE_ERROR_INVALID_PARAM) << "rbuscore_subscribeToEventTimeout failed";
     //Neg test passing object name and callback as NULL
-    err = rbus_subscribeToEventTimeout(NULL, "event_1",NULL, NULL, NULL, NULL, 1000, false, NULL, false);
-    EXPECT_EQ(err,RBUSCORE_ERROR_INVALID_PARAM) << "rbus_subscribeToEventTimeout failed";
+    err = rbuscore_subscribeToEventTimeout(NULL, "event_1",NULL, NULL, NULL, NULL, 1000, false, NULL, false);
+    EXPECT_EQ(err,RBUSCORE_ERROR_INVALID_PARAM) << "rbuscore_subscribeToEventTimeout failed";
     RBUS_CLOSE_BROKER_CONNECTION(RBUSCORE_SUCCESS);
 }
 
-TEST_F(EventServerAPIs, rbus_unsubscribeFromEvent_test1)
+TEST_F(EventServerAPIs, rbuscore_unsubscribeFromEvent_test1)
 {
     char client_name[MAX_SERVER_NAME] = "Event_Server_1";
     char object_name[130] = "0";
@@ -344,15 +344,15 @@ TEST_F(EventServerAPIs, rbus_unsubscribeFromEvent_test1)
     RBUS_OPEN_BROKER_CONNECTION(client_name, RBUSCORE_SUCCESS);
     //Neg Test with more than MAX_OBJECT_NAME_LENGTH
     memset(object_name, 't', (sizeof(object_name)- 1));
-    err = rbus_unsubscribeFromEvent(object_name, "event_1", NULL, false);
-    EXPECT_EQ(err,RBUSCORE_ERROR_INVALID_PARAM) << "rbus_unsubscribeFromEvent failed";
+    err = rbuscore_unsubscribeFromEvent(object_name, "event_1", NULL, false);
+    EXPECT_EQ(err,RBUSCORE_ERROR_INVALID_PARAM) << "rbuscore_unsubscribeFromEvent failed";
     //Neg test passing NULL as object name
-    err = rbus_unsubscribeFromEvent(NULL, NULL,NULL, false);
-    EXPECT_EQ(err,RBUSCORE_ERROR_INVALID_PARAM) << "rbus_unsubscribeFromEvent failed";
+    err = rbuscore_unsubscribeFromEvent(NULL, NULL,NULL, false);
+    EXPECT_EQ(err,RBUSCORE_ERROR_INVALID_PARAM) << "rbuscore_unsubscribeFromEvent failed";
     RBUS_CLOSE_BROKER_CONNECTION(RBUSCORE_SUCCESS);
 }
 
-TEST_F(EventServerAPIs, rbus_publishSubscriberEvent_test1)
+TEST_F(EventServerAPIs, rbuscore_publishSubscriberEvent_test1)
 {
     char client_name[MAX_SERVER_NAME] = "Event_Server_1";
     char object_name[130] = "0";
@@ -360,7 +360,7 @@ TEST_F(EventServerAPIs, rbus_publishSubscriberEvent_test1)
     RBUS_OPEN_BROKER_CONNECTION(client_name, RBUSCORE_SUCCESS);
     //Neg Test with more than MAX_OBJECT_NAME_LENGTH
     memset(object_name, 't', (sizeof(object_name)- 1));
-    err = rbus_publishSubscriberEvent(object_name, "event_1", NULL, NULL, 0, 0);
+    err = rbuscore_publishSubscriberEvent(object_name, "event_1", NULL, NULL, 0, 0);
     EXPECT_EQ(err,RBUSCORE_ERROR_INVALID_PARAM) << "rbus_publishsubscriberEvent failed";
     RBUS_CLOSE_BROKER_CONNECTION(RBUSCORE_SUCCESS);
 }

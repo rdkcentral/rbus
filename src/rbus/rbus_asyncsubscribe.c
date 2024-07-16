@@ -182,8 +182,7 @@ static void rbusAsyncSubscribeRetrier_SendSubscriptionRequests()
 
 
             RBUSLOG_INFO("%s subscribing", item->subscription->eventName);
-
-            coreerr = rbus_subscribeToEventTimeout(NULL, item->subscription->eventName,
+            coreerr = rbuscore_subscribeToEventTimeout(NULL, item->subscription->eventName,
                         _event_callback_handler, item->payload, item->subscription, &providerError, 0, false, &response, false);
 
             rtTime_Now(&now);
