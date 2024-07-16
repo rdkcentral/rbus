@@ -47,7 +47,7 @@ static rbusError_t sessionManager_methodHandler(rbusHandle_t handle,
         rbusValue_t return_value, sessionid_value;
         rbusValue_Init(&return_value);
         rbusValue_Init(&sessionid_value);
-        rbusValue_SetInt32(return_value, RBUSCORE_SUCCESS);
+        rbusValue_SetInt32(return_value, RBUS_ERROR_SUCCESS);
         rbusValue_SetInt32(sessionid_value, g_current_session_id);
         rbusObject_SetValue(outParams, "return_value", return_value);
         rbusObject_SetValue(outParams, "sessionid", sessionid_value);
@@ -66,7 +66,7 @@ static rbusError_t sessionManager_methodHandler(rbusHandle_t handle,
             rbusValue_t return_value, sessionid_value;
             rbusValue_Init(&return_value);
             rbusValue_Init(&sessionid_value);
-            rbusValue_SetInt32(return_value, RBUSCORE_SUCCESS);
+            rbusValue_SetInt32(return_value, RBUS_ERROR_SUCCESS);
             rbusValue_SetInt32(sessionid_value, g_current_session_id);
             rbusObject_SetValue(outParams, "return_value", return_value);
             rbusObject_SetValue(outParams, "sessionid", sessionid_value);
@@ -78,7 +78,7 @@ static rbusError_t sessionManager_methodHandler(rbusHandle_t handle,
             printf("Cannot create new session when session %d is active.\n", g_current_session_id);
             rbusValue_t return_value;
             rbusValue_Init(&return_value);
-            rbusValue_SetInt32(return_value, RBUSCORE_ERROR_INVALID_STATE);
+            rbusValue_SetInt32(return_value, RBUS_ERROR_SESSION_ALREADY_EXIST);
             rbusObject_SetValue(outParams, "return_value", return_value);
             rbusValue_Release(return_value);
         }
@@ -89,7 +89,7 @@ static rbusError_t sessionManager_methodHandler(rbusHandle_t handle,
         rbusValue_Init(&return_value);
         rbusValue_Init(&sessionid_value);
         rbusObject_Init(&data, NULL);
-        rbusValue_SetInt32(return_value, RBUSCORE_SUCCESS);
+        rbusValue_SetInt32(return_value, RBUS_ERROR_SUCCESS);
         rbusValue_SetInt32(sessionid_value, g_current_session_id);
         rbusObject_SetValue(data, "return_value", return_value);
         rbusObject_SetValue(data, "sessionid", sessionid_value);
@@ -147,7 +147,7 @@ static rbusError_t sessionManager_methodHandler(rbusHandle_t handle,
         rbusValue_Init(&sessionid_value);
         rbusObject_Init(&data, NULL);
 
-        rbusValue_SetInt32(return_value, RBUSCORE_SUCCESS);
+        rbusValue_SetInt32(return_value, RBUS_ERROR_SUCCESS);
         rbusValue_SetInt32(sessionid_value, g_current_session_id);
         rbusObject_SetValue(data, "return_value", return_value);
         rbusObject_SetValue(data, "sessionid", sessionid_value);
