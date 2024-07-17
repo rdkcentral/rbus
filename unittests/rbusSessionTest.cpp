@@ -48,3 +48,106 @@ TEST(rbusSessionTest, test1)
   }
   free(componentName);
 }
+
+TEST(rbusSessionTest, test2)
+{
+  int rc = RBUS_ERROR_BUS_ERROR;
+  rbusHandle_t handle = NULL;
+  unsigned int sessionId = 0 , newSessionId = 0;
+  char *componentName = NULL;
+
+  componentName = strdup("sessiontest");
+
+  rc = rbus_open(&handle, componentName);
+  EXPECT_EQ(rc,RBUS_ERROR_SUCCESS);
+
+  if(RBUS_ERROR_SUCCESS == rc)
+  {
+    rc = rbus_createSession(handle , &sessionId);
+    EXPECT_EQ(rc, RBUS_ERROR_SUCCESS);
+
+    rc = rbus_createSession(handle , &newSessionId);
+    EXPECT_EQ(rc, RBUS_ERROR_SESSION_ALREADY_EXIST);
+
+    rc = rbus_getCurrentSession(handle , &sessionId);
+    EXPECT_EQ(rc, RBUS_ERROR_SUCCESS);
+
+    rc = rbus_closeSession(handle, sessionId);
+    EXPECT_EQ(rc, RBUS_ERROR_SUCCESS);
+    rbus_close(handle);
+  }
+  free(componentName);
+}
+
+TEST(rbusSessionTest, test3)
+{
+  int rc = RBUS_ERROR_BUS_ERROR;
+  rbusHandle_t handle = NULL;
+  unsigned int sessionId = 0 , newSessionId = 0;
+  char *componentName = NULL;
+
+  componentName = strdup("sessiontest");
+
+  rc = rbus_open(&handle, componentName);
+  EXPECT_EQ(rc,RBUS_ERROR_SUCCESS);
+
+  if(RBUS_ERROR_SUCCESS == rc)
+  {
+    rc = rbus_createSession(handle , &sessionId);
+    EXPECT_EQ(rc, RBUS_ERROR_SUCCESS);
+
+    rc = rbus_getCurrentSession(handle , &newSessionId);
+    EXPECT_EQ(rc, RBUS_ERROR_SUCCESS);
+    EXPECT_EQ(sessionId, newSessionId);
+
+    rc = rbus_closeSession(handle, sessionId);
+    EXPECT_EQ(rc, RBUS_ERROR_SUCCESS);
+
+    rc = rbus_closeSession(handle, sessionId);
+    EXPECT_EQ(rc, RBUS_ERROR_SESSION_ALREADY_EXIST);
+
+    rbus_close(handle);
+  }
+  free(componentName);
+}
+
+TEST(rbusSessionTest, test4)
+{
+  int rc = RBUS_ERROR_BUS_ERROR;
+  rbusHandle_t handle = NULL;
+  unsigned int sessionId_1 = 0 , sessionId_2 = 0, sessionId_3 = 0, newSessionId = 0;
+  char *componentName = NULL;
+
+  componentName = strdup("sessiontest");
+
+  rc = rbus_open(&handle, componentName);
+  EXPECT_EQ(rc,RBUS_ERROR_SUCCESS);
+
+  if(RBUS_ERROR_SUCCESS == rc)
+  {
+    rc = rbus_createSession(handle , &sessionId_1);
+    EXPECT_EQ(rc, RBUS_ERROR_SUCCESS);
+
+    rc = rbus_createSession(handle , &sessionId_2);
+    EXPECT_EQ(rc, RBUS_ERROR_SESSION_ALREADY_EXIST);
+
+    rc = rbus_createSession(handle , &sessionId_3);
+    EXPECT_EQ(rc, RBUS_ERROR_SESSION_ALREADY_EXIST);
+
+    rc = rbus_getCurrentSession(handle , &newSessionId);
+    EXPECT_EQ(rc, RBUS_ERROR_SUCCESS);
+    EXPECT_EQ(sessionId_1, newSessionId);
+
+    rc = rbus_closeSession(handle, sessionId_1);
+    EXPECT_EQ(rc, RBUS_ERROR_SUCCESS);
+
+    rc = rbus_closeSession(handle, sessionId_1);
+    EXPECT_EQ(rc, RBUS_ERROR_SESSION_ALREADY_EXIST);
+
+    rc = rbus_closeSession(handle, sessionId_1);
+    EXPECT_EQ(rc, RBUS_ERROR_SESSION_ALREADY_EXIST);
+
+    rbus_close(handle);
+  }
+  free(componentName);
+}
