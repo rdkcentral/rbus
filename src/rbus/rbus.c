@@ -610,6 +610,10 @@ void rbusPropertyList_initFromMessage(rbusProperty_t* prop, rbusMessage msg)
 
 void rbusObject_appendToMessage(rbusObject_t obj, rbusMessage msg)
 {
+    if (obj == NULL)
+    {
+        return;     
+    }
     int numChild = 0;
     rbusObject_t child;
 
@@ -818,16 +822,18 @@ void rbusEventData_updateFromMessage(rbusEvent_t* event, rbusFilter_t* filter,
 {
     char const* name;
     int type;
-    rbusObject_t data;
+    rbusObject_t data = NULL;
     int hasFilter = false;
+    int hasEventData =  false;
     
     rbusMessage_GetString(msg, (char const**) &name);
     rbusMessage_GetInt32(msg, (int*) &type);
 #if DEBUG_SERIALIZER
     RBUSLOG_INFO("> event pop name=%s type=%d", name, type);
 #endif
-
-    rbusObject_initFromMessage(&data, msg);
+    rbusMessage_GetInt32(msg, &hasEventData);
+    if (hasEventData)
+        rbusObject_initFromMessage(&data, msg);
 
     rbusMessage_GetInt32(msg, &hasFilter);
     if(hasFilter)
@@ -851,7 +857,16 @@ void rbusEventData_appendToMessage(rbusEvent_t* event, rbusFilter_t filter,
 #if DEBUG_SERIALIZER
     RBUSLOG_INFO("> event add name=%s type=%d", event->name, event->type);
 #endif
-    rbusObject_appendToMessage(event->data, msg);
+    /*hasEventData*/
+    if (event->data)
+    {
+        rbusMessage_SetInt32(msg, 1);
+	rbusObject_appendToMessage(event->data, msg);
+    }
+    else
+    {
+        rbusMessage_SetInt32(msg, 0);
+    }
     if(filter)
     {
         rbusMessage_SetInt32(msg, 1);
