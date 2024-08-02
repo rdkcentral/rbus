@@ -26,13 +26,7 @@
 
 #define RTHASHMAP_INITSIZE 16
 #define RTHASHMAP_LOAD_FACTOR 0.75f
-
-typedef struct rtHashMapNode
-{
-    const void* key;
-    const void* value;
-    rtHashMap hashmap;
-} rtHashMapNode;
+#define RBUS_MAX_NAME_LENGTH 256
 
 struct _rtHashMap 
 {
@@ -257,6 +251,16 @@ void* rtHashMap_Get(rtHashMap hashmap, const void* key)
         return NULL;
 }
 
+size_t rtHashMap_Get_rtVector_Size(rtHashMap hashmap)
+{
+  return rtVector_Size(hashmap->buckets);
+}
+
+rtHashMapNode* rtHashMap_GetByIndex(rtHashMap hashmap, const void* key)
+{
+    rtHashMapNode* node = rtVector_GetItemByCompare(rtHashMap_GetBucket(hashmap, key), key, rtHashMap_Compare_Node);
+    return node;
+}
 size_t rtHashMap_GetSize(rtHashMap hashmap)
 {
     return hashmap->size;
