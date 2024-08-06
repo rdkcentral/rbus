@@ -98,8 +98,8 @@ int rbusConfig_ReadGetTimeout()
     {
         fp = fopen(RBUS_GET_TIMEOUT_OVERRIDE, "r");
         if(fp != NULL) {
-            fread(buf, 1, sizeof(buf), fp);
-            timeout = atoi(buf);
+            if (fread(buf, 1, sizeof(buf), fp) > 0)
+                timeout = atoi(buf);
             fclose(fp);
         }
         if (timeout > 0)
@@ -119,8 +119,8 @@ int rbusConfig_ReadWildcardGetTimeout()
     {
         fp = fopen(RBUS_GET_WILDCARD_TIMEOUT_OVERRIDE, "r");
         if(fp != NULL) {
-            fread(buf, 1, sizeof(buf), fp);
-            timeout = atoi(buf);
+            if (fread(buf, 1, sizeof(buf), fp) > 0)
+                timeout = atoi(buf);
             fclose(fp);
         }
         if (timeout > 0)
@@ -140,8 +140,8 @@ int rbusConfig_ReadSetTimeout()
     {
         fp = fopen(RBUS_SET_TIMEOUT_OVERRIDE, "r");
         if(fp != NULL) {
-            fread(buf, 1, sizeof(buf), fp);
-            timeout = atoi(buf);
+            if (fread(buf, 1, sizeof(buf), fp) > 0)
+                timeout = atoi(buf);
             fclose(fp);
         }
         if (timeout > 0)
