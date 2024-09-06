@@ -23,6 +23,7 @@ IF (NOT BUILD_ONLY_RTMESSAGE)
 
 if (BUILD_RBUS_DAEMON)
     add_subdirectory(session_manager)
+    add_subdirectory(elements_discovery)
 endif (BUILD_RBUS_DAEMON)
 
  add_subdirectory(rbus)
