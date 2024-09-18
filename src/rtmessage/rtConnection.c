@@ -1836,11 +1836,7 @@ static void * rtConnection_ReaderThread(void *data)
   while (1 == GetRunThreadsSync(con))
   {
     rtTime_Now(&con->reader_reconnect_time);
-    #ifdef WITH_SPAKE2
-    if((err = rtConnection_Read(con, 60000)) != RT_OK)
-    #else
     if((err = rtConnection_Read(con, -1)) != RT_OK)
-    #endif
     {
       if (0 == GetRunThreadsSync(con))
       {
