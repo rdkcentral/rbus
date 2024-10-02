@@ -1181,7 +1181,6 @@ rbusCoreError_t rbus_invokeRemoteMethod2(rtConnection myConn, const char * objec
         rbusMessage_Release(*in);
         *in = NULL;
     }
-    rbus_releaseOpenTelemetryContext();
     return ret;
 }
 
