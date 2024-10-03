@@ -57,17 +57,20 @@ int main(int argc, char *argv[])
 void GetTraceContextFromUser(char *traceparent, char *tracestate)
 {
     char buff[256];
-    snprintf(traceparent, RBUS_OPEN_TELEMETRY_DATA_MAX, "traceparent:%s", buff);
+
     memset(buff, '\0', 256);
-    memset(traceparent, '\0', RBUS_OPEN_TELEMETRY_DATA_MAX);
-    memset(tracestate, '\0', RBUS_OPEN_TELEMETRY_DATA_MAX);
     printf("Enter traceparent:");
-    scanf("%s", buff);
-    snprintf(traceparent, RBUS_OPEN_TELEMETRY_DATA_MAX, "traceparent:%s", buff);
+    if (scanf("%s", buff) == 1)
+        snprintf(traceparent, RBUS_OPEN_TELEMETRY_DATA_MAX, "traceparent:%s", buff);
+    else
+        memset(traceparent, '\0', RBUS_OPEN_TELEMETRY_DATA_MAX);
+
     memset(buff, '\0', 256);
     printf("Enter tracestate:");
-    scanf("%s", buff);
-    snprintf(tracestate, RBUS_OPEN_TELEMETRY_DATA_MAX, "tracestate:%s", buff);
+    if (scanf("%s", buff) == 1)
+        snprintf(tracestate, RBUS_OPEN_TELEMETRY_DATA_MAX, "tracestate:%s", buff);
+    else
+        memset(tracestate, '\0', RBUS_OPEN_TELEMETRY_DATA_MAX);
 }
 
 void run_client()
