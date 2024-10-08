@@ -1045,6 +1045,11 @@ rbusError_t rbus_set(
     rbusValue_t value,
     rbusSetOptions_t* opts);
 
+rbusError_t rbus_setCommit(
+    rbusHandle_t handle,
+    char const* name,
+    rbusSetOptions_t* opts);
+
 /** @fn rbusError_t rbus_setMulti(
  *          rbusHandle_t handle,
  *          int numProps,
