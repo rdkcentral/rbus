@@ -682,6 +682,7 @@ rbusCoreError_t rbus_closeBrokerConnection()
         return RBUSCORE_ERROR_GENERAL;
     }
     g_connection = NULL;
+    g_run_event_client_dispatch = false;
     unlock();
 
     pthread_mutex_destroy(&g_mutex);
