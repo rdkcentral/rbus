@@ -682,6 +682,7 @@ rbusCoreError_t rbus_closeBrokerConnection()
         return RBUSCORE_ERROR_GENERAL;
     }
     g_connection = NULL;
+    g_run_event_client_dispatch = false;
     unlock();
 
     pthread_mutex_destroy(&g_mutex);
@@ -1115,8 +1116,6 @@ rbusCoreError_t rbus_invokeRemoteMethod2(rtConnection myConn, const char * objec
     char const *traceParent = NULL;
     char const *traceState = NULL;
 
-    rbus_getOpenTelemetryContext(&traceParent, &traceState);
-
     if(NULL == myConn)
     {
         RBUSCORELOG_ERROR("Not connected.");
@@ -1128,6 +1127,8 @@ rbusCoreError_t rbus_invokeRemoteMethod2(rtConnection myConn, const char * objec
         RBUSCORELOG_ERROR("Object name is too long.");
         return RBUSCORE_ERROR_INVALID_PARAM;
     }
+
+    rbus_getOpenTelemetryContext(&traceParent, &traceState);
 
     *in = NULL;
     if(NULL == out)
