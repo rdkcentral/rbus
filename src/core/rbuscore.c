@@ -1930,7 +1930,7 @@ rbusCoreError_t rbus_discoverWildcardDestinations(const char * expression, int *
                     memset(array_ptr, 0, (length * sizeof(char *)));
                     for (i = 0; i < length; i++)
                     {
-                        if ((RT_OK != rtMessage_GetStringItem(msg, RTM_DISCOVERY_ITEMS, i, &value)) || (NULL == (array_ptr[i] = strndup(value, MAX_OBJECT_NAME_LENGTH))))
+                        if ((RT_OK != rtMessage_GetStringItem(msg, RTM_DISCOVERY_ITEMS, i, &value)) || (NULL == (array_ptr[i] = strdup(value))))
                         {
                             for (int j = 0; j < i; j++)
                                 free(array_ptr[j]);
@@ -2018,7 +2018,7 @@ rbusCoreError_t rbus_discoverObjectElements(const char * object, int * count, ch
                 memset(array_ptr, 0, (length * sizeof(char *)));
                 for (i = 0; i < length; i++)
                 {
-                    if ((RT_OK != rtMessage_GetStringItem(msg, RTM_DISCOVERY_ITEMS, i, &value)) || (NULL == (array_ptr[i] = strndup(value, MAX_OBJECT_NAME_LENGTH))))
+                    if ((RT_OK != rtMessage_GetStringItem(msg, RTM_DISCOVERY_ITEMS, i, &value)) || (NULL == (array_ptr[i] = strdup(value))))
                     {
                         for (int j = 0; j < i; j++)
                             free(array_ptr[j]);
@@ -2094,7 +2094,7 @@ rbusCoreError_t rbus_discoverElementObjects(const char* element, int * count, ch
                     memset(array_ptr, 0, (num_elements * sizeof(char *)));
                     for (int i = 0; i < num_elements; i++)
                     {
-                        if ((RT_OK != rtMessage_GetStringItem(msg, RTM_DISCOVERY_ITEMS, i, &value)) || (NULL == (array_ptr[i] = strndup(value, MAX_OBJECT_NAME_LENGTH))))
+                        if ((RT_OK != rtMessage_GetStringItem(msg, RTM_DISCOVERY_ITEMS, i, &value)) || (NULL == (array_ptr[i] = strdup(value))))
                         {
                             for (int j = 0; j < i; j++)
                                 free(array_ptr[j]);
@@ -2195,7 +2195,7 @@ rbusCoreError_t rbus_discoverElementsObjects(int numElements, const char** eleme
                             }
                             if(component[0]) /*rtrouted will put a 0 len string if no route found*/
                             {
-                                if (NULL == (array_ptr[array_count++] = strndup(component, MAX_OBJECT_NAME_LENGTH)))
+                                if (NULL == (array_ptr[array_count++] = strdup(component)))
                                 {
                                     RBUSCORELOG_ERROR("Memory allocation failure");
                                     ret = RBUSCORE_ERROR_GENERAL;
@@ -2280,7 +2280,7 @@ rbusCoreError_t rbus_discoverRegisteredComponents(int * count, char *** componen
             memset(array_ptr, 0, (length * sizeof(char *)));
             for (i = 0; i < length; i++)
             {
-                if ((RT_OK != rtMessage_GetStringItem(msg, RTM_DISCOVERY_ITEMS, i, &value)) || (NULL == (array_ptr[i] = strndup(value, MAX_OBJECT_NAME_LENGTH))))
+                if ((RT_OK != rtMessage_GetStringItem(msg, RTM_DISCOVERY_ITEMS, i, &value)) || (NULL == (array_ptr[i] = strdup(value))))
                 {
                     for (int j = 0; j < i; j++)
                         free(array_ptr[j]);
