@@ -2698,6 +2698,12 @@ static int _callback_handler(char const* destination, char const* method, rbusMe
     {
         _set_callback_handler (handle, request, response);
     }
+    else if (!strcmp(method, METHOD_COMMIT))
+    {
+         /*return success for commit*/
+        rbusMessage_Init(response);
+        rbusMessage_SetInt32(*response, RBUS_ERROR_SUCCESS);
+    }
     else if(!strcmp(method, METHOD_GETPARAMETERNAMES))
     {
         _get_parameter_names_handler (handle, request, response);
@@ -3841,6 +3847,70 @@ rbusError_t rbus_set(rbusHandle_t handle, char const* name,rbusValue_t value, rb
             }
         }
 
+        /* Release the reponse message */
+        rbusMessage_Release(setResponse);
+    }
+    return errorcode;
+}
+
+rbusError_t rbus_setCommit(rbusHandle_t handle, char const* name, rbusSetOptions_t* opts)
+{
+    VERIFY_NULL(handle);
+    VERIFY_NULL(name);
+    VERIFY_HANDLE(handle);
+    rbusError_t errorcode = RBUS_ERROR_INVALID_INPUT;
+    rbusCoreError_t err = RBUSCORE_SUCCESS;
+    rbusMessage setRequest, setResponse;
+    struct _rbusHandle* handleInfo = (struct _rbusHandle*) handle;
+    if (handleInfo->m_handleType != RBUS_HWDL_TYPE_REGULAR)
+        return RBUS_ERROR_INVALID_HANDLE;
+    rbusMessage_Init(&setRequest);
+    /* Set the Session ID first */
+    if ((opts) && (opts->sessionId != 0))
+        rbusMessage_SetInt32(setRequest, opts->sessionId);
+    else
+        rbusMessage_SetInt32(setRequest, 0);
+
+    /* Set the Component name that invokes the set */
+    rbusMessage_SetString(setRequest, handleInfo->componentName);
+    /* Set the Size of params */
+    rbusMessage_SetInt32(setRequest, 1);
+
+    /* Set the Commit value */
+    rbusMessage_SetString(setRequest, (!opts || opts->commit) ? "TRUE" : "FALSE");
+    
+    /* Find direct connection status */
+    rtConnection myConn = rbuscore_FindClientPrivateConnection(name);
+    if (NULL == myConn)
+        myConn = handleInfo->m_connection;
+    if((err = rbus_invokeRemoteMethod2(myConn, name, METHOD_COMMIT, setRequest, rbusConfig_ReadSetTimeout(), &setResponse)) != RBUSCORE_SUCCESS)
+    {
+        RBUSLOG_ERROR("set commit by %s failed; Received error %d from RBUS Daemon for the object %s", handle->componentName, err, name);
+        errorcode = rbusCoreError_to_rbusError(err);
+    }
+    else
+    {
+        rbusLegacyReturn_t legacyRetCode = RBUS_LEGACY_ERR_FAILURE;
+        int ret = -1;
+        char const* pErrorReason = NULL;
+        rbusMessage_GetInt32(setResponse, &ret);
+        RBUSLOG_DEBUG("Response from the remote method is [%d]!", ret);
+        errorcode = (rbusError_t) ret;
+        legacyRetCode = (rbusLegacyReturn_t) ret;
+        if((errorcode == RBUS_ERROR_SUCCESS) || (legacyRetCode == RBUS_LEGACY_ERR_SUCCESS))
+        {
+            errorcode = RBUS_ERROR_SUCCESS;
+            RBUSLOG_DEBUG("Successfully Set the Value");
+        }
+        else
+        {
+            rbusMessage_GetString(setResponse, &pErrorReason);
+            RBUSLOG_WARN("Failed to Set the Value for %s", pErrorReason);
+            if(legacyRetCode > RBUS_LEGACY_ERR_SUCCESS)
+            {
+                errorcode = CCSPError_to_rbusError(legacyRetCode);
+            }
+        }
         /* Release the reponse message */
         rbusMessage_Release(setResponse);
     }
