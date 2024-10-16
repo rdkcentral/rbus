@@ -17,20 +17,21 @@
 # limitations under the License.
 ##########################################################################
 include_directories(.
-                    ../core
-	            ../rtmessage)
+                   ../../include
+                   ../core
+                    ../rtmessage)
 
 add_executable(rbus_session_mgr session_manager.c)
-add_dependencies(rbus_session_mgr rbuscore)
-target_link_libraries(rbus_session_mgr rbuscore)
+add_dependencies(rbus_session_mgr rbus rbuscore)
+target_link_libraries(rbus_session_mgr rbus rbuscore)
 
 if (BUILD_SESSIONMGR_SAMPLE_APPS)
 add_executable(rbus_session_mgr_client test/sample_client.c)
-add_dependencies(rbus_session_mgr_client rbuscore)
-target_link_libraries(rbus_session_mgr_client rbuscore)
+add_dependencies(rbus_session_mgr_client rbus rbuscore)
+target_link_libraries(rbus_session_mgr_client rbus rbuscore)
 endif (BUILD_SESSIONMGR_SAMPLE_APPS)
 
-install (TARGETS rbus_session_mgr 
+install (TARGETS rbus_session_mgr
         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 install(FILES rbus_session_mgr.h DESTINATION "include/rbus")

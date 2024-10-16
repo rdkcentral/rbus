@@ -610,6 +610,10 @@ void rbusPropertyList_initFromMessage(rbusProperty_t* prop, rbusMessage msg)
 
 void rbusObject_appendToMessage(rbusObject_t obj, rbusMessage msg)
 {
+    if (obj == NULL)
+    {
+        return;     
+    }
     int numChild = 0;
     rbusObject_t child;
 
@@ -818,16 +822,18 @@ void rbusEventData_updateFromMessage(rbusEvent_t* event, rbusFilter_t* filter,
 {
     char const* name;
     int type;
-    rbusObject_t data;
+    rbusObject_t data = NULL;
     int hasFilter = false;
+    int hasEventData =  false;
     
     rbusMessage_GetString(msg, (char const**) &name);
     rbusMessage_GetInt32(msg, (int*) &type);
 #if DEBUG_SERIALIZER
     RBUSLOG_INFO("> event pop name=%s type=%d", name, type);
 #endif
-
-    rbusObject_initFromMessage(&data, msg);
+    rbusMessage_GetInt32(msg, &hasEventData);
+    if (hasEventData)
+        rbusObject_initFromMessage(&data, msg);
 
     rbusMessage_GetInt32(msg, &hasFilter);
     if(hasFilter)
@@ -851,7 +857,16 @@ void rbusEventData_appendToMessage(rbusEvent_t* event, rbusFilter_t filter,
 #if DEBUG_SERIALIZER
     RBUSLOG_INFO("> event add name=%s type=%d", event->name, event->type);
 #endif
-    rbusObject_appendToMessage(event->data, msg);
+    /*hasEventData*/
+    if (event->data)
+    {
+        rbusMessage_SetInt32(msg, 1);
+	rbusObject_appendToMessage(event->data, msg);
+    }
+    else
+    {
+        rbusMessage_SetInt32(msg, 0);
+    }
     if(filter)
     {
         rbusMessage_SetInt32(msg, 1);
@@ -2716,6 +2731,12 @@ static int _callback_handler(char const* destination, char const* method, rbusMe
     {
         _set_callback_handler (handle, request, response);
     }
+    else if (!strcmp(method, METHOD_COMMIT))
+    {
+         /*return success for commit*/
+        rbusMessage_Init(response);
+        rbusMessage_SetInt32(*response, RBUS_ERROR_SUCCESS);
+    }
     else if(!strcmp(method, METHOD_GETPARAMETERNAMES))
     {
         _get_parameter_names_handler (handle, request, response);
@@ -2727,6 +2748,13 @@ static int _callback_handler(char const* destination, char const* method, rbusMe
     else if(!strcmp(method, METHOD_DELETETBLROW))
     {
         _table_remove_row_callback_handler (handle, request, response);
+    }
+    else if (!strcmp(method, METHOD_GETPARAMETERATTRIBUTES))
+    {
+        /* For the components register directly with rbus_open,
+         * return success for getAttributes with 0 parameters.*/
+        rbusMessage_Init(response);
+        rbusMessage_SetInt32(*response, RBUS_ERROR_SUCCESS);
     }
     else if(!strcmp(method, METHOD_SUBSCRIBE) || !strcmp(method, METHOD_UNSUBSCRIBE))
     {
@@ -3527,7 +3555,7 @@ rbusError_t rbus_getExt(rbusHandle_t handle, int paramCount, char const** pParam
                         }
                         else
                         {
-                            rbusProperty_t tmpProperties;
+                            rbusProperty_t tmpProperties = NULL;
 
                             if((errorcode = _getExt_response_parser(response, &tmpNumOfValues, &tmpProperties)) != RBUS_ERROR_SUCCESS)
                             {
@@ -3565,8 +3593,16 @@ rbusError_t rbus_getExt(rbusHandle_t handle, int paramCount, char const** pParam
                 for(i = 0; i < numDestinations; i++)
                     free(destinations[i]);
                 free(destinations);
+                if ((*retProperties != NULL) && (errorcode != RBUS_ERROR_SUCCESS))
+                {
+                    RBUSLOG_WARN("Query for expression %s was partially successful", pParamNames[0]);
+                    return RBUS_ERROR_SUCCESS;
+                }
+                else 
+                {
+                    return errorcode;
+                }
 
-                return errorcode;
             }
         }
         else
@@ -3667,7 +3703,7 @@ rbusError_t rbus_getExt(rbusHandle_t handle, int paramCount, char const** pParam
                     }
                     else
                     {
-                        rbusProperty_t batchResult;
+                        rbusProperty_t batchResult = NULL;
                         int batchNumVals;
                         if((errorcode = _getExt_response_parser(response, &batchNumVals, &batchResult)) != RBUS_ERROR_SUCCESS)
                         {
@@ -3844,6 +3880,70 @@ rbusError_t rbus_set(rbusHandle_t handle, char const* name,rbusValue_t value, rb
             }
         }
 
+        /* Release the reponse message */
+        rbusMessage_Release(setResponse);
+    }
+    return errorcode;
+}
+
+rbusError_t rbus_setCommit(rbusHandle_t handle, char const* name, rbusSetOptions_t* opts)
+{
+    VERIFY_NULL(handle);
+    VERIFY_NULL(name);
+    VERIFY_HANDLE(handle);
+    rbusError_t errorcode = RBUS_ERROR_INVALID_INPUT;
+    rbusCoreError_t err = RBUSCORE_SUCCESS;
+    rbusMessage setRequest, setResponse;
+    struct _rbusHandle* handleInfo = (struct _rbusHandle*) handle;
+    if (handleInfo->m_handleType != RBUS_HWDL_TYPE_REGULAR)
+        return RBUS_ERROR_INVALID_HANDLE;
+    rbusMessage_Init(&setRequest);
+    /* Set the Session ID first */
+    if ((opts) && (opts->sessionId != 0))
+        rbusMessage_SetInt32(setRequest, opts->sessionId);
+    else
+        rbusMessage_SetInt32(setRequest, 0);
+
+    /* Set the Component name that invokes the set */
+    rbusMessage_SetString(setRequest, handleInfo->componentName);
+    /* Set the Size of params */
+    rbusMessage_SetInt32(setRequest, 1);
+
+    /* Set the Commit value */
+    rbusMessage_SetString(setRequest, (!opts || opts->commit) ? "TRUE" : "FALSE");
+    
+    /* Find direct connection status */
+    rtConnection myConn = rbuscore_FindClientPrivateConnection(name);
+    if (NULL == myConn)
+        myConn = handleInfo->m_connection;
+    if((err = rbus_invokeRemoteMethod2(myConn, name, METHOD_COMMIT, setRequest, rbusConfig_ReadSetTimeout(), &setResponse)) != RBUSCORE_SUCCESS)
+    {
+        RBUSLOG_ERROR("set commit by %s failed; Received error %d from RBUS Daemon for the object %s", handle->componentName, err, name);
+        errorcode = rbusCoreError_to_rbusError(err);
+    }
+    else
+    {
+        rbusLegacyReturn_t legacyRetCode = RBUS_LEGACY_ERR_FAILURE;
+        int ret = -1;
+        char const* pErrorReason = NULL;
+        rbusMessage_GetInt32(setResponse, &ret);
+        RBUSLOG_DEBUG("Response from the remote method is [%d]!", ret);
+        errorcode = (rbusError_t) ret;
+        legacyRetCode = (rbusLegacyReturn_t) ret;
+        if((errorcode == RBUS_ERROR_SUCCESS) || (legacyRetCode == RBUS_LEGACY_ERR_SUCCESS))
+        {
+            errorcode = RBUS_ERROR_SUCCESS;
+            RBUSLOG_DEBUG("Successfully Set the Value");
+        }
+        else
+        {
+            rbusMessage_GetString(setResponse, &pErrorReason);
+            RBUSLOG_WARN("Failed to Set the Value for %s", pErrorReason);
+            if(legacyRetCode > RBUS_LEGACY_ERR_SUCCESS)
+            {
+                errorcode = CCSPError_to_rbusError(legacyRetCode);
+            }
+        }
         /* Release the reponse message */
         rbusMessage_Release(setResponse);
     }
@@ -5894,70 +5994,83 @@ rbusError_t rbus_createSession(rbusHandle_t handle, uint32_t *pSessionId)
 {
     (void)handle;
     rbusError_t rc = RBUS_ERROR_SUCCESS;
-    rbusCoreError_t err = RBUSCORE_SUCCESS;
-    rbusMessage response  = NULL;
+    rbusObject_t outParams = NULL;
     if (pSessionId && handle)
     {
         *pSessionId = 0;
-        if((err = rbus_invokeRemoteMethod(RBUS_SMGR_DESTINATION_NAME, RBUS_SMGR_METHOD_REQUEST_SESSION_ID, NULL, rbusConfig_ReadSetTimeout(), &response)) == RBUSCORE_SUCCESS)
+        if ((rc = rbusMethod_Invoke(handle, RBUS_SMGR_METHOD_REQUEST_SESSION_ID, NULL, &outParams)) == RBUS_ERROR_SUCCESS)
         {
-            rbusMessage_GetInt32(response, /*MESSAGE_FIELD_RESULT,*/ (int*) &err);
-            if(RBUSCORE_SUCCESS != err)
+            rbusProperty_t prop = NULL;
+            prop = rbusObject_GetProperties(outParams);
+            int result = rbusValue_GetInt32(rbusProperty_GetValue(prop));
+            if (RBUS_ERROR_SUCCESS != result)
             {
-                RBUSLOG_ERROR("Session manager reports internal error %d for the object %s", err, RBUS_SMGR_DESTINATION_NAME);
+                RBUSLOG_ERROR("Session manager reports internal error %d from %s for the object %s", rc, handle->componentName, RBUS_SMGR_DESTINATION_NAME);
                 rc = RBUS_ERROR_SESSION_ALREADY_EXIST;
             }
             else
             {
-                rbusMessage_GetInt32(response, /*MESSAGE_FIELD_PAYLOAD,*/ (int*) pSessionId);
-                RBUSLOG_INFO("Received new session id %u", *pSessionId);
+                prop = rbusProperty_GetNext(prop);
+                /* Get current session id*/
+                if (prop)
+                {
+                   *pSessionId = rbusValue_GetInt32(rbusProperty_GetValue(prop));
+                    RBUSLOG_INFO("Received new session id %u", *pSessionId);
+                }
+                else
+                    RBUSLOG_ERROR("Malformed response from session manager.\n");
             }
         }
         else
         {
             RBUSLOG_ERROR("Failed to communicated with session manager.");
-            rc = rbusCoreError_to_rbusError(err);
         }
-	rbusMessage_Release(response);
     }
     else
     {
         RBUSLOG_WARN("Invalid Input passed..");
         rc = RBUS_ERROR_INVALID_INPUT;
     }
-    return rc;
-}
+     return rc;
+ }
 
 rbusError_t rbus_getCurrentSession(rbusHandle_t handle, uint32_t *pSessionId)
 {
     (void)handle;
     rbusError_t rc = RBUS_ERROR_SUCCESS;
-    rbusCoreError_t err = RBUSCORE_SUCCESS;
-    rbusMessage response = NULL;
+    rbusObject_t outParams = NULL;
 
     if (pSessionId && handle)
     {
         *pSessionId = 0;
-        if((err = rbus_invokeRemoteMethod(RBUS_SMGR_DESTINATION_NAME, RBUS_SMGR_METHOD_GET_CURRENT_SESSION_ID, NULL, rbusConfig_ReadGetTimeout(), &response)) == RBUSCORE_SUCCESS)
+        if ((rc =  rbusMethod_Invoke(handle, RBUS_SMGR_METHOD_GET_CURRENT_SESSION_ID, NULL, &outParams)) == RBUS_ERROR_SUCCESS)
         {
-            rbusMessage_GetInt32(response, /*MESSAGE_FIELD_RESULT,*/ (int*) &err);
-            if(RBUSCORE_SUCCESS != err)
+            rbusProperty_t prop = NULL;
+            prop = rbusObject_GetProperties(outParams);
+            int result = rbusValue_GetInt32(rbusProperty_GetValue(prop));
+            if (RBUS_ERROR_SUCCESS != result)
             {
-                RBUSLOG_ERROR("Session manager reports internal error %d from %s for the object %s", err, handle->componentName, RBUS_SMGR_DESTINATION_NAME);
+                RBUSLOG_ERROR("Session manager reports internal error %d from %s for the object %s", rc, handle->componentName, RBUS_SMGR_DESTINATION_NAME);
                 rc = RBUS_ERROR_SESSION_ALREADY_EXIST;
             }
             else
             {
-                rbusMessage_GetInt32(response, /*MESSAGE_FIELD_PAYLOAD,*/ (int*) pSessionId);
-                RBUSLOG_INFO("Received new session id %u", *pSessionId);
+                prop = rbusProperty_GetNext(prop);
+                /* Get current session id*/
+                if (prop)
+                {
+                    *pSessionId = rbusValue_GetInt32(rbusProperty_GetValue(prop));
+                    RBUSLOG_INFO("Received new session id %u", *pSessionId);
+                }
+                else
+                    RBUSLOG_ERROR("Malformed response from session manager.\n");
             }
         }
         else
         {
             RBUSLOG_ERROR("Failed to communicated with session manager.");
-            rc = rbusCoreError_to_rbusError(err);
+            return rc;
         }
-	rbusMessage_Release(response);
     }
     else
     {
@@ -5971,44 +6084,49 @@ rbusError_t rbus_closeSession(rbusHandle_t handle, uint32_t sessionId)
 {
     (void)handle;
     rbusError_t rc = RBUS_ERROR_SUCCESS;
-    rbusCoreError_t err = RBUSCORE_SUCCESS;
 
     if (handle)
     {
-        rbusMessage inputSession;
-        rbusMessage response = NULL;
-
         if (sessionId == 0)
         {
             RBUSLOG_WARN("Passing default session ID which is 0");
             return RBUS_ERROR_SUCCESS;
         }
-        rbusMessage_Init(&inputSession);
-        rbusMessage_SetInt32(inputSession, /*MESSAGE_FIELD_PAYLOAD,*/ sessionId);
-        if((err = rbus_invokeRemoteMethod(RBUS_SMGR_DESTINATION_NAME, RBUS_SMGR_METHOD_END_SESSION, inputSession, rbusConfig_ReadSetTimeout(), &response)) == RBUSCORE_SUCCESS)
+
+        rbusObject_t inParams = NULL, outParams = NULL;
+        rbusObject_Init(&inParams, NULL);
+        rbusValue_t inputSession;
+        rbusValue_Init(&inputSession);
+        rbusValue_SetInt32(inputSession, sessionId);
+        rbusObject_SetValue(inParams, "session", inputSession);
+
+        if ((rc = rbusMethod_Invoke(handle, RBUS_SMGR_METHOD_END_SESSION, inParams, &outParams)) == RBUS_ERROR_SUCCESS)
         {
-            rbusMessage_GetInt32(response, /*MESSAGE_FIELD_RESULT,*/ (int*) &err);
-            if(RBUSCORE_SUCCESS != err)
+            VERIFY_NULL(outParams);
+            rbusProperty_t prop = NULL;
+            prop = rbusObject_GetProperties(outParams);
+            int result = rbusValue_GetInt32(rbusProperty_GetValue(prop));
+
+            if (RBUS_ERROR_SUCCESS == result)
             {
-                RBUSLOG_ERROR("Session manager reports internal error %d from %s for the object %s", err, handle->componentName, RBUS_SMGR_DESTINATION_NAME);
-                rc = RBUS_ERROR_SESSION_ALREADY_EXIST;
+                RBUSLOG_INFO("Successfully ended session %u.", sessionId);
             }
             else
-                RBUSLOG_INFO("Successfully ended session %u.", sessionId);
+            {
+                RBUSLOG_ERROR("Session manager reports internal error %d from %s for the object %s", result, handle->componentName, RBUS_SMGR_DESTINATION_NAME);
+                rc = RBUS_ERROR_SESSION_ALREADY_EXIST;
+            }
         }
         else
         {
             RBUSLOG_ERROR("Failed to communicated with session manager.");
-            rc = rbusCoreError_to_rbusError(err);
         }
-        rbusMessage_Release(response);
     }
     else
     {
         RBUSLOG_WARN("Invalid Input passed..");
         rc = RBUS_ERROR_INVALID_INPUT;
     }
-
     return rc;
 }
 

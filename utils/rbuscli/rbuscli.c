@@ -110,6 +110,19 @@ void show_menu(const char* command)
             printf ("\tset Example.Prop1 string \"Hello World\" Example.Prop2 int 10\n\r");
             printf ("\n\r");
         }
+        else if(matchCmd(command, 4, "setcommit"))
+        {
+            printf ("\e[1msetc\e[0mommit \e[4mcomponent\e[0m  [sessionid]\n\r");
+            printf ("Sets the value(s) of one or more parameters.\n\r");
+            printf ("Args:\n\r");
+            printf ("\t%-20sThe name of a component\n\r", "component");
+            printf ("\t%-20sOptional sessionid (default 0)\n\r", "sessionid");
+            printf ("Examples:\n\r");
+            printf ("\tsetc rbusSampleProvider \n\r");
+            printf ("\tsetc rbusSampleProvider 1\n\r");
+            printf ("\n\r");
+        }
+
         else if(matchCmd(command, 3, "addrow"))
         {
             printf ("\e[1madd\e[0mrow \e[4mtable\e[0m [alias]\n\r");
@@ -511,6 +524,7 @@ void show_menu(const char* command)
         printf ("\t\e[1mclose\e[0mdirect \e[4mpath\e[0m\n\r");
         printf ("\t\e[1mget\e[0mvalues \e[4mpath\e[0m [\e[4mpath\e[0m \e[4m...\e[0m]\n\r");
         printf ("\t\e[1mset\e[0mvalues \e[4mparameter\e[0m \e[4mtype\e[0m \e[4mvalue\e[0m [[\e[4mparameter\e[0m \e[4mtype\e[0m \e[4mvalue\e[0m] \e[4m...\e[0m] [commit]\n\r");
+        printf ("\t\e[1msetc\e[0mommit \e[4mcomponents\e[0m  [sessionid]\n\r");
         printf ("\t\e[1madd\e[0mrow \e[4mtable\e[0m [alias]\n\r");
         printf ("\t\e[1mdel\e[0mrow \e[4mrow\e[0m\n\r");
         printf ("\t\e[1mgetr\e[0mows \e[4mpath\e[0m\n\r");
@@ -1195,7 +1209,7 @@ void validate_and_execute_get_cmd (int argc, char *argv[])
         rc = rbus_getExt(g_busHandle, numOfInputParams, pInputParam, &numOfOutVals, &outputVals);
     }
 
-    if(RBUS_ERROR_SUCCESS == rc)
+    if((RBUS_ERROR_SUCCESS == rc) && (outputVals != NULL))
     {
         rbusProperty_t next = outputVals;
         for (i = 0; i < numOfOutVals; i++)
@@ -1204,23 +1218,23 @@ void validate_and_execute_get_cmd (int argc, char *argv[])
             rbusValueType_t type = rbusValue_GetType(val);
             char *pStrVal = rbusValue_ToString(val,NULL,0);
 
-	    if ((strcmp("-g", argv[1]) == 0))
-	    {
-		printf ("%s\n", pStrVal);
-	    }
-	    else
-	    {
-		printf ("Parameter %2d:\n\r", i+1);
-		printf ("              Name  : %s\n\r", rbusProperty_GetName(next));
-		printf ("              Type  : %s\n\r", getDataType_toString(type));
-		printf ("              Value : %s\n\r", pStrVal);
-	    }
-	    if(pStrVal)
-	    {
-		free(pStrVal);
-	    }
-	    next = rbusProperty_GetNext(next);
-	}
+            if ((strcmp("-g", argv[1]) == 0))
+            {
+                printf ("%s\n", pStrVal);
+            }
+            else
+            {
+                printf ("Parameter %2d:\n\r", i+1);
+                printf ("              Name  : %s\n\r", rbusProperty_GetName(next));
+                printf ("              Type  : %s\n\r", getDataType_toString(type));
+                printf ("              Value : %s\n\r", pStrVal);
+            }
+            if(pStrVal)
+            {
+                free(pStrVal);
+            }
+            next = rbusProperty_GetNext(next);
+        }
         /* Free the memory */
         rbusProperty_Release(outputVals);
     }
@@ -1515,6 +1529,40 @@ void validate_and_execute_set_cmd (int argc, char *argv[])
     else
     {
         RBUSCLI_LOG ("setvalues failed with return value: %d\n\r", rc);
+    }
+}
+
+void validate_and_execute_setcommit_cmd (int argc, char *argv[])
+{
+    rbusError_t rc = RBUS_ERROR_SUCCESS;
+    int i = argc - 2;
+    bool isCommit = true;
+    unsigned int sessionId = 0;
+
+    if (!verify_rbus_open())
+        return;
+
+    if ((i >= 1) && (i <= 2))
+    {
+        if (argv[3])
+        {
+            sessionId  = atoi(argv[3]);
+        }
+
+        rbusSetOptions_t opts = {isCommit,sessionId};
+        rc = rbus_setCommit(g_busHandle, argv[2], &opts);
+        if(RBUS_ERROR_SUCCESS == rc)
+        {
+            RBUSCLI_LOG ("setcommit succeeded..\n\r");
+        }
+        else
+        {
+            RBUSCLI_LOG ("setcommit failed with return value: %d\n\r", rc);
+        }
+    }
+    else
+    {
+        printf ("Invalid arguments. Please see the help\n\r");
     }
 }
 
@@ -2339,6 +2387,10 @@ int handle_cmds (int argc, char *argv[])
     {
         validate_and_execute_set_cmd (argc, argv);
     }
+    else if(matchCmd(command, 4, "setcommit"))
+    {
+        validate_and_execute_setcommit_cmd (argc, argv);
+    }
     else if(matchCmd(command, 4, "getnames"))
     {
         validate_and_execute_getnames_cmd (argc, argv);
@@ -2623,7 +2675,7 @@ void completion(const char *buf, linenoiseCompletions *lc) {
     if(num == 1)
     {
         runSteps = __LINE__;
-        completion = find_completion(tokens[0], 14, "get", "set", "add", "del", "getr", "getn", "disca", "discc", "disce",
+        completion = find_completion(tokens[0], 14, "get", "set", "setc", "add", "del", "getr", "getn", "disca", "discc", "disce",
                 "discw", "sub", "subint", "rawdatasub", "rawdataunsub", "unsub", "unsubint", "asub", "method_no", "method_na", "method_va", "reg",                 "unreg", "pub", "rawdatapub", "log", "quit", "opend", "closed", "help");
     }
     else if(num == 2)
@@ -2705,6 +2757,10 @@ char *hints(const char *buf, int *color, int *bold) {
         else if(strcmp(tokens[0], "set") == 0)
         {
             hint = " parameter type value";
+        }
+        else if(strcmp(tokens[0], "setc") == 0)
+        {
+            hint = " component [sessionid]";
         }
         else if(strcmp(tokens[0], "add") == 0)
         {
