@@ -1467,7 +1467,7 @@ static void _set_callback_handler (rbusHandle_t handle, rbusMessage request, rbu
             {
                 /* Retrive the element node */
                 char const* paramName = rbusProperty_GetName(pProperties[loopCnt]);
-                el = retrieveInstanceElement(handleInfo->elementRoot, paramName);
+                el = retrieveInstanceElementEx(handle, handleInfo->elementRoot, paramName, true);
                 if(el != NULL)
                 {
                     if(el->cbTable.setHandler)
@@ -1628,46 +1628,55 @@ static void _get_recursive_partialpath_handler(elementNode* node, char const* qu
 
     if (node != NULL)
     {
-        /*if table getHandler, then pass the query to it and stop recursion*/
-        if(node->type == RBUS_ELEMENT_TYPE_TABLE && node->cbTable.getHandler)
+        if(node->type == RBUS_ELEMENT_TYPE_TABLE)
         {
-            rbusError_t result;
-            rbusProperty_t tmpProperties;
-            char instanceName[RBUS_MAX_NAME_LENGTH];
-            char partialPath[RBUS_MAX_NAME_LENGTH];
-
-            snprintf(partialPath, RBUS_MAX_NAME_LENGTH-1, "%s.", 
-                     query ? _convert_reg_name_to_instance_name(node->fullName, query, instanceName) : node->fullName);
-
-            RBUSLOG_DEBUG("%*s_get_recursive_partialpath_handler calling table getHandler partialPath=%s", level*4, " ", partialPath);
-
-            rbusProperty_Init(&tmpProperties, partialPath, NULL);
-
-            ELM_PRIVATE_LOCK(node);
-            result = node->cbTable.getHandler(handle, tmpProperties, &options);
-            ELM_PRIVATE_UNLOCK(node);
-
-            if (result == RBUS_ERROR_SUCCESS )
+            /*if table getHandler, then pass the query to it and stop recursion*/
+            if (node->cbTable.getHandler)
             {
-                int count = rbusProperty_Count(tmpProperties);
+                rbusError_t result;
+                rbusProperty_t tmpProperties;
+                char instanceName[RBUS_MAX_NAME_LENGTH];
+                char partialPath[RBUS_MAX_NAME_LENGTH];
 
-                RBUSLOG_DEBUG("%*s_get_recursive_partialpath_handler table getHandler returned %d properties", level*4, " ", count-1);
+                snprintf(partialPath, RBUS_MAX_NAME_LENGTH-1, "%s.", 
+                    query ? _convert_reg_name_to_instance_name(node->fullName, query, instanceName) : node->fullName);
 
-                /*the first property is just the partialPath we passed in */
-                if(count > 1)
+                RBUSLOG_DEBUG("%*s_get_recursive_partialpath_handler calling table getHandler partialPath=%s", level*4, " ", partialPath);
+
+                rbusProperty_Init(&tmpProperties, partialPath, NULL);
+
+                ELM_PRIVATE_LOCK(node);
+                result = node->cbTable.getHandler(handle, tmpProperties, &options);
+                ELM_PRIVATE_UNLOCK(node);
+
+                if (result == RBUS_ERROR_SUCCESS )
                 {
-                    /*take the second property, which is a list*/
-                    rbusProperty_Append(properties, rbusProperty_GetNext(tmpProperties));
-                    *pCount += count - 1;
+                    int count = rbusProperty_Count(tmpProperties);
+
+                    RBUSLOG_DEBUG("%*s_get_recursive_partialpath_handler table getHandler returned %d properties", level*4, " ", count-1);
+
+                    /*the first property is just the partialPath we passed in */
+                    if(count > 1)
+                    {
+                        /*take the second property, which is a list*/
+                        rbusProperty_Append(properties, rbusProperty_GetNext(tmpProperties));
+                        *pCount += count - 1;
+                    }
                 }
+                else
+                {
+                    RBUSLOG_DEBUG("%*s_get_recursive_partialpath_handler table getHandler failed rc=%d", level*4, " ", result);
+                }
+
+                rbusProperty_Release(tmpProperties);
+                return;
             }
-            else
+            else if (node->cbTable.tableSyncHandler)
             {
-                RBUSLOG_DEBUG("%*s_get_recursive_partialpath_handler table getHandler failed rc=%d", level*4, " ", result);
+                ELM_PRIVATE_LOCK(node);
+                node->cbTable.tableSyncHandler(handle, node->fullName);
+                ELM_PRIVATE_UNLOCK(node);
             }
-            
-            rbusProperty_Release(tmpProperties);
-            return;
         }
 
         elementNode* child = node->child;
@@ -1741,12 +1750,19 @@ rbusError_t get_recursive_wildcard_handler (rbusHandle_t handle, char const *par
         tmpPtr[0] = '\0';
         tmpPtr++;
 
-        el = retrieveInstanceElement(handleInfo->elementRoot, instanceName);
+        el = retrieveInstanceElementEx(handle, handleInfo->elementRoot, instanceName, true);
         if (!el)
             return RBUS_ERROR_ELEMENT_DOES_NOT_EXIST;
 
         else if(el->type != RBUS_ELEMENT_TYPE_TABLE)
             return RBUS_ERROR_ACCESS_NOT_ALLOWED;
+
+        if (el->cbTable.tableSyncHandler)
+        {
+            ELM_PRIVATE_LOCK(el);
+            el->cbTable.tableSyncHandler(handle, el->fullName);
+            ELM_PRIVATE_UNLOCK(el);
+        }
 
         child = el->child;
         while(child)
@@ -1767,7 +1783,7 @@ rbusError_t get_recursive_wildcard_handler (rbusHandle_t handle, char const *par
     else if (instanceName[length] == '.')
     {
         int hasInstance = 1;
-        el = retrieveInstanceElement(handleInfo->elementRoot, instanceName);
+        el = retrieveInstanceElementEx(handle, handleInfo->elementRoot, instanceName, true);
         if(el)
         {
             if(strstr(el->fullName, "{i}"))
@@ -1779,7 +1795,7 @@ rbusError_t get_recursive_wildcard_handler (rbusHandle_t handle, char const *par
     }
     else
     {
-        child = retrieveInstanceElement(handleInfo->elementRoot, instanceName);
+        child = retrieveInstanceElementEx(handle, handleInfo->elementRoot, instanceName, true);
         if (!child)
             return RBUS_ERROR_ELEMENT_DOES_NOT_EXIST;
 
@@ -1815,7 +1831,7 @@ static rbusError_t _get_single_dml_handler (rbusHandle_t handle, char const *par
 
     RBUSLOG_DEBUG("calling get single for [%s]", parameterName);
 
-    el = retrieveInstanceElement(handleInfo->elementRoot, parameterName);
+    el = retrieveInstanceElementEx(handle, handleInfo->elementRoot, parameterName, true);
     if(el != NULL)
     {
         RBUSLOG_DEBUG("Retrieved [%s]", parameterName);
@@ -1967,7 +1983,7 @@ static void _get_callback_handler (rbusHandle_t handle, rbusMessage request, rbu
     return;
 }
 
-static void _get_parameter_names_recurse(elementNode* el, int* count, rbusMessage response, int requestedDepth, int currentDepth)
+static void _get_parameter_names_recurse(rbusHandle_t handle, elementNode* el, int* count, rbusMessage response, int requestedDepth, int currentDepth, bool syncTables)
 {
     int absDepth = abs(requestedDepth);
 
@@ -2018,13 +2034,22 @@ static void _get_parameter_names_recurse(elementNode* el, int* count, rbusMessag
 
     if(currentDepth < absDepth)
     {
-        elementNode* child = el->child;
+        elementNode* child;
+
+        if (syncTables && el->type == RBUS_ELEMENT_TYPE_TABLE && el->cbTable.tableSyncHandler)
+        {
+            ELM_PRIVATE_LOCK(el);
+            el->cbTable.tableSyncHandler(handle, el->fullName);
+            ELM_PRIVATE_UNLOCK(el);
+        }
+
+        child = el->child;
         while(child)
         {
             if( !(child->type == RBUS_ELEMENT_TYPE_TABLE && child->cbTable.getHandler) && /*TODO table with get handler */
                 !(el->type == RBUS_ELEMENT_TYPE_TABLE && strcmp(child->name, "{i}") == 0))/*if not a table row template*/
             {
-                _get_parameter_names_recurse(child, count, response, requestedDepth, currentDepth+1);
+                _get_parameter_names_recurse(handle, child, count, response, requestedDepth, currentDepth+1, syncTables);
             }
             child = child->nextSibling;
         }
@@ -2052,7 +2077,7 @@ static void _get_parameter_names_handler (rbusHandle_t handle, rbusMessage reque
 
     rbusMessage_Init(response);
 
-    el = retrieveInstanceElement(handleInfo->elementRoot, objName);
+    el = retrieveInstanceElementEx(handle, handleInfo->elementRoot, objName, true);
     if (!el)
     {
         rbusMessage_SetInt32(*response, (int)RBUS_ERROR_ELEMENT_DOES_NOT_EXIST);
@@ -2061,7 +2086,7 @@ static void _get_parameter_names_handler (rbusHandle_t handle, rbusMessage reque
 
     if(getRowNamesOnly)
     {
-        elementNode* child = el->child;
+        elementNode* child;
         int numRows = 0;
 
         if(el->type != RBUS_ELEMENT_TYPE_TABLE)
@@ -2069,6 +2094,14 @@ static void _get_parameter_names_handler (rbusHandle_t handle, rbusMessage reque
             rbusMessage_SetInt32(*response, (int)RBUS_ERROR_INVALID_INPUT);
             return;
         }
+        else if (el->cbTable.tableSyncHandler)
+        {
+            ELM_PRIVATE_LOCK(el);
+            el->cbTable.tableSyncHandler(handle, el->fullName);
+            ELM_PRIVATE_UNLOCK(el);
+        }
+
+        child = el->child;
 
         while(child)
         {
@@ -2102,13 +2135,13 @@ static void _get_parameter_names_handler (rbusHandle_t handle, rbusMessage reque
 
         rbusMessage_SetInt32(*response, RBUS_ERROR_SUCCESS);
 
-        _get_parameter_names_recurse(el, &count, NULL, requestedDepth, 0);
+        _get_parameter_names_recurse(handle, el, &count, NULL, requestedDepth, 0, true);
 
         RBUSLOG_DEBUG("found %d elements", count);
 
         rbusMessage_SetInt32(*response, (int)count);
 
-        _get_parameter_names_recurse(el, NULL, *response, requestedDepth, 0);
+        _get_parameter_names_recurse(handle, el, NULL, *response, requestedDepth, 0, false);
     }
     #if 0 //TODO-finish
     else /*if table with getHandler*/
@@ -2187,7 +2220,7 @@ static void _table_add_row_callback_handler (rbusHandle_t handle, rbusMessage re
     RBUSLOG_DEBUG("table [%s] alias [%s] name [%s]", tableName, aliasName, handleInfo->componentName);
 
     elementNode* tableRegElem = retrieveElement(handleInfo->elementRoot, tableName);
-    elementNode* tableInstElem = retrieveInstanceElement(handleInfo->elementRoot, tableName);
+    elementNode* tableInstElem = retrieveInstanceElementEx(handle, handleInfo->elementRoot, tableName, true);
 
     if(tableRegElem && tableInstElem)
     {
@@ -2239,7 +2272,7 @@ static void _table_remove_row_callback_handler (rbusHandle_t handle, rbusMessage
 
     /*get the element for the row */
     elementNode* rowRegElem = retrieveElement(handleInfo->elementRoot, rowName);
-    elementNode* rowInstElem = retrieveInstanceElement(handleInfo->elementRoot, rowName);
+    elementNode* rowInstElem = retrieveInstanceElementEx(handle, handleInfo->elementRoot, rowName, true);
 
     if(rowRegElem && rowInstElem)
     {
@@ -2319,7 +2352,7 @@ static int _method_callback_handler(rbusHandle_t handle, rbusMessage request, rb
     rbusObject_Init(&outParams, NULL);
     /*get the element for the row */
     elementNode* methRegElem = retrieveElement(handleInfo->elementRoot, methodName);
-    elementNode* methInstElem = retrieveInstanceElement(handleInfo->elementRoot, methodName);
+    elementNode* methInstElem = retrieveInstanceElementEx(handle, handleInfo->elementRoot, methodName, true);
 
     if(methRegElem && methInstElem)
     {
@@ -2446,7 +2479,7 @@ static void _subscribe_callback_handler (rbusHandle_t handle, rbusMessage reques
                 RBUSLOG_ERROR("payload missing in subscribe request for event %s from %s", event_name, sender);
             }
 
-            el = retrieveInstanceElement(handleInfo->elementRoot, event_name);
+            el = retrieveInstanceElementEx(handle, handleInfo->elementRoot, event_name, true);
 
             if (!el)
             {
@@ -2593,7 +2626,7 @@ static void _create_direct_connection_callback_handler (rbusHandle_t handle, rbu
 
     rbusMessage_Init(response);
 
-    el = retrieveInstanceElement(handleInfo->elementRoot, paramName);
+    el = retrieveInstanceElementEx(handle, handleInfo->elementRoot, paramName, true);
 
     if (el)
     {
@@ -6229,6 +6262,34 @@ rbusError_t rbusHandle_GetTraceContextAsString(
         else
             traceState[0] = '\0';
     }
+
+    return RBUS_ERROR_SUCCESS;
+}
+
+rbusError_t rbus_registerDynamicTableSyncHandler(
+    rbusHandle_t handle,
+    char const* tableName,
+    rbusTableSyncHandler_t syncHandler)
+{
+    struct _rbusHandle* handleInfo;
+    elementNode* tableRegElem;
+
+    VERIFY_HANDLE(handle);
+    VERIFY_NULL(tableName);
+
+    handleInfo = (struct _rbusHandle*)handle;
+    tableRegElem = retrieveElement(handleInfo->elementRoot, tableName);
+
+    if (!tableRegElem)
+        return RBUS_ERROR_ELEMENT_DOES_NOT_EXIST;
+
+    if(!strcmp(tableRegElem->name, "{i}"))
+        tableRegElem = tableRegElem->parent;
+
+    if (tableRegElem->type != RBUS_ELEMENT_TYPE_TABLE)
+        return RBUS_ERROR_INVALID_INPUT;
+
+    tableRegElem->cbTable.tableSyncHandler = syncHandler;
 
     return RBUS_ERROR_SUCCESS;
 }
