@@ -18,6 +18,7 @@
 */
 #define _GNU_SOURCE 1
 #include <stdio.h>
+#include "safec.h"
 #include <string.h>
 #include <stdlib.h>
 #include <time.h>
@@ -1968,7 +1969,7 @@ void validate_and_execute_subscribe_cmd (int argc, char *argv[], bool add, bool 
     }
 
     if (!verify_rbus_open())
-        return;    
+        return;
 
     if(!g_subsribeUserData)
        rtList_Create(&g_subsribeUserData);
@@ -1979,13 +1980,19 @@ void validate_and_execute_subscribe_cmd (int argc, char *argv[], bool add, bool 
         if (matchCmd(argv[1], 4, "subinterval") || matchCmd(argv[1], 6, "unsubinterval"))
         {
             subinterval = true;
-            strcat(userData, "subint ");
+            if (strcat_s(userData, 256, "subint ") != 0) {
+                goto exit_error;
+            }
         }
         else
         {
-            strcat(userData, "sub ");
+            if (strcat_s(userData, 256, "sub ") != 0) {
+                goto exit_error;
+            }
         }
-        strcat(userData, argv[2]);
+        if (strcat_s(userData, 256, argv[2]) != 0) {
+                goto exit_error;
+            }
     }
     if(argc > 3) /*filter*/
     {
@@ -1997,16 +2004,23 @@ void validate_and_execute_subscribe_cmd (int argc, char *argv[], bool add, bool 
             }
 
             interval = atoi(argv[3]);
-            strcat(userData, " ");
-            strcat(userData, argv[3]);
+            if (strcat_s(userData, 256, " ") != 0) {
+                goto exit_error;
+            }
+            if (strcat_s(userData, 256, argv[3]) != 0) {
+                goto exit_error;
+            }
             if(argv[4] != NULL)
             {
                 if( argc > 5 ) {
                     /*duration*/
                     duration = atoi(argv[4]);
-                    strcat(userData, " ");
-                    strcat(userData, argv[4]);
-
+                    if (strcat_s(userData, 256, " ") != 0) {
+                goto exit_error;
+            }
+                    if (strcat_s(userData, 256, argv[4]) != 0) {
+                goto exit_error;
+            }
                     publishOnSubscribe = set_publishOnSubscribe(argc, argv);
                     if(publishOnSubscribe == -1)
                         goto exit_error;
@@ -2015,8 +2029,12 @@ void validate_and_execute_subscribe_cmd (int argc, char *argv[], bool add, bool 
                 {
                     if (atoi(argv[4])) {
                         duration = atoi(argv[4]);
-                        strcat(userData, " ");
-                        strcat(userData, argv[4]);
+                        if (strcat_s(userData, 256, " ") != 0) {
+                goto exit_error;
+            }
+                        if (strcat_s(userData, 256, argv[4]) != 0) {
+                goto exit_error;
+            }
                     }
                     else
                     {
@@ -2029,10 +2047,18 @@ void validate_and_execute_subscribe_cmd (int argc, char *argv[], bool add, bool 
         }
         else if (((relOp = find_filter(argv)) >= 0) && (argc < 7))
         {
-            strcat(userData, " ");
-            strcat(userData, argv[3]);
-            strcat(userData, " ");
-            strcat(userData, argv[4]);
+            if (strcat_s(userData, 256, " ") != 0) {
+                goto exit_error;
+            }
+            if (strcat_s(userData, 256, argv[3]) != 0) {
+                goto exit_error;
+            }
+            if (strcat_s(userData, 256, " ") != 0) {
+                goto exit_error;
+            }
+            if (strcat_s(userData, 256, argv[4]) != 0) {
+                goto exit_error;
+            }
 
             rbusValue_Init(&filterValue);
 
