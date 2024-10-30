@@ -1,0 +1,107 @@
+name: unit_tests_valgrind
+on:
+  workflow_run:
+    workflows: ["unit_tests"]
+    types:
+      - completed
+jobs:
+  all:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up cache
+        id: cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            build
+            install
+          key: ${{ runner.os }}-${{ github.sha }}
+
+      - name: Set up CMake
+        uses: jwlawson/actions-setup-cmake@v1.12
+        with:
+          cmake-version: '3.16.x'
+      - name: Install packages
+        run: >
+          sudo apt update && sudo apt install -y libcurl4-openssl-dev libgtest-dev lcov gcovr valgrind
+      - name: Checkout rbus
+        if: steps.cache.outputs.cache-hit != 'true'
+        uses: actions/checkout@v3
+        with:
+          path: rbus
+      - name: Configure Rbus
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: >
+          cmake 
+          -S "${{github.workspace}}/rbus"
+          -B build/rbus 
+          -DCMAKE_INSTALL_PREFIX="${{github.workspace}}/install/usr" 
+          -DBUILD_FOR_DESKTOP=ON
+          -DENABLE_UNIT_TESTING=ON
+          -DENABLE_CODE_COVERAGE=ON          
+          -DCMAKE_BUILD_TYPE=Debug
+      - name: Build Rbus
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: >
+          make -C build/rbus 
+      - name: Install rbus
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: >
+          make -C build/rbus install
+      - name: Start rtrouted
+        run: |
+          cd install/usr
+          export PREFIX=$PWD
+          export LD_LIBRARY_PATH=$PREFIX/lib
+          nohup ./bin/rtrouted -f -l DEBUG > /tmp/rtrouted_log.txt &
+      - name: Run Unit test with Valgrind
+        run: |
+          cd install/usr
+          export PREFIX=$PWD
+          export LD_LIBRARY_PATH=$PREFIX/lib
+          nohup ./bin/rbusTestProvider >/tmp/plog.txt &
+          valgrind --leak-check=full --error-exitcode=1 ./bin/rbusTestConsumer -a
+      - name: Run multiRbusOpenMethod Unit Test with Valgrind
+        run: |
+          cd install/usr
+          export PREFIX=$PWD
+          export LD_LIBRARY_PATH=$PREFIX/lib
+          valgrind --leak-check=full --error-exitcode=1 ./bin/multiRbusOpenMethodProvider &
+          valgrind --leak-check=full --error-exitcode=1 ./bin/multiRbusOpenMethodConsumer &
+      - name: Run multiRbusOpenSubscribe Unit test with Valgrind
+        run: |
+          cd install/usr
+          export PREFIX=$PWD
+          export LD_LIBRARY_PATH=$PREFIX/lib
+          nohup ./bin/multiRbusOpenProvider >/tmp/log_multiRbusOpenProvider.txt &
+          valgrind --leak-check=full --error-exitcode=1 ./bin/multiRbusOpenConsumer
+      - name: Run multiRbusOpenGet Unit test with Valgrind
+        run: |
+          cd install/usr
+          export PREFIX=$PWD
+          export LD_LIBRARY_PATH=$PREFIX/lib
+          nohup ./bin/multiRbusOpenRbusGetProvider >/tmp/log_multiRbusOpenRbusGetProvider.txt &
+          valgrind --leak-check=full --error-exitcode=1 ./bin/multiRbusOpenRbusGetConsumer
+      - name: Run multiRbusOpenSet Unit test with Valgrind
+        run: |
+          cd install/usr
+          export PREFIX=$PWD
+          export LD_LIBRARY_PATH=$PREFIX/lib
+          nohup ./bin/multiRbusOpenRbusGetProvider >/tmp/log_multiRbusOpenRbusSetProvider.txt &
+          valgrind --leak-check=full --error-exitcode=1 ./bin/multiRbusOpenRbusSetConsumer
+      - name: Run Gtest Cases with Valgrind
+        run: |
+          cd build/rbus
+          nohup ./src/session_manager/rbus_session_mgr &
+          valgrind --leak-check=full --error-exitcode=1 ./unittests/rbus_gtest.bin
+      - name: Stop SessionManager
+        run: |
+          killall -9 rbus_session_mgr
+      - name: Stop rtrouted
+        run: |
+          killall -9 rtrouted
+      - name: Run CodeCoverage
+        run: |
+            rm -rf /tmp/rtrouted*
+            cd build/rbus
+            make rbusCodeCoverageUI
