@@ -66,7 +66,10 @@ rtRouteBase_BindListener(char const* socket_name, int no_delay, int indefinite_r
 
   err = rtSocketStorage_FromString(&listener->local_endpoint, socket_name);
   if (err != RT_OK)
+  {
+    free(listener);
     return err;
+  }
 
   rtLog_Debug("binding listener:%s", socket_name);
 
@@ -130,7 +133,7 @@ rtRouteBase_BindListener(char const* socket_name, int no_delay, int indefinite_r
   {
     rtLog_Warn("failed to set socket to listen mode. %s", rtStrError(errno));
     rtRouteBase_CloseListener(listener);
-    free(listener); 
+    free(listener);
     return RT_FAIL;
   }
 
