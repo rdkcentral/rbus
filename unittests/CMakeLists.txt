@@ -116,5 +116,6 @@ if (ENABLE_CODE_COVERAGE)
     install(FILES ${CMAKE_BINARY_DIR}/rbus_src_gcno.tar DESTINATION ${CMAKE_INSTALL_BINDIR})
 endif()
 
-# not sure why this isn't working
-#gtest_discover_tests(rbus_gtest.bin)
+gtest_discover_tests(
+  rbus_gtest.bin
+  WORKING_DIRECTORY ${PROJECT_BINARY_DIR})
