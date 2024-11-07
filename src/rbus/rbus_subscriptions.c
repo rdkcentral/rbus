@@ -621,7 +621,7 @@ remove_bad_file:
         rbusBuffer_Destroy(buff);
 
     if(sub)
-        free(sub);
+        subscriptionFree(sub);
 
     if(remove(filePath) != 0)
         RBUSLOG_ERROR("failed to remove %s", filePath);
