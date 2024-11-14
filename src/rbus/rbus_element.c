@@ -398,6 +398,7 @@ elementNode* retrieveElement(elementNode* root, const char* elmentName)
     RBUSLOG_DEBUG("Request to retrieve element [%s]", elmentName);
     if(currentNode == NULL)
     {
+        UNLOCK();
         return NULL;
     }
 
@@ -499,6 +500,7 @@ elementNode* retrieveInstanceElementEx(rbusHandle_t handle, elementNode* root, c
     LOCK();
     if(currentNode == NULL)
     {
+        UNLOCK();
         return NULL;
     }
 
@@ -1024,6 +1026,7 @@ elementNode* instantiateTableRow(elementNode* tableNode, uint32_t instNum, char 
 
     if(!rowTemplate)
     {
+        UNLOCK();
         assert(false);
         RBUSLOG_ERROR("ERROR: row template not found for table %s", tableNode->fullName);
         return NULL;
