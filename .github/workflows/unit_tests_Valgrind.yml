@@ -92,7 +92,7 @@ jobs:
       - name: Run Gtest Cases with Valgrind
         run: |
           cd build/rbus
-          nohup ./src/session_manager/rbus_session_mgr &
+          valgrind --leak-check=full --error-exitcode=1 ./src/session_manager/rbus_session_mgr &
           valgrind --leak-check=full --error-exitcode=1 ./unittests/rbus_gtest.bin
       - name: Stop SessionManager
         run: |
