@@ -530,7 +530,24 @@ typedef rbusError_t (* rbusEventSubHandler_t)(
     bool* autoPublish
 );
 
-/** @struct rbusCallbackTable_t
+/** @fn typedef rbusError_t (*rbusTableSyncHandler_t)(
+ *          rbusHandle_t handle,
+ *          char const* tableName)
+ *  @brief A table sync callback handler
+ *
+ * A provider can implement this handler to allow dynamic tables to synchronize rows.
+ * The tableName parameter will be a fully qualified name, specifying table's name
+ * (e.g. "Device.IP.Interface.").
+ *  @param  handle          Bus Handle
+ *  @param  tableName       The name of a table (e.g. "Device.IP.Interface.")
+ *  @return RBus error code as defined by rbusError_t.
+ */
+typedef rbusError_t (*rbusTableSyncHandler_t)(
+    rbusHandle_t handle,
+    char const* tableName
+);
+
+/** @struct rbusElementCallbackTable_t
  *  @brief The list of callback handlers supported by a data element.
  *
  * This table also specifies the possible usage for each data element.
@@ -549,7 +566,7 @@ typedef rbusError_t (* rbusEventSubHandler_t)(
  * data element, the rbus library checks for NULL and substitutes a pointer
  * to an error handler function for all unused features
  */
-typedef struct rbusCallbackTable_t
+typedef struct rbusElementCallbackTable_t
 {
     rbusGetHandler_t         getHandler;                /**< Get parameters
                                                             handler for the
@@ -566,6 +583,32 @@ typedef struct rbusCallbackTable_t
                                                             handler for the
                                                             event name       */
     rbusMethodHandler_t      methodHandler;             /**< Method handler  */
+    rbusTableSyncHandler_t   tableSyncHandler;          /** Synchronize dynamic table */
+} rbusElementCallbackTable_t;
+
+/**
+ * @struct      rbusCallbackTable_t
+ * @brief       Backward compatibility version of rbusElementCallbackTable_t
+ */
+typedef struct rbusCallbackTable_t
+{
+    rbusGetHandler_t         getHandler;                /**< Get parameters
+                                                            handler for the
+                                                            named paramter   */
+    rbusSetHandler_t         setHandler;                /**< Set parameters
+                                                            handler for the
+                                                            named parameter  */
+    rbusTableAddRowHandler_t tableAddRowHandler;        /**< Add row handler
+                                                             to a table*/
+    rbusTableRemoveRowHandler_t tableRemoveRowHandler;  /**< Remove a row
+                                                             from a table*/
+    rbusEventSubHandler_t    eventSubHandler;           /**< Event subscribe
+                                                            and unsubscribe
+                                                            handler for the
+                                                            event name       */
+    void*                    methodHandler;             /**< Method handler.
+                                                            For table type elements (RBUS_ELEMENT_TYPE_TABLE) method handler
+                                                            is used to synchronize table rows of dynamic tables */
 } rbusCallbackTable_t;
 
 ///  @brief rbusDataElement_t The structure used when registering or
@@ -1043,6 +1086,11 @@ rbusError_t rbus_set(
     rbusHandle_t handle,
     char const* name,
     rbusValue_t value,
+    rbusSetOptions_t* opts);
+
+rbusError_t rbus_setCommit(
+    rbusHandle_t handle,
+    char const* name,
     rbusSetOptions_t* opts);
 
 /** @fn rbusError_t rbus_setMulti(
@@ -1898,6 +1946,25 @@ rbusError_t rbus_openDirect(rbusHandle_t handle, rbusHandle_t* myDirectHandle, c
  *  @return RBus error code as defined by rbusError_t.
  */
 rbusError_t rbus_closeDirect(rbusHandle_t handle);
+
+/** @fn rbusError_t rbus_registerDynamicTableSyncHandler(
+ *          rbusHandle_t handle,
+ *          char const* tableName,
+ *          rbusTableSyncHandler_t syncHandler)
+ *
+ *  @brief  Register tableSyncHandler for table element with dynamic rows.
+ *
+ *  Used by: Component that wants to register tableSyncHandler that will register/unregister rows of dynamic table.
+ *
+ *  @param handle         Bus Handle
+ *  @param tableName      The name of a table (e.g. "Device.IP.Interface.")
+ *  @param syncHandler    Dymanic table sync callback 
+ *  @return RBus error code as defined by rbusError_t.
+ */
+rbusError_t rbus_registerDynamicTableSyncHandler(
+    rbusHandle_t handle,
+    char const* tableName,
+    rbusTableSyncHandler_t syncHandler);
 /** @} */
 
 #ifdef __cplusplus

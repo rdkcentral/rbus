@@ -109,7 +109,7 @@ void isElementPresent(rbusHandle_t handle, const char *elementName)
     }
     else
     {
-      printf ("Failed to discover components. Error Code = %d\n\r", rc);
+      printf ("Failed to discover components. Error Code = %d\r\n", rc);
     }
     if(!elementFound) usleep(5000);
   }

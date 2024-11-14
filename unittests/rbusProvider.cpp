@@ -368,11 +368,11 @@ int rbusProvider(rbusGtest_t test, pid_t pid, int *consumer_status)
     {(char *)"Device.rbusProvider.PartialPath.{i}.", RBUS_ELEMENT_TYPE_TABLE, {ppTableGetHandler, NULL, ppTableAddRowHandler, ppTableRemRowHandler, NULL, NULL}},
     {(char *)"Device.rbusProvider.PartialPath.{i}.Param1", RBUS_ELEMENT_TYPE_PROPERTY, {ppParamGetHandler, setHandler, NULL, NULL, NULL, NULL}},
     {(char *)"Device.rbusProvider.PartialPath.{i}.Param2", RBUS_ELEMENT_TYPE_PROPERTY, {ppParamGetHandler, NULL, NULL, NULL, NULL, NULL}},
-    {(char *)"Device.rbusProvider.Method()", RBUS_ELEMENT_TYPE_METHOD, {NULL, NULL, NULL, NULL, NULL, methodHandler}},
-    {(char *)"Device.rbusProvider.Method11()", RBUS_ELEMENT_TYPE_METHOD, {NULL, NULL, NULL, NULL, NULL, methodHandler}},
-    {(char *)"Device.rbusProvider.Method123()", RBUS_ELEMENT_TYPE_METHOD, {NULL, NULL, NULL, NULL, NULL, methodHandler}},
-    {(char *)"Device.rbusProvider.MethodAsync1()", RBUS_ELEMENT_TYPE_METHOD, {NULL, NULL, NULL, NULL, NULL, methodHandler}},
-    {(char *)"Device.rbusProvider.MethodAsync_2()", RBUS_ELEMENT_TYPE_METHOD, {NULL, NULL, NULL, NULL, NULL, methodHandler}}
+    {(char *)"Device.rbusProvider.Method()", RBUS_ELEMENT_TYPE_METHOD, {NULL, NULL, NULL, NULL, NULL, (void*)methodHandler}},
+    {(char *)"Device.rbusProvider.Method11()", RBUS_ELEMENT_TYPE_METHOD, {NULL, NULL, NULL, NULL, NULL, (void*)methodHandler}},
+    {(char *)"Device.rbusProvider.Method123()", RBUS_ELEMENT_TYPE_METHOD, {NULL, NULL, NULL, NULL, NULL, (void*)methodHandler}},
+    {(char *)"Device.rbusProvider.MethodAsync1()", RBUS_ELEMENT_TYPE_METHOD, {NULL, NULL, NULL, NULL, NULL, (void*)methodHandler}},
+    {(char *)"Device.rbusProvider.MethodAsync_2()", RBUS_ELEMENT_TYPE_METHOD, {NULL, NULL, NULL, NULL, NULL, (void*)methodHandler}}
   };
 #define elements_count sizeof(dataElements)/sizeof(dataElements[0])
 
