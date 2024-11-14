@@ -38,7 +38,7 @@
     VERIFY_UNPACK_NEXT_ITEM()\
     if(message->upk.data.type != T)\
     {\
-        RBUSCORELOG_ERROR("%s unexpected date type %d", __FUNCTION__, message->upk.data.type);\
+        RBUSCORELOG_ERROR("%s unexpected data type %d", __FUNCTION__, message->upk.data.type);\
         return RT_FAIL;\
     }
 
@@ -46,7 +46,7 @@
     VERIFY_UNPACK_NEXT_ITEM()\
     if(message->upk.data.type != T && message->upk.data.type != T2)\
     {\
-        RBUSCORELOG_ERROR("%s unexpected date type %d", __FUNCTION__, message->upk.data.type);\
+        RBUSCORELOG_ERROR("%s unexpected data type %d", __FUNCTION__, message->upk.data.type);\
         return RT_FAIL;\
     }
 
