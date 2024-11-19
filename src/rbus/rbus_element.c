@@ -383,17 +383,14 @@ elementNode* retrieveElement(elementNode* root, const char* elmentName)
     char* saveptr = NULL;
     elementNode* currentNode = root;
     elementNode* nextNode = NULL;
-    int tokenFound = 0;
-
-    LOCK();
+    int tokenFound = 0;  
     RBUSLOG_DEBUG("Request to retrieve element [%s]", elmentName);
     if(currentNode == NULL)
     {
         return NULL;
     }
-
+    LOCK();
     name = strdup(elmentName);
-
     nextNode = currentNode->child;
 
     /*TODO if name is a table row with an alias containing a dot, this will break (e.g. "Foo.[alias.1]")*/
@@ -482,14 +479,13 @@ elementNode* retrieveInstanceElement(elementNode* root, const char* elmentName)
     bool isWildcard = false;
 
     RBUSLOG_DEBUG("Request to retrieve element [%s]", elmentName);
-    LOCK();
+   
     if(currentNode == NULL)
     {
         return NULL;
     }
-
+    LOCK();	
     name = strdup(elmentName);
-
     nextNode = currentNode->child;
 
     /*TODO if name is a table row with an alias containing a dot, this will break (e.g. "Foo.[alias.1]")*/
@@ -1004,6 +1000,7 @@ elementNode* instantiateTableRow(elementNode* tableNode, uint32_t instNum, char 
 
     if(!rowTemplate)
     {
+	UNLOCK();
         assert(false);
         RBUSLOG_ERROR("ERROR: row template not found for table %s", tableNode->fullName);
         return NULL;
