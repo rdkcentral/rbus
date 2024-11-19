@@ -45,17 +45,16 @@ struct _rtMessage
 rtError
 rtMessage_Create(rtMessage* message)
 {
+  if (!message)
+    return RT_FAIL;
   *message = (rtMessage) rt_try_malloc(sizeof(struct _rtMessage));
-  if(!*message)
+  if (!*message) {
     return rtErrorFromErrno(ENOMEM);
-  if (message)
-  {
-    (*message)->count = 0;
-    (*message)->json = cJSON_CreateObject();
-    rt_atomic_fetch_add(&(*message)->count, 1);
-    return RT_OK;
   }
-  return RT_FAIL;
+  (*message)->count = 0;
+  (*message)->json = cJSON_CreateObject();
+  rt_atomic_fetch_add(&(*message)->count, 1);
+  return RT_OK;
 }
 
 /**
