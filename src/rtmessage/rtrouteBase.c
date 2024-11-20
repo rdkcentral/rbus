@@ -63,6 +63,7 @@ rtRouteBase_BindListener(char const* socket_name, int no_delay, int indefinite_r
   listener = (rtListener *)rt_malloc(sizeof(rtListener));
   if (!listener)
        return rtErrorFromErrno(ENOMEM);
+
   listener->fd = -1;
   memset(&listener->local_endpoint, 0, sizeof(struct sockaddr_storage));
 
