@@ -625,13 +625,13 @@ rtRouteDirect_StartInstance(const char* socket_name, rtDriectClientHandler messa
       continue;
     }
 
-    if (FD_ISSET(myDirectListener->fd, &read_fds))
+    if (myDirectListener && FD_ISSET(myDirectListener->fd, &read_fds))
     {
       rtLog_Debug("This should be called only once as there should be only one client");
       myDirectClient = rtRouteDirect_AcceptClientConnection(myDirectListener);
     }
 
-    if (FD_ISSET(myDirectClient->fd, &read_fds))
+    if (myDirectClient && FD_ISSET(myDirectClient->fd, &read_fds))
     {
       rtError err = rtConnectedClient_Read(myDirectClient, route);
       if (err != RT_OK)
@@ -642,9 +642,12 @@ rtRouteDirect_StartInstance(const char* socket_name, rtDriectClientHandler messa
     }
   }
 
-  free(myDirectClient->read_buffer);
-  free(myDirectClient->send_buffer);
-  free(myDirectClient);
+  if (myDirectClient)
+  {
+    free(myDirectClient->read_buffer);
+    free(myDirectClient->send_buffer);
+    free(myDirectClient);
+  }
 
   free(route);
   rtRouteBase_CloseListener(myDirectListener);
