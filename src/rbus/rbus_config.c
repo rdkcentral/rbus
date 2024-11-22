@@ -22,7 +22,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
-
+#errrrrrrrrrrrr1
 /* These RBUS_* defines are the list of config settings with their default values
  * Each can be overridden using an environment variable of the same name
  */
