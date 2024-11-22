@@ -310,7 +310,7 @@ void rbusProperty_Append(rbusProperty_t property, rbusProperty_t back);
 uint32_t rbusProperty_Count(rbusProperty_t property);
 
 void rbusProperty_fwrite(rbusProperty_t prop, int depth, FILE* fout);
-
+void rbusProperty_Copy(rbusProperty_t destination, rbusProperty_t source);
 #ifdef __cplusplus
 }
 #endif
