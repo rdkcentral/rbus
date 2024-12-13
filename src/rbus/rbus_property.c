@@ -297,6 +297,23 @@ rbusProperty_t rbusProperty_AppendBytes(rbusProperty_t property, char const* nam
     return p;
 }
 
+
+void rbusProperty_Copy(rbusProperty_t destination, rbusProperty_t source)
+{
+    if(destination->name)
+    {
+        free(destination->name);
+        destination->name = NULL;
+    }
+    if(source->name)
+        destination->name = strdup(source->name);
+    rbusValue_Copy(destination->value, source->value);
+    if(source->next)
+    {
+        rbusProperty_SetNext(destination, source->next);
+    }
+}
+
 #define DEFINE_PROPERTY_TYPE_FUNCS(T1, T2, T3, T4)\
 rbusProperty_t rbusProperty_Init##T1(char const* name, T2 data)\
 {\
