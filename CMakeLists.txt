@@ -34,17 +34,6 @@ enable_testing()
 
 find_package(PkgConfig REQUIRED)
 
-if (CMAKE_VERSION VERSION_LESS "3.1")
-  message("CMAKE ${CMAKE_CXX_COMPILER_ID}")
-  if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-      set (CMAKE_CXX_FLAGS "-std=gnu++11 ${CMAKE_CXX_FLAGS}")
-      set (CMAKE_C_FLAGS "-std=c11 ${CMAKE_C_FLAGS}")
-  endif ()
-else ()
-  set (CMAKE_CXX_STANDARD 11)
-  set (CMAKE_C_STANDARD 11)
-endif ()
-
 set(CMAKE_C_FLAGS_DEBUG "-fPIC -Wall -Werror -Wextra -Wno-type-limits -fno-inline ${CMAKE_C_FLAGS_DEBUG} -DRBUS_ALWAYS_ON ")
 set(CMAKE_C_FLAGS_RELEASE "-fPIC -Wall -Werror -Wextra ${CMAKE_C_FLAGS_RELEASE} -DRBUS_ALWAYS_ON ")
 
