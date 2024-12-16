@@ -23,9 +23,7 @@
 #include<unistd.h>
 #include <rbus.h>
 
-
 int loopFor = 40;
-int subscribed1 = 0;
 
 rbusError_t getHandler(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t* options)
 {
@@ -35,9 +33,9 @@ rbusError_t getHandler(rbusHandle_t handle, rbusProperty_t property, rbusGetHand
 
     if(strcmp(name, "Device.Sample.InitialEvent1!") == 0)
     {
-	char buff[24];
+	char buff[128];
 	rbusValue_t value;
-	snprintf(buff, sizeof(buff), "%s\n",options->requestingComponent);
+	snprintf(buff, sizeof(buff), "%s",options->requestingComponent);
 	rbusValue_Init(&value);
 	rbusValue_SetString(value, buff);
 	rbusProperty_SetValue(property, value);
