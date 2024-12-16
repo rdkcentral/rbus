@@ -2555,7 +2555,7 @@ static void _subscribe_callback_handler (rbusHandle_t handle, rbusMessage reques
                     event.data = data;
                     rbusMessage_SetInt32(*response, 1); /* Based on this value initial value will be published to the consumer in
                                                            rbusEvent_SubscribeWithRetries() function call */
-                    rbusEventData_appendToMessage(&event, filter, interval, duration, handleInfo->componentId, *response);
+                    rbusEventData_appendToMessage(&event, filter, interval, duration, componentId, *response);
                     rbusProperty_Release(tmpProperties);
                 }
                 rbusObject_Release(data);

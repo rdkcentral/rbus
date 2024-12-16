@@ -68,6 +68,17 @@ add_executable(multiConsumerThreadsForSingleEvent
 add_dependencies(multiConsumerThreadsForSingleEvent rbus)
 target_link_libraries(multiConsumerThreadsForSingleEvent rbus)
 
+#Subscribe with Initial Value when there is multiple rbus_open
+add_executable(multiRbusOpenEventProvider
+    multiRbusOpenEventProvider/multiRbusOpenEventProvider.c)
+add_dependencies(multiRbusOpenEventProvider rbus)
+target_link_libraries(multiRbusOpenEventProvider rbus)
+
+add_executable(multiRbusOpenEventConsumer
+	multiRbusOpenEventConsumer/multiRbusOpenEventConsumer.c)
+add_dependencies(multiRbusOpenEventConsumer rbus)
+target_link_libraries(multiRbusOpenEventConsumer rbus)
+
 add_executable(rbusTestConsumer 
     consumer/rbusTestConsumer.c
     consumer/elementTree.c
