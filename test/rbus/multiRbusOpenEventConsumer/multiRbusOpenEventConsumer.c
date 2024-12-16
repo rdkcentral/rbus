@@ -77,7 +77,7 @@ int main(int argc, char *argv[])
 		printf("consumer: rbusEvent_Subscribe handle2 failed with err:%d\n", rc2);
 	}
 	else
-		printf("consumer: Subscribed to Device.Provider.Event1! with handle2, component:%s\n", component2);
+		printf("consumer: Subscribed to Device.Sample.InitialEvent1! with handle2, component:%s\n", component2);
 
 	sleep(1);
 	goto exit;
@@ -95,7 +95,7 @@ int main(int argc, char *argv[])
             printf("consumer: rbusEvent_Subscribe handle1 failed with err:%d\n", rc1);
 	}
 	else
-            printf("consumer: Subscribed to Device.Provider.Event1! with handle1, component:%s\n", component1);
+            printf("consumer: Subscribed to Device.Sample.InitialEvent1! with handle1, component:%s\n", component1);
 	sleep(1);
 	rc2 = rbusEvent_SubscribeEx(
             handle2,
@@ -107,7 +107,7 @@ int main(int argc, char *argv[])
             printf("consumer: rbusEvent_Subscribe handle2 failed with err:%d\n", rc2);
 	}
 	else
-            printf("consumer: Subscribed to Device.Provider.Event1! with handle2, component:%s\n", component2);
+            printf("consumer: Subscribed to Device.Sample.InitialEvent1! with handle2, component:%s\n", component2);
 
 	sleep(1);
     }
@@ -121,7 +121,7 @@ int main(int argc, char *argv[])
         printf("Unsubscribing handle1 err:%d\n", rc1);
     }
     else
-        printf("consumer: UnSubscribed to Device.Provider.Event1! with handle1\n");
+        printf("consumer: UnSubscribed to Device.Sample.InitialEvent1! with handle1\n");
  
 exit:
     rc2 = rbusEvent_UnsubscribeEx(
@@ -133,7 +133,7 @@ exit:
         printf("Unsubscribing handle2 failed :%d\n", rc2);
     }
     else
-        printf("consumer: UnSubscribed to Device.Provider.Event1! with handle2\n");
+        printf("consumer: UnSubscribed to Device.Sample.InitialEvent1! with handle2\n");
 
     rc2 = rbus_close(handle2);
     if(rc2 != RBUS_ERROR_SUCCESS)
