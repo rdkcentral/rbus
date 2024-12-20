@@ -733,7 +733,11 @@ static void prep_reply_header_from_request(rtMessageHeader *reply, const rtMessa
   reply->flags = rtMessageFlags_Response;
 
   strncpy(reply->topic, request->reply_topic, RTMSG_HEADER_MAX_TOPIC_LENGTH-1);
+  reply->topic[RTMSG_HEADER_MAX_TOPIC_LENGTH-1] = '\0';
+
   strncpy(reply->reply_topic, request->topic, RTMSG_HEADER_MAX_TOPIC_LENGTH-1);
+  reply->reply_topic[RTMSG_HEADER_MAX_TOPIC_LENGTH-1] = '\0';
+
   reply->topic_length = request->reply_topic_length;
   reply->reply_topic_length = request->topic_length;
 #ifdef MSG_ROUNDTRIP_TIME
