@@ -3077,7 +3077,6 @@ rbusCoreError_t rbuscore_closePrivateConnection(const char *pParameterName)
                 memcpy(providerName, obj->m_providerName, MAX_OBJECT_NAME_LENGTH);
                 providerName[MAX_OBJECT_NAME_LENGTH] = '\0';
                 rtVector_RemoveItem(gListOfClientDirectDMLs, obj, rtVector_Cleanup_Free);
-                obj = NULL;
             }
             rbusMessage_Release(response);
         }
