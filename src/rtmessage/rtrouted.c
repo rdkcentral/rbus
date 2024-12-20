@@ -637,8 +637,10 @@ rtRouted_ForwardMessage(rtConnectedClient* sender, rtMessageHeader* hdr, uint8_t
   new_header.topic_length = hdr->topic_length;
   new_header.reply_topic_length = hdr->reply_topic_length;
   new_header.flags = hdr->flags;
-  strncpy(new_header.topic, hdr->topic, RTMSG_HEADER_MAX_TOPIC_LENGTH-1);
-  strncpy(new_header.reply_topic, hdr->reply_topic, RTMSG_HEADER_MAX_TOPIC_LENGTH-1);
+  strncpy(new_header.topic, hdr->topic, RTMSG_HEADER_MAX_TOPIC_LENGTH - 1);
+  new_header.topic[RTMSG_HEADER_MAX_TOPIC_LENGTH - 1] = '\0';
+  strncpy(new_header.reply_topic, hdr->reply_topic, RTMSG_HEADER_MAX_TOPIC_LENGTH - 1);
+  new_header.reply_topic[RTMSG_HEADER_MAX_TOPIC_LENGTH - 1] = '\0';
 #ifdef MSG_ROUNDTRIP_TIME
   new_header.T1 = hdr->T1;
   new_header.T2 = hdr->T2;
