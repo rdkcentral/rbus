@@ -28,7 +28,7 @@
 #include <getopt.h>
 #include <rbus.h>
 #include "../common/test_macros.h"
-#include "rbus_config.h"
+#include "rbus_handle.h"
 
 static int gDuration = 67;
 
@@ -592,7 +592,7 @@ void testNoAutoPubValueChange(rbusHandle_t handle)
 
 void testValueChange(rbusHandle_t handle, int* countPass, int* countFail)
 {
-    rbusConfig_Get()->valueChangePeriod = 1;
+    //rbusConfig_Get(handle)->valueChangePeriod = 1;
     testSimpleValueChange(handle);
     testTypesValueChange(handle);
     testByValueChange(handle);

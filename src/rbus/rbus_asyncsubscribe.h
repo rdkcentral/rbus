@@ -25,7 +25,6 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-
 void rbusAsyncSubscribe_AddSubscription(rbusEventSubscription_t* subscription, rbusMessage payload);
 bool rbusAsyncSubscribe_RemoveSubscription(rbusEventSubscription_t* subscription);
 bool rbusAsyncSubscribe_GetSubscription(rbusHandle_t handle, char const* eventName, rbusFilter_t filter);

@@ -132,6 +132,7 @@ typedef enum _rbusError
 } rbusError_t;
 
 
+
 char const * rbusError_ToString(rbusError_t e);
 
 /** @struct     rbusSetOptions_t
@@ -1965,6 +1966,80 @@ rbusError_t rbus_registerDynamicTableSyncHandler(
     rbusHandle_t handle,
     char const* tableName,
     rbusTableSyncHandler_t syncHandler);
+
+typedef struct _rbusTimeoutValues
+{
+    uint32_t setTimeout;         /* default timeout in miliseconds for SET API*/
+    uint32_t getTimeout;         /* default timeout in miliseconds for GET API*/
+    uint32_t setMultiTimeout;    /* default timeout in miliseconds for SET Multi API*/
+    uint32_t getMultiTimeout;    /* default timeout in miliseconds for Wildcard Query GET API*/
+    uint32_t subscribeTimeout;   /* default timeout in miliseconds for Subscribe operation*/
+}rbusTimeoutValues_t;
+
+/** @fn rbusError_t rbusHandle_UpdateTimeoutValues(
+ *     rbusHandle_t handle,
+ *     rbusTimeoutValues_t timeoutValues);
+ *
+ *  @brief  Configure timeout values for each rbus_handle.
+ *
+ *  Used by: Component wants to configure its own timeout values per rbus_handle.
+ *
+ *  @param handle               Bus Handle
+ *  @param timeoutValues        Timeout values in miliseconds for SET, GET operations.
+ *  @return RBus error code as defined by rbusError_t.
+ */
+
+rbusError_t rbusHandle_UpdateTimeoutValues(rbusHandle_t handle, rbusTimeoutValues_t timeoutValues);
+
+/** @fn int rbusHandle_UpdateSetTimeout(rbusHandle_t handle,int timeout)
+ *  @brief  function to update SET Timeout value.
+ *
+ *  @param      handle         The Bus handle.
+ *  @param      timeout        The Timeout value for rbus_set operation in milliseconds,
+ *                             set to default value if timeout is Zero.
+ *  @return     -1 or 0        0 on Success, -1 on failed.
+ */
+int rbusHandle_UpdateSetTimeout(rbusHandle_t handle, uint32_t timeout);
+
+/** @fn int rbusHandle_UpdateGetTimeout(rbusHandle_t handle,int timeout)
+ *  @brief  function to update GET Timeout value.
+ *
+ *  @param      handle         The Bus handle.
+ *  @param      timeout        The Timeout value for rbus_get operation in milliseconds,
+ *                             set to default value if timeout is Zero.
+ *  @return     -1 or 0        0 on Success, -1 on failed.
+ */
+int rbusHandle_UpdateGetTimeout(rbusHandle_t handle, uint32_t timeout);
+
+/** @fn int rbusHandle_UpdateGetMultiTimeout(rbusHandle_t handle,int timeout)
+ *  @brief  function to update GET Wildcard query Timeout value.
+ *
+ *  @param      handle         The Bus handle.
+ *  @param      timeout        The Timeout value for rbus_get operation in milliseconds,
+ *                             set to default value if timeout is Zero.
+ *  @return     -1 or 0        0 on Success, -1 on failed.
+ */
+int rbusHandle_UpdateGetMultiTimeout(rbusHandle_t handle, uint32_t timeout);
+
+/** @fn int rbusHandle_UpdateSetMultiTimeout(rbusHandle_t handle,int timeout)
+ *  @brief  function to update SetMulti Timeout value.
+ *
+ *  @param      handle         The Bus handle.
+ *  @param      timeout        The Timeout value for rbus_setMulti operation in milliseconds,
+ *                             set to default value if timeout is Zero.
+ *  @return     -1 or 0        0 on Success, -1 on failed.
+ */
+int rbusHandle_UpdateSetMultiTimeout(rbusHandle_t handle, uint32_t timeout);
+
+/** @fn int rbusHandle_UpdateSubscribeTimeout(rbusHandle_t handle,int timeout)
+ *  @brief  function to update Subscribe Timeout value.
+ *
+ *  @param      handle         The Bus handle.
+ *  @param      timeout        The Timeout value for Subscribe operation in milliseconds,
+ *                             set to default value if timeout is Zero.
+ *  @return     -1 or 0        0 on Success, -1 on failed.
+ */
+int rbusHandle_UpdateSubscribeTimeout(rbusHandle_t handle, uint32_t timeout);
 /** @} */
 
 #ifdef __cplusplus
