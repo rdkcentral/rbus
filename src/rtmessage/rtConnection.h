@@ -107,7 +107,7 @@ rtConnection_SendMessageDirect(rtConnection con, rtMessage msg, char const* topi
  */
 rtError
 rtConnection_SendRequest(rtConnection con, rtMessage const req, char const* topic,
-  rtMessage* res, int32_t timeout);
+  rtMessage* res, uint32_t timeout);
 
 /**
  * Sends a response to a request
@@ -158,7 +158,7 @@ rtConnection_SendBinaryDirect(rtConnection con, uint8_t const* p, uint32_t n, ch
  */
 rtError
 rtConnection_SendBinaryRequest(rtConnection con, uint8_t const* pReq, uint32_t nReq, char const* topic,
-  uint8_t** pRes, uint32_t* nRes, int32_t timeout);
+  uint8_t** pRes, uint32_t* nRes, uint32_t timeout);
 
 /**
  * Sends a response to a request
@@ -170,7 +170,7 @@ rtConnection_SendBinaryRequest(rtConnection con, uint8_t const* pReq, uint32_t n
  */
 rtError
 rtConnection_SendBinaryResponse(rtConnection con, rtMessageHeader const* request_hdr, uint8_t const* p, uint32_t n,
-  int32_t timeout);
+  uint32_t timeout);
 
 /*
  *  End Binary based API
