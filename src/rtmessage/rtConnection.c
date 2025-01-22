@@ -242,7 +242,7 @@ rtConnection_SendRequestInternal(
   uint32_t nReq, 
   char const* topic,
   rtMessageInfo** resMsg, 
-  int32_t timeout, 
+  uint32_t timeout,
   int flags);
 
 static uint32_t
@@ -807,7 +807,7 @@ rtConnection_SendMessageDirect(rtConnection con, rtMessage msg, char const* topi
 
 rtError
 rtConnection_SendRequest(rtConnection con, rtMessage const req, char const* topic,
-  rtMessage* res, int32_t timeout)
+  rtMessage* res, uint32_t timeout)
 {
   uint8_t* p;
   uint32_t n;
@@ -909,7 +909,7 @@ rtConnection_SendBinaryDirect(rtConnection con, uint8_t const* p, uint32_t n, ch
 
 rtError
 rtConnection_SendBinaryRequest(rtConnection con, uint8_t const* pReq, uint32_t nReq, char const* topic,
-  uint8_t** pRes, uint32_t* nRes, int32_t timeout)
+  uint8_t** pRes, uint32_t* nRes, uint32_t timeout)
 {
   rtError err;
   rtMessageInfo* mi;
@@ -945,7 +945,7 @@ rtConnection_SendBinaryRequest(rtConnection con, uint8_t const* pReq, uint32_t n
 
 rtError
 rtConnection_SendBinaryResponse(rtConnection con, rtMessageHeader const* request_hdr, uint8_t const* p, uint32_t n,
-  int32_t timeout)
+  uint32_t timeout)
 {
   (void) timeout;
   rtError err;
@@ -968,11 +968,10 @@ rtConnection_SendBinaryResponse(rtConnection con, rtMessageHeader const* request
 
 rtError
 rtConnection_SendRequestInternal(rtConnection con, uint8_t const* pReq, uint32_t nReq, char const* topic,
-  rtMessageInfo** res, int32_t timeout, int flags)
+  rtMessageInfo** res, uint32_t timeout, int flags)
 {
   if (!con)
     return rtErrorFromErrno(EINVAL);
-
   rtTime_Now(&con->sender_reconnect_time);
   while(1)
   {
@@ -1031,7 +1030,7 @@ rtConnection_SendRequestInternal(rtConnection con, uint8_t const* pReq, uint32_t
           else
           {
             //It's a response to a different message. Adjust the timeout value and try again.
-            int diff_ms = rtTime_Elapsed(&start_time, NULL);
+            uint32_t diff_ms = rtTime_Elapsed(&start_time, NULL);
             if(timeout <= diff_ms)
             {
               ret = RT_ERROR_TIMEOUT;

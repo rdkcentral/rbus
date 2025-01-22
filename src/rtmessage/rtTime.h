@@ -42,7 +42,7 @@ rtTime_t* rtTime_Now(rtTime_t* result);
  *  @param  ms      miliseconds to add to 'from' time
  *  @param  result  resulting time
  */
-void rtTime_Later(const rtTime_t* from, int ms, rtTime_t* result);
+void rtTime_Later(const rtTime_t* from, unsigned int  ms, rtTime_t* result);
 
 
 /** @fn int rtTime_Elapsed (rtTime_t* start, rtTime_t* end)

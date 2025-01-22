@@ -19,7 +19,6 @@
 
 #define _GNU_SOURCE 1 //needed for pthread_mutexattr_settype
 #include "rbus_intervalsubscription.h"
-#include "rbus_config.h"
 #include "rbus_handle.h"
 #include <stdlib.h>
 #include <stdio.h>
