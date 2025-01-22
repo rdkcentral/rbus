@@ -179,50 +179,60 @@ int rbusHandle_TimeoutValuesInit(rbusHandle_t handle)
     initInt(handle->timeoutValues.setMultiTimeout,       RBUS_SET_MULTI_DEFAULT_TIMEOUT);
     initInt(handle->timeoutValues.getMultiTimeout,       RBUS_GET_WILDCARD_DEFAULT_TIMEOUT);
     initInt(handle->timeoutValues.subscribeTimeout,      RBUS_SUBSCRIBE_TIMEOUT);
-    return 0;
+    return RBUS_ERROR_SUCCESS;
 }
 
-int rbusHandle_UpdateGetTimeout(rbusHandle_t handle, uint32_t timeout)
+rbusError_t rbusHandle_ConfigGetTimeout(rbusHandle_t handle, uint32_t timeout)
 {
-    VERIFY_NULL(handle, return -1)
-    if (timeout > 0)
+    VERIFY_NULL(handle, return RBUS_ERROR_INVALID_INPUT)
+    if (timeout)
         handle->timeoutValues.getTimeout = timeout;
-    return 0;
+    else
+        handle->timeoutValues.getTimeout = RBUS_GET_DEFAULT_TIMEOUT;
+    return RBUS_ERROR_SUCCESS;
 }
 
-int rbusHandle_UpdateSetTimeout(rbusHandle_t handle, uint32_t timeout)
+rbusError_t rbusHandle_ConfigSetTimeout(rbusHandle_t handle, uint32_t timeout)
 {
-    VERIFY_NULL(handle, return -1)
-    if (timeout > 0)
+    VERIFY_NULL(handle, return RBUS_ERROR_INVALID_INPUT)
+    if (timeout)
         handle->timeoutValues.setTimeout = timeout;
-    return 0;
+    else
+        handle->timeoutValues.setTimeout = RBUS_SET_DEFAULT_TIMEOUT;
+    return RBUS_ERROR_SUCCESS;
 }
 
-int rbusHandle_UpdateGetMultiTimeout(rbusHandle_t handle, uint32_t timeout)
+rbusError_t rbusHandle_ConfigGetMultiTimeout(rbusHandle_t handle, uint32_t timeout)
 {
-    VERIFY_NULL(handle, return -1)
-    if (timeout > 0)
+    VERIFY_NULL(handle, return RBUS_ERROR_INVALID_INPUT)
+    if (timeout)
         handle->timeoutValues.getMultiTimeout = timeout;
-    return 0;
+    else
+        handle->timeoutValues.getMultiTimeout = RBUS_GET_WILDCARD_DEFAULT_TIMEOUT;
+    return RBUS_ERROR_SUCCESS;
 }
 
-int rbusHandle_UpdateSetMultiTimeout(rbusHandle_t handle, uint32_t timeout)
+rbusError_t rbusHandle_ConfigSetMultiTimeout(rbusHandle_t handle, uint32_t timeout)
 {
-    VERIFY_NULL(handle, return -1)
-    if (timeout > 0)
+    VERIFY_NULL(handle, return RBUS_ERROR_INVALID_INPUT)
+    if (timeout)
         handle->timeoutValues.setMultiTimeout = timeout;
-    return 0;
+    else
+        handle->timeoutValues.setMultiTimeout = RBUS_SET_MULTI_DEFAULT_TIMEOUT;
+    return RBUS_ERROR_SUCCESS;
 }
 
-int rbusHandle_UpdateSubscribeTimeout(rbusHandle_t handle, uint32_t timeout)
+rbusError_t rbusHandle_ConfigSubscribeTimeout(rbusHandle_t handle, uint32_t timeout)
 {
-    VERIFY_NULL(handle, return -1)
-    if (timeout > 0)
+    VERIFY_NULL(handle, return RBUS_ERROR_INVALID_INPUT)
+    if (timeout)
         handle->timeoutValues.subscribeTimeout = timeout;
-    return 0;
+    else
+        handle->timeoutValues.subscribeTimeout = RBUS_SUBSCRIBE_TIMEOUT;
+    return RBUS_ERROR_SUCCESS;
 }
 
-int32_t rbusHandle_FetchGetTimeout(rbusHandle_t handle)
+uint32_t rbusHandle_FetchGetTimeout(rbusHandle_t handle)
 {
     VERIFY_NULL(handle, return 0)
     int timeout = 0;
@@ -242,10 +252,10 @@ int32_t rbusHandle_FetchGetTimeout(rbusHandle_t handle)
         if (timeout > 0)
             return timeout * 1000;
     }
-    return (int32_t)handle->timeoutValues.getTimeout;
+    return handle->timeoutValues.getTimeout;
 }
 
-int32_t rbusHandle_FetchSetTimeout(rbusHandle_t handle)
+uint32_t rbusHandle_FetchSetTimeout(rbusHandle_t handle)
 {
     VERIFY_NULL(handle, return 0)
     int timeout = 0;
@@ -265,10 +275,10 @@ int32_t rbusHandle_FetchSetTimeout(rbusHandle_t handle)
         if (timeout > 0)
             return timeout * 1000;
     }
-    return (int32_t)handle->timeoutValues.setTimeout;
+    return handle->timeoutValues.setTimeout;
 }
 
-int32_t rbusHandle_FetchGetMultiTimeout(rbusHandle_t handle)
+uint32_t rbusHandle_FetchGetMultiTimeout(rbusHandle_t handle)
 {
     VERIFY_NULL(handle, return 0)
     int timeout = 0;
@@ -288,10 +298,10 @@ int32_t rbusHandle_FetchGetMultiTimeout(rbusHandle_t handle)
         if (timeout > 0)
             return timeout * 1000;
     }
-    return (int32_t)handle->timeoutValues.getMultiTimeout;
+    return handle->timeoutValues.getMultiTimeout;
 }
 
-int32_t rbusHandle_FetchSetMultiTimeout(rbusHandle_t handle)
+uint32_t rbusHandle_FetchSetMultiTimeout(rbusHandle_t handle)
 {
     VERIFY_NULL(handle, return 0)
     int timeout = 0;
@@ -311,11 +321,11 @@ int32_t rbusHandle_FetchSetMultiTimeout(rbusHandle_t handle)
         if (timeout > 0)
             return timeout * 1000;
     }
-    return (int32_t)handle->timeoutValues.setMultiTimeout;
+    return handle->timeoutValues.setMultiTimeout;
 }
 
-int32_t rbusHandle_FetchSubscribeTimeout(rbusHandle_t handle)
+uint32_t rbusHandle_FetchSubscribeTimeout(rbusHandle_t handle)
 {
     VERIFY_NULL(handle, return 0)
-    return (int32_t)handle->timeoutValues.subscribeTimeout;
+    return handle->timeoutValues.subscribeTimeout;
 }

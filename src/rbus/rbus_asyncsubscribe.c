@@ -175,7 +175,7 @@ static void rbusAsyncSubscribeRetrier_SendSubscriptionRequests()
         if(rtTime_Compare(&item->nextRetryTime, &now) <= 0)
         {
             rbusCoreError_t coreerr;
-            int elapsed;
+            uint32_t elapsed;
             int providerError;
             rbusMessage response = NULL;
             uint32_t subscriptionId = 0;

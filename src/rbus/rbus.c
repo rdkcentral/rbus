@@ -278,14 +278,14 @@ static rbusEventSubscriptionInternal_t* rbusEventSubscription_find(rtVector even
     return NULL;
 }
 
-rbusError_t rbusHandle_UpdateTimeoutValues(rbusHandle_t handle, rbusTimeoutValues_t timeoutValues)
+rbusError_t rbusHandle_ConfigTimeoutValues(rbusHandle_t handle, rbusTimeoutValues_t timeoutValues)
 {
     VERIFY_NULL(handle);
-    rbusHandle_UpdateSetTimeout(handle, timeoutValues.setTimeout);
-    rbusHandle_UpdateGetTimeout(handle, timeoutValues.getTimeout);
-    rbusHandle_UpdateSetMultiTimeout(handle, timeoutValues.setMultiTimeout);
-    rbusHandle_UpdateGetMultiTimeout(handle, timeoutValues.getMultiTimeout);
-    rbusHandle_UpdateSubscribeTimeout(handle, timeoutValues.subscribeTimeout);
+    rbusHandle_ConfigSetTimeout(handle, timeoutValues.setTimeout);
+    rbusHandle_ConfigGetTimeout(handle, timeoutValues.getTimeout);
+    rbusHandle_ConfigSetMultiTimeout(handle, timeoutValues.setMultiTimeout);
+    rbusHandle_ConfigGetMultiTimeout(handle, timeoutValues.getMultiTimeout);
+    rbusHandle_ConfigSubscribeTimeout(handle, timeoutValues.subscribeTimeout);
     return RBUS_ERROR_SUCCESS;
 }
 
@@ -5956,7 +5956,7 @@ rbusError_t rbusMethod_InvokeAsync(
     data->methodName = strdup(methodName);
     data->inParams = inParams;
     data->callback = callback;
-    data->timeout = timeout > 0 ? (timeout * 1000) : rbusHandle_FetchSetTimeout(handle); /* convert seconds to milliseconds */
+    data->timeout = timeout > 0 ? (timeout * 1000) : (int)rbusHandle_FetchSetTimeout(handle); /* convert seconds to milliseconds */
 
     if((err = pthread_create(&pid, NULL, rbusMethod_InvokeAsyncThreadFunc, data)) != 0)
     {

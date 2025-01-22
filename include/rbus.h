@@ -1976,7 +1976,7 @@ typedef struct _rbusTimeoutValues
     uint32_t subscribeTimeout;   /* default timeout in miliseconds for Subscribe operation*/
 }rbusTimeoutValues_t;
 
-/** @fn rbusError_t rbusHandle_UpdateTimeoutValues(
+/** @fn rbusError_t rbusHandle_ConfigTimeoutValues(
  *     rbusHandle_t handle,
  *     rbusTimeoutValues_t timeoutValues);
  *
@@ -1989,57 +1989,57 @@ typedef struct _rbusTimeoutValues
  *  @return RBus error code as defined by rbusError_t.
  */
 
-rbusError_t rbusHandle_UpdateTimeoutValues(rbusHandle_t handle, rbusTimeoutValues_t timeoutValues);
+rbusError_t rbusHandle_ConfigTimeoutValues(rbusHandle_t handle, rbusTimeoutValues_t timeoutValues);
 
-/** @fn int rbusHandle_UpdateSetTimeout(rbusHandle_t handle,int timeout)
+/** @fn int rbusHandle_ConfigSetTimeout(rbusHandle_t handle,int timeout)
  *  @brief  function to update SET Timeout value.
  *
  *  @param      handle         The Bus handle.
  *  @param      timeout        The Timeout value for rbus_set operation in milliseconds,
  *                             set to default value if timeout is Zero.
- *  @return     -1 or 0        0 on Success, -1 on failed.
+ *  @return    RBus error code as defined by rbusError_t.
  */
-int rbusHandle_UpdateSetTimeout(rbusHandle_t handle, uint32_t timeout);
+rbusError_t rbusHandle_ConfigSetTimeout(rbusHandle_t handle, uint32_t timeout);
 
-/** @fn int rbusHandle_UpdateGetTimeout(rbusHandle_t handle,int timeout)
+/** @fn int rbusHandle_ConfigGetTimeout(rbusHandle_t handle,int timeout)
  *  @brief  function to update GET Timeout value.
  *
  *  @param      handle         The Bus handle.
  *  @param      timeout        The Timeout value for rbus_get operation in milliseconds,
  *                             set to default value if timeout is Zero.
- *  @return     -1 or 0        0 on Success, -1 on failed.
+ *  @return     RBus error code as defined by rbusError_t.
  */
-int rbusHandle_UpdateGetTimeout(rbusHandle_t handle, uint32_t timeout);
+rbusError_t rbusHandle_ConfigGetTimeout(rbusHandle_t handle, uint32_t timeout);
 
-/** @fn int rbusHandle_UpdateGetMultiTimeout(rbusHandle_t handle,int timeout)
+/** @fn int rbusHandle_ConfigGetMultiTimeout(rbusHandle_t handle,int timeout)
  *  @brief  function to update GET Wildcard query Timeout value.
  *
  *  @param      handle         The Bus handle.
  *  @param      timeout        The Timeout value for rbus_get operation in milliseconds,
  *                             set to default value if timeout is Zero.
- *  @return     -1 or 0        0 on Success, -1 on failed.
+ *  @return     RBus error code as defined by rbusError_t.
  */
-int rbusHandle_UpdateGetMultiTimeout(rbusHandle_t handle, uint32_t timeout);
+rbusError_t rbusHandle_ConfigGetMultiTimeout(rbusHandle_t handle, uint32_t timeout);
 
-/** @fn int rbusHandle_UpdateSetMultiTimeout(rbusHandle_t handle,int timeout)
+/** @fn int rbusHandle_ConfigSetMultiTimeout(rbusHandle_t handle,int timeout)
  *  @brief  function to update SetMulti Timeout value.
  *
  *  @param      handle         The Bus handle.
  *  @param      timeout        The Timeout value for rbus_setMulti operation in milliseconds,
  *                             set to default value if timeout is Zero.
- *  @return     -1 or 0        0 on Success, -1 on failed.
+ *  @return     RBus error code as defined by rbusError_t.
  */
-int rbusHandle_UpdateSetMultiTimeout(rbusHandle_t handle, uint32_t timeout);
+rbusError_t rbusHandle_ConfigSetMultiTimeout(rbusHandle_t handle, uint32_t timeout);
 
-/** @fn int rbusHandle_UpdateSubscribeTimeout(rbusHandle_t handle,int timeout)
+/** @fn int rbusHandle_ConfigSubscribeTimeout(rbusHandle_t handle,int timeout)
  *  @brief  function to update Subscribe Timeout value.
  *
  *  @param      handle         The Bus handle.
  *  @param      timeout        The Timeout value for Subscribe operation in milliseconds,
  *                             set to default value if timeout is Zero.
- *  @return     -1 or 0        0 on Success, -1 on failed.
+ *  @return     RBus error code as defined by rbusError_t.
  */
-int rbusHandle_UpdateSubscribeTimeout(rbusHandle_t handle, uint32_t timeout);
+rbusError_t rbusHandle_ConfigSubscribeTimeout(rbusHandle_t handle, uint32_t timeout);
 /** @} */
 
 #ifdef __cplusplus

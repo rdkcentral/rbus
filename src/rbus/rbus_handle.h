@@ -135,11 +135,11 @@ struct _rbusHandle* rbusHandleList_GetByComponentID(int32_t componentId);
 struct _rbusHandle* rbusHandleList_GetByName(char const* componentName);
 
 int rbusHandle_TimeoutValuesInit(rbusHandle_t handle);
-int32_t rbusHandle_FetchGetTimeout(rbusHandle_t handle);
-int32_t rbusHandle_FetchSetTimeout(rbusHandle_t handle);
-int32_t rbusHandle_FetchGetMultiTimeout(rbusHandle_t handle);
-int32_t rbusHandle_FetchSetMultiTimeout(rbusHandle_t handle);
-int32_t rbusHandle_FetchSubscribeTimeout(rbusHandle_t handle);
+uint32_t rbusHandle_FetchGetTimeout(rbusHandle_t handle);
+uint32_t rbusHandle_FetchSetTimeout(rbusHandle_t handle);
+uint32_t rbusHandle_FetchGetMultiTimeout(rbusHandle_t handle);
+uint32_t rbusHandle_FetchSetMultiTimeout(rbusHandle_t handle);
+uint32_t rbusHandle_FetchSubscribeTimeout(rbusHandle_t handle);
 #ifdef __cplusplus
 }
 #endif
