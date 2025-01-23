@@ -4258,7 +4258,7 @@ rbusError_t rbus_setMulti(rbusHandle_t handle, int numProps, rbusProperty_t prop
    return _setMultiInternal(handle,  numProps,  properties,  opts, 0, NULL, true);
 }
 
-rbusError_t rbus_setMultiExt(rbusHandle_t handle, uint32_t numProps, rbusProperty_t properties, rbusSetOptions_t* opts, uint8_t timeout, char** failedParameterName)
+rbusError_t rbus_setMultiExt(rbusHandle_t handle, uint32_t numProps, rbusProperty_t properties, rbusSetOptions_t* opts, uint32_t timeout, char** failedParameterName)
 {
     return _setMultiInternal(handle,  numProps,  properties,  opts, timeout, failedParameterName, true);
 }
