@@ -5893,7 +5893,7 @@ rbusError_t rbusMethod_InvokeInternal(
         timeout, 
         &response)) != RBUSCORE_SUCCESS)
     {
-        RBUSLOG_ERROR("failed; %s from RBUS Daemon for the object %s", rbusCoreErrorToString(err), methodName);
+        RBUSLOG_ERROR("rbusMethod Invoke for %s failed with RBUS Daemon error:%s", methodName, rbusCoreErrorToString(err));
         /* Updating the outParmas as RBUS core is returning failure */
         rbusObject_Init(outParams, NULL);
         rbusValue_Init(&value1);
