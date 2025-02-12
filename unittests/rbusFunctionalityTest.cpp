@@ -135,7 +135,7 @@ static void exec_func_test(rbusGtest_t test)
           break;
         case RBUS_GTEST_SET_MULTI5:
         case RBUS_GTEST_SET2:
-          expected_consumer_status = RBUS_ERROR_INVALID_OPERATION;
+          expected_consumer_status = RBUS_ERROR_NOT_WRITABLE;
           break;
         case RBUS_GTEST_GET24:
           expected_consumer_status = RBUS_ERROR_INVALID_RESPONSE_FROM_DESTINATION;
