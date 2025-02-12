@@ -443,7 +443,7 @@ int rbusConsumer(rbusGtest_t test, pid_t pid, int runtime)
       {
         const char *param = "Device.rbusProvider.PartialPath.1.Param2";
         isElementPresent(handle, param);
-        rc = exec_rbus_set_test(handle, RBUS_ERROR_INVALID_OPERATION, param, "Gtest set value");
+        rc = exec_rbus_set_test(handle, RBUS_ERROR_NOT_WRITABLE, param, "Gtest set value");
       }
       break;
     case RBUS_GTEST_SET3:
@@ -542,7 +542,7 @@ int rbusConsumer(rbusGtest_t test, pid_t pid, int runtime)
         const char *param2 = "Device.rbusProvider.PartialPath.1.Param2";
         isElementPresent(handle, param1);
         isElementPresent(handle, param2);
-        rc = exec_rbus_multi_test(handle, RBUS_ERROR_INVALID_OPERATION, 2, param1, param2);
+        rc = exec_rbus_multi_test(handle, RBUS_ERROR_NOT_WRITABLE, 2, param1, param2);
       }
       break;
     case RBUS_GTEST_GET1:

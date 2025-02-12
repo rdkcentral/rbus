@@ -37,11 +37,11 @@ static void generalEvent1Handler(
 {
     (void)handle;
     (void)subscription;
-    printf("\nevent_receive_handler1 called\n\r");
-    printf("Event received %s\n\r", event->name);
-    printf("Event data: %s\n\r", (char*)event->rawData);
-    printf("Event data len: %d\n\r", event->rawDataLen);
-    printf("\n\r");
+    printf("\nevent_receive_handler1 called\r\n");
+    printf("Event received %s\r\n", event->name);
+    printf("Event data: %s\r\n", (char*)event->rawData);
+    printf("Event data len: %d\r\n", event->rawDataLen);
+    printf("\r\n");
 }
 
 int main(int argc, char *argv[])
@@ -71,7 +71,7 @@ int main(int argc, char *argv[])
         rc = rbus_openDirect(handle, &directHandle, "Device.Provider1.Event1!");
         if (RBUS_ERROR_SUCCESS != rc)
         {
-            printf ("Failed to open direct connection to %s\n\r", "Device.Provider1.Event1!");
+            printf ("Failed to open direct connection to %s\r\n", "Device.Provider1.Event1!");
         }
         else
         {
@@ -116,7 +116,7 @@ int main(int argc, char *argv[])
         rc = rbus_closeDirect(directHandle);
         if (RBUS_ERROR_SUCCESS != rc)
         {
-            printf ("Failed to close direct connection to %s\n\r", "Device.Provider1.Event1!");
+            printf ("Failed to close direct connection to %s\r\n", "Device.Provider1.Event1!");
         }
     }
     rbusEvent_UnsubscribeExRawData(handle, subscriptions, 1);
