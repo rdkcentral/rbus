@@ -110,15 +110,15 @@ static void freeTreeRoute(void* p)
 
 static void tokenizeExpression(const char* expression)
 {
-    int i = 0;
+    unsigned int i = 0;
     const char* from = expression;
     char* to = workBuffer;
     workTokenCount = 0;
-    while(*from)
+    while(*from && i < sizeof(workTokens)/sizeof(workTokens[0]))
     {
         workTokens[i].name = to;
         
-        while(*from && *from != '.')
+        while(*from && *from != '.' && to < (workBuffer + sizeof(workBuffer)/sizeof(workBuffer[0]) - 1))
             *to++ = *from++;
         workTokens[i].length = to - workTokens[i].name;
         *to++ = 0;
