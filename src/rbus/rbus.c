@@ -4173,11 +4173,12 @@ rbusError_t _setMultiInternal(rbusHandle_t handle, uint32_t numProps, rbusProper
                         {
                             if(pFailedElement)
                             {
+                                RBUSLOG_WARN("pFailedElement is not null");
                                 *pFailedElement = (char*)malloc(sizeof(char) * 256);
                                 if(*pFailedElement)
                                 {
                                     rbusMessage_GetString(setResponse, (char const**)pFailedElement);
-                                    RBUSLOG_WARN("Failed to Set the Value for %s", *pFailedElement);
+                                    RBUSLOG_WARN("pFailedElement, Failed to Set the Value for %s", *pFailedElement);
                                 }
                                 else
                                 {
