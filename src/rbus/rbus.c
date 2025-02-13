@@ -4145,7 +4145,7 @@ rbusError_t rbus_setMulti(rbusHandle_t handle, int numProps, rbusProperty_t prop
                     /* Set the Commit value; FIXME: Should we use string? */
                     rbusMessage_SetString(setRequest, (!opts || opts->commit) ? "TRUE" : "FALSE");
 
-                    if((err = rbus_invokeRemoteMethod(firstParamName, METHOD_SETPARAMETERVALUES, setRequest, rbusHandle_FetchSetTimeout(handle), &setResponse)) != RBUSCORE_SUCCESS)
+                    if((err = rbus_invokeRemoteMethod(firstParamName, METHOD_SETPARAMETERVALUES, setRequest, rbusHandle_FetchSetMultiTimeout(handle), &setResponse)) != RBUSCORE_SUCCESS)
                     {
                         RBUSLOG_ERROR("%s for %s failed with RBUS Daemon error: %s", __FUNCTION__, firstParamName, rbusCoreErrorToString(err));
                         errorcode = rbusCoreError_to_rbusError(err);

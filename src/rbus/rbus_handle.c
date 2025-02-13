@@ -239,7 +239,7 @@ uint32_t rbusHandle_FetchGetTimeout(rbusHandle_t handle)
     FILE *fp = NULL;
     char buf[25] = {0};
     char fileName[BUF_LEN] = {'\0'};
-    snprintf(fileName, BUF_LEN-1, "%s/rbus_%s_timeout_set", RBUS_TMP_DIRECTORY, __progname);
+    snprintf(fileName, BUF_LEN-1, "%s/rbus_%s_timeout_get", RBUS_TMP_DIRECTORY, __progname);
     fileName[BUF_LEN-1] = '\0';
     if (access(fileName, F_OK) == 0)
     {
