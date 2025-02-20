@@ -108,7 +108,7 @@ int main(int argc, char *argv[])
     else
     {
         rbusProperty_t next = outputVals;
-        printf ("List of params\n\r");
+        printf ("List of params\r\n");
         for (int i = 0; i < numOfOutVals; i++)
         {
             rbusValue_t val = rbusProperty_GetValue(next);

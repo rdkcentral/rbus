@@ -6,7 +6,7 @@ on:
      branches: [ main, 'rbus-**' ]
 jobs:
   all:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - name: Set up cache
         id: cache
@@ -57,6 +57,13 @@ jobs:
           export PREFIX=$PWD
           export LD_LIBRARY_PATH=$PREFIX/lib
           nohup ./bin/rtrouted -f -l DEBUG > /tmp/rtrouted_log.txt &
+      - name: Run RbusTestTimeoutValues Unit test
+        run: |
+          cd install/usr
+          export PREFIX=$PWD
+          export LD_LIBRARY_PATH=$PREFIX/lib
+          nohup ./bin/rbusTestTimeoutValuesProvider &
+          ./bin/rbusTestTimeoutValuesConsumer
       - name: Run Unit test
         run: |
           cd install/usr

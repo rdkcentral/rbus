@@ -19,7 +19,6 @@
 
 #include <rbus.h>
 #include <rtTime.h>
-#include <rbus_config.h>
 #include "../common/test_macros.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -269,8 +268,7 @@ void testSubscribe(rbusHandle_t handle, int* countPass, int* countFail)
     unsigned int quit_counter = 10;
 
     /*changing from default so tests don't take 10 minutes for async sub to complete*/
-    rbusConfig_Get()->subscribeTimeout = maxTimeout * 1000;
-
+    rbusHandle_ConfigSubscribeTimeout(handle, maxTimeout*1000);
     subscribe(handle, "Device.TestProvider.Event1!", handler1, 0, 500, RBUS_ERROR_SUCCESS);
     subscribe(handle, "Device.TestProvider.Event2!", handler2, 0, 500, RBUS_ERROR_SUCCESS);
     subscribe(handle, "Device.TestProvider.ErrorSubHandlerEvent!", handler2, 0, 500, RBUS_ERROR_ACCESS_NOT_ALLOWED);

@@ -236,7 +236,7 @@ elementNode* insertElement(elementNode* root, rbusDataElement_t* elem)
     if(!mutex_init)
     {
        ERROR_CHECK(pthread_mutexattr_init(&attrib));
-       ERROR_CHECK(pthread_mutexattr_settype(&attrib, PTHREAD_MUTEX_ERRORCHECK));
+       ERROR_CHECK(pthread_mutexattr_settype(&attrib, PTHREAD_MUTEX_RECURSIVE));
        ERROR_CHECK(pthread_mutex_init(&element_mutex, &attrib));
        mutex_init = 1;
     }
@@ -343,7 +343,11 @@ elementNode* insertElement(elementNode* root, rbusDataElement_t* elem)
     if(ret == 0)
     {
         currentNode->type = elem->type;
-        currentNode->cbTable = elem->cbTable;
+        currentNode->cbTable.getHandler = elem->cbTable.getHandler;
+        currentNode->cbTable.setHandler = elem->cbTable.setHandler;
+        currentNode->cbTable.tableAddRowHandler = elem->cbTable.tableAddRowHandler;
+        currentNode->cbTable.tableRemoveRowHandler = elem->cbTable.tableRemoveRowHandler;
+        currentNode->cbTable.eventSubHandler = elem->cbTable.eventSubHandler;
 
         /* See the big comment near the top of this function.
            We add {i} as a child object of the table.
@@ -359,6 +363,11 @@ elementNode* insertElement(elementNode* root, rbusDataElement_t* elem)
             snprintf(buff, RBUS_MAX_NAME_LENGTH, "%s.%s", currentNode->fullName, rowTemplate->name);
             rowTemplate->fullName = strdup(buff);
             currentNode->child = rowTemplate;
+            currentNode->cbTable.tableSyncHandler = elem->cbTable.methodHandler;
+        }
+        else
+        {
+            currentNode->cbTable.methodHandler = elem->cbTable.methodHandler;
         }
     }
     free(name);
@@ -383,17 +392,14 @@ elementNode* retrieveElement(elementNode* root, const char* elmentName)
     char* saveptr = NULL;
     elementNode* currentNode = root;
     elementNode* nextNode = NULL;
-    int tokenFound = 0;
-
-    LOCK();
+    int tokenFound = 0;  
     RBUSLOG_DEBUG("Request to retrieve element [%s]", elmentName);
     if(currentNode == NULL)
     {
         return NULL;
     }
-
+    LOCK();
     name = strdup(elmentName);
-
     nextNode = currentNode->child;
 
     /*TODO if name is a table row with an alias containing a dot, this will break (e.g. "Foo.[alias.1]")*/
@@ -473,6 +479,11 @@ elementNode* retrieveElement(elementNode* root, const char* elmentName)
 
 elementNode* retrieveInstanceElement(elementNode* root, const char* elmentName)
 {
+    return retrieveInstanceElementEx(NULL, root, elmentName, false);
+}
+
+elementNode* retrieveInstanceElementEx(rbusHandle_t handle, elementNode* root, const char* elmentName, bool syncTables)
+{
     char* token = NULL;
     char* name = NULL;
     char* saveptr = NULL;
@@ -482,14 +493,13 @@ elementNode* retrieveInstanceElement(elementNode* root, const char* elmentName)
     bool isWildcard = false;
 
     RBUSLOG_DEBUG("Request to retrieve element [%s]", elmentName);
-    LOCK();
+   
     if(currentNode == NULL)
     {
         return NULL;
     }
-
+    LOCK();	
     name = strdup(elmentName);
-
     nextNode = currentNode->child;
 
     /*TODO if name is a table row with an alias containing a dot, this will break (e.g. "Foo.[alias.1]")*/
@@ -510,8 +520,6 @@ elementNode* retrieveInstanceElement(elementNode* root, const char* elmentName)
         {
             RBUSLOG_DEBUG("tokenFound!");
             tokenFound = 1;
-            currentNode = nextNode;
-            nextNode = currentNode->child;
         }
         else
         {
@@ -525,8 +533,6 @@ elementNode* retrieveInstanceElement(elementNode* root, const char* elmentName)
                 {
                     RBUSLOG_DEBUG("tokenFound!");
                     tokenFound = 1;
-                    currentNode = nextNode;
-                    nextNode = currentNode->child;
                     break;
                 }
                 else
@@ -543,8 +549,6 @@ elementNode* retrieveInstanceElement(elementNode* root, const char* elmentName)
                                 {
                                     RBUSLOG_DEBUG("tokenFound by alias %s!", nextNode->alias);
                                     tokenFound = 1;
-                                    currentNode = nextNode;
-                                    nextNode = currentNode->child;
                                     break;
                                 }
                             }
@@ -558,6 +562,18 @@ elementNode* retrieveInstanceElement(elementNode* root, const char* elmentName)
         }
 
         token = strtok_r(NULL, ".", &saveptr);
+
+        if (tokenFound)
+        {
+            if (token && nextNode->type == RBUS_ELEMENT_TYPE_TABLE && (syncTables && nextNode->cbTable.tableSyncHandler))
+            {
+                ELM_PRIVATE_LOCK(nextNode);
+                nextNode->cbTable.tableSyncHandler(handle, nextNode->fullName);
+                ELM_PRIVATE_UNLOCK(nextNode);
+            }
+            currentNode = nextNode;
+            nextNode = currentNode->child;
+        }
 
         if(token && nextNode && nextNode->parent && nextNode->parent->type == RBUS_ELEMENT_TYPE_TABLE) 
         {
@@ -1004,6 +1020,7 @@ elementNode* instantiateTableRow(elementNode* tableNode, uint32_t instNum, char 
 
     if(!rowTemplate)
     {
+	UNLOCK();
         assert(false);
         RBUSLOG_ERROR("ERROR: row template not found for table %s", tableNode->fullName);
         return NULL;
