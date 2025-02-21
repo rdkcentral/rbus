@@ -394,7 +394,9 @@ int rbusProvider(rbusGtest_t test, pid_t pid, int *consumer_status)
       RBUS_GTEST_GET_EXT1 == test ||
       RBUS_GTEST_SET4 == test ||
       RBUS_GTEST_SET_MULTI4 == test ||
-      RBUS_GTEST_SET_MULTI5 == test)
+      RBUS_GTEST_SET_MULTI5 == test ||
+      RBUS_GTEST_SET_MULTI_EXT1 == test ||
+      RBUS_GTEST_SET_MULTI_EXT2 == test)
   {
     rc |= rbusTable_addRow(handle, "Device.rbusProvider.PartialPath.", NULL, NULL);
     EXPECT_EQ(rc,RBUS_ERROR_SUCCESS);

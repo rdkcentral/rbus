@@ -1126,6 +1126,44 @@ rbusError_t rbus_setMulti(
     rbusProperty_t properties,
     rbusSetOptions_t* opts);
 
+/** @fn rbusError_t rbus_setMultiExt(
+ *          rbusHandle_t handle,
+ *          uint32_t numProps,
+ *          rbusProperty_t properties,
+ *          rbusSetOptions_t* opts,
+ *          uint32_t timeout,
+ *          char** failedParameterName);
+ *
+ *  @brief A component uses this to perform a set operation for multiple parameters at once.
+ *  This method identifies the provider component of each parameter, groups them and makes the SET call \n
+ *  per provider component. The given order is NOT maintained.
+ *
+ *  This API ensures rolling back of all the property to previous value upon failure to set any single parameter in the given list.
+ *  Used by: All components that need to set multiple parameters
+ *
+ *  @param      handle          Bus Handle
+ *  @param      numProps        The number (count) of parameters
+ *  @param      properties      The list of dml properties to set to. 
+ *                              For each parameter, a property should be created which contains the parameter's name and
+ *                              the respective value to set that parameter to.
+ *  @param      opts            Extra options such as session info. 
+ *                              Set NULL if not needed, in which case a session
+ *                              is not used and the set is commited immediately.
+ *  @param      timeout         Timeout in milliseconds to be used for each SET per provider; Set to 0 to use the default value (15s).
+ *  @param      failedParameterName  Output parameter that represents the failed property. On success, it will returning NULL. Caller responsible to free() this.
+ *  @return RBus error code as defined by rbusError_t.
+ *  Possible values are:
+ *  RBUS_ERROR_INVALID_INPUT: Given inputs are not correct.
+ *  RBUS_ERROR_ACCESS_NOT_ALLOWED: Access to requested parameter is not permitted.
+ *  RBUS_ERROR_DESTINATION_NOT_REACHABLE: Destination element was not reachable.
+ */
+rbusError_t rbus_setMultiExt(
+    rbusHandle_t handle,
+    uint32_t numProps,
+    rbusProperty_t properties,
+    rbusSetOptions_t* opts,
+    uint32_t timeout,
+    char** failedParameterName);
 
 /** @fn rbusError_t rbus_setBoolean(
  *          rbusHandle_t handle,
