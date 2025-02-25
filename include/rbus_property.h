@@ -302,7 +302,7 @@ void rbusProperty_Append(rbusProperty_t property, rbusProperty_t back);
 
 #define rbusProperty_PushBack(prop, back) rbusProperty_Append((prop),(back))
 
-/** @fn void rbusProperty_Count(rbusProperty_t property)
+/** @fn uint32_t rbusProperty_Count(rbusProperty_t property)
  *  @brief Return the number or properties in the list
  *  @param property A property (the first in list).
  *  @return The number of properties in the list.
