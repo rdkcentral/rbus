@@ -1423,7 +1423,13 @@ void validate_and_execute_set_cmd (int argc, char *argv[])
             }
 
             rbusSetOptions_t opts = {isCommit,sessionId};
-            rc = rbus_setMulti(g_busHandle, paramCnt, properties/*setNames, setVal*/, &opts);
+	    char* failedElement = NULL;
+            rc = rbus_setMultiExt(g_busHandle, paramCnt, properties/*setNames, setVal*/, &opts, 0, &failedElement);
+	    if(failedElement != NULL)
+            {
+               printf("Failed to set value for %s\n", failedElement);
+	       free(failedElement);
+	    }
         }
         else
         {
