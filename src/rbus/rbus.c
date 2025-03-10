@@ -1474,9 +1474,11 @@ exit_1:
 static void _set_callback_handler (rbusHandle_t handle, rbusMessage request, rbusMessage *response)
 {
     rbusError_t rc = 0;
+    rbusError_t err = 0;
     int sessionId = 0;
     int numVals = 0;
     int loopCnt = 0;
+    int rollBack = 0;
     char* pCompName = NULL;
     char* pIsCommit = NULL;
     bool isCommit = false;
@@ -1484,13 +1486,16 @@ static void _set_callback_handler (rbusHandle_t handle, rbusMessage request, rbu
     rbusProperty_t* pProperties = NULL;
     struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
     rbusSetHandlerOptions_t opts;
+    rbusProperty_t cachedData = NULL;
 
     memset(&opts, 0, sizeof(opts));
+    rbusGetHandlerOptions_t options;
+    memset(&options, 0, sizeof(rbusGetHandlerOptions_t));
 
     rbusMessage_GetInt32(request, &sessionId);
     rbusMessage_GetString(request, (char const**) &pCompName);
+    rbusMessage_GetInt32(request, &rollBack);
     rbusMessage_GetInt32(request, &numVals);
-
     if(numVals > 0)
     {
         /* Update the Get Handler input options */
@@ -1525,8 +1530,21 @@ static void _set_callback_handler (rbusHandle_t handle, rbusMessage request, rbu
                 el = retrieveInstanceElementEx(handle, handleInfo->elementRoot, paramName, true);
                 if(el != NULL)
                 {
+                    rbusProperty_t currentData = NULL;
                     if(el->cbTable.setHandler)
                     {
+                       if(rollBack == 1)
+                       {
+                           if(el->cbTable.getHandler)
+                           {
+                                rbusProperty_Init(&currentData, paramName, NULL);
+                                ELM_PRIVATE_LOCK(el);
+                                rc = el->cbTable.getHandler(handle, currentData, &options);
+                                ELM_PRIVATE_UNLOCK(el);
+                           }
+                           else
+                                RBUSLOG_INFO("%s is a write only parameter",paramName);
+                        }
                         if(isCommit && loopCnt == numVals -1)
                             opts.commit = true;
 
@@ -1537,11 +1555,42 @@ static void _set_callback_handler (rbusHandle_t handle, rbusMessage request, rbu
                         {
                             RBUSLOG_WARN("Set Failed for %s; Component Owner returned Error", paramName);
                             pFailedElement = paramName;
+			    if(rollBack == 1)
+			    {
+                                RBUSLOG_DEBUG("Reverting because set failed for this param:%s",pFailedElement);
+				/*===========< Rollback old values >============*/
+				rbusProperty_t prevProp = cachedData;
+				while(prevProp)
+				{
+                                    char const* prevParamName = rbusProperty_GetName(prevProp);
+                                    el = retrieveInstanceElement(handleInfo->elementRoot, prevParamName);
+                                    ELM_PRIVATE_LOCK(el);
+                                    err = el->cbTable.setHandler(handle, prevProp, &opts);
+                                    ELM_PRIVATE_UNLOCK(el);
+                                    prevProp = rbusProperty_GetNext(prevProp);
+                                    if(err != RBUS_ERROR_SUCCESS)
+                                    {
+                                        RBUSLOG_WARN("Reverting paramValues of %s to initial values failed",prevParamName);
+				    }
+				}
+			    }
                             break;
                         }
                         else
                         {
                             setPropertyChangeComponent(el, pCompName);
+                            /* ======== < Old values backup >============= */
+                            if (currentData)
+                            {
+                                if (cachedData == NULL)
+                                    cachedData = currentData;
+                                else
+                                {
+                                    rbusProperty_Append(cachedData, currentData);
+                                    rbusProperty_Release(currentData);
+                                }
+                            }
+
                         }
                     }
                     else
@@ -1578,7 +1627,12 @@ static void _set_callback_handler (rbusHandle_t handle, rbusMessage request, rbu
 exit:
     rbusMessage_Init(response);
     rbusMessage_SetInt32(*response, (int) rc);
-    if (pFailedElement)
+    if (rc == RBUS_ERROR_SUCCESS)
+    {
+        rbusPropertyList_appendToMessage(cachedData, *response);
+        rbusProperty_Release(cachedData);
+    }
+    else if(pFailedElement)
         rbusMessage_SetString(*response, pFailedElement);
 
     if(pProperties)
@@ -3892,6 +3946,7 @@ rbusError_t rbus_set(rbusHandle_t handle, char const* name,rbusValue_t value, rb
 
     /* Set the Component name that invokes the set */
     rbusMessage_SetString(setRequest, handleInfo->componentName);
+    rbusMessage_SetInt32(setRequest, 0);//needRollBack
     /* Set the Size of params */
     rbusMessage_SetInt32(setRequest, 1);
 
@@ -4008,27 +4063,31 @@ rbusError_t rbus_setCommit(rbusHandle_t handle, char const* name, rbusSetOptions
     return errorcode;
 }
 
-rbusError_t rbus_setMulti(rbusHandle_t handle, int numProps, rbusProperty_t properties, rbusSetOptions_t* opts)
+rbusError_t _setMultiInternal(rbusHandle_t handle, uint32_t numProps, rbusProperty_t properties, rbusSetOptions_t* opts, uint32_t timeout, char** pFailedElement, bool rollBack)
 {
     rbusError_t errorcode = RBUS_ERROR_INVALID_INPUT;
     rbusCoreError_t err = RBUSCORE_SUCCESS;
-    VERIFY_HANDLE(handle);	
+    VERIFY_HANDLE(handle);
     rbusMessage setRequest, setResponse;
     struct _rbusHandle* handleInfo = (struct _rbusHandle*) handle;
     rbusValueType_t type = RBUS_NONE;
     rbusProperty_t current;
-
+    uint32_t cachedNumProps = 0;
+    rbusProperty_t cachedProperties = NULL;
     VERIFY_NULL(handle);
-
+    if(timeout == 0)
+        timeout = rbusHandle_FetchSetMultiTimeout(handle);
     if (handleInfo->m_handleType != RBUS_HWDL_TYPE_REGULAR)
+    {
         return RBUS_ERROR_INVALID_HANDLE;
+    }
 
     if (numProps > 0 && properties != NULL)
     {
         char const** pParamNames;
         int numComponents;
         char** componentNames = NULL;
-        int i;
+        uint32_t i;
 
         /*create list of paramNames to pass to rbus_discoverComponentName*/
         pParamNames = rt_try_malloc(sizeof(char*) * numProps);
@@ -4060,7 +4119,7 @@ rbusError_t rbus_setMulti(rbusHandle_t handle, int numProps, rbusProperty_t prop
 
         /*discover which components have some ownership of the params*/
         errorcode = rbus_discoverComponentName(handle, numProps, pParamNames, &numComponents, &componentNames);
-        if(errorcode == RBUS_ERROR_SUCCESS && numProps == numComponents)
+        if(errorcode == RBUS_ERROR_SUCCESS && numProps == (uint32_t)numComponents)
         {
 #if 0
             RBUSLOG_DEBUG("rbus_discoverComponentName return %d component for %d params", numComponents, numProps);
@@ -4090,7 +4149,6 @@ rbusError_t rbus_setMulti(rbusHandle_t handle, int numProps, rbusProperty_t prop
                 char* componentName = NULL;
                 char const* firstParamName = NULL;
                 int batchCount = 0;
-
                 for(i = 0; i < numProps; ++i)
                 {
                     if(componentNames[i])
@@ -4111,7 +4169,6 @@ rbusError_t rbus_setMulti(rbusHandle_t handle, int numProps, rbusProperty_t prop
 
                 if(componentName)
                 {
-
                     rbusMessage_Init(&setRequest);
 
                     /* Set the Session ID first */
@@ -4122,6 +4179,10 @@ rbusError_t rbus_setMulti(rbusHandle_t handle, int numProps, rbusProperty_t prop
 
                     /* Set the Component name that invokes the set */
                     rbusMessage_SetString(setRequest, handleInfo->componentName);
+                    if(rollBack)
+                        rbusMessage_SetInt32(setRequest, 1);
+                    else
+                        rbusMessage_SetInt32(setRequest, 0);
                     /* Set the Size of params */
                     rbusMessage_SetInt32(setRequest, batchCount);
 
@@ -4140,12 +4201,12 @@ rbusError_t rbus_setMulti(rbusHandle_t handle, int numProps, rbusProperty_t prop
                             free(componentNames[i]);
                             componentNames[i] = NULL;
                         }
-                    }  
+                    }
 
                     /* Set the Commit value; FIXME: Should we use string? */
                     rbusMessage_SetString(setRequest, (!opts || opts->commit) ? "TRUE" : "FALSE");
 
-                    if((err = rbus_invokeRemoteMethod(firstParamName, METHOD_SETPARAMETERVALUES, setRequest, rbusHandle_FetchSetMultiTimeout(handle), &setResponse)) != RBUSCORE_SUCCESS)
+                    if((err = rbus_invokeRemoteMethod(firstParamName, METHOD_SETPARAMETERVALUES, setRequest, timeout, &setResponse)) != RBUSCORE_SUCCESS)
                     {
                         RBUSLOG_ERROR("%s for %s failed with RBUS Daemon error: %s", __FUNCTION__, firstParamName, rbusCoreErrorToString(err));
                         errorcode = rbusCoreError_to_rbusError(err);
@@ -4156,24 +4217,57 @@ rbusError_t rbus_setMulti(rbusHandle_t handle, int numProps, rbusProperty_t prop
                         rbusLegacyReturn_t legacyRetCode = RBUS_LEGACY_ERR_FAILURE;
                         int ret = -1;
                         rbusMessage_GetInt32(setResponse, &ret);
-
                         RBUSLOG_DEBUG("Response from the remote method is [%d]!", ret);
                         errorcode = (rbusError_t) ret;
                         legacyRetCode = (rbusLegacyReturn_t) ret;
-
                         if((errorcode == RBUS_ERROR_SUCCESS) || (legacyRetCode == RBUS_LEGACY_ERR_SUCCESS))
                         {
                             errorcode = RBUS_ERROR_SUCCESS;
                             RBUSLOG_DEBUG("Successfully Set the Value");
+                            rbusPropertyList_initFromMessage(&cachedProperties, setResponse);
+                            pFailedElement = NULL;
                         }
                         else
                         {
-                            rbusMessage_GetString(setResponse, &pErrorReason);
-                            RBUSLOG_WARN("Failed to Set the Value for %s", pErrorReason);
+                            if(pFailedElement)
+                            {
+                                rbusMessage_GetString(setResponse, &pErrorReason);
+				*pFailedElement = strdup((char*)pErrorReason);
+                                RBUSLOG_WARN("Failed to Set the Value For %s", *pFailedElement);
+                            }
+                            else
+                            {
+                                rbusMessage_GetString(setResponse, &pErrorReason);
+                                RBUSLOG_WARN("Failed to Set the Value for %s", pErrorReason);
+                            }
+                            if(rollBack)
+                            {
+                                char *pTempFailedElement = NULL;
+				rbusSetOptions_t revertOpts;
+				if ((opts) && (opts->sessionId != 0))
+                                {
+                                    revertOpts.commit = true;
+			            revertOpts.sessionId= opts->sessionId;
+				}
+				else
+                                {
+                                    revertOpts.commit = true;
+                                    revertOpts.sessionId = 0;
+				}
+                                cachedNumProps = 0;
+                                cachedNumProps = rbusProperty_Count(cachedProperties);
+                                rbusError_t result;
+                                result = _setMultiInternal(handle, cachedNumProps, cachedProperties, &revertOpts, (int)timeout, &pTempFailedElement, false);
+                                if(result == RBUS_ERROR_SUCCESS)
+                                    RBUSLOG_DEBUG("Successfully reverted back the values");
+                                else if((result != RBUS_ERROR_SUCCESS) && (pTempFailedElement))
+                                    RBUSLOG_WARN("Failed to rollback %s\n",pTempFailedElement);
+                            }
                             if(legacyRetCode > RBUS_LEGACY_ERR_SUCCESS)
                             {
                                 errorcode = CCSPError_to_rbusError(legacyRetCode);
                             }
+			    break;
                         }
 
                         /* Release the reponse message */
@@ -4191,7 +4285,7 @@ rbusError_t rbus_setMulti(rbusHandle_t handle, int numProps, rbusProperty_t prop
         {
             errorcode = RBUS_ERROR_DESTINATION_NOT_FOUND;
             RBUSLOG_ERROR("Discover component names failed with error %d and counts %d/%d", errorcode, numProps, numComponents);
-            for(i = 0; i < numComponents; i++)
+            for(int i = 0; i < numComponents; i++)
             {
                 if(componentNames[i])
                 {
@@ -4205,7 +4299,19 @@ rbusError_t rbus_setMulti(rbusHandle_t handle, int numProps, rbusProperty_t prop
         if(componentNames)
             free(componentNames);
     }
+    if(cachedProperties)
+       free(cachedProperties);
     return errorcode;
+}
+
+rbusError_t rbus_setMulti(rbusHandle_t handle, int numProps, rbusProperty_t properties, rbusSetOptions_t* opts)
+{
+   return _setMultiInternal(handle,  numProps,  properties,  opts, 0, NULL, true);
+}
+
+rbusError_t rbus_setMultiExt(rbusHandle_t handle, uint32_t numProps, rbusProperty_t properties, rbusSetOptions_t* opts, uint32_t timeout, char** failedParameterName)
+{
+    return _setMultiInternal(handle,  numProps,  properties,  opts, timeout, failedParameterName, true);
 }
 
 static rbusError_t rbus_setByType(rbusHandle_t handle, char const* paramName, void const* paramVal, rbusValueType_t type)
