@@ -3611,115 +3611,131 @@ rbusError_t rbus_getExt(rbusHandle_t handle, int paramCount, char const** pParam
     if (handleInfo->m_handleType != RBUS_HWDL_TYPE_REGULAR)
         return RBUS_ERROR_INVALID_HANDLE;
 
-    if ((1 == paramCount) && (_is_wildcard_query(pParamNames[0])))
+    if ((1 == paramCount))
     {
-        int numDestinations = 0;
-        char** destinations;
-        //int length = strlen(pParamNames[0]);
-
-        err = rbus_discoverWildcardDestinations(pParamNames[0], &numDestinations, &destinations);
-        if (RBUSCORE_SUCCESS == err)
+        if (!_is_wildcard_query(pParamNames[0]))
         {
-            RBUSLOG_DEBUG("Query for expression %s was successful. See result below:", pParamNames[0]);
-            rbusProperty_t last = NULL;
-            *numValues = 0;
-            if (0 == numDestinations)
+            rbusProperty_t outputVals = NULL;
+            rbusValue_t getVal;
+            errorcode = rbus_get(handle, pParamNames[0], &getVal);
+            if(RBUS_ERROR_SUCCESS == errorcode)
             {
-                RBUSLOG_DEBUG("It is possibly a table entry from single component.");
-            }
-            else
-            {
-                for(i = 0; i < numDestinations; i++)
-                {
-                    int tmpNumOfValues = 0;
-                    rbusMessage request, response;
-                    RBUSLOG_DEBUG("Destination %d is %s", i, destinations[i]);
-
-                    /* Get the query sent to each component identified */
-                    rbusMessage_Init(&request);
-                    /* Set the Component name that invokes the set */
-                    rbusMessage_SetString(request, handleInfo->componentName);
-                    rbusMessage_SetInt32(request, 1);
-                    rbusMessage_SetString(request, pParamNames[0]);
-                    /* Invoke the method */
-                    err = rbus_invokeRemoteMethod(destinations[i], METHOD_GETPARAMETERVALUES,
-                            request, rbusHandle_FetchGetMultiTimeout(handle), &response);
-
-                    if(err != RBUSCORE_SUCCESS)
-                    {
-                        RBUSLOG_ERROR("%s for %s failed with RBUS Daemon error: %s", __FUNCTION__, destinations[i], rbusCoreErrorToString(err));
-                        errorcode = rbusCoreError_to_rbusError(err);
-                    }
-                    else
-                    {
-                        if (0 == i)
-                        {
-                            if((errorcode = _getExt_response_parser(response, &tmpNumOfValues, retProperties)) != RBUS_ERROR_SUCCESS)
-                            {
-                                RBUSLOG_ERROR("error parsing response %d", errorcode);
-                            }
-                            else
-                            {
-                                if(tmpNumOfValues > 0)
-                                    last = *retProperties;
-                            }
-                        }
-                        else
-                        {
-                            rbusProperty_t tmpProperties = NULL;
-
-                            if((errorcode = _getExt_response_parser(response, &tmpNumOfValues, &tmpProperties)) != RBUS_ERROR_SUCCESS)
-                            {
-                                RBUSLOG_ERROR("error parsing response %d", errorcode);
-                            }
-                            else
-                            {
-                                if(tmpNumOfValues > 0 && tmpProperties)
-                                {
-                                    if(NULL != last)
-                                    {
-                                        rbusProperty_Append(last, tmpProperties);
-                                    }
-                                    else
-                                    {
-                                        last = tmpProperties;
-                                        *retProperties = last;
-                                    }
-                                }
-                            }
-                            rbusProperty_Release(tmpProperties);
-                        }
-                    }
-                    if (errorcode != RBUS_ERROR_SUCCESS)
-                    {
-                        RBUSLOG_WARN("Failed to get the data from %s Component", destinations[i]);
-                        break;
-                    }
-                    else
-                    {
-                        *numValues += tmpNumOfValues;
-                    }
-                }
-
-                for(i = 0; i < numDestinations; i++)
-                    free(destinations[i]);
-                free(destinations);
-                if ((*retProperties != NULL) && (errorcode != RBUS_ERROR_SUCCESS))
-                {
-                    RBUSLOG_WARN("Query for expression %s was partially successful", pParamNames[0]);
-                    return RBUS_ERROR_SUCCESS;
-                }
-                else 
-                {
-                    return errorcode;
-                }
-
+                *numValues = 1;
+                rbusProperty_Init(&outputVals, pParamNames[0], getVal);
+                rbusValue_Release(getVal);
+                *retProperties = outputVals;
             }
         }
         else
         {
-            RBUSLOG_DEBUG("Query for expression %s was not successful.", pParamNames[0]);
-            return RBUS_ERROR_ELEMENT_DOES_NOT_EXIST;
+            int numDestinations = 0;
+            char** destinations;
+            //int length = strlen(pParamNames[0]);
+
+            err = rbus_discoverWildcardDestinations(pParamNames[0], &numDestinations, &destinations);
+            if (RBUSCORE_SUCCESS == err)
+            {
+                RBUSLOG_DEBUG("Query for expression %s was successful. See result below:", pParamNames[0]);
+                rbusProperty_t last = NULL;
+                *numValues = 0;
+                if (0 == numDestinations)
+                {
+                    RBUSLOG_DEBUG("It is possibly a table entry from single component.");
+                }
+                else
+                {
+                    for(i = 0; i < numDestinations; i++)
+                    {
+                        int tmpNumOfValues = 0;
+                        rbusMessage request, response;
+                        RBUSLOG_DEBUG("Destination %d is %s", i, destinations[i]);
+
+                        /* Get the query sent to each component identified */
+                        rbusMessage_Init(&request);
+                        /* Set the Component name that invokes the set */
+                        rbusMessage_SetString(request, handleInfo->componentName);
+                        rbusMessage_SetInt32(request, 1);
+                        rbusMessage_SetString(request, pParamNames[0]);
+                        /* Invoke the method */
+                        err = rbus_invokeRemoteMethod(destinations[i], METHOD_GETPARAMETERVALUES,
+                                request, rbusHandle_FetchGetMultiTimeout(handle), &response);
+
+                        if(err != RBUSCORE_SUCCESS)
+                        {
+                            RBUSLOG_ERROR("%s for %s failed with RBUS Daemon error: %s", __FUNCTION__, destinations[i], rbusCoreErrorToString(err));
+                            errorcode = rbusCoreError_to_rbusError(err);
+                        }
+                        else
+                        {
+                            if (0 == i)
+                            {
+                                if((errorcode = _getExt_response_parser(response, &tmpNumOfValues, retProperties)) != RBUS_ERROR_SUCCESS)
+                                {
+                                    RBUSLOG_ERROR("error parsing response %d", errorcode);
+                                }
+                                else
+                                {
+                                    if(tmpNumOfValues > 0)
+                                        last = *retProperties;
+                                }
+                            }
+                            else
+                            {
+                                rbusProperty_t tmpProperties = NULL;
+
+                                if((errorcode = _getExt_response_parser(response, &tmpNumOfValues, &tmpProperties)) != RBUS_ERROR_SUCCESS)
+                                {
+                                    RBUSLOG_ERROR("error parsing response %d", errorcode);
+                                }
+                                else
+                                {
+                                    if(tmpNumOfValues > 0 && tmpProperties)
+                                    {
+                                        if(NULL != last)
+                                        {
+                                            rbusProperty_Append(last, tmpProperties);
+                                        }
+                                        else
+                                        {
+                                            last = tmpProperties;
+                                            *retProperties = last;
+                                        }
+                                    }
+                                }
+                                rbusProperty_Release(tmpProperties);
+                            }
+                        }
+                        if (errorcode != RBUS_ERROR_SUCCESS)
+                        {
+                            RBUSLOG_WARN("Failed to get the data from %s Component", destinations[i]);
+                            break;
+                        }
+                        else
+                        {
+                            *numValues += tmpNumOfValues;
+                        }
+                    }
+
+                    for(i = 0; i < numDestinations; i++)
+                        free(destinations[i]);
+                    free(destinations);
+                    if ((*retProperties != NULL) && (errorcode != RBUS_ERROR_SUCCESS))
+                    {
+                        RBUSLOG_WARN("Query for expression %s was partially successful", pParamNames[0]);
+                        return RBUS_ERROR_SUCCESS;
+                    }
+                    else 
+                    {
+                        return errorcode;
+                    }
+
+                }
+            }
+            else
+            {
+                RBUSLOG_DEBUG("Query for expression %s was not successful.", pParamNames[0]);
+                return RBUS_ERROR_ELEMENT_DOES_NOT_EXIST;
+            }
         }
     }
 
@@ -3918,7 +3934,7 @@ rbusError_t rbus_getStr (rbusHandle_t handle, char const* paramName, char** para
     return rbus_getByType(handle, paramName, paramVal, RBUS_STRING);
 }
 
-rbusError_t rbus_set(rbusHandle_t handle, char const* name,rbusValue_t value, rbusSetOptions_t* opts)
+rbusError_t _setInternal(rbusHandle_t handle, char const* name, rbusValue_t value, rbusSetOptions_t* opts, uint32_t timeout)
 {
     rbusError_t errorcode = RBUS_ERROR_INVALID_INPUT;
     rbusCoreError_t err = RBUSCORE_SUCCESS;
@@ -3932,6 +3948,12 @@ rbusError_t rbus_set(rbusHandle_t handle, char const* name,rbusValue_t value, rb
 
     if (handleInfo->m_handleType != RBUS_HWDL_TYPE_REGULAR)
         return RBUS_ERROR_INVALID_HANDLE;
+
+    if (_is_wildcard_query(name))
+    {
+        RBUSLOG_WARN("This method does not support wildcard query");
+        return RBUS_ERROR_ACCESS_NOT_ALLOWED;
+    }
 
     if (RBUS_NONE == rbusValue_GetType(value))
     {
@@ -3961,7 +3983,10 @@ rbusError_t rbus_set(rbusHandle_t handle, char const* name,rbusValue_t value, rb
     if (NULL == myConn)
         myConn = handleInfo->m_connection;
 
-    if((err = rbus_invokeRemoteMethod2(myConn, name, METHOD_SETPARAMETERVALUES, setRequest, rbusHandle_FetchSetTimeout(handle), &setResponse)) != RBUSCORE_SUCCESS)
+    if (timeout == 0)
+        timeout = rbusHandle_FetchSetTimeout(handle);
+
+    if((err = rbus_invokeRemoteMethod2(myConn, name, METHOD_SETPARAMETERVALUES, setRequest, timeout, &setResponse)) != RBUSCORE_SUCCESS)
     {
         RBUSLOG_ERROR("%s for %s failed with RBUS Daemon error: %s", __FUNCTION__, name, rbusCoreErrorToString(err));
         errorcode = rbusCoreError_to_rbusError(err);
@@ -3996,6 +4021,11 @@ rbusError_t rbus_set(rbusHandle_t handle, char const* name,rbusValue_t value, rb
         rbusMessage_Release(setResponse);
     }
     return errorcode;
+}
+
+rbusError_t rbus_set(rbusHandle_t handle, char const* name,rbusValue_t value, rbusSetOptions_t* opts)
+{
+    return _setInternal(handle, name, value, opts, 0);
 }
 
 rbusError_t rbus_setCommit(rbusHandle_t handle, char const* name, rbusSetOptions_t* opts)
@@ -4084,6 +4114,11 @@ rbusError_t _setMultiInternal(rbusHandle_t handle, uint32_t numProps, rbusProper
 
     if (numProps > 0 && properties != NULL)
     {
+        if (rbusProperty_Count(properties) == 1)
+        {
+            return _setInternal(handle, rbusProperty_GetName(properties), rbusProperty_GetValue(properties), opts, timeout);
+        }
+
         char const** pParamNames;
         int numComponents;
         char** componentNames = NULL;
@@ -4101,6 +4136,11 @@ rbusError_t _setMultiInternal(rbusHandle_t handle, uint32_t numProps, rbusProper
         while(current && i < numProps)
         {
             pParamNames[i++] = rbusProperty_GetName(current);
+            if (_is_wildcard_query(pParamNames[i-1]))
+            {
+                RBUSLOG_WARN("This method does not support wildcard query");
+                return RBUS_ERROR_ACCESS_NOT_ALLOWED;
+            }
             type = rbusValue_GetType(rbusProperty_GetValue(current));
             if (RBUS_NONE == type)
             {
@@ -4232,7 +4272,7 @@ rbusError_t _setMultiInternal(rbusHandle_t handle, uint32_t numProps, rbusProper
                             if(pFailedElement)
                             {
                                 rbusMessage_GetString(setResponse, &pErrorReason);
-				*pFailedElement = strdup((char*)pErrorReason);
+                                *pFailedElement = strdup((char*)pErrorReason);
                                 RBUSLOG_WARN("Failed to Set the Value For %s", *pFailedElement);
                             }
                             else
@@ -4243,17 +4283,17 @@ rbusError_t _setMultiInternal(rbusHandle_t handle, uint32_t numProps, rbusProper
                             if(rollBack)
                             {
                                 char *pTempFailedElement = NULL;
-				rbusSetOptions_t revertOpts;
-				if ((opts) && (opts->sessionId != 0))
+                                rbusSetOptions_t revertOpts;
+                                if ((opts) && (opts->sessionId != 0))
                                 {
                                     revertOpts.commit = true;
-			            revertOpts.sessionId= opts->sessionId;
-				}
-				else
+                                    revertOpts.sessionId= opts->sessionId;
+                                }
+                                else
                                 {
                                     revertOpts.commit = true;
                                     revertOpts.sessionId = 0;
-				}
+                                }
                                 cachedNumProps = 0;
                                 cachedNumProps = rbusProperty_Count(cachedProperties);
                                 rbusError_t result;
@@ -4267,7 +4307,7 @@ rbusError_t _setMultiInternal(rbusHandle_t handle, uint32_t numProps, rbusProper
                             {
                                 errorcode = CCSPError_to_rbusError(legacyRetCode);
                             }
-			    break;
+                            break;
                         }
 
                         /* Release the reponse message */
@@ -4300,18 +4340,18 @@ rbusError_t _setMultiInternal(rbusHandle_t handle, uint32_t numProps, rbusProper
             free(componentNames);
     }
     if(cachedProperties)
-       free(cachedProperties);
+        free(cachedProperties);
     return errorcode;
 }
 
 rbusError_t rbus_setMulti(rbusHandle_t handle, int numProps, rbusProperty_t properties, rbusSetOptions_t* opts)
 {
-   return _setMultiInternal(handle,  numProps,  properties,  opts, 0, NULL, true);
+   return _setMultiInternal(handle, numProps,  properties, opts, 0, NULL, true);
 }
 
 rbusError_t rbus_setMultiExt(rbusHandle_t handle, uint32_t numProps, rbusProperty_t properties, rbusSetOptions_t* opts, uint32_t timeout, char** failedParameterName)
 {
-    return _setMultiInternal(handle,  numProps,  properties,  opts, timeout, failedParameterName, true);
+    return _setMultiInternal(handle, numProps,  properties, opts, timeout, failedParameterName, true);
 }
 
 static rbusError_t rbus_setByType(rbusHandle_t handle, char const* paramName, void const* paramVal, rbusValueType_t type)
