@@ -3951,7 +3951,7 @@ rbusError_t _setInternal(rbusHandle_t handle, char const* name, rbusValue_t valu
 
     if (_is_wildcard_query(name))
     {
-        RBUSLOG_WARN("This method does not support wildcard query");
+        RBUSLOG_WARN("This method does not support wildcard query [%s]", name);
         return RBUS_ERROR_INVALID_INPUT;
     }
 
@@ -4138,7 +4138,7 @@ rbusError_t _setMultiInternal(rbusHandle_t handle, uint32_t numProps, rbusProper
             pParamNames[i++] = rbusProperty_GetName(current);
             if (_is_wildcard_query(pParamNames[i-1]))
             {
-                RBUSLOG_WARN("This method does not support wildcard query");
+                RBUSLOG_WARN("This method does not support wildcard query [%s]", pParamNames[i-1]);
                 free(pParamNames);
                 return RBUS_ERROR_INVALID_INPUT;
             }
