@@ -108,6 +108,7 @@ typedef enum _rbus_legacy_returns {
     RBUS_LEGACY_ERR_INVALID_PARAMETER_TYPE = 9006,
     RBUS_LEGACY_ERR_INVALID_PARAMETER_VALUE = 9007,
     RBUS_LEGACY_ERR_NOT_WRITABLE = 9008,
+    RBUS_LEGACY_ERR_NOTIFICATION_REJECTED = 9009,
 } rbusLegacyReturn_t;
 
 typedef struct _rbusEventSubscriptionInternal
@@ -233,6 +234,9 @@ static rbusError_t CCSPError_to_rbusError(rtError e)
      break;
     case RBUS_LEGACY_ERR_NOT_WRITABLE:
      err = RBUS_ERROR_INVALID_OPERATION;
+     break;
+    case RBUS_LEGACY_ERR_NOTIFICATION_REJECTED:
+     err = RBUS_ERROR_NOTIFICATION_REJECTED;
      break;
     default:
       err = RBUS_ERROR_BUS_ERROR;
