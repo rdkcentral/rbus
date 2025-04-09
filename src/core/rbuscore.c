@@ -1061,7 +1061,7 @@ rbusCoreError_t rbus_pushObj(const char * object_name, rbusMessage message, int 
     rbusMessage response = NULL;
     if((ret = rbus_invokeRemoteMethod(object_name, METHOD_SETPARAMETERVALUES, message, timeout_millisecs, &response)) != RBUSCORE_SUCCESS)
     {
-        RBUSCORELOG_ERROR("Failed to send message. Error code: 0x%x", err);
+        RBUSCORELOG_ERROR("Failed to send message. Error code: 0x%x", ret);
         return ret;
     }
     else
