@@ -1036,7 +1036,6 @@ bool rbusValue_SetFromString(rbusValue_t value, rbusValueType_t type, const char
     unsigned long long tmpULL = 0;
     errno = 0;
     char *endptr = NULL;
-    char sign = *pStringInput;
     unsigned int tmp_strlen = 0;
 
     if (pStringInput == NULL)
@@ -1044,6 +1043,7 @@ bool rbusValue_SetFromString(rbusValue_t value, rbusValueType_t type, const char
     if(value == NULL)
         return false;
 
+    char sign = *pStringInput;
     switch(type)
     {
     case RBUS_STRING:
