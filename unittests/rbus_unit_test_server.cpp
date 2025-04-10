@@ -434,11 +434,11 @@ TEST_F(TestServer, rbus_registerObjNameCheck_test2)
     return;
 }
 
-/*Boundary testing for MAX_OBJECT_NAME_LENGTH - 128*/
+/*Boundary testing for MAX_OBJECT_NAME_LENGTH - 256*/
 TEST_F(TestServer, rbus_registerObjNameCheck_test3)
 {
     int counter = 1;
-    char obj_name[129] = "0";
+    char obj_name[MAX_OBJECT_NAME_LENGTH + 1] = "0";
     rbusCoreError_t err = RBUSCORE_SUCCESS;
 
     CREATE_RBUS_SERVER_REG_OBJECT(counter);
@@ -449,11 +449,11 @@ TEST_F(TestServer, rbus_registerObjNameCheck_test3)
     return;
 }
 
-/*Boundary testing for MAX_OBJECT_NAME_LENGTH - 128*/
+/*Boundary testing for MAX_OBJECT_NAME_LENGTH - 256*/
 TEST_F(TestServer, rbus_registerObjNameCheck_test4)
 {
     int counter = 1;
-    char obj_name[128] = "0";
+    char obj_name[MAX_OBJECT_NAME_LENGTH] = "0";
     rbusCoreError_t err = RBUSCORE_SUCCESS;
 
     CREATE_RBUS_SERVER_REG_OBJECT(counter);
@@ -466,11 +466,11 @@ TEST_F(TestServer, rbus_registerObjNameCheck_test4)
     return;
 }
 
-/*Boundary testing for MAX_OBJECT_NAME_LENGTH - 128*/
+/*Boundary testing for MAX_OBJECT_NAME_LENGTH - 256*/
 TEST_F(TestServer, rbus_registerObjNameCheck_test5)
 {
     int counter = 1;
-    char obj_name[129] = "0";
+    char obj_name[MAX_OBJECT_NAME_LENGTH + 1] = "0";
     rbusCoreError_t err = RBUSCORE_SUCCESS;
 
     CREATE_RBUS_SERVER_REG_OBJECT(counter);
@@ -1052,7 +1052,7 @@ TEST_F(TestServer, rbus_removeElement_test1)
 {
     int counter = 1;
     char server_obj[] = "test_server_1.obj1";
-    char obj_name[130] = "test_server_1.obj2";
+    char obj_name[MAX_OBJECT_NAME_LENGTH + 1] = "test_server_1.obj2";
     char server_element[] = "server_element1";
     bool conn_status = false;
     char test_string[] = "rbus_client_test_string";

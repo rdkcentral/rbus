@@ -168,7 +168,7 @@ TEST_F(EventClientAPIs, rbus_subscribeToEvent_test1)
 TEST_F(EventClientAPIs, rbus_subscribeToEvent_test2)
 {
     char client_name[MAX_CLIENT_NAME] = "Event_Client_1";
-    char obj_name[129] = "0";
+    char obj_name[MAX_OBJECT_NAME_LENGTH + 1] = "0";
     bool conn_status = false;
     rbusCoreError_t err = RBUSCORE_SUCCESS;
     printf("*********************  CREATING CLIENT : %s \n", client_name);
@@ -233,7 +233,7 @@ TEST_F(EventClientAPIs, rbus_subscribeToEventTimeout_test2)
 TEST_F(EventClientAPIs, rbus_subscribeToEventTimeout_test3)
 {
     char client_name[MAX_CLIENT_NAME] = "Event_Client_1";
-    char obj_name[129] = "0";
+    char obj_name[MAX_OBJECT_NAME_LENGTH + 1] = "0";
     bool conn_status = false;
     rbusCoreError_t err = RBUSCORE_SUCCESS;
     printf("*********************  CREATING CLIENT : %s \n", client_name);
@@ -275,7 +275,7 @@ TEST_F(EventClientAPIs, rbus_unsubscribeFromEvent_test1)
 TEST_F(EventClientAPIs, rbus_unsubscribeFromEvent_test2)
 {
     char client_name[MAX_CLIENT_NAME] = "Event_Client_1";
-    char obj_name[129] = "0";
+    char obj_name[MAX_OBJECT_NAME_LENGTH + 1] = "0";
     bool conn_status = false;
     rbusCoreError_t err = RBUSCORE_SUCCESS;
     printf("*********************  CREATING CLIENT : %s \n", client_name);
