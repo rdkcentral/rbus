@@ -23,9 +23,9 @@ add_library(
     rbuscore.c
     rbuscore_message.c)
 
-add_dependencies(rbuscore msgpack rtMessage)
+add_dependencies(rbuscore msgpack rtMessage safeclib)
 
-target_link_libraries(rbuscore rtMessage ${MSGPACK_LIBRARIES} -lpthread)
+target_link_libraries(rbuscore rtMessage ${MSGPACK_LIBRARIES} -lpthread ${SAFEC_LIBRARIES})
 
 set_target_properties(rbuscore
     PROPERTIES SOVERSION "0"
