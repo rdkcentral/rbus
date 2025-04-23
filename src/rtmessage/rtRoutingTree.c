@@ -44,8 +44,11 @@ typedef struct rtRoutingTreeStats
     size_t numRoutes;                      /*number of unique routes registered in the tree*/
 } rtRoutingTreeStats;
 
-static char workBuffer[512];
-static Token workTokens[32];
+#define MAX_TOKENS 32
+#define MAX_TOKEN_BUFFER_SIZE 512
+
+static char workBuffer[MAX_TOKEN_BUFFER_SIZE];
+static Token workTokens[MAX_TOKENS];
 static int workTokenCount = 0;
 
 static int rtList_ComparePointer(const void *left, const void *right)
@@ -106,6 +109,35 @@ static void freeTreeRoute(void* p)
     if(route->topicList)
         rtList_Destroy(route->topicList, NULL);
     free(route);
+}
+
+static int validateExpression(const char* expr)
+{
+    int token_count = 0;
+    int token_length = 0;
+    int result = 0;
+
+    while(*expr)
+    {
+        if(*expr == '.')
+	{
+	    if(*(expr + 1) == '.')
+	    {
+	       result = -1;
+	       break;
+	    }
+	    token_count++;
+	}
+        token_length++;
+        expr++;	
+    }
+
+    if((token_length > MAX_TOKEN_BUFFER_SIZE) || (token_count > MAX_TOKENS))
+    {
+        result = -1;
+    }
+
+    return result;
 }
 
 static void tokenizeExpression(const char* expression)
@@ -450,6 +482,12 @@ rtError rtRoutingTree_AddTopicRoute(rtRoutingTree rt, const char* topicPath, con
     rtTreeRoute* route;
 
     rtLog_Debug("%s: %s", __FUNCTION__, topicPath);
+    
+    if(validateExpression(topicPath) < 0)
+    {
+        rtLog_Debug("Rejecting data registraion due to invalid expression");
+        return RT_ERROR_INVALID_EXPRESSION;
+    }
 
     tokenizeExpression(topicPath);
 
