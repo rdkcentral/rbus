@@ -28,7 +28,7 @@
 #include <time.h>
 #endif
 
-#define RTMSG_HEADER_MAX_TOPIC_LENGTH 128
+#define RTMSG_HEADER_MAX_TOPIC_LENGTH 256
 
 // size of all fields in 
 // #define RTMSG_HEADER_SIZE (24 + (2 * RTMSG_HEADER_MAX_TOPIC_LENGTH))
