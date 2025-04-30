@@ -100,16 +100,23 @@ static bool CALL_RBUS_PULL_OBJECT(char* expected_data, char* server_obj)
 {
     bool result = false;
     rbusCoreError_t err = RBUSCORE_SUCCESS;
-    rbusMessage response;
+    rtMessage response;
     if((err = rbus_pullObj(server_obj, 1000, &response)) == RBUSCORE_SUCCESS)
     {
         const char* buff = NULL;
         printf("Received object %s\n", server_obj);
-        rbusMessage_GetString(response, &buff);
-        printf("Payload: %s\n", buff);
-        EXPECT_STREQ(buff, expected_data) << "rbus_pullObj failed to procure the server's initial string -init init init- ";
-        rbusMessage_Release(response);
-        result = true;
+        int len =0;
+        rtMessage_GetArrayLength(response, "Objects", &len);
+	for(int i = 0; i < len; ++i)
+	{
+            rtMessage item;
+            rtMessage_GetMessageItem(response, "Data", i, &item);
+            rtMessage_GetString(item, "data",&buff);
+            printf("Payload: %s\n", buff);
+            EXPECT_STREQ(buff, expected_data) << "rbus_pullObj failed to procure the server's initial string -init init init- ";
+            rtMessage_Release(response);
+            result = true;
+	}
     }
     else
     {
@@ -119,13 +126,13 @@ static bool CALL_RBUS_PULL_OBJECT(char* expected_data, char* server_obj)
     return result;
 }
 
-static int event_callback(const char * object_name,  const char * event_name, rbusMessage message, void * user_data) 
+static int event_callback(const char * object_name,  const char * event_name, rtMessage message, void * user_data)
 {
      (void) user_data;
      char* buff = NULL;
     uint32_t buff_length = 0;
     printf("In event callback for object %s, event %s.\n", object_name, event_name);
-    rbusMessage_ToDebugString(message, &buff, &buff_length);
+    rtMessage_ToString(message, &buff, &buff_length);
     printf("dumpMessage: %.*s\n", buff_length, buff);
     free(buff);
     return 0;

@@ -21,7 +21,7 @@
 
 #ifndef __BASE64_H__
 #define __BASE64_H__
-
+#include <stddef.h>
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -31,11 +31,12 @@ extern "C" {
 #define RBUS_BASE64_DATA_SIZE_LIMIT (RBUS_BINARY_DATA_SIZE_LIMIT * 4 / 3)
 
 /* Note: out_size accounts for the string terminator as well.*/
+//rtError rtBase64_encode(const char * input, size_t input_length, char** encoded, size_t output_length);
 rtError rtBase64_encode(const void * in, const unsigned int in_size, unsigned char ** out, unsigned int *out_size);
 
 /* Note: in_size shouldn't account for the string terminator (if present).*/
 rtError rtBase64_decode(const unsigned char * in, const unsigned int in_size,  void ** out, unsigned int *out_size);
-
+//rtError rtBase64_decode(const char * base64_string, size_t in_size,  unsigned char** decoded_data, size_t *output_length);
 #ifdef __cplusplus
 }
 #endif

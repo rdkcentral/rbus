@@ -33,6 +33,7 @@ extern "C" {
 #include "rbus.h"
 #include "gtest_app.h"
 #include "rbus_test_util.h"
+#include "rtMessage.h"
 
 #define DEFAULT_RESULT_BUFFERSIZE 128
 
@@ -1198,7 +1199,7 @@ TEST_F(TestServer, rtmsg_rtMessage_SetMessage_test1)
     int32_t paramslen, j=1;
     char *topic = "TEST_SAMPLE";
     char getTopic[50] = "";
-    void const* ptr = "SAMPLE_TEST";
+    unsigned char ptr[] = {1,3,5,4,5};
 
     rtMessage_Create(&req);
     rtMessage_SetString(req, "method", "rtsend");
@@ -1231,7 +1232,6 @@ TEST_F(TestServer, rtmsg_rtMessage_SetMessage_test1)
     //Neg test passing invalid param
     err = rtMessage_ToString(NULL, &s, &n);
     EXPECT_EQ(err, RT_FAIL) << "rtMessage_ToString failed";
-
     err = rtMessage_AddBinaryData(req, "sample", ptr, sizeof(ptr));
     EXPECT_EQ(err, RT_OK);
     err = rtMessage_GetBinaryData(req, "sample", (void**)&ptr, (uint32_t*)&size);
@@ -1245,10 +1245,6 @@ TEST_F(TestServer, rtmsg_rtMessage_SetMessage_test1)
     rtMessage_Release(req);
     rtMessage_Release(item);
     free(s);
-    if(ptr)
-    {
-       free((void*)ptr);
-    }
 }
 
 TEST_F(TestServer, rtmsg_rtMessage_SetMessage_test2)

@@ -56,7 +56,7 @@ typedef struct sRecord
     rbusSubscription_t* sub;
 } sRecord;
 
-void rbusEventData_appendToMessage(rbusEvent_t* event, rbusFilter_t filter, int32_t interval, int32_t duration, int32_t componentId, rbusMessage msg);
+void rbusEventData_appendToMessage(rbusEvent_t* event, rbusFilter_t filter, int32_t interval, int32_t duration, int32_t componentId, rtMessage msg);
 extern rbusError_t get_recursive_wildcard_handler (rbusHandle_t handle, char const *parameterName, const char* pRequestingComp, rbusProperty_t properties, int *pCount);
 static void init_thread(sRecord* sub_rec)
 {
@@ -171,8 +171,8 @@ static void* PublishingThreadFunc(void* rec)
             }
         }
 
-        rbusMessage msg;
-        rbusMessage_Init(&msg);
+        rtMessage msg;
+        rtMessage_Create(&msg);
         rbusEventData_appendToMessage(&event, sub->filter, sub->interval, sub->duration, sub->componentId, msg);
 
         RBUSLOG_DEBUG("rbusEvent_Publish: publishing event %s to listener %s interval %d", sub->eventName, sub->listener, sub->interval);
@@ -184,7 +184,7 @@ static void* PublishingThreadFunc(void* rec)
                 sub->subscriptionId,
                 sub->rawData);
 
-        rbusMessage_Release(msg);
+        rtMessage_Release(msg);
         rbusObject_Release(data);
         if(error != RBUSCORE_SUCCESS)
         {

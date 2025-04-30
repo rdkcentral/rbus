@@ -99,19 +99,19 @@ static void RBUS_RPC(const char *object, const char* method, const char * payloa
     rbusCoreError_t err = RBUSCORE_SUCCESS;
     rtError er = RT_OK;
     int rpc_result = RBUSCORE_ERROR_GENERAL;
-    rbusMessage setter, response;
-    rbusMessage_Init(&setter);
+    rtMessage setter, response;
+    rtMessage_Create(&setter);
     if(nullptr != payload)
-        rbusMessage_SetString(setter, payload);
+        rtMessage_SetString(setter, "payload",payload);
     err = rbus_invokeRemoteMethod(object, method, setter, 1000, &response);
     EXPECT_EQ(err, expected_err) << "Nested RPC failed";
    
     if(RBUSCORE_SUCCESS == err)
     {
-        er = rbusMessage_GetInt32(response, &rpc_result);
+        er = rtMessage_GetInt32(response, "response",&rpc_result);
         EXPECT_EQ(RT_OK, er) << "Nested RPC failed";
         EXPECT_EQ(RBUSCORE_SUCCESS, rpc_result) << "Nested RPC failed";
-        rbusMessage_Release(response);
+        rtMessage_Release(response);
     }
     return;
 }

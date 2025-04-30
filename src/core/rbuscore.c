@@ -33,10 +33,6 @@
 #include "rtMemory.h"
 
 #include "rtrouteBase.h"
-void rbusMessage_BeginMetaSectionWrite(rbusMessage message);
-void rbusMessage_EndMetaSectionWrite(rbusMessage message);
-void rbusMessage_BeginMetaSectionRead(rbusMessage message);
-void rbusMessage_EndMetaSectionRead(rbusMessage message);
 
 /* Begin constant definitions.*/
 static const unsigned int TIMEOUT_VALUE_FIRE_AND_FORGET = 1000;
@@ -210,7 +206,7 @@ void server_object_destroy(void* p)
     free(obj);
 }
 
-rbusCoreError_t server_object_subscription_handler(server_object_t obj, const char * event, char const* subscriber, int added, rbusMessage payload)
+rbusCoreError_t server_object_subscription_handler(server_object_t obj, const char * event, char const* subscriber, int added, rtMessage payload)
 {
     rbusCoreError_t ret;
 
@@ -253,11 +249,11 @@ rbusCoreError_t server_object_subscription_handler(server_object_t obj, const ch
 typedef struct _queued_request
 {
     rtMessageHeader hdr;
-    rbusMessage msg;
+    rtMessage msg;
     server_object_t obj;
 } *queued_request_t;
 
-void queued_request_create(queued_request_t* req, rtMessageHeader hdr, rbusMessage msg, server_object_t obj)
+void queued_request_create(queued_request_t* req, rtMessageHeader hdr, rtMessage msg, server_object_t obj)
 {
     (*req) = rt_malloc(sizeof(struct _queued_request));
     (*req)->hdr = hdr;
@@ -370,7 +366,7 @@ static int unlock()
 	return pthread_mutex_unlock(&g_mutex);
 }
 
-static rbusCoreError_t send_subscription_request(const char * object_name, const char * event_name, bool activate, const rbusMessage payload, int* providerError, int timeout, bool publishOnSubscribe, rbusMessage *response, bool rawData);
+static rbusCoreError_t send_subscription_request(const char * object_name, const char * event_name, bool activate, const rtMessage payload, int* providerError, int timeout, bool publishOnSubscribe, rtMessage *response, bool rawData);
 
 static void perform_init()
 {
@@ -421,16 +417,14 @@ static void perform_cleanup()
 }
 
 
-void _rbusMessage_SetMetaInfo(rbusMessage m,
+void _rbusMessage_SetMetaInfo(rtMessage m,
   char const *method_name,
   char const *ot_parent,
   char const *ot_state)
 {
-  rbusMessage_BeginMetaSectionWrite(m);
-  rbusMessage_SetString(m, method_name);
-  rbusMessage_SetString(m, ot_parent);
-  rbusMessage_SetString(m, ot_state);
-  rbusMessage_EndMetaSectionWrite(m);
+  rtMessage_SetString(m, "method_name",method_name);
+  rtMessage_SetString(m, "parent",ot_parent);
+  rtMessage_SetString(m, "state",ot_state);
 
   #if 0
   printf("set metainfo\n");
@@ -440,16 +434,14 @@ void _rbusMessage_SetMetaInfo(rbusMessage m,
   #endif
 }
 
-void _rbusMessage_GetMetaInfo(rbusMessage m,
+void _rbusMessage_GetMetaInfo(rtMessage m,
   char const **method_name,
   char const **ot_parent,
   char const **ot_state)
 {
-  rbusMessage_BeginMetaSectionRead(m);
-  rbusMessage_GetString(m, method_name);
-  rbusMessage_GetString(m, ot_parent);
-  rbusMessage_GetString(m, ot_state);
-  rbusMessage_EndMetaSectionRead(m);
+  rtMessage_GetString(m, "method_name",method_name);
+  rtMessage_GetString(m, "parent",ot_parent);
+  rtMessage_GetString(m, "state",ot_state);
 
   #if 0
   printf("get metainfo\n");
@@ -472,13 +464,13 @@ static rbusCoreError_t translate_rt_error(rtError err)
         return RBUSCORE_ERROR_GENERAL;
 }
 
-static void dispatch_method_call(rbusMessage msg, const rtMessageHeader *hdr, server_object_t obj)
+static void dispatch_method_call(rtMessage msg, const rtMessageHeader *hdr, server_object_t obj)
 {
     rtError err = RT_OK;
     const char* method_name = NULL;
     const char* traceParent = NULL;
     const char* traceState = NULL;
-    rbusMessage response = NULL;
+    rtMessage response = NULL;
     bool handler_invoked = false;
 
     /* Fetch the context that was sent with the message */
@@ -511,8 +503,8 @@ static void dispatch_method_call(rbusMessage msg, const rtMessageHeader *hdr, se
 
 static void onMessage(rtMessageHeader const* hdr, uint8_t const* data, uint32_t dataLen, void* closure)
 {
-    rbusMessage msg;
-    rbusMessage_FromBytes(&msg, data, dataLen);
+    rtMessage msg;
+    rtMessage_FromBytes(&msg, data, dataLen);
 
     /*using namespace rbus_server;*/
     static int stack_counter = 0;
@@ -541,7 +533,7 @@ static void onMessage(rtMessageHeader const* hdr, uint8_t const* data, uint32_t 
     }
     stack_counter--;
 
-    rbusMessage_Release(msg);
+    rtMessage_Release(msg);
     return;
 }
 
@@ -699,7 +691,7 @@ rtConnection rbus_getConnection()
     return g_connection;
 }
 
-static rbusCoreError_t send_subscription_request(const char * object_name, const char * event_name, bool activate, const rbusMessage payload, int* providerError, int timeout_ms, bool publishOnSubscribe, rbusMessage *response, bool rawData)
+static rbusCoreError_t send_subscription_request(const char * object_name, const char * event_name, bool activate, const rtMessage payload, int* providerError, int timeout_ms, bool publishOnSubscribe, rtMessage *response, bool rawData)
 {
     /* Method definition to add new event subscription: 
      * method name: METHOD_ADD_EVENT_SUBSCRIPTION / METHOD_REMOVE_EVENT_SUBSCRIPTION.
@@ -708,33 +700,33 @@ static rbusCoreError_t send_subscription_request(const char * object_name, const
      * integer, mapped to key MESSAGE_FIELD_RESULT. 0 is success. Anything else is a failure. */
     rbusCoreError_t ret;
 
-    rbusMessage request, internal_response;
-    rbusMessage_Init(&request);
+    rtMessage request, internal_response;
+    rtMessage_Create(&request);
 
-    rbusMessage_SetString(request, event_name);
-    rbusMessage_SetString(request, rtConnection_GetReturnAddress(g_connection));
-    rbusMessage_SetInt32(request, payload ? 1 : 0);
+    rtMessage_SetString(request, "event_name",event_name);
+    rtMessage_SetString(request, "sender",rtConnection_GetReturnAddress(g_connection));
+    rtMessage_SetInt32(request, "_payload",payload ? 1 : 0);
     if(payload)
-        rbusMessage_SetMessage(request, payload);
+        rtMessage_SetMessage(request, "payload_request",payload);
     if(publishOnSubscribe)
-        rbusMessage_SetInt32(request, 1); /*for publishOnSubscribe */
+        rtMessage_SetInt32(request, "publishOnSubscribe",1); /*for publishOnSubscribe */
     else
-        rbusMessage_SetInt32(request, 0);
+        rtMessage_SetInt32(request, "publishOnSubscribe",0);
     if(rawData)
-        rbusMessage_SetInt32(request, 1); /*for rawDataSubscription */
+        rtMessage_SetInt32(request, "rawDataSubscription",1); /*for rawDataSubscription */
     else
-        rbusMessage_SetInt32(request, 0);
+        rtMessage_SetInt32(request, "rawDataSubscription",0);
 
     if(timeout_ms <= 0)
         timeout_ms = TIMEOUT_VALUE_FIRE_AND_FORGET;
     ret = rbus_invokeRemoteMethod(object_name, (activate? METHOD_SUBSCRIBE : METHOD_UNSUBSCRIBE),
-            request, timeout_ms, &internal_response);
+            request, (uint32_t)timeout_ms, &internal_response);
     if(RBUSCORE_SUCCESS == ret)
     {
         rtError extract_ret;
         int result;
 
-        extract_ret = rbusMessage_GetInt32(internal_response, &result);
+        extract_ret = rtMessage_GetInt32(internal_response, "response",&result);
         if(RT_OK == extract_ret)
         {
             if(RBUSCORE_SUCCESS == result)
@@ -761,7 +753,7 @@ static rbusCoreError_t send_subscription_request(const char * object_name, const
         if(response != NULL)
             *response = internal_response;
         else
-            rbusMessage_Release(internal_response);
+            rtMessage_Release(internal_response);
     }
     else if(RBUSCORE_ERROR_ENTRY_NOT_FOUND == ret)
     {
@@ -1054,11 +1046,11 @@ rbusCoreError_t rbus_removeElement(const char * object, const char * element)
     return RBUSCORE_SUCCESS;
 }
 
-rbusCoreError_t rbus_pushObj(const char * object_name, rbusMessage message, int timeout_millisecs)
+rbusCoreError_t rbus_pushObj(const char * object_name, rtMessage message, int timeout_millisecs)
 {
     rtError err = RT_OK;
     rbusCoreError_t ret = RBUSCORE_SUCCESS;
-    rbusMessage response = NULL;
+    rtMessage response = NULL;
     if((ret = rbus_invokeRemoteMethod(object_name, METHOD_SETPARAMETERVALUES, message, timeout_millisecs, &response)) != RBUSCORE_SUCCESS)
     {
         RBUSCORELOG_ERROR("Failed to send message. Error code: 0x%x", ret);
@@ -1067,7 +1059,7 @@ rbusCoreError_t rbus_pushObj(const char * object_name, rbusMessage message, int 
     else
     {
         int result = RBUSCORE_SUCCESS;
-        if((err = rbusMessage_GetInt32(response, &result) == RT_OK))
+        if((err = rtMessage_GetInt32(response, "response",&result) == RT_OK))
         {
             ret = (rbusCoreError_t)result;
         }
@@ -1076,12 +1068,12 @@ rbusCoreError_t rbus_pushObj(const char * object_name, rbusMessage message, int 
             RBUSCORELOG_ERROR("%s.", stringify(RBUSCORE_ERROR_MALFORMED_RESPONSE));
             ret = RBUSCORE_ERROR_MALFORMED_RESPONSE;
         }
-        rbusMessage_Release(response);
+        rtMessage_Release(response);
     }
     return ret;
 }
 
-static rtError rbus_sendRequest(rtConnection con, rbusMessage req, char const* topic, rbusMessage* res, uint32_t timeout)
+/*static rtError rbus_sendRequest(rtConnection con, rbusMessage req, char const* topic, rbusMessage* res, uint32_t timeout)
 {
     rtError err = RT_OK;
     uint8_t* data = NULL;
@@ -1102,13 +1094,14 @@ static rtError rbus_sendRequest(rtConnection con, rbusMessage req, char const* t
 
     return err;
 }
+*/
 
-rbusCoreError_t rbus_invokeRemoteMethod(const char * object_name, const char *method, rbusMessage out, uint32_t timeout_millisecs, rbusMessage *in)
+rbusCoreError_t rbus_invokeRemoteMethod(const char * object_name, const char *method, rtMessage out, uint32_t timeout_millisecs, rtMessage *in)
 {
     return rbus_invokeRemoteMethod2(g_connection, object_name, method, out, timeout_millisecs, in);
 }
 
-rbusCoreError_t rbus_invokeRemoteMethod2(rtConnection myConn, const char * object_name, const char *method, rbusMessage out, uint32_t timeout_millisecs, rbusMessage *in)
+rbusCoreError_t rbus_invokeRemoteMethod2(rtConnection myConn, const char * object_name, const char *method, rtMessage out, uint32_t timeout_millisecs, rtMessage *in)
 {
     rtError err = RT_OK;
     rbusCoreError_t ret = RBUSCORE_SUCCESS;
@@ -1132,11 +1125,11 @@ rbusCoreError_t rbus_invokeRemoteMethod2(rtConnection myConn, const char * objec
 
     *in = NULL;
     if(NULL == out)
-        rbusMessage_Init(&out);
+        rtMessage_Create(&out);
 
     _rbusMessage_SetMetaInfo(out, method, traceParent, traceState);
 
-    err = rbus_sendRequest(myConn, out, object_name, in, timeout_millisecs);
+    err = rtConnection_SendRequest(myConn, out, object_name, in, timeout_millisecs);
     if(RT_OK != err)
     {
         if(RT_OBJECT_NO_LONGER_AVAILABLE == err)
@@ -1158,9 +1151,7 @@ rbusCoreError_t rbus_invokeRemoteMethod2(rtConnection myConn, const char * objec
     else
     {
         method = NULL;
-        rbusMessage_BeginMetaSectionRead(*in);
-		    rbusMessage_GetString(*in, &method);
-        rbusMessage_EndMetaSectionRead(*in);
+	rtMessage_GetString(*in, "method_name",&method);
         if(NULL != method)
         {
             if(0 != strncmp(METHOD_RESPONSE, method, MAX_METHOD_NAME_LENGTH))
@@ -1176,10 +1167,10 @@ rbusCoreError_t rbus_invokeRemoteMethod2(rtConnection myConn, const char * objec
         }
     }
 
-    rbusMessage_Release(out);
+    rtMessage_Release(out);
     if((RBUSCORE_SUCCESS != ret) && (NULL != *in))
     {
-        rbusMessage_Release(*in);
+        rtMessage_Release(*in);
         *in = NULL;
     }
     return ret;
@@ -1187,12 +1178,12 @@ rbusCoreError_t rbus_invokeRemoteMethod2(rtConnection myConn, const char * objec
 
 
 /*TODO: make this really fire and forget.*/
-rbusCoreError_t rbus_pushObjNoAck(const char * object_name, rbusMessage message)
+rbusCoreError_t rbus_pushObjNoAck(const char * object_name, rtMessage message)
 {
 	return rbus_pushObj(object_name, message, TIMEOUT_VALUE_FIRE_AND_FORGET);
 }
 
-rbusCoreError_t rbus_pullObj(const char * object_name, int timeout_millisecs, rbusMessage *response)
+rbusCoreError_t rbus_pullObj(const char * object_name, int timeout_millisecs, rtMessage *response)
 {
     rbusCoreError_t ret = RBUSCORE_SUCCESS;
     rtError err = RT_OK;
@@ -1203,7 +1194,7 @@ rbusCoreError_t rbus_pullObj(const char * object_name, int timeout_millisecs, rb
     else
     {
         int result = RBUSCORE_SUCCESS;
-        if((err = rbusMessage_GetInt32(*response, &result) == RT_OK))
+        if((err = rtMessage_GetInt32(*response, "response",&result) == RT_OK))
         {
             ret = (rbusCoreError_t)result;
         }
@@ -1214,7 +1205,7 @@ rbusCoreError_t rbus_pullObj(const char * object_name, int timeout_millisecs, rb
         }
         if(RBUSCORE_SUCCESS != ret) 
         {
-            rbusMessage_Release(*response);
+            rtMessage_Release(*response);
             *response = NULL;
         }
     }
@@ -1235,7 +1226,7 @@ rbusCoreError_t rbus_sendData(const void* data, uint32_t dataLength, const char 
     return translate_rt_error(ret);
 }
 
-static rbusCoreError_t rbus_sendMessage(rbusMessage msg, const char * destination, const char * sender)
+static rbusCoreError_t rbus_sendMessage(rtMessage msg, const char * destination, const char * sender)
 {
     rtError ret;
     uint8_t* data = NULL;
@@ -1246,44 +1237,44 @@ static rbusCoreError_t rbus_sendMessage(rbusMessage msg, const char * destinatio
         RBUSCORELOG_ERROR("Not connected.");
         return RBUSCORE_ERROR_INVALID_STATE;
     }
-
-    rbusMessage_ToBytes(msg, &data, &dataLength);
+    rtMessage_ToByteArray(msg, &data, &dataLength);
     ret = rtConnection_SendBinaryDirect(g_connection, data, dataLength, destination, sender);
+    free(data);
     return translate_rt_error(ret);
 }
 
-static int subscription_handler(const char *not_used, const char * method_name, rbusMessage in, void * user_data, rbusMessage *out, const rtMessageHeader* hdr)
+static int subscription_handler(const char *not_used, const char * method_name, rtMessage in, void * user_data, rtMessage *out, const rtMessageHeader* hdr)
 {
     (void) hdr;
     /*using namespace rbus_server;*/
     const char * sender = NULL;
     const char * event_name = NULL;
     int has_payload = 0;
-    rbusMessage payload = NULL;
+    rtMessage payload = NULL;
     server_object_t obj = (server_object_t)user_data;
     (void)not_used;
 
-    rbusMessage_Init(out);
+    rtMessage_Create(out);
 
-    if((RT_OK == rbusMessage_GetString(in, &event_name)) &&
-        (RT_OK == rbusMessage_GetString(in, &sender))) 
+    if((RT_OK == rtMessage_GetString(in, "event_name",&event_name)) &&
+        (RT_OK == rtMessage_GetString(in, "sender",&sender)))
     {
         /*Extract arguments*/
         if((NULL == sender) || (NULL == event_name))
         {
             RBUSCORELOG_ERROR("Malformed subscription request. Sender: %s. Event: %s.", sender, event_name);
-            rbusMessage_SetInt32(*out, RBUSCORE_ERROR_INVALID_PARAM);
+            rtMessage_SetInt32(*out, "response",RBUSCORE_ERROR_INVALID_PARAM);
         }
         else
         {
-            rbusMessage_GetInt32(in, &has_payload);
+            rtMessage_GetInt32(in, MESSAGE_FIELD_EVENT_HAS_FILTER,&has_payload);
             if(has_payload)
-                rbusMessage_GetMessage(in, &payload);
+                rtMessage_GetMessage(in, "payload_request",&payload);
             int added = strncmp(method_name, METHOD_SUBSCRIBE, MAX_METHOD_NAME_LENGTH) == 0 ? 1 : 0;
             rbusCoreError_t ret = server_object_subscription_handler(obj, event_name, sender, added, payload);
             if(payload)
-                rbusMessage_Release(payload);
-            rbusMessage_SetInt32(*out, ret);
+                rtMessage_Release(payload);
+            rtMessage_SetInt32(*out, "response",ret);
         }
     }
     
@@ -1452,7 +1443,7 @@ rbusCoreError_t rbus_unregisterEvent(const char* object_name, const char * event
 static void master_event_callback(rtMessageHeader const* hdr, uint8_t const* data, uint32_t dataLen, void* closure)
 {
     /*using namespace rbus_client;*/
-    rbusMessage msg = NULL;
+    rtMessage msg = NULL;
     const char * sender = hdr->reply_topic;
     const char * event_name = NULL;
     const char * object_name = NULL;
@@ -1469,20 +1460,17 @@ static void master_event_callback(rtMessageHeader const* hdr, uint8_t const* dat
         return;
     }
 
-    rbusMessage_FromBytes(&msg, data, dataLen);
+    rtMessage_FromBytes(&msg, data, dataLen);
 
-    rbusMessage_BeginMetaSectionRead(msg);
-    err = rbusMessage_GetString(msg, &event_name);
-    err = rbusMessage_GetString(msg, &object_name);
-    err = rbusMessage_GetInt32(msg, &is_rbus_flag);
-    rbusMessage_EndMetaSectionRead(msg);
+    err = rtMessage_GetString(msg, "event_name",&event_name);
+    err = rtMessage_GetString(msg, "object_name",&object_name);
+    err = rtMessage_GetInt32(msg, "is_rbus",&is_rbus_flag);
     if(RT_OK != err)
     {
         RBUSCORELOG_ERROR("Event message doesn't contain an event name.");
-        rbusMessage_Release(msg);
+        rtMessage_Release(msg);
         return;
     }
-
     if(is_rbus_flag)
     {
         if(g_master_event_callback)
@@ -1490,7 +1478,7 @@ static void master_event_callback(rtMessageHeader const* hdr, uint8_t const* dat
             err = g_master_event_callback(sender, event_name, msg, g_master_event_user_data);
             if(err != RBUSCORE_ERROR_EVENT_NOT_HANDLED)
             {
-                rbusMessage_Release(msg);
+                rtMessage_Release(msg);
                 return;
             }
         }
@@ -1515,7 +1503,7 @@ static void master_event_callback(rtMessageHeader const* hdr, uint8_t const* dat
             {
                 unlock();
                 evt->callback(sender, event_name, msg, evt->data);
-                rbusMessage_Release(msg);
+                rtMessage_Release(msg);
                 return;
             }
             /* support rbus events being elements : keep searching */
@@ -1524,7 +1512,7 @@ static void master_event_callback(rtMessageHeader const* hdr, uint8_t const* dat
     /* If no matching objects exist in records. Create a new entry.*/
     unlock();
     RBUSCORELOG_WARN("Received event %s::%s for which no subscription exists.", sender, event_name);
-    rbusMessage_Release(msg);
+    rtMessage_Release(msg);
     return;
 }
 
@@ -1560,7 +1548,7 @@ static rbusCoreError_t remove_subscription_callback(const char * object_name,  c
     return ret;
 }
 
-static rbusCoreError_t rbus_subscribeToEventInternal(const char * object_name,  const char * event_name, rbus_event_callback_t callback, const rbusMessage payload, void * user_data, int* providerError, int timeout, bool publishOnSubscribe, rbusMessage *response, bool rawData)
+static rbusCoreError_t rbus_subscribeToEventInternal(const char * object_name,  const char * event_name, rbus_event_callback_t callback, const rtMessage payload, void * user_data, int* providerError, int timeout, bool publishOnSubscribe, rtMessage *response, bool rawData)
 {
     /*using namespace rbus_client;*/
     rbusCoreError_t ret = RBUSCORE_SUCCESS;
@@ -1646,17 +1634,17 @@ static rbusCoreError_t rbus_subscribeToEventInternal(const char * object_name,  
     return ret;
 }
 
-rbusCoreError_t rbus_subscribeToEvent(const char * object_name,  const char * event_name, rbus_event_callback_t callback, const rbusMessage payload, void * user_data, int* providerError)
+rbusCoreError_t rbus_subscribeToEvent(const char * object_name,  const char * event_name, rbus_event_callback_t callback, const rtMessage payload, void * user_data, int* providerError)
 {
     return rbus_subscribeToEventInternal(object_name, event_name, callback, payload, user_data, providerError, 0, false, NULL, false);
 }
 
-rbusCoreError_t rbus_subscribeToEventTimeout(const char * object_name,  const char * event_name, rbus_event_callback_t callback, const rbusMessage payload, void * user_data, int* providerError, int timeout, bool publishOnSubscribe, rbusMessage *response, bool rawData)
+rbusCoreError_t rbus_subscribeToEventTimeout(const char * object_name,  const char * event_name, rbus_event_callback_t callback, const rtMessage payload, void * user_data, int* providerError, int timeout, bool publishOnSubscribe, rtMessage *response, bool rawData)
 {
     return rbus_subscribeToEventInternal(object_name, event_name, callback, payload, user_data, providerError, timeout, publishOnSubscribe, response, rawData);
 }
 
-rbusCoreError_t rbus_unsubscribeFromEvent(const char * object_name,  const char * event_name, const rbusMessage payload, bool rawData)
+rbusCoreError_t rbus_unsubscribeFromEvent(const char * object_name,  const char * event_name, const rtMessage payload, bool rawData)
 {
     rbusCoreError_t ret = RBUSCORE_ERROR_INVALID_PARAM;
 
@@ -1683,7 +1671,7 @@ rbusCoreError_t rbus_unsubscribeFromEvent(const char * object_name,  const char 
     return ret;
 }
 
-rbusCoreError_t rbus_publishEvent(const char* object_name,  const char * event_name, rbusMessage out)
+rbusCoreError_t rbus_publishEvent(const char* object_name,  const char * event_name, rtMessage out)
 {
     /*using namespace rbus_server;*/
     rbusCoreError_t ret = RBUSCORE_SUCCESS;
@@ -1701,11 +1689,9 @@ rbusCoreError_t rbus_publishEvent(const char* object_name,  const char * event_n
         RBUSCORELOG_ERROR("Object name is too long.");
         return RBUSCORE_ERROR_INVALID_PARAM;
     }
-    rbusMessage_BeginMetaSectionWrite(out);
-    rbusMessage_SetString(out, event_name);
-    rbusMessage_SetString(out, object_name); 
-    rbusMessage_SetInt32(out, 0); /*is ccsp and not rbus 2.0*/
-    rbusMessage_EndMetaSectionWrite(out);
+    rtMessage_SetString(out, "event_name",event_name);
+    rtMessage_SetString(out, "object_name",object_name);
+    rtMessage_SetInt32(out, "is_rbus",0); /*is ccsp and not rbus 2.0*/
 
     lock();
     server_object_t obj = get_object(object_name);
@@ -1829,7 +1815,7 @@ rbusCoreError_t rbuscore_publishDirectSubscriberEvent(const char * event_name, c
     return translate_rt_error(err);
 }
 
-rbusCoreError_t rbus_publishSubscriberEvent(const char* object_name,  const char * event_name, const char* listener, rbusMessage out, uint32_t subscriptionId, bool rawData)
+rbusCoreError_t rbus_publishSubscriberEvent(const char* object_name,  const char * event_name, const char* listener, rtMessage out, uint32_t subscriptionId, bool rawData)
 {
     /*using namespace rbus_server;*/
     rbusCoreError_t ret = RBUSCORE_SUCCESS;
@@ -1841,11 +1827,9 @@ rbusCoreError_t rbus_publishSubscriberEvent(const char* object_name,  const char
         RBUSCORELOG_ERROR("Object name is too long.");
         return RBUSCORE_ERROR_INVALID_PARAM;
     }
-    rbusMessage_BeginMetaSectionWrite(out);
-    rbusMessage_SetString(out, event_name);
-    rbusMessage_SetString(out, object_name); 
-    rbusMessage_SetInt32(out, 1);/*is rbus 2.0*/ 
-    rbusMessage_EndMetaSectionWrite(out);
+    rtMessage_SetString(out, "event_name",event_name);
+    rtMessage_SetString(out, "object_name", object_name);
+    rtMessage_SetInt32(out, "is_rbus",1);/*is rbus 2.0*/
 
     directServerLock();
     const rtPrivateClientInfo *pPrivCliInfo = _rbuscore_find_server_privateconnection (event_name, listener);
@@ -1853,7 +1837,7 @@ rbusCoreError_t rbus_publishSubscriberEvent(const char* object_name,  const char
     {
         uint8_t* data;
         uint32_t dataLength;
-        rbusMessage_ToBytes(out, &data, &dataLength);
+        rtMessage_ToByteArray(out, &data, &dataLength);
         rtRouteDirect_SendMessage (pPrivCliInfo, data, dataLength, subscriptionId, rawData);
     }
     directServerUnlock();
@@ -2329,7 +2313,7 @@ rbuscore_bus_status_t rbuscore_checkBusStatus(void)
 #endif /* RBUS_SUPPORT_DISABLING */
 }
 
-rbusCoreError_t rbus_sendResponse(const rtMessageHeader* hdr, rbusMessage response)
+rbusCoreError_t rbus_sendResponse(const rtMessageHeader* hdr, rtMessage response)
 {
     rtError err = RT_OK;
     uint8_t* data;
@@ -2341,19 +2325,19 @@ rbusCoreError_t rbus_sendResponse(const rtMessageHeader* hdr, rbusMessage respon
         if(NULL == response)
         {
             /* App declined to issue a response. Make one up ourselves. */
-            rbusMessage_Init(&response);
-            rbusMessage_SetInt32(response, RBUSCORE_ERROR_UNSUPPORTED_METHOD);
+            rtMessage_Create(&response);
+            rtMessage_SetInt32(response, "response",RBUSCORE_ERROR_UNSUPPORTED_METHOD);
         }
 
         _rbusMessage_SetMetaInfo(response, METHOD_RESPONSE, NULL, NULL);
 
-        rbusMessage_ToBytes(response, &data, &dataLength);
-
+        rtMessage_ToByteArray(response, &data, &dataLength);
         if((err= rtConnection_SendBinaryResponse(g_connection, hdr, data, dataLength, TIMEOUT_VALUE_FIRE_AND_FORGET)) != RT_OK)
         {
             RBUSCORELOG_ERROR("Failed to send async response. Error code: 0x%x", err);
         }
-        rbusMessage_Release(response);
+        rtMessage_Release(response);
+	free(data);
     }
     return err == RT_OK ? RBUSCORE_SUCCESS : RBUSCORE_ERROR_GENERAL;
 }
@@ -2507,7 +2491,7 @@ static void _rbuscore_directconnection_save_to_cache()
     }
     else
     {
-        rbusMessage tmp;
+        rtMessage tmp;
         uint8_t* pBuff = NULL;
         uint32_t length = 0;
         rbusServerDMLList_t* pDmlObj = NULL;
@@ -2519,24 +2503,24 @@ static void _rbuscore_directconnection_save_to_cache()
             return;
         }
 
-        rbusMessage_Init(&tmp);
-        rbusMessage_SetInt32(tmp, sz);
+        rtMessage_Create(&tmp);
+        rtMessage_SetInt32(tmp, "size",sz);
         for(i = 0; i < sz; ++i)
         {
-            rbusMessage m;
-            rbusMessage_Init(&m);
+            rtMessage m;
+            rtMessage_Create(&m);
             pDmlObj = rtVector_At(gListOfServerDirectDMLs, i);
-            rbusMessage_SetString(m, pDmlObj->m_privateDML);
-            rbusMessage_SetString(m, pDmlObj->m_consumerName);
-            rbusMessage_SetMessage(tmp, m);
-            rbusMessage_Release(m);
+            rtMessage_SetString(m, "privateDML",pDmlObj->m_privateDML);
+            rtMessage_SetString(m, "consumerName",pDmlObj->m_consumerName);
+            rtMessage_SetMessage(tmp, "DML",m);
+            rtMessage_Release(m);
         }
 
-        rbusMessage_ToBytes(tmp, &pBuff, &length);
+        rtMessage_ToByteArray(tmp, &pBuff, &length);
 
         fwrite(pBuff, 1, length, file);
         fclose(file);
-        rbusMessage_Release(tmp);
+        rtMessage_Release(tmp);
     }
 }
 
@@ -2584,27 +2568,27 @@ static void _rbuscore_directconnection_load_from_cache()
         }
 
         //
-        rbusMessage msg = NULL;
-        rbusMessage_FromBytes(&msg, pBuff, size);
+        rtMessage msg = NULL;
+        rtMessage_FromBytes(&msg, pBuff, size);
         int numOfEntries = 0;
-        rbusMessage_GetInt32(msg, &numOfEntries);
+        rtMessage_GetInt32(msg, "size",&numOfEntries);
         RBUSCORELOG_DEBUG("Number of Entries...%d", numOfEntries);
 
         for (int i = 0; i < numOfEntries; i++)
         {
-            rbusMessage tmpMsg = NULL;
+            rtMessage tmpMsg = NULL;
             const char* pDMLName = NULL;
             const char* pConsumerName = NULL;
-            rbusMessage_GetMessage(msg, &tmpMsg);
-            rbusMessage_GetString(tmpMsg, &pDMLName);
-            rbusMessage_GetString(tmpMsg, &pConsumerName);
+            rtMessage_GetMessage(msg, "DML",&tmpMsg);
+            rtMessage_GetString(tmpMsg, "privateDML",&pDMLName);
+            rtMessage_GetString(tmpMsg, "consumerName",&pConsumerName);
             RBUSCORELOG_INFO("Direct Connection Existed for DML (%s) for this client(%s)", pDMLName, pConsumerName);
 
             //TODO
             /* Add it to vector and when add_element is called, start a listener */
             //if the PID is running and if the closeDirect was not called yet, means the consumer is still waiting..
         }
-        rbusMessage_Release(msg);
+        rtMessage_Release(msg);
     }
 
     fclose(file);
@@ -2722,7 +2706,7 @@ void* rbuscore_PrivateThreadFunc (void* ptr)
 
 static rtError _onDirectMessage(uint8_t isClientRequest, rtMessageHeader* hdr, uint8_t const* pInBuff, int inLength, uint8_t** pOutBuff, uint32_t* pOutLength)
 {
-    rbusMessage msg = NULL;
+    rtMessage msg = NULL;
     rbusServerDMLList_t *pSubObj;
 
     if (isClientRequest)
@@ -2731,12 +2715,12 @@ static rtError _onDirectMessage(uint8_t isClientRequest, rtMessageHeader* hdr, u
         const char* traceParent = NULL;
         const char* traceState = NULL;
 
-        rbusMessage_FromBytes(&msg, pInBuff, inLength);
+        rtMessage_FromBytes(&msg, pInBuff, inLength);
 
         /* Fetch the context that was sent with the message */
          _rbusMessage_GetMetaInfo(msg, &method_name, &traceParent, &traceState);
 
-        rbusMessage response;
+        rtMessage response;
         directServerLock();
         pSubObj = rtVector_Find(gListOfServerDirectDMLs, hdr->topic, _findPrivateServerDML);
         directServerUnlock();
@@ -2746,14 +2730,14 @@ static rtError _onDirectMessage(uint8_t isClientRequest, rtMessageHeader* hdr, u
         }
         else
         {
-            rbusMessage_Init(&response);
-            rbusMessage_SetInt32(response, RBUSCORE_ERROR_UNSUPPORTED_METHOD);
+            rtMessage_Create(&response);
+            rtMessage_SetInt32(response, "response",RBUSCORE_ERROR_UNSUPPORTED_METHOD);
             RBUSCORELOG_WARN("Could not find the DML in Private Connection List..");
         }
         _rbusMessage_SetMetaInfo(response, METHOD_RESPONSE, NULL, NULL);
         uint8_t* pData = NULL;
         uint32_t dataLength = 0;
-        rbusMessage_ToBytes(response, &pData, &dataLength);
+        rtMessage_ToByteArray(response, &pData, &dataLength);
         if ((pData) && (0 != dataLength))
         {
             *pOutLength = dataLength;
@@ -2767,8 +2751,8 @@ static rtError _onDirectMessage(uint8_t isClientRequest, rtMessageHeader* hdr, u
             *pOutLength = 0;
         }
 
-        rbusMessage_Release(msg);
-        rbusMessage_Release(response);
+        rtMessage_Release(msg);
+        rtMessage_Release(response);
     }
     else
     {
@@ -3008,17 +2992,17 @@ rbusCoreError_t rbuscore_openPrivateConnectionToProvider(rtConnection *pPrivateC
 rbusCoreError_t rbuscore_createPrivateConnection(const char *pParameterName, rtConnection *pPrivateConn)
 {
     rbusCoreError_t err;
-    rbusMessage request, response;
-    rbusMessage_Init(&request);
-    rbusMessage_SetString(request, rtConnection_GetReturnAddress(g_connection));
-    rbusMessage_SetInt32(request, (int32_t)getpid());
-    rbusMessage_SetString(request,  pParameterName);
-    rbusMessage_SetString(request,  g_daemon_address);
+    rtMessage request, response;
+    rtMessage_Create(&request);
+    rtMessage_SetString(request, "returnAddress",rtConnection_GetReturnAddress(g_connection));
+    rtMessage_SetInt32(request, "pid",(int32_t)getpid());
+    rtMessage_SetString(request,  "name",pParameterName);
+    rtMessage_SetString(request,  "address",g_daemon_address);
 
     err = rbus_invokeRemoteMethod(pParameterName, METHOD_OPENDIRECT_CONN, request, 5000, &response);
     if(RBUSCORE_SUCCESS == err)
     {
-        rbusMessage_GetInt32(response, (int32_t*)&err);
+        rtMessage_GetInt32(response, "response",(int32_t*)&err);
         RBUSCORELOG_DEBUG("Response from the remote method is [%d]!", err);
 
         if (err == RBUSCORE_SUCCESS)
@@ -3026,12 +3010,12 @@ rbusCoreError_t rbuscore_createPrivateConnection(const char *pParameterName, rtC
             RBUSCORELOG_DEBUG("Received valid response!");
             const char* pDaemonAddress = NULL;
             const char* pProviderName = NULL;
-            rbusMessage_GetString(response, &pProviderName);
-            rbusMessage_GetString(response, &pDaemonAddress);
+            rtMessage_GetString(response, "name",&pProviderName);
+            rtMessage_GetString(response, "address",&pDaemonAddress);
 
             err = rbuscore_openPrivateConnectionToProvider(pPrivateConn, pParameterName, pDaemonAddress, pProviderName);
         }
-        rbusMessage_Release(response);
+        rtMessage_Release(response);
     }
     return err;
 }
@@ -3041,7 +3025,7 @@ rbusCoreError_t rbuscore_closePrivateConnection(const char *pParameterName)
     rbusCoreError_t err;
     rbusClientDMLList_t *obj = NULL;
     rtConnection  connection = NULL;
-    rbusMessage request, response;
+    rtMessage request, response;
     char providerName[MAX_OBJECT_NAME_LENGTH+1] = "";
 
     if (pParameterName)
@@ -3057,9 +3041,9 @@ rbusCoreError_t rbuscore_closePrivateConnection(const char *pParameterName)
         }
 
         /* You are here only becoz you have valid connection */
-        rbusMessage_Init(&request);
-        rbusMessage_SetString(request, rtConnection_GetReturnAddress(g_connection));
-        rbusMessage_SetString(request, pParameterName);
+        rtMessage_Create(&request);
+        rtMessage_SetString(request, "address",rtConnection_GetReturnAddress(g_connection));
+        rtMessage_SetString(request, "name",pParameterName);
 
         err = rbus_invokeRemoteMethod(pParameterName, METHOD_CLOSEDIRECT_CONN, request, 5000, &response);
         if(RBUSCORE_SUCCESS != err)
@@ -3068,7 +3052,7 @@ rbusCoreError_t rbuscore_closePrivateConnection(const char *pParameterName)
         }
         else
         {
-            rbusMessage_GetInt32(response, (int32_t*)&err);
+            rtMessage_GetInt32(response, "response",(int32_t*)&err);
             RBUSCORELOG_DEBUG("Response from the remote method is [%d]!", err);
 
             if (RBUSCORE_SUCCESS == err)
@@ -3079,7 +3063,7 @@ rbusCoreError_t rbuscore_closePrivateConnection(const char *pParameterName)
                 rtVector_RemoveItem(gListOfClientDirectDMLs, obj, rtVector_Cleanup_Free);
                 obj = NULL;
             }
-            rbusMessage_Release(response);
+            rtMessage_Release(response);
         }
 
         obj = rtVector_Find(gListOfClientDirectDMLs, providerName, _findClientPrivateConnection);

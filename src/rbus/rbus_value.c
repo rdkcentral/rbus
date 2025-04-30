@@ -633,7 +633,7 @@ uint8_t const* rbusValue_GetV(rbusValue_t v)
     {
     case RBUS_STRING:
     case RBUS_BYTES:
-        return v->d.bytes->data;
+	return v->d.bytes->data;
     default:
         return (uint8_t const*)&v->d.b;
     }

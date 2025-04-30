@@ -113,17 +113,24 @@ static bool RBUS_PULL_OBJECT(char* expected_data, char* server_obj, rbusCoreErro
 {
     bool result = false;
     rbusCoreError_t err = RBUSCORE_SUCCESS;
-    rbusMessage response;
+    rtMessage response;
     if((err = rbus_pullObj(server_obj, 1000, &response)) == RBUSCORE_SUCCESS)
     {
         const char* buff = NULL;
-        rbusMessage_GetString(response, &buff);
-        if((NULL != expected_data) && (NULL != buff))
-            EXPECT_STREQ(buff, expected_data) << "rbus_pullObj failed to procure expected string";
-        else
-            EXPECT_EQ(expected_data, buff) << "rbus_pullObj failed";
-        rbusMessage_Release(response);
-        result = true;
+        int len =0;
+        rtMessage_GetArrayLength(response, "Objects", &len);
+	for(int i = 0; i < len; ++i)
+	{
+            rtMessage item;
+            rtMessage_GetMessageItem(response, "Data", i, &item);
+            rtMessage_GetString(item, "data",&buff);
+            if((NULL != expected_data) && (NULL != buff))
+                EXPECT_STREQ(buff, expected_data) << "rbus_pullObj failed to procure expected string";
+            else
+                EXPECT_EQ(expected_data, buff) << "rbus_pullObj failed";
+            rtMessage_Release(response);
+            result = true;
+        }
     }
     else
     {
@@ -136,15 +143,15 @@ static bool RBUS_PULL_OBJECT(char* expected_data, char* server_obj, rbusCoreErro
 static bool RBUS_PUSH_OBJECT(char* data, char* server_obj, rbusCoreError_t expected_err)
 {
     rbusCoreError_t err = RBUSCORE_SUCCESS;
-    rbusMessage setter;
-    rbusMessage_Init(&setter);
-    rbusMessage_SetString(setter, data);
+    rtMessage setter;
+    rtMessage_Create(&setter);
+    rtMessage_SetString(setter, "data",data);
     err = rbus_pushObj(server_obj, setter, 1000);
     EXPECT_EQ(err, expected_err) << "rbus_pushObj failed";
     return true;
 }
 
-static int event_subscribe_callback(char const* object,  char const* eventName, char const* listener, int added, const rbusMessage payload, void* userData)
+static int event_subscribe_callback(char const* object,  char const* eventName, char const* listener, int added, const rtMessage payload, void* userData)
 {
     printf("In event subscribe callback for object %s, event %s.\n", object, eventName);
     return 0;
@@ -1359,16 +1366,16 @@ TEST_F(StressTestServer, rbus_registerMethod_test1)
         for(i = 0; i < client_data.count; i++)
             client_data.numerals[i] = i;
 
-        rbusMessage setter;
-        rbusMessage response = NULL;
-        rbusMessage_Init(&setter);
-        rbusMessage_SetBytes(setter, (uint8_t*)&client_data, sizeof(client_data));
+        rtMessage setter;
+        rtMessage response = NULL;
+        rtMessage_Create(&setter);
+        rtMessage_AddBinaryData(setter, NULL, (uint8_t*)&client_data, sizeof(client_data));
 
         err = rbus_invokeRemoteMethod(server_obj, METHOD_SET_BINARY_RPC, setter, 1000, &response);
         EXPECT_EQ(err, RBUSCORE_SUCCESS) << "RPC invocation failed";
         if(NULL != response)
         {
-            rbusMessage_Release(response);
+            rtMessage_Release(response);
             response = NULL;
         }
 
@@ -1377,8 +1384,8 @@ TEST_F(StressTestServer, rbus_registerMethod_test1)
             unsigned int size = 0;
             const test_array_data_t * data_procurred = NULL;
             int result;
-            rbusMessage_GetInt32(response, &result);
-            rbusMessage_GetBytes(response, (const uint8_t **)&data_procurred, &size);
+            rtMessage_GetInt32(response, "response",&result);
+            rtMessage_GetBytes(response, (void **)&data_procurred, &size);
             if(NULL != data_procurred)
             {
                 for(i = 0; i < data_procurred->count;i++)
@@ -1386,7 +1393,7 @@ TEST_F(StressTestServer, rbus_registerMethod_test1)
                     EXPECT_EQ(i, *(data_procurred->numerals + i)) << "Corrupted Data";
                 }
             }
-            rbusMessage_Release(response);
+            rtMessage_Release(response);
         }
         EXPECT_EQ(err, RBUSCORE_SUCCESS) << "RPC invocation to get data failed";
         if(conn_status)
@@ -1432,16 +1439,16 @@ TEST_F(StressTestServer, rbus_unregisterMethod_test2)
         for(i = 0; i < client_data.count; i++)
             client_data.numerals[i] = i;
 
-        rbusMessage setter;
-        rbusMessage response;
-        rbusMessage_Init(&setter);
-        rbusMessage_SetBytes(setter, (uint8_t *)&client_data, sizeof(client_data));
+        rtMessage setter;
+        rtMessage response;
+        rtMessage_Create(&setter);
+        rtMessage_SetBytes(setter, (uint8_t *)&client_data, sizeof(client_data));
 
         err = rbus_invokeRemoteMethod(server_obj, METHOD_SET_BINARY_RPC, setter, 1000, &response);
         EXPECT_EQ(err, RBUSCORE_SUCCESS) << "RPC invocation failed";
         if(NULL != response)
         {
-            rbusMessage_Release(response);
+            rtMessage_Release(response);
             response = NULL;
         }
 
@@ -1450,8 +1457,8 @@ TEST_F(StressTestServer, rbus_unregisterMethod_test2)
             unsigned int size = 0;
             const test_array_data_t * data_procurred = NULL;
             int result;
-            rbusMessage_GetInt32(response, &result);
-            rbusMessage_GetBytes(response, (const uint8_t **)&data_procurred, &size);
+            rtMessage_GetInt32(response, "response",&result);
+            rtMessage_GetBytes(response, (void **)&data_procurred, &size);
             if(NULL != data_procurred)
             {
                 for(i = 0; i < data_procurred->count;i++)
@@ -1459,7 +1466,7 @@ TEST_F(StressTestServer, rbus_unregisterMethod_test2)
                     EXPECT_EQ(i, *(data_procurred->numerals + i)) << "Corrupted Data";
                 }
             }
-            rbusMessage_Release(response);
+            rtMessage_Release(response);
         }
         EXPECT_EQ(err, RBUSCORE_SUCCESS) << "RPC invocation to get data failed";
         if(conn_status)
@@ -1497,20 +1504,20 @@ TEST_F(StressTestServer, rbus_invokeMethodWithTimeout_test1)
         conn_status = OPEN_BROKER_CONNECTION(client_name);
 
         rbusCoreError_t err = RBUSCORE_SUCCESS;
-        rbusMessage setter;
-        rbusMessage response;
-        rbusMessage_Init(&setter);
+        rtMessage setter;
+        rtMessage response;
+        rtMessage_Create(&setter);
         int timeout = 2;
-        rbusMessage_SetString(setter, "rbus_invokeMethodWithTimeout_test1");
+        rtMessage_SetString(setter, "name","rbus_invokeMethodWithTimeout_test1");
         //printf("Set test_name : %s \n","rbus_invokeMethodWithTimeout_test1");
-        rbusMessage_SetInt32(setter, timeout);
+        rtMessage_SetInt32(setter, "value",timeout);
         //printf("Set time out : %d  \n", timeout);
         err = rbus_invokeRemoteMethod(server_obj, METHOD_SET_TIMEOUT_RPC, setter, ((timeout * 1000) + BUS_LATENCY_MARGIN), &response);
         EXPECT_EQ(err, RBUSCORE_SUCCESS) << "RPC invocation failed";
 
         if(NULL != response)
         {
-            rbusMessage_Release(response);
+            rtMessage_Release(response);
             response = NULL;
         }
 
@@ -1551,19 +1558,19 @@ TEST_F(StressTestServer, rbus_invokeMethodWithTimeout_test2)
         conn_status = OPEN_BROKER_CONNECTION(client_name);
 
         rbusCoreError_t err = RBUSCORE_SUCCESS;
-        rbusMessage setter;
-        rbusMessage response;
-        rbusMessage_Init(&setter);
+        rtMessage setter;
+        rtMessage response;
+        rtMessage_Create(&setter);
         int timeout = 10;
-        rbusMessage_SetString(setter, "rbus_invokeMethodWithTimeout_test2");
-        rbusMessage_SetInt32(setter, timeout);
+        rtMessage_SetString(setter, "name","rbus_invokeMethodWithTimeout_test2");
+        rtMessage_SetInt32(setter, "value",timeout);
         err = rbus_invokeRemoteMethod(server_obj, METHOD_SET_TIMEOUT_RPC, setter,
                                       ((timeout * 1000) + BUS_LATENCY_MARGIN), &response);
         EXPECT_EQ(err, RBUSCORE_SUCCESS) << "RPC invocation failed";
 
         if(NULL != response)
         {
-            rbusMessage_Release(response);
+            rtMessage_Release(response);
             response = NULL;
         }
 
@@ -1604,13 +1611,13 @@ TEST_F(StressTestServer, rbus_invokeMethodWithTimeout_test3)
         conn_status = OPEN_BROKER_CONNECTION(client_name);
 
         rbusCoreError_t err = RBUSCORE_SUCCESS;
-        rbusMessage setter;
-        rbusMessage response;
-        rbusMessage_Init(&setter);
+        rtMessage setter;
+        rtMessage response;
+        rtMessage_Create(&setter);
         int timeout = 5;  // In seconds
         int waitTime = timeout - 2;
-        rbusMessage_SetString(setter, "rbus_invokeMethodWithTimeout_test3");
-        rbusMessage_SetInt32(setter, timeout);
+        rtMessage_SetString(setter, "name","rbus_invokeMethodWithTimeout_test3");
+        rtMessage_SetInt32(setter, "value",timeout);
         err = rbus_invokeRemoteMethod(server_obj, METHOD_SET_TIMEOUT_RPC, setter,
                                       ((waitTime * 1000) + BUS_LATENCY_MARGIN), &response);
         EXPECT_EQ(err, RBUSCORE_ERROR_REMOTE_TIMED_OUT) << "Expected time out error. But we got some thing different";
@@ -1618,7 +1625,7 @@ TEST_F(StressTestServer, rbus_invokeMethodWithTimeout_test3)
 
         if(NULL != response)
         {
-            rbusMessage_Release(response);
+            rtMessage_Release(response);
             response = NULL;
         }
 
@@ -1658,12 +1665,12 @@ TEST_F(StressTestServer, rbus_invokeMethodWithTimeout_test4)
         conn_status = OPEN_BROKER_CONNECTION(client_name);
 
         rbusCoreError_t err = RBUSCORE_SUCCESS;
-        rbusMessage setter;
-        rbusMessage response;
-        rbusMessage_Init(&setter);
+        rtMessage setter;
+        rtMessage response;
+        rtMessage_Create(&setter);
         int timeout = 5;  // In seconds
-        rbusMessage_SetString(setter, "rbus_invokeMethodWithTimeout_test4");
-        rbusMessage_SetInt32(setter, timeout);
+        rtMessage_SetString(setter, "name","rbus_invokeMethodWithTimeout_test4");
+        rtMessage_SetInt32(setter, "value",timeout);
         err = rbus_invokeRemoteMethod(server_obj, METHOD_SET_TIMEOUT_RPC, setter,
                                       ((timeout * 1000) - MIN_WAIT_TIME_DIFFERENCE + BUS_LATENCY_MARGIN), &response);
         EXPECT_EQ(err, RBUSCORE_ERROR_REMOTE_TIMED_OUT) << "Expected time out error. But we got some thing different";
@@ -1671,7 +1678,7 @@ TEST_F(StressTestServer, rbus_invokeMethodWithTimeout_test4)
 
         if(NULL != response)
         {
-            rbusMessage_Release(response);
+            rtMessage_Release(response);
             response = NULL;
         }
 
@@ -1712,17 +1719,17 @@ TEST_F(StressTestServer, rbus_invokeMethodMsgSize_test1)
     {
         sleep(4);
         conn_status = OPEN_BROKER_CONNECTION(client_name);
-        rbusMessage response;
-        rbusMessage setter;
+        rtMessage response;
+        rtMessage setter;
         int data_chunk_size = 4;
         char chunk_name[10] = {0};
         int i = 0;
 
-        rbusMessage_Init(&setter);
-        rbusMessage_SetInt32(setter, data_chunk_size);
+        rtMessage_Create(&setter);
+        rtMessage_SetInt32(setter, "size",data_chunk_size);
         err = rbus_invokeRemoteMethod(server_obj, METHOD_SET_BINARY_DATA_SIZE_RPC, setter, 1000, &response);
         EXPECT_EQ(err, RBUSCORE_SUCCESS) << "RPC - handle_setBinaryDataSize invocation failed";
-        rbusMessage_Release(response);
+        rtMessage_Release(response);
 
         if((err = rbus_invokeRemoteMethod(server_obj, METHOD_GET_LARGE_BINARY_RPC, NULL, 1000, &response)) == RBUSCORE_SUCCESS)
         {
@@ -1731,14 +1738,14 @@ TEST_F(StressTestServer, rbus_invokeMethodMsgSize_test1)
             {
                 const unsigned char * data_procurred = NULL;
                 snprintf(chunk_name, 10, "chunk%d", i);
-                rbusMessage_GetBytes(response, (const uint8_t **)&data_procurred, &size);
+                rtMessage_GetBytes(response, (void **)&data_procurred, &size);
                 if(NULL != data_procurred)
                 {
                     EXPECT_EQ(size, 1024) << "Data chunk size error";
                     EXPECT_EQ(*(data_procurred), (i + '0')) << "Data error";
                 }
             }
-            rbusMessage_Release(response);
+            rtMessage_Release(response);
         }
         EXPECT_EQ(err, RBUSCORE_SUCCESS) << "RPC invocation to get data failed";
 
@@ -1779,17 +1786,17 @@ TEST_F(StressTestServer, rbus_invokeMethodMsgSize_test2)
     {
         sleep(4);
         conn_status = OPEN_BROKER_CONNECTION(client_name);
-        rbusMessage response;
-        rbusMessage setter;
+        rtMessage response;
+        rtMessage setter;
         int data_chunk_size = 8;
         char chunk_name[10] = {0};
         int i = 0;
 
-        rbusMessage_Init(&setter);
-        rbusMessage_SetInt32(setter, data_chunk_size);
+        rtMessage_Create(&setter);
+        rtMessage_SetInt32(setter, "size",data_chunk_size);
         err = rbus_invokeRemoteMethod(server_obj, METHOD_SET_BINARY_DATA_SIZE_RPC, setter, 1000, &response);
         EXPECT_EQ(err, RBUSCORE_SUCCESS) << "RPC - handle_setBinaryDataSize invocation failed";
-        rbusMessage_Release(response);
+        rtMessage_Release(response);
 
         if((err = rbus_invokeRemoteMethod(server_obj, METHOD_GET_LARGE_BINARY_RPC, NULL, 1000, &response)) == RBUSCORE_SUCCESS)
         {
@@ -1798,14 +1805,14 @@ TEST_F(StressTestServer, rbus_invokeMethodMsgSize_test2)
             for(i = 1; i <= data_chunk_size; i++)
             {
                 snprintf(chunk_name, 10, "chunk%d", i);
-                rbusMessage_GetBytes(response, (const uint8_t **)&data_procurred, &size);
+                rtMessage_GetBytes(response, (void **)&data_procurred, &size);
                 if(NULL != data_procurred)
                 {
                     EXPECT_EQ(size, 1024) << "Data chunk size error";
                     EXPECT_EQ(*(data_procurred), (i + '0')) << "Data error";
                 }
             }
-            rbusMessage_Release(response);
+            rtMessage_Release(response);
         }
         EXPECT_EQ(err, RBUSCORE_SUCCESS) << "RPC invocation to get data failed";
 

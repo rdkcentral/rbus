@@ -219,6 +219,13 @@ rtMessage_SetInt32(rtMessage message, char const* name, int32_t value)
 }
 
 rtError
+rtMessage_SetUInt32(rtMessage message, char const* name, uint32_t value)
+{
+  cJSON_AddNumberToObject(message->json, name, value);
+  return RT_OK;
+}
+
+rtError
 rtMessage_SetBool(rtMessage m, char const* name, bool b)
 {
   cJSON_AddBoolToObject(m->json, name, b);
@@ -270,6 +277,20 @@ rtMessage_SetMessage(rtMessage message, char const* name, rtMessage item)
   return RT_OK;
 }
 
+rtError
+rtMessage_AddItemToArray(rtMessage message, rtMessage item)
+{
+  if (!message || !item)
+    return RT_ERROR_INVALID_ARG;
+  if (item->json)
+  {
+    cJSON* obj = cJSON_Duplicate(item->json, 1);
+    cJSON_AddItemToArray(message->json, obj);
+  }
+  return RT_OK;
+}
+
+
 /**
  * Get field value of type string using field name.
  * @param message to get field
@@ -305,12 +326,10 @@ rtMessage_GetBinaryData(rtMessage message, char const* name, void ** ptr, uint32
   {
     const unsigned char * value;
     value = (unsigned char *)p->valuestring;
-	if(RT_OK == rtBase64_decode(value, strlen((const char *)value), ptr, size))
-	{
-      return RT_OK;
-	}
+    if(RT_OK == rtBase64_decode(value, strlen((const char *)value), ptr, size))
+        return RT_OK;
     else
-      return RT_FAIL;
+        return RT_FAIL;
   }
   return RT_FAIL;
 }
@@ -350,6 +369,18 @@ rtMessage_GetStringValue(rtMessage const message, char const* name, char* fieldv
 rtError
 rtMessage_GetInt32(rtMessage const message,const char* name, int32_t* value)
 {  
+  cJSON* p = cJSON_GetObjectItem(message->json, name);
+  if (p)
+  {
+    *value = p->valueint;
+    return RT_OK;
+  }
+  return RT_FAIL;
+}
+
+rtError
+rtMessage_GetUInt32(rtMessage const message,const char* name, uint32_t* value)
+{
   cJSON* p = cJSON_GetObjectItem(message->json, name);
   if (p)
   {
@@ -470,7 +501,11 @@ rtMessage_AddBinaryData(rtMessage message, char const* name, void const * ptr, c
 {
   unsigned char * encoded_string = NULL;
   uint32_t encoded_string_size = 0;
-
+  if (size == 0 || ptr == NULL)
+  {
+	  rtMessage_SetString(message, name,"");
+	  return RT_OK;
+  }
   if(RT_OK == rtBase64_encode((const unsigned char *)ptr, size, &encoded_string, &encoded_string_size))
   {
     rtMessage_SetString(message, name, (char *)encoded_string);
@@ -492,8 +527,9 @@ rtMessage_AddBinaryData(rtMessage message, char const* name, void const * ptr, c
 rtError
 rtMessage_AddMessage(rtMessage m, char const* name, rtMessage const item)
 {
-    if (!m || !item)
+    if (!m || !item){
     return RT_ERROR_INVALID_ARG;
+    }
 
   cJSON* obj = cJSON_GetObjectItem(m->json, name);
   if (!obj)
@@ -526,7 +562,23 @@ rtMessage_GetArrayLength(rtMessage const m, char const* name, int32_t* length)
     *length = cJSON_GetArraySize(obj);
   return RT_OK;
 }
+rtError
+rtMessage_GetArrayIntItem(rtMessage const m, char const* name, int32_t idx, int* value)
+{
+  cJSON* obj = cJSON_GetObjectItem(m->json, name);
+  if (!obj)
+    return RT_PROPERTY_NOT_FOUND;
+  if (idx >= cJSON_GetArraySize(obj))
+    return RT_FAIL;
 
+  cJSON* item = cJSON_GetArrayItem(obj, idx);
+  if (item)
+  {
+    *value = item->valueint;
+    return RT_OK;
+  }
+  return RT_FAIL;
+}
 /**
  * Get string item from array in message
  * @param message to get string item from
@@ -553,6 +605,34 @@ rtMessage_GetStringItem(rtMessage const m, char const* name, int32_t idx, char c
   }
   return RT_FAIL;
 }
+rtError
+rtMessage_GetItemName(rtMessage const m, char const* name, int32_t idx, char const** ItemName)
+{
+  cJSON* obj = cJSON_GetObjectItem(m->json, name);
+  if (!obj)
+    return RT_PROPERTY_NOT_FOUND;
+  if (idx >= cJSON_GetArraySize(obj))
+    return RT_FAIL;
+
+  cJSON* item = cJSON_GetArrayItem(obj, idx);
+  if (item)
+  {
+    *ItemName = item->string;
+    return RT_OK;
+  }
+  return RT_FAIL;
+}
+
+rtError rtMessage_GetBytes(rtMessage message, void ** ptr, uint32_t *size)
+{
+    return rtMessage_GetBinaryData(message, NULL, ptr, size);
+}
+
+rtError rtMessage_SetBytes(rtMessage message, void const * ptr, const uint32_t size)
+{
+    return rtMessage_AddBinaryData(message, NULL, ptr, size);
+}
+
 
 /**
  * Get message item from array in parent message

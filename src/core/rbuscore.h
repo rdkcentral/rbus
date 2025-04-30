@@ -40,11 +40,11 @@ void rbus_clearOpenTelemetryContext();
 #ifdef __cplusplus
 extern "C" {
 #endif
-typedef int (*rbus_callback_t)(const char * destination, const char * method, rbusMessage in, void * user_data, rbusMessage *out, const rtMessageHeader* hdr);
-typedef int (*rbus_async_callback_t)(rbusMessage message, void * user_data);
-typedef int (*rbus_event_callback_t)(const char * object_name,  const char * event_name, rbusMessage message, void * user_data);
-typedef int (*rbus_timed_update_event_callback_t)(rbusMessage *message);
-typedef int (*rbus_event_subscribe_callback_t)(const char * object_name,  const char * event_name, const char * listener, int added, const rbusMessage payload, void * user_data);
+typedef int (*rbus_callback_t)(const char * destination, const char * method, rtMessage in, void * user_data, rtMessage *out, const rtMessageHeader* hdr);
+typedef int (*rbus_async_callback_t)(rtMessage message, void * user_data);
+typedef int (*rbus_event_callback_t)(const char * object_name,  const char * event_name, rtMessage message, void * user_data);
+typedef int (*rbus_timed_update_event_callback_t)(rtMessage *message);
+typedef int (*rbus_event_subscribe_callback_t)(const char * object_name,  const char * event_name, const char * listener, int added, const rtMessage payload, void * user_data);
 typedef void (*rbus_client_disconnect_callback_t)(const char * name);
 
 typedef struct
@@ -102,13 +102,13 @@ rbusCoreError_t rbus_unregisterMethodTable(const char * object_name, rbus_method
  * of the operation when it's complete. Marshalling of input arguments and output response is the responsibility of the caller. This function blocks until it receives a response 
  * from the remote recipient, or times out after 'timeout_milliseconds'. rbus will release 'out' internally. If call is successful, it's caller's responsibility
  * to release 'in'. */
-rbusCoreError_t rbus_invokeRemoteMethod(const char * object_name, const char *method, rbusMessage out, uint32_t timeout_millisecs, rbusMessage *in);
-rbusCoreError_t rbus_invokeRemoteMethod2(rtConnection conn, const char * object_name, const char *method, rbusMessage out, uint32_t timeout_millisecs, rbusMessage *in);
+rbusCoreError_t rbus_invokeRemoteMethod(const char * object_name, const char *method, rtMessage out, uint32_t timeout_millisecs, rtMessage *in);
+rbusCoreError_t rbus_invokeRemoteMethod2(rtConnection conn, const char * object_name, const char *method, rtMessage out, uint32_t timeout_millisecs, rtMessage *in);
 
 /* Invoke a remote procedure call 'method' on a destination/object object_name. 'out' has the input arguments necessary for the RPC. This function does not block for response
  * from the remote end. It returns immediately after the outbound message is dispatched. 'callback' is invoked when it receives the response to the RPC call, or if it times out 
  * waiting for a response. The callback will contain the response from the remote end. Marshalling of input arguments and output response is the responsibility of the caller.*/
-rbusCoreError_t rbus_invokeRemoteMethodAsync(const char * object_name, const char *method, rbusMessage out, int timeout_millisecs, rbus_async_callback_t callback);
+rbusCoreError_t rbus_invokeRemoteMethodAsync(const char * object_name, const char *method, rtMessage out, int timeout_millisecs, rbus_async_callback_t callback);
 /* Notes on using event APIs:
  * An object_name is a discoverable entity on the bus that is the source of some events. An event source can issue multiple types of events, where each unique type is identified
  * by event_name. A simpler object_name can issue just one type of event, with event_name = 0 always. To receive events, clients have to subscribe to an object_name. 
@@ -119,7 +119,7 @@ rbusCoreError_t rbus_invokeRemoteMethodAsync(const char * object_name, const cha
 
 /* Send an event message to all subscribers for this particular event. 'event_name' can be NULL if the object publishes only one event. 'out' is the payload of the event message. 
  * Caller is responsible for releasing 'out' after the function returns.*/
-rbusCoreError_t rbus_publishEvent(const char* object_name,  const char * event_name, rbusMessage out);
+rbusCoreError_t rbus_publishEvent(const char* object_name,  const char * event_name, rtMessage out);
 
 /* Register an event with an object on the bus so that others can subscribe to it. 
  * 'callback' and 'user_data' can be NULL.  If set, 'callback' is invoked with 'user_data' when any client subscribes or unsubscribes to this event. */ 
@@ -138,15 +138,15 @@ rbusCoreError_t rbus_registerTimedUpdateEventCallback(const char* object_name,  
 
 /* Subscribe to 'event_name' events from 'object_name' object. If the object supports only one event, event_name can be NULL. If the event_name is an alias for the object, then object_name can be NULL. The installed callback will be invoked every time 
  * a matching event is received. */
-rbusCoreError_t rbus_subscribeToEvent(const char * object_name,  const char * event_name, rbus_event_callback_t callback, const rbusMessage payload, void * user_data, int* providerError);
+rbusCoreError_t rbus_subscribeToEvent(const char * object_name,  const char * event_name, rbus_event_callback_t callback, const rtMessage payload, void * user_data, int* providerError);
 
 /* Subscribe to 'event_name' events from 'object_name' object, with the specified timeout. If the timeout is less than or equal to zero, timeout will be set to 1000.
  * If the object supports only one event, event_name can be NULL. If the event_name is an alias for the object, then object_name can be NULL. The installed callback will be invoked every time 
  * a matching event is received. */
-rbusCoreError_t rbus_subscribeToEventTimeout(const char * object_name,  const char * event_name, rbus_event_callback_t callback, const rbusMessage payload, void * user_data, int* providerError, int timeout_ms, bool publishOnSubscribe, rbusMessage *response, bool rawData);
+rbusCoreError_t rbus_subscribeToEventTimeout(const char * object_name,  const char * event_name, rbus_event_callback_t callback, const rtMessage payload, void * user_data, int* providerError, int timeout_ms, bool publishOnSubscribe, rtMessage *response, bool rawData);
 
 /* Unsubscribe from receiving 'event_name' events from 'object_name' object. If the object supports only one event, event_name can be NULL. */
-rbusCoreError_t rbus_unsubscribeFromEvent(const char * object_name,  const char * event_name, const rbusMessage payload, bool rawData);
+rbusCoreError_t rbus_unsubscribeFromEvent(const char * object_name,  const char * event_name, const rtMessage payload, bool rawData);
 
 /* Register a on-subscribe callback which will be called when any subscriber subscribes to any event.
    This disables the rbuscore built-in server-side event subscription handling. Used by rbus 2.0*/
@@ -160,7 +160,7 @@ rbusCoreError_t rbus_registerClientDisconnectHandler(rbus_client_disconnect_call
 rbusCoreError_t rbus_unregisterClientDisconnectHandler();
 
 /* Send an event message directly to a specific subscribe(e.g. listener) */
-rbusCoreError_t rbus_publishSubscriberEvent(const char* object_name,  const char * event_name, const char* listener, rbusMessage out, uint32_t subscriptionId, bool rawData);
+rbusCoreError_t rbus_publishSubscriberEvent(const char* object_name,  const char * event_name, const char* listener, rtMessage out, uint32_t subscriptionId, bool rawData);
 
 rbusCoreError_t rbuscore_publishDirectSubscriberEvent(const char * event_name, const char* listener, const void* data, uint32_t dataLength, uint32_t subscriptionId, bool rawData);
 
@@ -169,15 +169,15 @@ rbusCoreError_t rbuscore_publishDirectSubscriberEvent(const char * event_name, c
 
 /* Set remote object 'object_name' to a value encoded in 'message'. This function will block (up to 'timeout_milliseconds') until remote end responds with a success or failure. 
  * Returns RBUSCORE_SUCCESS if operation is a success. rbus will release 'message' internally. */
-rbusCoreError_t rbus_pushObj(const char * object_name, rbusMessage message, int timeout_millisecs);
+rbusCoreError_t rbus_pushObj(const char * object_name, rtMessage message, int timeout_millisecs);
 
 /* Set remote object 'object_name' to a value encoded in 'message'. This function does not block for remote response and will return as soon as the outbound message is sent. 
  * 'callback', if not NULL, will be invoked when the remote end responds (or when the timeout is up).*/
-rbusCoreError_t rbus_pushObjNoAck(const char * object_name, rbusMessage message);
+rbusCoreError_t rbus_pushObjNoAck(const char * object_name, rtMessage message);
 
 /* Get the value of 'object_name'. This call blocks (up to 'timeout_millisecs') until it receives a response from the remote recipient. Returns RTMESSAGE_BUS_SUCESS if operation 
  * is a success.*/
-rbusCoreError_t rbus_pullObj(const char * object_name, int timeout_millisecs, rbusMessage *response);
+rbusCoreError_t rbus_pullObj(const char * object_name, int timeout_millisecs, rtMessage *response);
 
 /* Subscribe to timed updates of nature specified by 'event_name'. You will receive 'event_name' events every 'interval_milliseconds'. The server that implements 'event_name' will 
  * generate and send recurring event messages to us at the interval specified here. */
@@ -207,7 +207,7 @@ rbusCoreError_t rbus_discoverRegisteredComponents(int * count, char *** componen
 rbuscore_bus_status_t rbuscore_checkBusStatus(void);
 
 /* Sends reply response to the GET/SET and other methods */
-rbusCoreError_t rbus_sendResponse(const rtMessageHeader* hdr, rbusMessage response);
+rbusCoreError_t rbus_sendResponse(const rtMessageHeader* hdr, rtMessage response);
 
 
 

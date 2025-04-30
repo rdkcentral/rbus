@@ -30,7 +30,12 @@ extern "C" {
 
 struct _rtMessage;
 typedef struct _rtMessage* rtMessage;
-
+typedef struct
+{
+    char const*     topic;      /**< The topic the message is sent to */
+    uint8_t const*  data;       /**< The binary data being sent */
+    int             length;     /**< The binary data length */
+} rtMessage_t;
 /**
  * Allocate storage and initializes it as new message
  * @param pointer to the new message
@@ -137,7 +142,8 @@ rtMessage_AddMessage(rtMessage m, char const* name, rtMessage const item);
  **/
 rtError
 rtMessage_GetArrayLength(rtMessage const m, char const* name, int32_t* length);
-
+rtError
+rtMessage_GetArrayIntItem(rtMessage const m, char const* name, int32_t idx, int* value);
 /**
  * Get string item from array in message
  * @param message to get string item from
@@ -148,7 +154,8 @@ rtMessage_GetArrayLength(rtMessage const m, char const* name, int32_t* length);
  **/
 rtError
 rtMessage_GetStringItem(rtMessage const m, char const* name, int32_t idx, char const** value);
-
+rtError
+rtMessage_GetItemName(rtMessage const m, char const* name, int32_t idx, char const** ItemName);
 /**
  * Get message item from array in parent message
  * @param message to get message item from
@@ -170,6 +177,8 @@ rtMessage_GetMessageItem(rtMessage const m, char const* name, int32_t idx, rtMes
 rtError
 rtMessage_SetInt32(rtMessage message, char const* name, int32_t value);
 
+rtError
+rtMessage_SetUInt32(rtMessage message, char const* name, uint32_t value);
 /**
  * Add double field to the message
  * @param message to be modified
@@ -231,6 +240,8 @@ rtMessage_GetStringValue(rtMessage const m, char const* name, char* value, int n
 rtError
 rtMessage_GetInt32(rtMessage const m, char const* name, int32_t* value);
 
+rtError
+rtMessage_GetUInt32(rtMessage const m, char const* name, uint32_t* value);
 /**
  * Get field value of type double using field name.
  * @param message to get field
@@ -285,6 +296,9 @@ rtMessage_SetBool(rtMessage const m, char const* name, bool b);
 rtError
 rtMessage_GetBool(rtMessage const m, char const* name, bool* b);
 
+rtError rtMessage_GetBytes(rtMessage message, void ** ptr, uint32_t *size);
+
+rtError rtMessage_SetBytes(rtMessage message, void const * ptr, const uint32_t size);
 /**
  * Increase reference count of message by 1
  * @param message
@@ -300,7 +314,6 @@ rtMessage_Retain(rtMessage m);
  **/
 rtError
 rtMessage_Release(rtMessage m);
-
 #ifdef __cplusplus
 }
 #endif

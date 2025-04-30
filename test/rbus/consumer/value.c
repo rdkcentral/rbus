@@ -65,6 +65,8 @@ void getAllValues(rbusHandle_t handle, TestValueProperty* properties, int index)
                 char* s2 = rbusValue_ToDebugString(value, NULL, 0);
                 printf(">>>>>>>>>>>>>>>>>>>>>>>> test fail %s >>>>>>>>>>>>>>>>>>>>>>>>>\n", data->name);
                 printf("_test_Value value compare fail: expected:[%s] got:[%s]\n", s1, s2);
+                free(s1);
+                free(s2);
                 TALLY(0);
             }
             else

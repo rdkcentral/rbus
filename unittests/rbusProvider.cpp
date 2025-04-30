@@ -507,7 +507,7 @@ exit2:
   return rc;
 }
 
-static int handle_get(const char * destination, const char * method, rbusMessage message, void * user_data, rbusMessage *response, const rtMessageHeader* hdr)
+static int handle_get(const char * destination, const char * method, rtMessage message, void * user_data, rtMessage *response, const rtMessageHeader* hdr)
 {
   (void) message;
   (void) method;
@@ -515,41 +515,43 @@ static int handle_get(const char * destination, const char * method, rbusMessage
   char buffer[100] = {0};
   rbusGtest_t *test = (rbusGtest_t *)user_data;
 
-  rbusMessage_Init(response);
-
-  rbusMessage_SetInt32(*response, RBUSCORE_SUCCESS);
-  rbusMessage_SetInt32(*response, 1);
+  rtMessage msg, m;
+  rtMessage_Create(response);
+  rtMessage_Create(&msg);
+  rtMessage_Create(&m);
+  rtMessage_SetInt32(*response, "response",RBUSCORE_SUCCESS);
+  rtMessage_SetInt32(*response, "ParamCount",1);
   if(RBUS_GTEST_GET24 != *test)
-    rbusMessage_SetString(*response, destination);
+    rtMessage_SetString(msg, "ParamName",destination);
 
   switch(*test)
   {
     case RBUS_GTEST_GET13:
-      rbusMessage_SetInt32(*response, RBUS_LEGACY_UNSIGNEDINT);
+      rtMessage_SetInt32(msg, "type",RBUS_LEGACY_UNSIGNEDINT);
       snprintf(buffer, sizeof(buffer), "%d", GTEST_VAL_UINT32);
       break;
     case RBUS_GTEST_GET14:
-      rbusMessage_SetInt32(*response, RBUS_LEGACY_BOOLEAN);
+      rtMessage_SetInt32(msg, "type",RBUS_LEGACY_BOOLEAN);
       snprintf(buffer, sizeof(buffer), "%d", GTEST_VAL_BOOL);
       break;
     case RBUS_GTEST_GET15:
-      rbusMessage_SetInt32(*response, RBUS_LEGACY_LONG);
+      rtMessage_SetInt32(msg, "type",RBUS_LEGACY_LONG);
       snprintf(buffer, sizeof(buffer), "%" PRIi64, GTEST_VAL_INT64);
       break;
     case RBUS_GTEST_GET16:
-      rbusMessage_SetInt32(*response, RBUS_LEGACY_UNSIGNEDLONG);
+      rtMessage_SetInt32(msg, "type",RBUS_LEGACY_UNSIGNEDLONG);
       snprintf(buffer, sizeof(buffer), "%" PRIu64, GTEST_VAL_UINT64);
       break;
     case RBUS_GTEST_GET17:
-      rbusMessage_SetInt32(*response, RBUS_LEGACY_FLOAT);
+      rtMessage_SetInt32(msg, "type",RBUS_LEGACY_FLOAT);
       snprintf(buffer, sizeof(buffer), "%.15f", GTEST_VAL_SINGLE);
       break;
     case RBUS_GTEST_GET18:
-      rbusMessage_SetInt32(*response, RBUS_LEGACY_DOUBLE);
+      rtMessage_SetInt32(msg, "type",RBUS_LEGACY_DOUBLE);
       snprintf(buffer, sizeof(buffer), "%.15f", GTEST_VAL_DOUBLE);
       break;
     case RBUS_GTEST_GET19:
-      rbusMessage_SetInt32(*response, RBUS_LEGACY_BYTE);
+      rtMessage_SetInt32(msg, "type",RBUS_LEGACY_BYTE);
       snprintf(buffer, sizeof(buffer), "%s", "A");
       break;
     case RBUS_GTEST_GET20:
@@ -560,25 +562,27 @@ static int handle_get(const char * destination, const char * method, rbusMessage
         getCompileTime(&compileTime);
         strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", &compileTime);
 
-        rbusMessage_SetInt32(*response, RBUS_LEGACY_DATETIME);
+        rtMessage_SetInt32(msg, "type",RBUS_LEGACY_DATETIME);
         snprintf(buffer, sizeof(buffer), "%s", buf);
       }
       break;
     case RBUS_GTEST_GET21:
-      rbusMessage_SetInt32(*response, RBUS_LEGACY_BASE64);
+      rtMessage_SetInt32(msg, "type",RBUS_LEGACY_BASE64);
       snprintf(buffer, sizeof(buffer), "%s", GTEST_VAL_STRING);
       break;
     case RBUS_GTEST_GET22:
-      rbusMessage_SetInt32(*response, RBUS_LEGACY_STRING);
+      rtMessage_SetInt32(msg, "type",RBUS_LEGACY_STRING);
       snprintf(buffer, sizeof(buffer), "%s", GTEST_VAL_STRING);
       break;
     case RBUS_GTEST_GET23:
-      rbusMessage_SetInt32(*response, RBUS_LEGACY_INT);
+      rtMessage_SetInt32(msg, "type",RBUS_LEGACY_INT);
       snprintf(buffer, sizeof(buffer), "%d", GTEST_VAL_INT32);
       break;
   }
-
-  rbusMessage_SetString(*response, buffer);
+  rtMessage_SetString(msg, "value",buffer);
+  rtMessage_AddMessage(*response,"Parameters",msg);
+  rtMessage_Release(msg);
+  rtMessage_Release(m);
 
   return 0;
 }
