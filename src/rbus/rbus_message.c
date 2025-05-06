@@ -91,7 +91,7 @@ static void rtMessage_CallbackHandler(rtMessageHeader const* hdr, uint8_t const*
 
     if (ctx->handler)
     {
-        rbusMessage_t message;
+        rtMessage_t message;
         message.topic = hdr->topic;
         message.data = buff;
         message.length = n;

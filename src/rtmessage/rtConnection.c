@@ -827,7 +827,26 @@ rtConnection_SendRequest(rtConnection con, rtMessage const req, char const* topi
   }
   return err;
 }
-
+#if 0
+rtError
+rtConnection_SendMessageWithSenderInfo(rtConnection con, rtMessage msg, char const* topic, char const* sender)
+{
+  uint8_t* p;
+  uint32_t n;
+  rtError err;
+  uint32_t sequence_number;
+  rtMessage_ToByteArrayWithSize(msg, &p, DEFAULT_SEND_BUFFER_SIZE, &n);
+  pthread_mutex_lock(&con->mutex);
+#ifdef C11_ATOMICS_SUPPORTED
+  sequence_number = atomic_fetch_add_explicit(&con->sequence_number, 1, memory_order_relaxed);
+#else
+  sequence_number = __sync_fetch_and_add(&con->sequence_number, 1);
+#endif
+  err = rtConnection_SendInternal(con, topic, p, n, sender, 0, sequence_number);
+  pthread_mutex_unlock(&con->mutex);
+  return err;
+}
+#endif
 rtError
 rtConnection_SendResponse(rtConnection con, rtMessageHeader const* request_hdr, rtMessage const res, int32_t timeout)
 {

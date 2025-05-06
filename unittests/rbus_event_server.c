@@ -71,14 +71,14 @@ int main(int argc, char *argv[])
     char data1[] = "data1";
     rbus_registerEvent(buffer,"event_1",sub1_callback, data1);
 
-    rbusMessage msg1;
-    rbusMessage_Init(&msg1);
+    rtMessage msg1;
+    rtMessage_Create(&msg1);
 
-    rbusMessage_SetString(msg1, "bar");
+    rtMessage_SetString(msg1, "name","bar");
 
     rbus_publishEvent(buffer, "event_1", msg1);
 
-    rbusMessage_Release(msg1);
+    rtMessage_Release(msg1);
 
   //  sleep(4);
 

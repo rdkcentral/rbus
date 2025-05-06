@@ -26,6 +26,7 @@
 #include "rtRetainable.h"
 #include "rtMemory.h"
 #include "rbuscore_message.h"
+#include "rtMessage.h"
 
 #define VERIFY_UNPACK_NEXT_ITEM()\
     if(msgpack_unpack_next(&message->upk, message->sbuf.data, message->sbuf.size, &message->read_offset) != MSGPACK_UNPACK_SUCCESS)\
@@ -260,31 +261,6 @@ rtError rbusMessage_GetMessage(rbusMessage const message, rbusMessage* value)
     VERIFY_UNPACK(MSGPACK_OBJECT_BIN);
     rbusMessage_FromBytes(value, (uint8_t*)message->upk.data.via.bin.ptr, message->upk.data.via.bin.size);
     return RT_OK;
-}
-
-void rbusMessage_BeginMetaSectionWrite(rbusMessage message)
-{
-    message->meta_offset = message->sbuf.size;
-}
-
-void rbusMessage_EndMetaSectionWrite(rbusMessage message)
-{
-    msgpack_pack_int32(&message->pk, message->meta_offset | 0x80000000);
-    message->sbuf.data[message->sbuf.size - 4] &= 0x7F; //Clear the effects of mask, now that offset is stored as a 4-byte integer.
-}
-
-void rbusMessage_BeginMetaSectionRead(rbusMessage message)
-{
-    int section_offset = 0;
-    message->meta_offset = message->read_offset; //For safekeeping.
-    message->read_offset = message->sbuf.size - 5;
-    rbusMessage_GetInt32(message, &section_offset);
-    message->read_offset = section_offset;
-}
-
-void rbusMessage_EndMetaSectionRead(rbusMessage message)
-{
-    message->read_offset = message->meta_offset;
 }
 
 #if 0

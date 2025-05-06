@@ -116,13 +116,13 @@ void CREATE_RBUS_SERVER(int handle)
     return;
 }
 
-static int event_callback(const char * object_name,  const char * event_name, rbusMessage message, void * user_data)
+static int event_callback(const char * object_name,  const char * event_name, rtMessage message, void * user_data)
 {
     (void) user_data;
     char* buff = NULL;
     uint32_t buff_length = 0;
     printf("In event callback for object %s, event %s.\n", object_name, event_name);
-    rbusMessage_ToDebugString(message, &buff, &buff_length);
+    rtMessage_ToString(message, &buff, &buff_length);
     printf("dumpMessage: %.*s\n", buff_length, buff);
     free(buff);
     return 0;
@@ -226,20 +226,20 @@ TEST_F(EventServerAPIs, rbus_publishEvent_test1)
     bool conn_status = false;
     char obj_name[20] = "test_server_3.obj1";
     rbusCoreError_t err = RBUSCORE_SUCCESS;
-    rbusMessage msg1;
+    rtMessage msg1;
     char data[] = "data";
     CREATE_RBUS_SERVER(counter);
 
     //Test with valid Event Name
     err = rbus_registerEvent(obj_name,"event3",sub1_callback,data);
     EXPECT_EQ(err, RBUSCORE_SUCCESS) << "rbus_registerEvent failed";
-    rbusMessage_Init(&msg1);
-    rbusMessage_SetString(msg1, "bar");
+    rtMessage_Create(&msg1);
+    rtMessage_SetString(msg1, "name","bar");
     //Neg Test with invalid object name
     err = rbus_publishEvent("server_obj", "event1", msg1);
     EXPECT_EQ(err, RBUSCORE_ERROR_INVALID_PARAM) << "rbus_publishEvent failed";
     err = rbus_publishEvent(obj_name, "event1", msg1);
-    rbusMessage_Release(msg1);
+    rtMessage_Release(msg1);
     conn_status = RBUS_CLOSE_BROKER_CONNECTION(RBUSCORE_SUCCESS);
     ASSERT_EQ(conn_status, true) << "RBUS_OPEN_BROKER_CONNECTION failed";
 
@@ -254,7 +254,7 @@ TEST_F(EventServerAPIs, rbus_publishEvent_test2)
     bool conn_status = false;
     char obj_name[MAX_OBJECT_NAME_LENGTH + 1] = "0";
     rbusCoreError_t err = RBUSCORE_SUCCESS;
-    rbusMessage msg1;
+    rtMessage msg1;
     char data[] = "data";
 
     CREATE_RBUS_SERVER(counter);
@@ -263,11 +263,11 @@ TEST_F(EventServerAPIs, rbus_publishEvent_test2)
     memset(obj_name, 't', (sizeof(obj_name)- 1));
     err = rbus_registerEvent(obj_name,"event3",sub1_callback,data);
     EXPECT_EQ(err, RBUSCORE_ERROR_INVALID_PARAM) << "rbus_registerEvent failed";
-    rbusMessage_Init(&msg1);
-    rbusMessage_SetString(msg1, "bar");
+    rtMessage_Create(&msg1);
+    rtMessage_SetString(msg1, "name","bar");
     rbus_publishEvent(obj_name, "event1", msg1);
     EXPECT_EQ(err, RBUSCORE_ERROR_INVALID_PARAM) << "rbus_registerEvent failed";
-    rbusMessage_Release(msg1);
+    rtMessage_Release(msg1);
 
     conn_status = RBUS_CLOSE_BROKER_CONNECTION(RBUSCORE_SUCCESS);
     ASSERT_EQ(conn_status, true) << "RBUS_OPEN_BROKER_CONNECTION failed";

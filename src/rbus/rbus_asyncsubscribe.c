@@ -43,7 +43,7 @@
 
 /*defined in rbus.c*/
 void _subscribe_async_callback_handler(rbusHandle_t handle, rbusEventSubscription_t* subscription, rbusError_t error, uint32_t subscriptionId);
-int _event_callback_handler(char const* objectName, char const* eventName, rbusMessage message, void* userData);
+int _event_callback_handler(char const* objectName, char const* eventName, rtMessage message, void* userData);
 void rbusEventSubscription_free(void* p);
 
 typedef struct AsyncSubscribeRetrier_t
@@ -58,7 +58,7 @@ typedef struct AsyncSubscribeRetrier_t
 typedef struct AsyncSubscription_t
 {
     rbusEventSubscription_t* subscription;
-    rbusMessage payload;
+    rtMessage payload;
     int nextWaitTime;
     rtTime_t startTime;
     rtTime_t nextRetryTime;
@@ -73,7 +73,7 @@ static void rbusAsyncSubscribeRetrier_FreeSubscription(void *pitem)
         return;
     if(sub->subscription)
         rbusEventSubscription_free(sub->subscription);
-    rbusMessage_Release(sub->payload);
+    rtMessage_Release(sub->payload);
     free(pitem);
 }
 
@@ -177,7 +177,7 @@ static void rbusAsyncSubscribeRetrier_SendSubscriptionRequests()
             rbusCoreError_t coreerr;
             uint32_t elapsed;
             int providerError;
-            rbusMessage response = NULL;
+            rtMessage response = NULL;
             uint32_t subscriptionId = 0;
 
 
@@ -227,11 +227,11 @@ static void rbusAsyncSubscribeRetrier_SendSubscriptionRequests()
                 if(coreerr == RBUSCORE_SUCCESS)
                 {
                     if(response)
-                        rbusMessage_GetUInt32(response, &subscriptionId);
+                        rtMessage_GetUInt32(response, "subId",&subscriptionId);
                     RBUSLOG_INFO("%s subscribe retries succeeded", item->subscription->eventName);
                     responseErr = RBUS_ERROR_SUCCESS;
                     if(response)
-                        rbusMessage_Release(response);
+                        rtMessage_Release(response);
                 }
                 else
                 {
@@ -253,7 +253,7 @@ static void rbusAsyncSubscribeRetrier_SendSubscriptionRequests()
                         responseErr = RBUS_ERROR_BUS_ERROR;
                     }
                     if(response)
-                        rbusMessage_Release(response);
+                        rtMessage_Release(response);
                 }
 
                 _subscribe_async_callback_handler(item->subscription->handle, item->subscription, responseErr, subscriptionId);
@@ -361,7 +361,7 @@ static void rbusAsyncSubscribeRetrier_Destroy()
     RBUSLOG_DEBUG("%s exit", __FUNCTION__);
 }
 
-void rbusAsyncSubscribe_AddSubscription(rbusEventSubscription_t* subscription, rbusMessage payload)
+void rbusAsyncSubscribe_AddSubscription(rbusEventSubscription_t* subscription, rtMessage payload)
 {
     int rc;
     char tbuff[50];
@@ -374,7 +374,7 @@ void rbusAsyncSubscribe_AddSubscription(rbusEventSubscription_t* subscription, r
 
     AsyncSubscription_t* item = rt_malloc(sizeof(struct AsyncSubscription_t));
 
-    rbusMessage_Retain(payload);
+    rtMessage_Retain(payload);
 
     item->subscription = subscription;
     item->payload = payload;

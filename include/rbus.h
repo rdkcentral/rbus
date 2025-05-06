@@ -135,6 +135,13 @@ typedef enum _rbusError
     RBUS_ERROR_INVALID_PARAMETER_VALUE          /**< Invalid parameter value.*/
 } rbusError_t;
 
+#define MESSAGE_FIELD_RESULT "_rtw_result"
+#define MESSAGE_FIELD_PAYLOAD "_payload"
+#define MESSAGE_FIELD_METHOD "_method"
+#define MESSAGE_FIELD_EVENT_NAME "_event"
+#define MESSAGE_FIELD_EVENT_SENDER "_esender"
+#define MESSAGE_FIELD_EVENT_HAS_FILTER "_ehasfilter"
+#define MESSAGE_FIELD_EVENT_FILTER "_efilter"
 
 
 char const * rbusError_ToString(rbusError_t e);

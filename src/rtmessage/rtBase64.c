@@ -62,12 +62,6 @@ static unsigned char decode_base64_char(unsigned char in, bool * error)
 rtError rtBase64_encode(const void * in, const unsigned int in_size, unsigned char ** out, unsigned int *out_size)
 {
     unsigned char * read_buff = (unsigned char * )in;
-    if(RBUS_BINARY_DATA_SIZE_LIMIT < in_size)
-    {
-        rtLog_Error("Cannot encode more than %d bytes as binary data. Request for %d bytes is denied.", RBUS_BINARY_DATA_SIZE_LIMIT, in_size);
-        return RT_ERROR;
-    }
-
     unsigned int last_group_len = in_size % 3;
 
     /*Allocate memory for the output*/
@@ -131,10 +125,9 @@ rtError rtBase64_encode(const void * in, const unsigned int in_size, unsigned ch
 
 rtError rtBase64_decode(const unsigned char * in, const unsigned int in_size,  void ** out, unsigned int *out_size)
 {
-    if(RBUS_BASE64_DATA_SIZE_LIMIT < in_size)
-    {
-        rtLog_Error("Cannot decode more than %d bytes. Request for %d bytes is denied.", RBUS_BASE64_DATA_SIZE_LIMIT, in_size);
-        return RT_ERROR;
+    if(in_size == 0){
+	 *out = NULL;
+	 return RT_OK;
     }
     int num_padding_bytes = 0;
     if(0 != (in_size % 4))
@@ -142,7 +135,6 @@ rtError rtBase64_decode(const unsigned char * in, const unsigned int in_size,  v
         rtLog_Error("Illegal base64 encoding. Length is %d. It has to be a multiple of 4.", in_size);
         return RT_ERROR;
     }
-
     /*Allocate memory for the output*/
     *out_size = in_size * 3 / 4;
     if('=' == in[in_size -2])
@@ -199,4 +191,3 @@ rtError rtBase64_decode(const unsigned char * in, const unsigned int in_size,  v
     *out = write_buff;
     return RT_OK;
 }
-
