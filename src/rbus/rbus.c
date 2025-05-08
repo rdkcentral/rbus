@@ -4302,7 +4302,10 @@ rbusError_t _setMultiInternal(rbusHandle_t handle, uint32_t numProps, rbusProper
                                 if(result == RBUS_ERROR_SUCCESS)
                                     RBUSLOG_DEBUG("Successfully reverted back the values");
                                 else if((result != RBUS_ERROR_SUCCESS) && (pTempFailedElement))
+				{
                                     RBUSLOG_WARN("Failed to rollback %s\n",pTempFailedElement);
+				    free(pTempFailedElement);
+				}
                             }
                             if(legacyRetCode > RBUS_LEGACY_ERR_SUCCESS)
                             {
