@@ -3616,7 +3616,13 @@ rbusError_t rbus_getExt(rbusHandle_t handle, int paramCount, char const** pParam
         if (!_is_wildcard_query(pParamNames[0]))
         {
             rbusProperty_t outputVals = NULL;
-            rbusValue_t getVal;
+            rbusValue_t getVal = NULL;
+
+            /* Initialize */
+            *retProperties = NULL;
+            *numValues = 0;
+
+            /*Do get the single param */
             errorcode = rbus_get(handle, pParamNames[0], &getVal);
             if(RBUS_ERROR_SUCCESS == errorcode)
             {
@@ -3625,6 +3631,11 @@ rbusError_t rbus_getExt(rbusHandle_t handle, int paramCount, char const** pParam
                 rbusValue_Release(getVal);
                 *retProperties = outputVals;
             }
+	    else
+	    {
+		RBUSLOG_ERROR("Failed to get the data. Error : %d", errorcode);
+	    }
+	    return errorcode;	
         }
         else
         {
@@ -3728,7 +3739,6 @@ rbusError_t rbus_getExt(rbusHandle_t handle, int paramCount, char const** pParam
                     {
                         return errorcode;
                     }
-
                 }
             }
             else
