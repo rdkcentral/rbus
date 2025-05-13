@@ -3623,8 +3623,13 @@ rbusError_t rbus_getExt(rbusHandle_t handle, int paramCount, char const** pParam
                 *numValues = 1;
                 rbusProperty_Init(&outputVals, pParamNames[0], getVal);
                 rbusValue_Release(getVal);
-                *retProperties = outputVals;
+                *retProperties = outputVals;  
             }
+	    else
+	    {
+		RBUSLOG_ERROR("Failed to get the data. Error : %d", errorcode);
+	    }
+	    return errorcode;	
         }
         else
         {
@@ -3728,7 +3733,6 @@ rbusError_t rbus_getExt(rbusHandle_t handle, int paramCount, char const** pParam
                     {
                         return errorcode;
                     }
-
                 }
             }
             else
