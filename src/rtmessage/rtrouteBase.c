@@ -61,12 +61,18 @@ rtRouteBase_BindListener(char const* socket_name, int no_delay, int indefinite_r
   unsigned int num_retries = 1;
 
   listener = (rtListener *)rt_malloc(sizeof(rtListener));
+  if (!listener)
+       return rtErrorFromErrno(ENOMEM);
+
   listener->fd = -1;
   memset(&listener->local_endpoint, 0, sizeof(struct sockaddr_storage));
 
   err = rtSocketStorage_FromString(&listener->local_endpoint, socket_name);
   if (err != RT_OK)
-    return err;
+  {
+      free(listener);
+      return err;
+  }
 
   rtLog_Debug("binding listener:%s", socket_name);
 
@@ -130,7 +136,7 @@ rtRouteBase_BindListener(char const* socket_name, int no_delay, int indefinite_r
   {
     rtLog_Warn("failed to set socket to listen mode. %s", rtStrError(errno));
     rtRouteBase_CloseListener(listener);
-    free(listener); 
+    free(listener);
     return RT_FAIL;
   }
 
@@ -577,6 +583,8 @@ rtRouteDirect_StartInstance(const char* socket_name, rtDriectClientHandler messa
   }
 
   route = (rtRouteEntry *)rt_malloc(sizeof(rtRouteEntry));
+  if (!route)
+      return rtErrorFromErrno(ENOMEM);
   route->subscription = NULL;
   strncpy(route->expression, "_RTDIRECT>", RTMSG_MAX_EXPRESSION_LEN-1);
   route->message_handler = _rtdirect_OnMessage;

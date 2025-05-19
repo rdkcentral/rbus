@@ -19,10 +19,32 @@
 #include "rbus_handle.h"
 #include <string.h>
 #include <rbuscore.h>
-
+#include <rtMemory.h>
+#include <unistd.h>
+#include <stdlib.h>
 static rtVector gHandleList = NULL;
 
 #define VERIFY_NULL(T,R) if(NULL == T){ RBUSLOG_ERROR(#T" is NULL"); R; }
+#define BUF_LEN 128
+#define RBUS_GET_DEFAULT_TIMEOUT          15000   /* default timeout in miliseconds for GET API */
+#define RBUS_GET_WILDCARD_DEFAULT_TIMEOUT 120000  /* default timeout in miliseconds for Wildcard GET API */
+#define RBUS_SET_DEFAULT_TIMEOUT          15000   /* default timeout in miliseconds for SET API */
+#define RBUS_SET_MULTI_DEFAULT_TIMEOUT    60000   /* default timeout in miliseconds for SET Multi API */
+
+#define initStr(P,N) \
+{ \
+    char* V = getenv(#N); \
+    P=strdup((V && strlen(V)) ? V : N); \
+    RBUSLOG_DEBUG(#N"=%s",P); \
+}
+
+#define initInt(P,N) \
+{ \
+    char* V = getenv(#N); \
+    P=((V && strlen(V)) ? atoi(V) : N); \
+    RBUSLOG_DEBUG(#N"=%d",P); \
+}
+extern char *__progname;
 
 bool rbusHandleList_IsValidHandle(struct _rbusHandle* handle)
 {
@@ -146,4 +168,164 @@ struct _rbusHandle* rbusHandleList_GetByName(char const* componentName)
         }
     }
     return handle;
+}
+
+int rbusHandle_TimeoutValuesInit(rbusHandle_t handle)
+{
+    VERIFY_NULL(handle, return -1)
+    RBUSLOG_DEBUG("%s", __FUNCTION__);
+    initInt(handle->timeoutValues.setTimeout,            RBUS_SET_DEFAULT_TIMEOUT);
+    initInt(handle->timeoutValues.getTimeout,            RBUS_GET_DEFAULT_TIMEOUT);
+    initInt(handle->timeoutValues.setMultiTimeout,       RBUS_SET_MULTI_DEFAULT_TIMEOUT);
+    initInt(handle->timeoutValues.getMultiTimeout,       RBUS_GET_WILDCARD_DEFAULT_TIMEOUT);
+    initInt(handle->timeoutValues.subscribeTimeout,      RBUS_SUBSCRIBE_TIMEOUT);
+    return RBUS_ERROR_SUCCESS;
+}
+
+rbusError_t rbusHandle_ConfigGetTimeout(rbusHandle_t handle, uint32_t timeout)
+{
+    VERIFY_NULL(handle, return RBUS_ERROR_INVALID_INPUT)
+    if (timeout)
+        handle->timeoutValues.getTimeout = timeout;
+    else
+        handle->timeoutValues.getTimeout = RBUS_GET_DEFAULT_TIMEOUT;
+    return RBUS_ERROR_SUCCESS;
+}
+
+rbusError_t rbusHandle_ConfigSetTimeout(rbusHandle_t handle, uint32_t timeout)
+{
+    VERIFY_NULL(handle, return RBUS_ERROR_INVALID_INPUT)
+    if (timeout)
+        handle->timeoutValues.setTimeout = timeout;
+    else
+        handle->timeoutValues.setTimeout = RBUS_SET_DEFAULT_TIMEOUT;
+    return RBUS_ERROR_SUCCESS;
+}
+
+rbusError_t rbusHandle_ConfigGetMultiTimeout(rbusHandle_t handle, uint32_t timeout)
+{
+    VERIFY_NULL(handle, return RBUS_ERROR_INVALID_INPUT)
+    if (timeout)
+        handle->timeoutValues.getMultiTimeout = timeout;
+    else
+        handle->timeoutValues.getMultiTimeout = RBUS_GET_WILDCARD_DEFAULT_TIMEOUT;
+    return RBUS_ERROR_SUCCESS;
+}
+
+rbusError_t rbusHandle_ConfigSetMultiTimeout(rbusHandle_t handle, uint32_t timeout)
+{
+    VERIFY_NULL(handle, return RBUS_ERROR_INVALID_INPUT)
+    if (timeout)
+        handle->timeoutValues.setMultiTimeout = timeout;
+    else
+        handle->timeoutValues.setMultiTimeout = RBUS_SET_MULTI_DEFAULT_TIMEOUT;
+    return RBUS_ERROR_SUCCESS;
+}
+
+rbusError_t rbusHandle_ConfigSubscribeTimeout(rbusHandle_t handle, uint32_t timeout)
+{
+    VERIFY_NULL(handle, return RBUS_ERROR_INVALID_INPUT)
+    if (timeout)
+        handle->timeoutValues.subscribeTimeout = timeout;
+    else
+        handle->timeoutValues.subscribeTimeout = RBUS_SUBSCRIBE_TIMEOUT;
+    return RBUS_ERROR_SUCCESS;
+}
+
+uint32_t rbusHandle_FetchGetTimeout(rbusHandle_t handle)
+{
+    VERIFY_NULL(handle, return 0)
+    int timeout = 0;
+    FILE *fp = NULL;
+    char buf[25] = {0};
+    char fileName[BUF_LEN] = {'\0'};
+    snprintf(fileName, BUF_LEN-1, "%s/rbus_%s_timeout_get", RBUS_TMP_DIRECTORY, __progname);
+    fileName[BUF_LEN-1] = '\0';
+    if (access(fileName, F_OK) == 0)
+    {
+        fp = fopen(fileName, "r");
+        if(fp != NULL) {
+            if (fread(buf, 1, sizeof(buf), fp) > 0)
+                timeout = atoi(buf);
+            fclose(fp);
+        }
+        if (timeout > 0)
+            return timeout * 1000;
+    }
+    return handle->timeoutValues.getTimeout;
+}
+
+uint32_t rbusHandle_FetchSetTimeout(rbusHandle_t handle)
+{
+    VERIFY_NULL(handle, return 0)
+    int timeout = 0;
+    FILE *fp = NULL;
+    char buf[25] = {0};
+    char fileName[BUF_LEN] = {'\0'};
+    snprintf(fileName, BUF_LEN-1, "%s/rbus_%s_timeout_set", RBUS_TMP_DIRECTORY, __progname);
+    fileName[BUF_LEN-1] = '\0';
+    if (access(fileName, F_OK) == 0)
+    {
+        fp = fopen(fileName, "r");
+        if(fp != NULL) {
+            if (fread(buf, 1, sizeof(buf), fp) > 0)
+                timeout = atoi(buf);
+            fclose(fp);
+        }
+        if (timeout > 0)
+            return timeout * 1000;
+    }
+    return handle->timeoutValues.setTimeout;
+}
+
+uint32_t rbusHandle_FetchGetMultiTimeout(rbusHandle_t handle)
+{
+    VERIFY_NULL(handle, return 0)
+    int timeout = 0;
+    FILE *fp = NULL;
+    char buf[25] = {0};
+    char fileName[BUF_LEN] = {'\0'};
+    snprintf(fileName, BUF_LEN-1, "%s/rbus_%s_timeout_get_wildcard_query", RBUS_TMP_DIRECTORY, __progname);
+    fileName[BUF_LEN-1] = '\0';
+    if (access(fileName, F_OK) == 0)
+    {
+        fp = fopen(fileName, "r");
+        if(fp != NULL) {
+            if (fread(buf, 1, sizeof(buf), fp) > 0)
+                timeout = atoi(buf);
+            fclose(fp);
+        }
+        if (timeout > 0)
+            return timeout * 1000;
+    }
+    return handle->timeoutValues.getMultiTimeout;
+}
+
+uint32_t rbusHandle_FetchSetMultiTimeout(rbusHandle_t handle)
+{
+    VERIFY_NULL(handle, return 0)
+    int timeout = 0;
+    FILE *fp = NULL;
+    char buf[25] = {0};
+    char fileName[BUF_LEN] = {'\0'};
+    snprintf(fileName, BUF_LEN-1, "%s/rbus_%s_timeout_setMulti", RBUS_TMP_DIRECTORY, __progname);
+    fileName[BUF_LEN-1] = '\0';
+    if (access(fileName, F_OK) == 0)
+    {
+        fp = fopen(fileName, "r");
+        if(fp != NULL) {
+            if (fread(buf, 1, sizeof(buf), fp) > 0)
+                timeout = atoi(buf);
+            fclose(fp);
+        }
+        if (timeout > 0)
+            return timeout * 1000;
+    }
+    return handle->timeoutValues.setMultiTimeout;
+}
+
+uint32_t rbusHandle_FetchSubscribeTimeout(rbusHandle_t handle)
+{
+    VERIFY_NULL(handle, return 0)
+    return handle->timeoutValues.subscribeTimeout;
 }

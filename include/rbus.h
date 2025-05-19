@@ -128,8 +128,13 @@ typedef enum _rbusError
     RBUS_ERROR_NOSUBSCRIBERS,                   /**< No subscribers present   */
     RBUS_ERROR_SUBSCRIPTION_ALREADY_EXIST,      /**< The subscription already exists*/
     RBUS_ERROR_INVALID_NAMESPACE,               /**< Invalid namespace as per standard */
-    RBUS_ERROR_DIRECT_CON_NOT_EXIST             /**< Direct connection not exist */
+    RBUS_ERROR_DIRECT_CON_NOT_EXIST,            /**< Direct connection not exist */
+    RBUS_ERROR_NOT_WRITABLE,                    /**< Set to the requested data element was not permitted by the provider component.*/
+    RBUS_ERROR_NOT_READABLE,                    /**< Get to the requested data element was not permitted by the provider component.*/
+    RBUS_ERROR_INVALID_PARAMETER_TYPE,          /**< Invalid parameter type.*/
+    RBUS_ERROR_INVALID_PARAMETER_VALUE          /**< Invalid parameter value.*/
 } rbusError_t;
+
 
 
 char const * rbusError_ToString(rbusError_t e);
@@ -1121,6 +1126,44 @@ rbusError_t rbus_setMulti(
     rbusProperty_t properties,
     rbusSetOptions_t* opts);
 
+/** @fn rbusError_t rbus_setMultiExt(
+ *          rbusHandle_t handle,
+ *          uint32_t numProps,
+ *          rbusProperty_t properties,
+ *          rbusSetOptions_t* opts,
+ *          uint32_t timeout,
+ *          char** failedParameterName);
+ *
+ *  @brief A component uses this to perform a set operation for multiple parameters at once.
+ *  This method identifies the provider component of each parameter, groups them and makes the SET call \n
+ *  per provider component. The given order is NOT maintained.
+ *
+ *  This API ensures rolling back of all the property to previous value upon failure to set any single parameter in the given list.
+ *  Used by: All components that need to set multiple parameters
+ *
+ *  @param      handle          Bus Handle
+ *  @param      numProps        The number (count) of parameters
+ *  @param      properties      The list of dml properties to set to. 
+ *                              For each parameter, a property should be created which contains the parameter's name and
+ *                              the respective value to set that parameter to.
+ *  @param      opts            Extra options such as session info. 
+ *                              Set NULL if not needed, in which case a session
+ *                              is not used and the set is commited immediately.
+ *  @param      timeout         Timeout in milliseconds to be used for each SET per provider; Set to 0 to use the default value (15s).
+ *  @param      failedParameterName  Output parameter that represents the failed property. On success, it will returning NULL. Caller responsible to free() this.
+ *  @return RBus error code as defined by rbusError_t.
+ *  Possible values are:
+ *  RBUS_ERROR_INVALID_INPUT: Given inputs are not correct.
+ *  RBUS_ERROR_ACCESS_NOT_ALLOWED: Access to requested parameter is not permitted.
+ *  RBUS_ERROR_DESTINATION_NOT_REACHABLE: Destination element was not reachable.
+ */
+rbusError_t rbus_setMultiExt(
+    rbusHandle_t handle,
+    uint32_t numProps,
+    rbusProperty_t properties,
+    rbusSetOptions_t* opts,
+    uint32_t timeout,
+    char** failedParameterName);
 
 /** @fn rbusError_t rbus_setBoolean(
  *          rbusHandle_t handle,
@@ -1965,6 +2008,80 @@ rbusError_t rbus_registerDynamicTableSyncHandler(
     rbusHandle_t handle,
     char const* tableName,
     rbusTableSyncHandler_t syncHandler);
+
+typedef struct _rbusTimeoutValues
+{
+    uint32_t setTimeout;         /* default timeout in miliseconds for SET API*/
+    uint32_t getTimeout;         /* default timeout in miliseconds for GET API*/
+    uint32_t setMultiTimeout;    /* default timeout in miliseconds for SET Multi API*/
+    uint32_t getMultiTimeout;    /* default timeout in miliseconds for Wildcard Query GET API*/
+    uint32_t subscribeTimeout;   /* default timeout in miliseconds for Subscribe operation*/
+}rbusTimeoutValues_t;
+
+/** @fn rbusError_t rbusHandle_ConfigTimeoutValues(
+ *     rbusHandle_t handle,
+ *     rbusTimeoutValues_t timeoutValues);
+ *
+ *  @brief  Configure timeout values for each rbus_handle.
+ *
+ *  Used by: Component wants to configure its own timeout values per rbus_handle.
+ *
+ *  @param handle               Bus Handle
+ *  @param timeoutValues        Timeout values in miliseconds for SET, GET operations.
+ *  @return RBus error code as defined by rbusError_t.
+ */
+
+rbusError_t rbusHandle_ConfigTimeoutValues(rbusHandle_t handle, rbusTimeoutValues_t timeoutValues);
+
+/** @fn int rbusHandle_ConfigSetTimeout(rbusHandle_t handle,int timeout)
+ *  @brief  function to update SET Timeout value.
+ *
+ *  @param      handle         The Bus handle.
+ *  @param      timeout        The Timeout value for rbus_set operation in milliseconds,
+ *                             set to default value if timeout is Zero.
+ *  @return    RBus error code as defined by rbusError_t.
+ */
+rbusError_t rbusHandle_ConfigSetTimeout(rbusHandle_t handle, uint32_t timeout);
+
+/** @fn int rbusHandle_ConfigGetTimeout(rbusHandle_t handle,int timeout)
+ *  @brief  function to update GET Timeout value.
+ *
+ *  @param      handle         The Bus handle.
+ *  @param      timeout        The Timeout value for rbus_get operation in milliseconds,
+ *                             set to default value if timeout is Zero.
+ *  @return     RBus error code as defined by rbusError_t.
+ */
+rbusError_t rbusHandle_ConfigGetTimeout(rbusHandle_t handle, uint32_t timeout);
+
+/** @fn int rbusHandle_ConfigGetMultiTimeout(rbusHandle_t handle,int timeout)
+ *  @brief  function to update GET Wildcard query Timeout value.
+ *
+ *  @param      handle         The Bus handle.
+ *  @param      timeout        The Timeout value for rbus_get operation in milliseconds,
+ *                             set to default value if timeout is Zero.
+ *  @return     RBus error code as defined by rbusError_t.
+ */
+rbusError_t rbusHandle_ConfigGetMultiTimeout(rbusHandle_t handle, uint32_t timeout);
+
+/** @fn int rbusHandle_ConfigSetMultiTimeout(rbusHandle_t handle,int timeout)
+ *  @brief  function to update SetMulti Timeout value.
+ *
+ *  @param      handle         The Bus handle.
+ *  @param      timeout        The Timeout value for rbus_setMulti operation in milliseconds,
+ *                             set to default value if timeout is Zero.
+ *  @return     RBus error code as defined by rbusError_t.
+ */
+rbusError_t rbusHandle_ConfigSetMultiTimeout(rbusHandle_t handle, uint32_t timeout);
+
+/** @fn int rbusHandle_ConfigSubscribeTimeout(rbusHandle_t handle,int timeout)
+ *  @brief  function to update Subscribe Timeout value.
+ *
+ *  @param      handle         The Bus handle.
+ *  @param      timeout        The Timeout value for Subscribe operation in milliseconds,
+ *                             set to default value if timeout is Zero.
+ *  @return     RBus error code as defined by rbusError_t.
+ */
+rbusError_t rbusHandle_ConfigSubscribeTimeout(rbusHandle_t handle, uint32_t timeout);
 /** @} */
 
 #ifdef __cplusplus

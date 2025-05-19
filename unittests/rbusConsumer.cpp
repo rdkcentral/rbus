@@ -162,6 +162,34 @@ static int exec_rbus_multi_test(rbusHandle_t handle, int expectedRc, int numProp
   return rc;
 }
 
+static int exec_rbus_multiExt_test(rbusHandle_t handle, int expectedRc, int numProps, const char *param1, const char *param2)
+{
+  int rc = RBUS_ERROR_BUS_ERROR;
+  rbusProperty_t properties = NULL;
+  rbusValue_t setVal1 = NULL, setVal2 = NULL;
+  rbusProperty_t next = NULL, last = NULL;
+
+  rbusValue_Init(&setVal1);
+  rbusValue_SetFromString(setVal1, RBUS_STRING, "Gtest_set_multi_1");
+
+  rbusValue_Init(&setVal2);
+  rbusValue_SetFromString(setVal2, RBUS_STRING, "Gtest_set_multi_2");
+
+  rbusProperty_Init(&next, param1, setVal1);
+  rbusProperty_Init(&last, param2, setVal2);
+  rbusProperty_SetNext(next, last);
+  char* failedElement = NULL;
+  rc = rbus_setMultiExt(handle, numProps, next, NULL, 0, &failedElement);
+  EXPECT_EQ(rc,expectedRc);
+  if(failedElement)
+      free(failedElement);
+  rbusValue_Release(setVal1);
+  rbusValue_Release(setVal2);
+  rbusProperty_Release(next);
+  rbusProperty_Release(last);
+  return rc;
+}
+
 static int exec_rbus_set_test(rbusHandle_t handle, int expectedRc, const char *param, const char *paramValue)
 {
   int rc = RBUS_ERROR_BUS_ERROR;
@@ -443,7 +471,7 @@ int rbusConsumer(rbusGtest_t test, pid_t pid, int runtime)
       {
         const char *param = "Device.rbusProvider.PartialPath.1.Param2";
         isElementPresent(handle, param);
-        rc = exec_rbus_set_test(handle, RBUS_ERROR_INVALID_OPERATION, param, "Gtest set value");
+        rc = exec_rbus_set_test(handle, RBUS_ERROR_NOT_WRITABLE, param, "Gtest set value");
       }
       break;
     case RBUS_GTEST_SET3:
@@ -542,7 +570,25 @@ int rbusConsumer(rbusGtest_t test, pid_t pid, int runtime)
         const char *param2 = "Device.rbusProvider.PartialPath.1.Param2";
         isElementPresent(handle, param1);
         isElementPresent(handle, param2);
-        rc = exec_rbus_multi_test(handle, RBUS_ERROR_INVALID_OPERATION, 2, param1, param2);
+        rc = exec_rbus_multi_test(handle, RBUS_ERROR_NOT_WRITABLE, 2, param1, param2);
+      }
+      break;
+    case RBUS_GTEST_SET_MULTI_EXT1:
+      {
+        const char *param1 = "Device.rbusProvider.Param2";
+        const char *param2 = "Device.rbusProvider.PartialPath.1.Param1";
+        isElementPresent(handle, param1);
+        isElementPresent(handle, param2);
+        rc = exec_rbus_multiExt_test(handle, RBUS_ERROR_SUCCESS, 2, param1, param2);
+      }
+      break;
+    case RBUS_GTEST_SET_MULTI_EXT2:
+      {
+        const char *param1 = "Device.rbusProvider.Param2";
+        const char *param2 = "Device.rbusProvider.PartialPath.1.Param2";
+        isElementPresent(handle, param1);
+        isElementPresent(handle, param2);
+        rc = exec_rbus_multiExt_test(handle, RBUS_ERROR_NOT_WRITABLE, 2, param1, param2);
       }
       break;
     case RBUS_GTEST_GET1:

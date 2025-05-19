@@ -304,7 +304,10 @@ rtError rtThreadPool_RunTask(rtThreadPool pool, rtThreadPoolFunc func, void* use
   {
     task = rt_try_malloc(sizeof(struct _rtThreadTask));
     if(!task)
-      return rtErrorFromErrno(ENOMEM);
+    {
+        pthread_mutex_unlock(&pool->poolLock);
+        return rtErrorFromErrno(ENOMEM);
+    }
     rtLog_Debug("taskList data null so alloc new %p", (void*)task);
     rtListItem_SetData(item, task);
   }
@@ -321,7 +324,10 @@ rtError rtThreadPool_RunTask(rtThreadPool pool, rtThreadPoolFunc func, void* use
   {
     rtLog_Debug("%s creating new thread", __FUNCTION__);
     if((err = rtThreadPool_CreateWorkerThread(pool)) != RT_OK)
-      return err;
+    {
+        pthread_mutex_unlock(&pool->poolLock);
+        return err;
+    }
     if(pool->threadCount == pool->maxThreadCount - 1)
       rtLog_Debug("%s reached max thread count %zu", __FUNCTION__, pool->maxThreadCount);
   }
