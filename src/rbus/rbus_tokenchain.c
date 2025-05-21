@@ -189,7 +189,7 @@ TokenChain* TokenChain_create(char const* sourceName, elementNode* regNode)
                 }
                 else /* instance number */
                 {
-                    if(atoi(tok->text) > 0)
+                    if(atoi(tok->text) >= 0)
                     {
                         tok->type = TokenInstNum;
                     }
