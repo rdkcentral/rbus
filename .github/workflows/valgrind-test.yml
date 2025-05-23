@@ -63,6 +63,7 @@ jobs:
         run: |
             echo "creating check memory log script"
             cd ${{github.workspace}}
+            ls -lt
             chmod a+x memoryleak.sh
       - name: Start rtrouted
         run: |
