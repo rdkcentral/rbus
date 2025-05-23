@@ -1424,8 +1424,8 @@ int main(int argc, char *argv[])
     int i, j;
     int loopFor = 0;
     rtLogLevel logLvl = RT_LOG_WARN;
-    int *data = malloc(sizeof(int));
-	*data = 5;
+    int *rose = malloc(sizeof(int));
+	*rose = 5;
 	
 
     printf("provider: start\n");
