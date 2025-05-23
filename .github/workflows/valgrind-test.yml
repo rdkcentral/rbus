@@ -101,7 +101,8 @@ jobs:
             echo "leak found set to  $LEAKS_FOUND outside for"
             if [ "$LEAKS_FOUND" = true ]; then
               echo "inside leak found"
-              echo "status=failure" >> $GITHUB_ENV
+              exit 1
+              #echo "status=failure" >> $GITHUB_ENV
               cat $GITHUB_ENV
             else
               echo "status=success" >>$GITHUB_ENV
@@ -117,70 +118,12 @@ jobs:
           cd install/usr
           export PREFIX=$PWD
           export LD_LIBRARY_PATH=$PREFIX/lib
-          valgrind --leak-check=full --error-exitcode=1  ./bin/rtrouted -f -l DEBUG > /tmp/rtrouted_log.txt &
+          valgrind --leak-check=full --log-file=/tmp/valgrind/rtrouted.log  ./bin/rtrouted -f -l DEBUG  &
       - name: Run RbusTestTimeoutValues Unit test with valgrind
         run: |
           cd install/usr
           export PREFIX=$PWD
           export LD_LIBRARY_PATH=$PREFIX/lib
-          valgrind --leak-check=full --log-file=/tmp/rbusTestTimeoutValuesProvider.log ./bin/rbusTestTimeoutValuesProvider & 
-          valgrind --leak-check=full  --log-file=/tmp/rbusTestTimeoutValuesConsumer.log ./bin/rbusTestTimeoutValuesConsumer & 
-
-      - name: Run rbusTest Unit test with valgrind
-        run: |
-          cd install/usr
-          export PREFIX=$PWD
-          export LD_LIBRARY_PATH=$PREFIX/lib
-          valgrind --leak-check=full --log-file=/tmp/rbusTestProvider.log ./bin/rbusTestProvider & 
-          valgrind --leak-check=full  --log-file=/tmp/rbusTestConsumer.log ./bin/rbusTestConsumer -a    
-            
-      - name: Run test with rbusmethod provider
-        run: |
-          cd install/usr
-          export PREFIX=$PWD
-          export LD_LIBRARY_PATH=$PREFIX/lib
-          valgrind --leak-check=full --log-file=/tmp/rbusMethodProvider.log ./bin/rbusMethodProvider & 
-          valgrind --leak-check=full  --log-file=/tmp/rbusMethodConsumer.log ./bin/rbusMethodConsumer -a 
-    
-      - name: Run multiRbusOpenGet Unit test with Valgrind
-        run: |
-          cd install/usr
-          export PREFIX=$PWD
-          export LD_LIBRARY_PATH=$PREFIX/lib
-          valgrind --leak-check=full --log-file=/tmp/multiRbusGetProvider.log ./bin/multiRbusOpenRbusGetProvider  & 
-          valgrind --leak-check=full --log-file=/tmp/multiRbusGetConsumer.log ./bin/multiRbusOpenRbusGetConsumer &
-      - name: Run multiRbusOpenSet Unit test with Valgrind
-        run: |
-          cd install/usr
-          export PREFIX=$PWD
-          export LD_LIBRARY_PATH=$PREFIX/lib
-          valgrind --leak-check=full --log-file=/tmp/multiRbusOpenRbusGetProvider.log ./bin/multiRbusOpenRbusGetProvider  &
-          valgrind --leak-check=full --log-file=/tmp/multiRbusOpenRbusSetConsumer.log ./bin/multiRbusOpenRbusSetConsumer &
-      #- name: Run Gtest Cases with Valgrind
-        #run: |
-          #cd install/usr
-          #export PREFIX=$PWD
-          #export LD_LIBRARY_PATH=$PREFIX/lib
-          #valgrind --leak-check=full --log-file=/tmp/rbus_session_manager.log ./bin/rbus_session_manager &
-          #valgrind --leak-check=full --log-file=/tmp/rbus_gtest.log --track-origins=yes --verbose ./bin/rbus_gtest.bin 
-          #cat /tmp/rbus_gtest.log
-      #- name: Stop SessionManager
-        #run: |
-          #killall -9 rbus_session_mgr
-      - name: Run script.sh
-        run: |
-             ./memoryleak.sh
-      - name: Valgrind verification
-        run: |
-              source $GITHUB_ENV
-              cat $GITHUB_ENV
-              if [[ "$status" == "failure" ]]; then
-              echo "Leaks found"
-              exit 1
-              else
-              echo "No leaks found"
-              fi
-      
-
-
-           
+          valgrind --leak-check=full --log-file=/tmp/valgrind/rbusTestTimeoutValuesProvider.log ./bin/rbusTestTimeoutValuesProvider & 
+          valgrind --leak-check=full  --log-file=/tmp/valgrind/rbusTestTimeoutValuesConsumer.log ./bin/rbusTestTimeoutValuesConsumer & 
+          ./${{github.workspace}}/memoryleak.sh
