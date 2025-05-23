@@ -4,7 +4,7 @@
             SUMMARY_FILE=$GITHUB_STEP_SUMMARY  
             LEAKS_FOUND=false
             for LOG_FILE in $LOG_FOLDER/*.log; do
-             #cat $LOG_FILE 
+             echo "iterating through $LOG_FILE" 
              if ( grep -q "ERROR SUMMARY" $LOG_FILE  && ! grep -q "ERROR SUMMARY: 0 errors" $LOG_FILE ); then
              LEAKS_FOUND=true
              echo "leak found set to  $LEAK_FOUND"
