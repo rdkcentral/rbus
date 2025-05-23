@@ -1,9 +1,9 @@
             #!/bin/sh
             
-            LOG_PATH="$1"
+            LOG_FOLDER=/tmp/valgrind
             SUMMARY_FILE=$GITHUB_STEP_SUMMARY  
             LEAKS_FOUND=false
-            for LOG_FILE in $(eval echo $LOG_PATH); do
+            for LOG_FILE in $LOG_FOLDER/*.log; do
              echo "iterating through $LOG_FILE" 
              if ( grep -q "ERROR SUMMARY" $LOG_FILE  && ! grep -q "ERROR SUMMARY: 0 errors" $LOG_FILE ); then
              LEAKS_FOUND=true
