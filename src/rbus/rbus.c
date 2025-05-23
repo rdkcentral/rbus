@@ -4312,22 +4312,26 @@ rbusError_t _setMultiInternal(rbusHandle_t handle, uint32_t numProps, rbusProper
                                 if(result == RBUS_ERROR_SUCCESS)
                                     RBUSLOG_DEBUG("Successfully reverted back the values");
                                 else if((result != RBUS_ERROR_SUCCESS) && (pTempFailedElement))
-				{
+                                {
                                     RBUSLOG_WARN("Failed to rollback %s\n",pTempFailedElement);
-				    free(pTempFailedElement);
-				}
+                                    free(pTempFailedElement);
+                                }
                             }
                             if(legacyRetCode > RBUS_LEGACY_ERR_SUCCESS)
                             {
                                 errorcode = CCSPError_to_rbusError(legacyRetCode);
                             }
+                            if (componentName)
+                                free(componentName);
+                            rbusMessage_Release(setResponse);
                             break;
                         }
 
                         /* Release the reponse message */
                         rbusMessage_Release(setResponse);
                     }
-                    free(componentName);
+                    if (componentName)
+                        free(componentName);
                 }
                 else
                 {
@@ -4354,7 +4358,7 @@ rbusError_t _setMultiInternal(rbusHandle_t handle, uint32_t numProps, rbusProper
             free(componentNames);
     }
     if(cachedProperties)
-        free(cachedProperties);
+        rbusProperty_Release(cachedProperties);
     return errorcode;
 }
 

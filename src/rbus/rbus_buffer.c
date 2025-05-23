@@ -19,7 +19,7 @@
 #define _GNU_SOURCE 1
 #include <rbus.h>
 #include "rbus_log.h"
-#include "rbus_buffer.h"
+#include <rbus_buffer.h>
 #include "rtMemory.h"
 #include <endian.h>
 #include <assert.h>
