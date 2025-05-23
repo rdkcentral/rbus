@@ -33,9 +33,9 @@
             done
             #echo "leak found set to  $LEAKS_FOUND outside for"
             if [ "$LEAKS_FOUND" = true ]; then
-              echo "inside leak found"
+              echo "inside leak found ----"
               rm -rf /tmp/valgrind/*
-              ls -lt
+              ls -lt /tmp/valgrind
               exit 1
             else
               echo "no leaks found"
