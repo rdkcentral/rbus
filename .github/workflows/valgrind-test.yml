@@ -56,13 +56,17 @@ jobs:
         if: steps.cache.outputs.cache-hit != 'true'
         run: >
           make -C build/rbus install
-      - name: Setup script
+      - name: Folder generation
         run: |
             mkdir -p /tmp/valgrind
+      - name: Setup script
+        run: |
+           
             cat << 'EOF' >memoryleak.sh
             #!/bin/sh
             
             LOG_FOLDER="/tmp/valgrind"
+            ls -lt
             SUMMARY_FILE=$GITHUB_STEP_SUMMARY  
             LEAKS_FOUND=false
             for LOG_FILE in $LOG_FOLDER/*.log; do
