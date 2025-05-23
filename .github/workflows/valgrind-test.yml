@@ -62,7 +62,7 @@ jobs:
       - name: Setup script
         run: |
             echo "creating check memory log script"
-            cd ${{github.workspace}}
+            cd ${{github.workspace}}/rbus
             ls -lt
             chmod a+x memoryleak.sh
       - name: Start rtrouted
