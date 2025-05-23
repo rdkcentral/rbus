@@ -56,20 +56,16 @@ jobs:
         if: steps.cache.outputs.cache-hit != 'true'
         run: >
           make -C build/rbus install
-      - name: Start rtrouted
+      - name : Create folder for valgrind logs
         run: |
-          mkdir -p /tmp/valgrind
-          cd install/usr
-          export PREFIX=$PWD
-          export LD_LIBRARY_PATH=$PREFIX/lib
-          valgrind --leak-check=full --error-exitcode=1  ./bin/rtrouted -f -l DEBUG > /tmp/rtrouted_log.txt &
+             mkdir -p /tmp/valgrind
       - name: Setup script
         run: |
             echo "creating check memory log script"
             cat << 'EOF' >memoryleak.sh
             #!/bin/sh
             
-            LOG_FOLDER="/tmp"
+            LOG_FOLDER="/tmp/valgrind"
             SUMMARY_FILE=$GITHUB_STEP_SUMMARY  
             LEAKS_FOUND=false
             for LOG_FILE in $LOG_FOLDER/*.log; do
@@ -116,6 +112,12 @@ jobs:
             chmod a+x memoryleak.sh
             ls -lt
             #cat $GITHUB_ENV
+      - name: Start rtrouted
+        run: |
+          cd install/usr
+          export PREFIX=$PWD
+          export LD_LIBRARY_PATH=$PREFIX/lib
+          valgrind --leak-check=full --error-exitcode=1  ./bin/rtrouted -f -l DEBUG > /tmp/rtrouted_log.txt &
       - name: Run RbusTestTimeoutValues Unit test with valgrind
         run: |
           cd install/usr
