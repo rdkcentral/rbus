@@ -101,6 +101,7 @@ jobs:
             echo "leak found set to  $LEAKS_FOUND outside for"
             if [ "$LEAKS_FOUND" = true ]; then
               echo "inside leak found"
+              rm -rf /tmp/valgrind/*
               exit 1
               #echo "status=failure" >> $GITHUB_ENV
               #cat $GITHUB_ENV
@@ -127,4 +128,4 @@ jobs:
           valgrind --leak-check=full --log-file=/tmp/valgrind/rbusTestTimeoutValuesProvider.log ./bin/rbusTestTimeoutValuesProvider & 
           valgrind --leak-check=full  --log-file=/tmp/valgrind/rbusTestTimeoutValuesConsumer.log ./bin/rbusTestTimeoutValuesConsumer & 
            cd ${{github.workspace}}
-           ls -lt
+           ./memoryleak.sh
