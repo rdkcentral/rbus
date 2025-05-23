@@ -2,9 +2,9 @@
 name: unit_tests_valgrind
 on:
   push:
-     branches: [ main, 'rbus-**' ,rbus-codecoverage ]
+     branches: [ main, 'rbus-**' ]
   pull_request:
-     branches: [ main, 'rbus-**', rbus-codecoverage ]
+     branches: [ main, 'rbus-**' ]
      types: [opened,synchronize]
   #workflow_run:
    #workflows: ["unit_test"]
