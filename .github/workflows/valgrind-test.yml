@@ -94,32 +94,23 @@ jobs:
               fi
               #cat $LOG_FILE >>$SUMMARY_FILE
              echo "*************************" >>$SUMMARY_FILE
-             else
-              echo "No memory leaks found $LOG_FILE"
-             fi
+            fi
             done
             echo "leak found set to  $LEAKS_FOUND outside for"
             if [ "$LEAKS_FOUND" = true ]; then
               echo "inside leak found"
               rm -rf /tmp/valgrind/*
               exit 1
-              #echo "status=failure" >> $GITHUB_ENV
-              #cat $GITHUB_ENV
-            else
-              echo "status=success" >>$GITHUB_ENV
-              echo "No leaks found, Ready for PR">>$SUMMARY_FILE
-              #cat $GITHUB_ENV
             fi
             EOF
             chmod a+x memoryleak.sh
-            ls -lt
-            #cat $GITHUB_ENV
       - name: Start rtrouted
         run: |
           cd install/usr
           export PREFIX=$PWD
           export LD_LIBRARY_PATH=$PREFIX/lib
           valgrind --leak-check=full --log-file=/tmp/valgrind/rtrouted.log  ./bin/rtrouted -f -l DEBUG  &
+          cd ${{github.workspace}} && ./memoryleak.sh
       - name: Run RbusTestTimeoutValues Unit test with valgrind
         run: |
           cd install/usr
@@ -127,5 +118,46 @@ jobs:
           export LD_LIBRARY_PATH=$PREFIX/lib
           valgrind --leak-check=full --log-file=/tmp/valgrind/rbusTestTimeoutValuesProvider.log ./bin/rbusTestTimeoutValuesProvider & 
           valgrind --leak-check=full  --log-file=/tmp/valgrind/rbusTestTimeoutValuesConsumer.log ./bin/rbusTestTimeoutValuesConsumer & 
-           cd ${{github.workspace}}
-           ./memoryleak.sh
+          cd ${{github.workspace}} && ./memoryleak.sh
+      - name: Run rbusTest Unit test with valgrind
+        run: |
+          cd install/usr
+          export PREFIX=$PWD
+          export LD_LIBRARY_PATH=$PREFIX/lib
+          valgrind --leak-check=full --log-file=/tmp/rbusTestProvider.log ./bin/rbusTestProvider & 
+          valgrind --leak-check=full  --log-file=/tmp/rbusTestConsumer.log ./bin/rbusTestConsumer -a    
+          cd ${{github.workspace}} && ./memoryleak.sh  
+      - name: Run test with rbusmethod provider
+        run: |
+          cd install/usr
+          export PREFIX=$PWD
+          export LD_LIBRARY_PATH=$PREFIX/lib
+          valgrind --leak-check=full --log-file=/tmp/rbusMethodProvider.log ./bin/rbusMethodProvider & 
+          valgrind --leak-check=full  --log-file=/tmp/rbusMethodConsumer.log ./bin/rbusMethodConsumer -a 
+          cd ${{github.workspace}} && ./memoryleak.sh  
+      - name: Run multiRbusOpenGet Unit test with Valgrind
+        run: |
+          cd install/usr
+          export PREFIX=$PWD
+          export LD_LIBRARY_PATH=$PREFIX/lib
+          valgrind --leak-check=full --log-file=/tmp/multiRbusGetProvider.log ./bin/multiRbusOpenRbusGetProvider  & 
+          valgrind --leak-check=full --log-file=/tmp/multiRbusGetConsumer.log ./bin/multiRbusOpenRbusGetConsumer &
+          cd ${{github.workspace}} && ./memoryleak.sh
+      - name: Run multiRbusOpenSet Unit test with Valgrind
+        run: |
+          cd install/usr
+          export PREFIX=$PWD
+          export LD_LIBRARY_PATH=$PREFIX/lib
+          valgrind --leak-check=full --log-file=/tmp/multiRbusOpenRbusGetProvider.log ./bin/multiRbusOpenRbusGetProvider  &
+          valgrind --leak-check=full --log-file=/tmp/multiRbusOpenRbusSetConsumer.log ./bin/multiRbusOpenRbusSetConsumer &
+          cd ${{github.workspace}} && ./memoryleak.sh
+      #- name: Run Gtest Cases with Valgrind
+        #run: |
+          #cd install/usr
+          #export PREFIX=$PWD
+          #export LD_LIBRARY_PATH=$PREFIX/lib
+          #valgrind --leak-check=full --log-file=/tmp/rbus_session_manager.log ./bin/rbus_session_manager &
+          #valgrind --leak-check=full --log-file=/tmp/rbus_gtest.log --track-origins=yes --verbose ./bin/rbus_gtest.bin  
+      - name: Stop rtrouted
+        run: |
+          killall -9 rtrouted
