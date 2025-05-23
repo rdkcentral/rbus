@@ -75,15 +75,17 @@ jobs:
           cd install/usr
           export PREFIX=$PWD
           export LD_LIBRARY_PATH=$PREFIX/lib
-          valgrind --leak-check=full --log-file=/tmp/rbusTestTimeoutValuesProvider.log ./bin/rbusTestTimeoutValuesProvider & 
-          valgrind --leak-check=full  --log-file=/tmp/rbusTestTimeoutValuesConsumer.log ./bin/rbusTestTimeoutValuesConsumer & 
+          valgrind --leak-check=full --log-file=/tmp/valgrind/rbusTestTimeoutValuesProvider.log ./bin/rbusTestTimeoutValuesProvider & 
+          valgrind --leak-check=full  --log-file=/tmp/valgrind/rbusTestTimeoutValuesConsumer.log ./bin/rbusTestTimeoutValuesConsumer & 
+          cd ${{github.workspace}}/rbus && ./memoryleak.sh 
       - name: Run rbusTest Unit test with valgrind
         run: |
           cd install/usr
           export PREFIX=$PWD
           export LD_LIBRARY_PATH=$PREFIX/lib
-          valgrind --leak-check=full --log-file=/tmp/rbusTestProvider.log ./bin/rbusTestProvider & 
-          valgrind --leak-check=full  --log-file=/tmp/rbusTestConsumer.log ./bin/rbusTestConsumer -a    
+          valgrind --leak-check=full --log-file=/tmp/valgrind/rbusTestProvider.log ./bin/rbusTestProvider & 
+          valgrind --leak-check=full  --log-file=/tmp/valgrind/rbusTestConsumer.log ./bin/rbusTestConsumer -a  
+          cd ${{github.workspace}}/rbus && ./memoryleak.sh 
      
       - name: Run test with rbusmethod provider
         run: |
