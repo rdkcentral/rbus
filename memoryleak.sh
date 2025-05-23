@@ -1,6 +1,6 @@
             #!/bin/sh
             
-            LOG_FOLDER=/tmp/valgrind
+            LOG_FOLDER="/tmp/valgrind"
             SUMMARY_FILE=$GITHUB_STEP_SUMMARY  
             LEAKS_FOUND=false
             for LOG_FILE in $LOG_FOLDER/*.log; do
