@@ -2,14 +2,11 @@
 name: unit_tests_valgrind
 on:
   push:
-     branches: [ main, 'rbus-**' ,rbus-codecoverage ]
+     branches: [ main, 'rbus-**' ]
   pull_request:
-     branches: [ main, 'rbus-**', rbus-codecoverage ]
+     branches: [ main, 'rbus-**' ]
      types: [opened,synchronize]
-  #workflow_run:
-   #workflows: ["unit_test"]
-   #types:
-    #    -completed
+
 jobs:
   all:
     runs-on: ubuntu-22.04
@@ -66,7 +63,6 @@ jobs:
             #!/bin/sh
             
             LOG_FOLDER="/tmp/valgrind"
-            ls -lt
             SUMMARY_FILE=$GITHUB_STEP_SUMMARY  
             LEAKS_FOUND=false
             for LOG_FILE in $LOG_FOLDER/*.log; do
