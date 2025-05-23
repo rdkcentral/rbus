@@ -101,7 +101,7 @@ jobs:
             if [ "$LEAKS_FOUND" = true ]; then
               echo "inside leak found"
               cd /tmp/valgrind
-              rm rf *.log
+              rm -rf *.log
               exit 1
             fi
             EOF
