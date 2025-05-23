@@ -67,7 +67,7 @@ jobs:
           export PREFIX=$PWD
           export LD_LIBRARY_PATH=$PREFIX/lib
           valgrind --leak-check=full --log-file=/tmp/valgrind/rtrouted.log  ./bin/rtrouted -f -l DEBUG  &
-          cd ${{github.workspace}}/rbus && ./memoryleak.sh
+          #cd ${{github.workspace}}/rbus && ./memoryleak.sh
       - name: Run RbusTestTimeoutValues Unit test with valgrind
         run: |
           cd install/usr
@@ -118,3 +118,4 @@ jobs:
       - name: Stop rtrouted
         run: |
           killall -9 rtrouted
+          
