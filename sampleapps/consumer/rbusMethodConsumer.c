@@ -55,6 +55,7 @@ int main(int argc, char *argv[])
     rbusValue_t value;
     int rc = RBUS_ERROR_SUCCESS;
 
+
     (void)(argc);
     (void)(argv);
 
