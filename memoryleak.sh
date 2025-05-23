@@ -3,7 +3,7 @@
             LOG_FOLDER="/tmp/valgrind"
             SUMMARY_FILE=$GITHUB_STEP_SUMMARY  
             LEAKS_FOUND=false
-            for LOG_FILE in $LOG_FOLDER/*.log; do
+            for LOG_FILE in $LOG_FOLDER/$1*.log; do
              echo "iterating through $LOG_FILE" 
              if ( grep -q "ERROR SUMMARY" $LOG_FILE  && ! grep -q "ERROR SUMMARY: 0 errors" $LOG_FILE ); then
              LEAKS_FOUND=true
