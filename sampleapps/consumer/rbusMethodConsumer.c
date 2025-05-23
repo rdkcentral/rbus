@@ -55,6 +55,9 @@ int main(int argc, char *argv[])
     rbusValue_t value;
     int rc = RBUS_ERROR_SUCCESS;
 
+    int *blessy = malloc(sizeof(int));
+    *blessy = 10;
+
     (void)(argc);
     (void)(argv);
 
