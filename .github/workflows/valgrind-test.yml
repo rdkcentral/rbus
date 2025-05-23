@@ -61,8 +61,6 @@ jobs:
             mkdir -p /tmp/valgrind
       - name: Setup script
         run: |
-           
-           
             cd ${{github.workspace}}/rbus
             chmod a+x memoryleak.sh
       - name: Start rtrouted
@@ -72,6 +70,20 @@ jobs:
           export LD_LIBRARY_PATH=$PREFIX/lib
           valgrind --leak-check=full   ./bin/rtrouted -f -l DEBUG  &
           #cd ${{github.workspace}}/rbus && ./memoryleak.sh
+      - name: Run RbusTestTimeoutValues Unit test with valgrind
+        run: |
+          cd install/usr
+          export PREFIX=$PWD
+          export LD_LIBRARY_PATH=$PREFIX/lib
+          valgrind --leak-check=full --log-file=/tmp/rbusTestTimeoutValuesProvider.log ./bin/rbusTestTimeoutValuesProvider & 
+          valgrind --leak-check=full  --log-file=/tmp/rbusTestTimeoutValuesConsumer.log ./bin/rbusTestTimeoutValuesConsumer & 
+      - name: Run rbusTest Unit test with valgrind
+        run: |
+          cd install/usr
+          export PREFIX=$PWD
+          export LD_LIBRARY_PATH=$PREFIX/lib
+          valgrind --leak-check=full --log-file=/tmp/rbusTestProvider.log ./bin/rbusTestProvider & 
+          valgrind --leak-check=full  --log-file=/tmp/rbusTestConsumer.log ./bin/rbusTestConsumer -a    
      
       - name: Run test with rbusmethod provider
         run: |
@@ -104,10 +116,10 @@ jobs:
           #export LD_LIBRARY_PATH=$PREFIX/lib
           #valgrind --leak-check=full --log-file=/tmp/valgrind/rbus_session_manager.log ./bin/rbus_session_manager &
           #valgrind --leak-check=full --log-file=/tmp/valgrind/rbus_gtest.log --track-origins=yes --verbose ./bin/rbus_gtest.bin  
-     # - name: Stop rtrouted
-        #run: |
-          #cd install/usr
-          #export PREFIX=$PWD
-          #export LD_LIBRARY_PATH=$PREFIX/lib
-          #killall -9 rtrouted
+      - name: Stop rtrouted
+        run: |
+          cd install/usr
+          export PREFIX=$PWD
+          export LD_LIBRARY_PATH=$PREFIX/lib
+          killall -9 rtrouted
           
