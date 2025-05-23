@@ -77,7 +77,7 @@ jobs:
           export LD_LIBRARY_PATH=$PREFIX/lib
           valgrind --leak-check=full --log-file=/tmp/valgrind/rbusTestTimeoutValuesProvider.log ./bin/rbusTestTimeoutValuesProvider & 
           valgrind --leak-check=full  --log-file=/tmp/valgrind/rbusTestTimeoutValuesConsumer.log ./bin/rbusTestTimeoutValuesConsumer & 
-          cd ${{github.workspace}}/rbus && ./memoryleak.sh rbusTestTimeoutValues*.log
+          cd ${{github.workspace}}/rbus && ./memoryleak.sh rbusTestTimeoutValues*
       - name: Run rbusTest Unit test with valgrind
         run: |
           cd install/usr
@@ -85,7 +85,7 @@ jobs:
           export LD_LIBRARY_PATH=$PREFIX/lib
           valgrind --leak-check=full --log-file=/tmp/valgrind/rbusTestProvider.log ./bin/rbusTestProvider & 
           valgrind --leak-check=full  --log-file=/tmp/valgrind/rbusTestConsumer.log ./bin/rbusTestConsumer -a  
-          cd ${{github.workspace}}/rbus && ./memoryleak.sh rbusTestConsumer*.log
+          cd ${{github.workspace}}/rbus && ./memoryleak.sh rbusTestConsumer*
      
       - name: Run test with rbusmethod provider
         run: |
@@ -94,7 +94,7 @@ jobs:
           export LD_LIBRARY_PATH=$PREFIX/lib
           valgrind --leak-check=full --log-file=/tmp/valgrind/rbusMethodProvider.log ./bin/rbusMethodProvider & 
           valgrind --leak-check=full  --log-file=/tmp/valgrind/rbusMethodConsumer.log ./bin/rbusMethodConsumer -a 
-          cd ${{github.workspace}}/rbus && ./memoryleak.sh   rbusMethod*.log
+          cd ${{github.workspace}}/rbus && ./memoryleak.sh   rbusMethod*
       - name: Run multiRbusOpenGet Unit test with Valgrind
         run: |
           cd install/usr
@@ -102,7 +102,7 @@ jobs:
           export LD_LIBRARY_PATH=$PREFIX/lib
           valgrind --leak-check=full --log-file=/tmp/valgrind/multiRbusGetProvider.log ./bin/multiRbusOpenRbusGetProvider  & 
           valgrind --leak-check=full --log-file=/tmp/valgrind/multiRbusGetConsumer.log ./bin/multiRbusOpenRbusGetConsumer &
-          cd ${{github.workspace}}/rbus && ./memoryleak.sh multiRbusGet*.log
+          cd ${{github.workspace}}/rbus && ./memoryleak.sh multiRbusGet*
       - name: Run multiRbusOpenSet Unit test with Valgrind
         run: |
           cd install/usr
@@ -110,7 +110,7 @@ jobs:
           export LD_LIBRARY_PATH=$PREFIX/lib
           valgrind --leak-check=full --log-file=/tmp/valgrind/multiRbusOpenRbusGetProvider.log ./bin/multiRbusOpenRbusGetProvider  &
           valgrind --leak-check=full --log-file=/tmp/valgrind/multiRbusOpenRbusSetConsumer.log ./bin/multiRbusOpenRbusSetConsumer &
-          cd ${{github.workspace}}/rbus && ./memoryleak.sh multiRbusOpenRbusSet*.log
+          cd ${{github.workspace}}/rbus && ./memoryleak.sh multiRbusOpenRbusSet*
       #- name: Run Gtest Cases with Valgrind
         #run: |
           #cd install/usr
