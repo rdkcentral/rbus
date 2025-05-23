@@ -103,11 +103,11 @@ jobs:
               echo "inside leak found"
               exit 1
               #echo "status=failure" >> $GITHUB_ENV
-              cat $GITHUB_ENV
+              #cat $GITHUB_ENV
             else
               echo "status=success" >>$GITHUB_ENV
               echo "No leaks found, Ready for PR">>$SUMMARY_FILE
-              cat $GITHUB_ENV
+              #cat $GITHUB_ENV
             fi
             EOF
             chmod a+x memoryleak.sh
@@ -126,4 +126,5 @@ jobs:
           export LD_LIBRARY_PATH=$PREFIX/lib
           valgrind --leak-check=full --log-file=/tmp/valgrind/rbusTestTimeoutValuesProvider.log ./bin/rbusTestTimeoutValuesProvider & 
           valgrind --leak-check=full  --log-file=/tmp/valgrind/rbusTestTimeoutValuesConsumer.log ./bin/rbusTestTimeoutValuesConsumer & 
-          ./${{github.workspace}}/memoryleak.sh
+           cd ${{github.workspace}}
+           ls -lt
