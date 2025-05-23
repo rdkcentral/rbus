@@ -105,5 +105,5 @@ jobs:
           #cd install/usr
           #export PREFIX=$PWD
           #export LD_LIBRARY_PATH=$PREFIX/lib
-          killall -9 rtrouted
+          #killall -9 rtrouted
           
