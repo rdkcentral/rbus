@@ -31,9 +31,11 @@
              echo "*************************" >>$SUMMARY_FILE
             fi
             done
-            echo "leak found set to  $LEAKS_FOUND outside for"
+            #echo "leak found set to  $LEAKS_FOUND outside for"
             if [ "$LEAKS_FOUND" = true ]; then
               echo "inside leak found"
               rm -rf /tmp/valgrind/*
               exit 1
+            else
+              echo "no leaks found"
             fi
