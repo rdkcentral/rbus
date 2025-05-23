@@ -35,6 +35,7 @@
             if [ "$LEAKS_FOUND" = true ]; then
               echo "inside leak found"
               rm -rf /tmp/valgrind/*
+              ls -lt
               exit 1
             else
               echo "no leaks found"
