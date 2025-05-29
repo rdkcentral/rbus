@@ -4192,6 +4192,7 @@ rbusError_t _setMultiInternal(rbusHandle_t handle, uint32_t numProps, rbusProper
             if(errorcode == RBUS_ERROR_INVALID_INPUT)
             {
                 free(componentNames);
+	        free(pParamNames);
                 return RBUS_ERROR_INVALID_INPUT;
             }
 
