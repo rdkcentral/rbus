@@ -134,6 +134,15 @@ add_executable(rbusTestTimeoutValuesConsumer
 add_dependencies(rbusTestTimeoutValuesConsumer rbus)
 target_link_libraries(rbusTestTimeoutValuesConsumer rbus)
 
+add_executable(rbusTestSetMultiProvider
+    rbusGetExtSetMulti/testSetMultiProvider.c)
+add_dependencies(rbusTestSetMultiProvider rbus)
+target_link_libraries(rbusTestSetMultiProvider rbus)
+
+add_executable(rbusTestSetMultiConsumer
+    rbusGetExtSetMulti/testSetMultiConsumer.c)
+add_dependencies(rbusTestSetMultiConsumer rbus)
+target_link_libraries(rbusTestSetMultiConsumer rbus)
 
 
 
