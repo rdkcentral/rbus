@@ -113,5 +113,15 @@ jobs:
       - name:  Run CodeCoverage
         run: |
             rm -rf /tmp/rtrouted*
-            cd build/rbus
-            make rbusCodeCoverageUI 
+            lcov -c -o coverage.info -d build/rbus/src
+            lcov --remove coverage.info '/usr/include/x86_64-linux-gnu/*' -o filtered-coverage.info
+      - name: Generate the html report
+        run: |
+            genhtml filtered-coverage.info --output-directory /tmp/coverage_report
+
+      - name: Upload the coverage report to Pull request using actions
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: /tmp/coverage_report
+            
