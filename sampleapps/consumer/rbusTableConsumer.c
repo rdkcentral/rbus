@@ -109,9 +109,6 @@ int main(int argc, char *argv[])
         {"Device.Tables1.T1.", NULL, 0, 0, eventReceiveHandler, "Initial_value", NULL, NULL, true}
     };
 
-    /*add rows to the T1 table with aliases 'colors' and 'shapes'*/
-    rbusTable_addRow(handle, "Device.Tables1.T1.", "colors", &instColors);
-    rbusTable_addRow(handle, "Device.Tables1.T1.", "shapes", &instShapes);
     /*subscribe to table T1 events*/
     rc = rbusEvent_SubscribeEx(handle, subscriptions, 1, 0);
     if(rc != RBUS_ERROR_SUCCESS)
