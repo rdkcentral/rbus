@@ -61,6 +61,7 @@ typedef volatile int atomic_uint_least32_t;
 #include <sys/time.h>
 
 #define RTMSG_LISTENERS_MAX 128
+#define MAX_ALLOWED_MESSAGES 25
 #define RTCONNECTION_CREATE_EXPRESSION_ID 1
 #ifdef  RDKC_BUILD
 #define RTMSG_SEND_BUFFER_SIZE (1024 * 8)
@@ -1485,10 +1486,14 @@ rtConnection_Read(rtConnection con, int32_t timeout)
 
   rtMessageInfo_Init(&msginfo);
   if(!msginfo)
+  {
+    rtLog_Error("MsgInfo initialization failed");
     return rtErrorFromErrno(ENOMEM);
+  }
 
   if (!con)
   {
+    rtLog_Error("rtConnection is NULL");
     rtMessageInfo_Release(msginfo);
     return rtErrorFromErrno(EINVAL);
   }
@@ -1502,6 +1507,7 @@ rtConnection_Read(rtConnection con, int32_t timeout)
 
     if (err == RT_ERROR_TIMEOUT)
     {
+        rtLog_Error("rtConnection_Read timed out\n");
         rtMessageInfo_Release(msginfo); 
         return err;
     }
@@ -1537,6 +1543,7 @@ rtConnection_Read(rtConnection con, int32_t timeout)
       {
         msginfo->data = (uint8_t *)rt_try_malloc(msginfo->header.payload_length + 1);
         if(!msginfo->data){
+          rtLog_Error("Failed to allocate memory for msginfo->data");
           rtMessageInfo_Release(msginfo);
           return rtErrorFromErrno(ENOMEM);
         }
@@ -1584,6 +1591,7 @@ rtConnection_Read(rtConnection con, int32_t timeout)
     if (err != RT_OK && rtConnection_ShouldReregister(err))
     {
         rtMessageInfo_Release(msginfo);
+        rtLog_Error("No rtConnection, It should be Reregistered");
         return RT_NO_CONNECTION;
     }
   }
@@ -1638,29 +1646,50 @@ rtConnection_Read(rtConnection con, int32_t timeout)
       /*request message must be dispatched to the Callback thread*/
       rtListItem listItem;
 
-      pthread_mutex_lock(&con->callback_message_mutex);
-
-      rtList_PushBack(con->callback_message_list, msginfo, &listItem);
-      msginfo = NULL; /*the callback thread will release it*/
-
-      /*log something if the callback thread isn't processing fast enough*/
       size_t size;
+      rtMessageInfo* data;
+      rtListItem Item;
+      static bool isErrorLog = true;
+
       rtList_GetSize(con->callback_message_list, &size);
-      if(size >= 5)
+      rtList_GetFront(con->callback_message_list, &Item);
+      rtListItem_GetData(Item, (void**)&data);
+      if(size > MAX_ALLOWED_MESSAGES)
       {
-        if(size == 5 || size == 10 || size == 20 || size == 40 || size == 80)
-          rtLog_Debug("callback_message_list has reached %lu", (unsigned long)size);
-        else if(size >= 100)
-          rtLog_Debug("callback_message_list has reached %lu", (unsigned long)size);
+         if(isErrorLog)
+         {
+             rtLog_Error("PROVIDER_NOT_RESPONDING: %s failed to respond back, %lu messages queued up", data->header.topic, size);
+             isErrorLog = false;
+         }
+         else
+             rtLog_Debug("PROVIDER_NOT_RESPONDING: %s failed to respond back, %lu messages queued up", data->header.topic, size);
+
       }
+      else
+      {
+          pthread_mutex_lock(&con->callback_message_mutex);
+          rtList_PushBack(con->callback_message_list, msginfo, &listItem);
 
-      /*wake the callback thread up to process new message*/
-      pthread_cond_signal(&con->callback_message_cond);
+          msginfo = NULL; /*the callback thread will release it*/
 
-      pthread_mutex_unlock(&con->callback_message_mutex);
+          /*log something if the callback thread isn't processing fast enough*/
+          if(size % 5 == 0)
+          {
+              if(data)
+                  rtLog_Warn("PROVIDER_NOT_RESPONDING: Awaiting response from %s Currently, %lu messages are queued.", data->header.topic, size);
+
+          }
+
+          /*wake the callback thread up to process new message*/
+          int signal = pthread_cond_signal(&con->callback_message_cond);
+          if(signal !=0)
+          {
+              rtLog_Error("ReaderThread condition signal failed");
+          }
+          pthread_mutex_unlock(&con->callback_message_mutex);
+      }
     }
   }
-
   /*if the message wasn't sent off to another thread then release it*/
   if(msginfo)
   {
