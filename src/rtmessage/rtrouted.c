@@ -1502,13 +1502,15 @@ static char*
 rtRouted_GetClientName(rtConnectedClient* clnt)
 {
   size_t i;
-  i = rtVector_Size(gRoutes);
+  size_t routes_size = rtVector_Size(gRoutes);
+
   char *clnt_name = NULL;
-  while(i--)
+
+  for (i = routes_size; i > 0; i--)
   {
-    rtRouteEntry* route = (rtRouteEntry *) rtVector_At(gRoutes, i);
+    rtRouteEntry* route = (rtRouteEntry *) rtVector_At(gRoutes, i - 1);
     if(route && (route->subscription) && (route->subscription->client)) {
-      if(strcmp( route->subscription->client->ident, clnt->ident ) == 0) {
+      if(strcmp(route->subscription->client->ident, clnt->ident ) == 0) {
         clnt_name = route->expression;
         break;
       }
