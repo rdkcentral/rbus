@@ -64,32 +64,6 @@ rbusError_t getHandler(rbusHandle_t handle, rbusProperty_t property, rbusGetHand
 
     if(strcmp(name, "rbus_obj_block") == 0)
         while(1);
-    if(strcmp(name, "Device.NonBlocking.Test1") == 0)
-    {
-        printf("Called get handler for [%s]\n", name);
-        rbusValue_SetString(value, "Test1");
-    }
-    if(strcmp(name, "Device.NonBlocking.Test2") == 0)
-    {
-        printf("Called get handler for [%s]\n", name);
-        rbusValue_SetString(value, "Test2");
-    }
-    if(strcmp(name, "Device.NonBlocking.Test3") == 0)
-    {
-        printf("Called get handler for [%s]\n", name);
-        rbusValue_SetString(value, "Test3");
-    }
-    if(strcmp(name, "Device.NonBlocking.Test4") == 0)
-    {
-        printf("Called get handler for [%s]\n", name);
-        rbusValue_SetString(value, "Test4");
-    }
-    if(strcmp(name, "Device.NonBlocking.Test5") == 0)
-    {
-        printf("Called get handler for [%s]\n", name);
-        rbusValue_SetString(value, "Test5");
-    }
-
     rbusValue_Release(value);
 
     return RBUS_ERROR_SUCCESS;
@@ -151,6 +125,7 @@ int main(int argc, char *argv[])
         }
         count++;
         sleep(1);
+        rbusProperty_Release(prop);
     }
     pause(); 
 

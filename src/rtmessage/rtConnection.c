@@ -1651,6 +1651,8 @@ rtConnection_Read(rtConnection con, int32_t timeout)
       rtListItem Item;
       static bool isErrorLog = true;
 
+
+      pthread_mutex_lock(&con->callback_message_mutex);
       rtList_GetSize(con->callback_message_list, &size);
       rtList_GetFront(con->callback_message_list, &Item);
       rtListItem_GetData(Item, (void**)&data);
@@ -1667,7 +1669,7 @@ rtConnection_Read(rtConnection con, int32_t timeout)
       }
       else
       {
-          pthread_mutex_lock(&con->callback_message_mutex);
+          //pthread_mutex_lock(&con->callback_message_mutex);
           rtList_PushBack(con->callback_message_list, msginfo, &listItem);
 
           msginfo = NULL; /*the callback thread will release it*/
@@ -1686,8 +1688,8 @@ rtConnection_Read(rtConnection con, int32_t timeout)
           {
               rtLog_Error("ReaderThread condition signal failed");
           }
-          pthread_mutex_unlock(&con->callback_message_mutex);
       }
+      pthread_mutex_unlock(&con->callback_message_mutex);
     }
   }
   /*if the message wasn't sent off to another thread then release it*/

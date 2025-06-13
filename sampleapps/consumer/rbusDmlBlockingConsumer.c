@@ -62,14 +62,13 @@ int main(int argc, char *argv[])
     while(1)
     {
         rc = rbus_get(handle, paramNames[count], &value);
-        sleep(1);
+        sleep(0.1);
         if(count >= TotalParams)
             count = 0;
         else
             count++;
     }
 
-    sleep(100);
     rbus_close(handle);
 exit1:
     printf("constumer: exit\n");
