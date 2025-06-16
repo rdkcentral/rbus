@@ -290,13 +290,15 @@ rtConnection_ConnectAndRegister(rtConnection con, rtTime_t* reconnect_time)
   int first_to_handle = false;
   int is_first_connect = true;
   int reconnect_in_progress = 0;
-  rtTime_t last_reconnect_time = con->reconnect_time;
+  rtTime_t last_reconnect_time;
   char tbuff1[100];
   char tbuff2[100];
   char tbuff3[100];
 
   if (!con)
     return rtErrorFromErrno(EINVAL);
+
+  last_reconnect_time = con->reconnect_time;
 
   if(con->fd != -1)
     is_first_connect = false;
