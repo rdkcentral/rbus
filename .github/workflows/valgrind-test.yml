@@ -27,7 +27,7 @@ jobs:
           cmake-version: '3.16.x'
       - name: Install packages
         run: >
-          sudo apt update && sudo apt install -y libcurl4-openssl-dev libgtest-dev lcov gcovr libev-dev valgrind libxml2-utils
+          sudo apt update && sudo apt install -y libcurl4-openssl-dev libgtest-dev lcov gcovr libev-dev valgrind libxml2-utils libmsgpack* libcjson-dev  build-essential
       - name: Checkout rbus
         if: steps.cache.outputs.cache-hit != 'true'
         uses: actions/checkout@v3
