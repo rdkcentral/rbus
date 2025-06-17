@@ -95,9 +95,9 @@ option(BUILD_SESSIONMGR_SAMPLE_APPS "BUILD_SESSIONMGR_SAMPLE_APPS" OFF)
 option(ENABLE_RDKLOGGER "ENABLE_RDKLOGGER" OFF)
 option(RDKC_BUILD "RDKC_BUILD" OFF)
 option(WITH_SPAKE2 "WITH_SPAKE2" OFF)
-option(MSG_ROUNDTRIP_TIME "MSG_ROUNDTRIP_TIME" OFF)
+option(MSG_ROUNDTRIP_TIME "MSG_ROUNDTRIP_TIME" OFF
 
-
+find_package(cJSON REQUIRED)
 
 if (BUILD_FOR_DESKTOP)
   set(MSG_ROUNDTRIP_TIME ON)
@@ -105,32 +105,6 @@ if (BUILD_FOR_DESKTOP)
   include_directories(${CMAKE_INSTALL_PREFIX}/include)
 
   include(ExternalProject)
-  ExternalProject_Add(
-    cjson
-    GIT_REPOSITORY https://github.com/DaveGamble/cJSON.git
-    GIT_TAG v1.6.0
-    INSTALL_DIR ${CMAKE_CURRENT_BINARY_DIR}
-    INSTALL_COMMAND ""
-    CONFIGURE_COMMAND ""
-    BUILD_IN_SOURCE 1
-    PREFIX deps
-    CMAKE_ARGS "-DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX}"
-    BUILD_COMMAND make)
-
-  include_directories(
-    ${CMAKE_CURRENT_SOURCE_DIR}
-    ${CMAKE_CURRENT_BINARY_DIR}/deps/src)
-  link_directories(
-    ${CMAKE_CURRENT_SOURCE_DIR}
-    ${CMAKE_CURRENT_BINARY_DIR}/deps/src/cjson
-    ${CMAKE_BINARY_DIR}
-    ${LIBRARY_DIR})
-  
-  set(CJSON_LIBRARIES "-lcjson")
-
-    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/deps/src/cjson/libcjson.so ${CMAKE_CURRENT_BINARY_DIR}/deps/src/cjson/libcjson.so.1 ${CMAKE_CURRENT_BINARY_DIR}/deps/src/cjson/libcjson.so.1.6.0 DESTINATION ${CMAKE_INSTALL_LIBDIR})
-
-
   ExternalProject_Add(
     linenoise
     GIT_REPOSITORY https://github.com/antirez/linenoise.git
@@ -159,7 +133,6 @@ if (BUILD_FOR_DESKTOP)
   
 
 else()
-  find_package(cJSON REQUIRED)
   IF (NOT BUILD_ONLY_RTMESSAGE)
    find_package(msgpack REQUIRED)
    find_package(linenoise REQUIRED)
