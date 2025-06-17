@@ -235,6 +235,7 @@ endif (ENABLE_RDKLOGGER)
 add_subdirectory(src)
 
 IF (NOT BUILD_ONLY_RTMESSAGE)
+   add_subdirectory(utils)
    add_subdirectory(test)
 ENDIF ()
 
