@@ -63,9 +63,11 @@ rbusError_t getHandler(rbusHandle_t handle, rbusProperty_t property, rbusGetHand
     rbusProperty_SetValue(property, value);
 
     if(strcmp(name, "rbus_obj_block") == 0)
+        sleep(30);
+    if(strcmp(name, "Device.Blocking.Test0") == 0)
         while(1);
-    rbusValue_Release(value);
 
+    rbusValue_Release(value);
     return RBUS_ERROR_SUCCESS;
 }
 
@@ -84,6 +86,7 @@ int main(int argc, char *argv[])
         {"rbus_event", RBUS_ELEMENT_TYPE_EVENT, {NULL, NULL, NULL, NULL, eventSubHandler, NULL}},
         {"rbus_obj_block", RBUS_ELEMENT_TYPE_PROPERTY, {getHandler, NULL, NULL, NULL, NULL, NULL}},
         {"rbus_obj_nonblock", RBUS_ELEMENT_TYPE_PROPERTY, {getHandler, NULL, NULL, NULL, NULL, NULL}},
+        {"Device.Blocking.Test0", RBUS_ELEMENT_TYPE_PROPERTY, {getHandler, NULL, NULL, NULL, NULL, NULL}},
         {"Device.NonBlocking.Test1", RBUS_ELEMENT_TYPE_PROPERTY, {getHandler, NULL, NULL, NULL, NULL, NULL}},
         {"Device.NonBlocking.Test2", RBUS_ELEMENT_TYPE_PROPERTY, {getHandler, NULL, NULL, NULL, NULL, NULL}},
         {"Device.NonBlocking.Test3", RBUS_ELEMENT_TYPE_PROPERTY, {getHandler, NULL, NULL, NULL, NULL, NULL}},

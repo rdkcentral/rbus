@@ -1647,10 +1647,9 @@ rtConnection_Read(rtConnection con, int32_t timeout)
     else
     {
       /*request message must be dispatched to the Callback thread*/
-      rtListItem listItem;
 
       size_t size;
-      rtMessageInfo* data;
+      rtMessageInfo* blockingData;
       rtListItem Item;
       static bool isErrorLog = true;
 
@@ -1658,32 +1657,30 @@ rtConnection_Read(rtConnection con, int32_t timeout)
       pthread_mutex_lock(&con->callback_message_mutex);
       rtList_GetSize(con->callback_message_list, &size);
       rtList_GetFront(con->callback_message_list, &Item);
-      rtListItem_GetData(Item, (void**)&data);
+      rtListItem_GetData(Item, (void**)&blockingData);
       if(size > MAX_ALLOWED_MESSAGES)
       {
          if(isErrorLog)
          {
-             rtLog_Error("PROVIDER_NOT_RESPONDING: %s failed to respond back, %lu messages queued up", data->header.topic, size);
+             rtLog_Error("PROVIDER_NOT_RESPONDING: %s failed to respond back, %lu messages queued up", blockingData->header.topic, size);
              isErrorLog = false;
          }
          else
-             rtLog_Debug("PROVIDER_NOT_RESPONDING: %s failed to respond back, %lu messages queued up", data->header.topic, size);
+             rtLog_Debug("PROVIDER_NOT_RESPONDING: %s failed to respond back, %lu messages queued up", blockingData->header.topic, size);
 
       }
       else
       {
-          //pthread_mutex_lock(&con->callback_message_mutex);
-          rtList_PushBack(con->callback_message_list, msginfo, &listItem);
-
-          msginfo = NULL; /*the callback thread will release it*/
-
           /*log something if the callback thread isn't processing fast enough*/
           if(size % 5 == 0)
           {
-              if(data)
-                  rtLog_Warn("PROVIDER_NOT_RESPONDING: Awaiting response from %s Currently, %lu messages are queued.", data->header.topic, size);
-
+              if(blockingData)
+                  rtLog_Warn("PROVIDER_NOT_RESPONDING: Awaiting response from %s Currently, %lu messages are queued.", blockingData->header.topic, size);
+              isErrorLog = true;
           }
+          rtList_PushBack(con->callback_message_list, msginfo, NULL);
+
+          msginfo = NULL; /*the callback thread will release it*/
 
           /*wake the callback thread up to process new message*/
           int signal = pthread_cond_signal(&con->callback_message_cond);

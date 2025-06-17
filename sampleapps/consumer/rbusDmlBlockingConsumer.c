@@ -29,11 +29,10 @@
 #include <rbus.h>
 
 static rbusHandle_t handle;
-#define TotalParams 7
+#define TotalParams 6
 
 char const*  paramNames[TotalParams] = {
-    "rbus_obj_block",
-    "rbus_obj_nonblock",
+    "Device.Blocking.Test0",
     "Device.NonBlocking.Test1",
     "Device.NonBlocking.Test2",
     "Device.NonBlocking.Test3",
