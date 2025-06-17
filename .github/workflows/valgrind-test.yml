@@ -36,7 +36,7 @@ jobs:
       - name: Configure Rbus
         if: steps.cache.outputs.cache-hit != 'true'
         run: >
-          cmake 
+          cmake
           -S "${{github.workspace}}/rbus"
           -B build/rbus
           -DCMAKE_INSTALL_PREFIX="${{github.workspace}}/install/usr"
@@ -61,7 +61,7 @@ jobs:
             #!/bin/sh
             LOG_FOLDER="/tmp/valgrind"
             #ls -lt
-            SUMMARY_FILE=$GITHUB_STEP_SUMMARY 
+            SUMMARY_FILE=$GITHUB_STEP_SUMMARY
             LEAKS_FOUND=false
             for LOG_FILE in $LOG_FOLDER/*.log; do
              #cat $LOG_FILE
@@ -114,14 +114,16 @@ jobs:
           export PREFIX=$PWD
           export LD_LIBRARY_PATH=$PREFIX/lib
           nohup valgrind --leak-check=full --log-file=/tmp/valgrind/rbusMethodProvider.log ./bin/rbusMethodProvider > /tmp/rbusMethodProvider.out 2>&1 &
+          sleep 1
           nohup valgrind --leak-check=full --log-file=/tmp/valgrind/rbusMethodConsumer.log ./bin/rbusMethodConsumer -a > /tmp/rbusMethodConsumer.out 2>&1 &
-          cd ${{github.workspace}} && ./memoryleak.sh  
+          cd ${{github.workspace}} && ./memoryleak.sh
       - name: Run multiRbusOpenGet Unit test with Valgrind
         run: |
           cd install/usr
           export PREFIX=$PWD
           export LD_LIBRARY_PATH=$PREFIX/lib
-          nohup valgrind --leak-check=full --log-file=/tmp/valgrind/multiRbusGetProvider.log ./bin/multiRbusOpenRbusGetProvider > /tmp/multiRbusGetProvider.out 2>&1  & 
+          nohup valgrind --leak-check=full --log-file=/tmp/valgrind/multiRbusGetProvider.log ./bin/multiRbusOpenRbusGetProvider > /tmp/multiRbusGetProvider.out 2>&1  &
+          sleep 1
           nohup valgrind --leak-check=full --log-file=/tmp/valgrind/multiRbusGetConsumer.log ./bin/multiRbusOpenRbusGetConsumer > /tmp/multiRbusGetConsumer.out 2>&1  &
           cd ${{github.workspace}} && ./memoryleak.sh
       - name: Run multiRbusOpenSet Unit test with Valgrind
@@ -130,6 +132,7 @@ jobs:
           export PREFIX=$PWD
           export LD_LIBRARY_PATH=$PREFIX/lib
           nohup valgrind --leak-check=full --log-file=/tmp/valgrind/multiRbusOpenRbusGetProvider.log ./bin/multiRbusOpenRbusGetProvider >  /tmp/multiRbusOpenRbusGetProvider.out 2>&1  &
+          sleep 1
           nohup valgrind --leak-check=full --log-file=/tmp/valgrind/multiRbusOpenRbusSetConsumer.log ./bin/multiRbusOpenRbusSetConsumer > /tmp/multiRbusOpenRbusSetProvider.out 2>&1 &
           cd ${{github.workspace}} && ./memoryleak.sh
       #- name: Run Gtest Cases with Valgrind
@@ -138,11 +141,10 @@ jobs:
           #export PREFIX=$PWD
           #export LD_LIBRARY_PATH=$PREFIX/lib
           #valgrind --leak-check=full --log-file=/tmp/valgrind/rbus_session_manager.log ./bin/rbus_session_manager &
-          #valgrind --leak-check=full --log-file=/tmp/valgrind/rbus_gtest.log --track-origins=yes --verbose ./bin/rbus_gtest.bin  
+          #valgrind --leak-check=full --log-file=/tmp/valgrind/rbus_gtest.log --track-origins=yes --verbose ./bin/rbus_gtest.bin
      # - name: Stop rtrouted
         #run: |
           #cd install/usr
           #export PREFIX=$PWD
           #export LD_LIBRARY_PATH=$PREFIX/lib
           #killall -9 rtrouted
-          
