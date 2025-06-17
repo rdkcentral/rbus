@@ -455,7 +455,7 @@ static bool _parse_rbusData_to_value (char const* pBuff, rbusLegacyDataType_t le
             case RBUS_LEGACY_BYTE:
             {
                 rc = rbusValue_SetFromString(value, RBUS_BYTE, pBuff);
-                break;
+                break;
             }
             case RBUS_LEGACY_DATETIME:
             {
@@ -466,7 +466,7 @@ static bool _parse_rbusData_to_value (char const* pBuff, rbusLegacyDataType_t le
             {
                 RBUSLOG_WARN("RBUS_LEGACY_BASE64_TYPE: Base64 type was never used in CCSP so far. So, Rbus did not support it till now. Since this is the first Base64 query, please report to get it fixed.");
                 rbusValue_SetBytes(value, (uint8_t*)pBuff, strlen(pBuff));
-                rc = true;
+                rc = true;
                 break;
             }
             default:
@@ -916,7 +916,7 @@ void rbusEventData_appendToMessage(rbusEvent_t* event, rbusFilter_t filter,
     if (event->data)
     {
         rbusMessage_SetInt32(msg, 1);
-        rbusObject_appendToMessage(event->data, msg);
+        rbusObject_appendToMessage(event->data, msg);
     }
     else
     {
@@ -3303,10 +3303,10 @@ rbusError_t rbus_regDataElements(
                 rc = RBUS_ERROR_INVALID_NAMESPACE;
             }
             else
-            {
+            {
                 rc = RBUS_ERROR_ELEMENT_NAME_DUPLICATE;
-            }
-            break;
+            }
+            break;
         }
         else
         {
@@ -3633,11 +3633,11 @@ rbusError_t rbus_getExt(rbusHandle_t handle, int paramCount, char const** pParam
                 rbusValue_Release(getVal);
                 *retProperties = outputVals;
             }
-            else
-            {
-                RBUSLOG_ERROR("Failed to get the data. Error : %d", errorcode);
-            }
-            return errorcode;
+            else
+            {
+                RBUSLOG_ERROR("Failed to get the data. Error : %d", errorcode);
+            }
+            return errorcode;
         }
         else
         {
@@ -4194,7 +4194,7 @@ rbusError_t _setMultiInternal(rbusHandle_t handle, uint32_t numProps, rbusProper
             if(errorcode == RBUS_ERROR_INVALID_INPUT)
             {
                 free(componentNames);
-                free(pParamNames);
+                free(pParamNames);
                 return RBUS_ERROR_INVALID_INPUT;
             }
 
