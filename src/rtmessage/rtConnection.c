@@ -1650,33 +1650,36 @@ rtConnection_Read(rtConnection con, int32_t timeout)
 
       size_t size;
       rtMessageInfo* blockingData;
-      rtListItem Item;
-      static bool isErrorLog = true;
+      rtListItem blockingItem;
+      static bool printErrorLog = true;
 
 
       pthread_mutex_lock(&con->callback_message_mutex);
       rtList_GetSize(con->callback_message_list, &size);
-      rtList_GetFront(con->callback_message_list, &Item);
-      rtListItem_GetData(Item, (void**)&blockingData);
+      rtList_GetFront(con->callback_message_list, &blockingItem);
+      rtListItem_GetData(blockingItem, (void**)&blockingData);
+      char* pBlockingTopic = "";
+      if(blockingData)
+          pBlockingTopic = blockingData->header.topic;
+        
+      /*log something if the callback thread isn't processing fast enough*/
       if(size > MAX_ALLOWED_MESSAGES)
       {
-         if(isErrorLog)
+         if(printErrorLog)
          {
-             rtLog_Error("PROVIDER_NOT_RESPONDING: %s failed to respond back, %lu messages queued up", blockingData->header.topic, size);
-             isErrorLog = false;
+             rtLog_Error("PROVIDER_NOT_RESPONDING: %s failed to respond back, %lu messages queued up; Dropping incoming request", pBlockingTopic, size);
+             printErrorLog = false;
          }
          else
-             rtLog_Debug("PROVIDER_NOT_RESPONDING: %s failed to respond back, %lu messages queued up", blockingData->header.topic, size);
+             rtLog_Debug("PROVIDER_NOT_RESPONDING: %s failed to respond back, %lu messages queued up; Dropping incoming request", pBlockingTopic, size);
 
       }
       else
       {
-          /*log something if the callback thread isn't processing fast enough*/
-          if(size % 5 == 0)
+          printErrorLog = true;
+          if((size) && (size % 5 == 0))
           {
-              if(blockingData)
-                  rtLog_Warn("PROVIDER_NOT_RESPONDING: Awaiting response from %s Currently, %lu messages are queued.", blockingData->header.topic, size);
-              isErrorLog = true;
+              rtLog_Warn("PROVIDER_NOT_RESPONDING: %lu messages are queued up (%s)", size, pBlockingTopic);
           }
           rtList_PushBack(con->callback_message_list, msginfo, NULL);
 
