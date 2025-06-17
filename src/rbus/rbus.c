@@ -455,7 +455,7 @@ static bool _parse_rbusData_to_value (char const* pBuff, rbusLegacyDataType_t le
             case RBUS_LEGACY_BYTE:
             {
                 rc = rbusValue_SetFromString(value, RBUS_BYTE, pBuff);
-		break;
+                break;
             }
             case RBUS_LEGACY_DATETIME:
             {
@@ -466,7 +466,7 @@ static bool _parse_rbusData_to_value (char const* pBuff, rbusLegacyDataType_t le
             {
                 RBUSLOG_WARN("RBUS_LEGACY_BASE64_TYPE: Base64 type was never used in CCSP so far. So, Rbus did not support it till now. Since this is the first Base64 query, please report to get it fixed.");
                 rbusValue_SetBytes(value, (uint8_t*)pBuff, strlen(pBuff));
-	        rc = true;
+                rc = true;
                 break;
             }
             default:
@@ -916,7 +916,7 @@ void rbusEventData_appendToMessage(rbusEvent_t* event, rbusFilter_t filter,
     if (event->data)
     {
         rbusMessage_SetInt32(msg, 1);
-	rbusObject_appendToMessage(event->data, msg);
+        rbusObject_appendToMessage(event->data, msg);
     }
     else
     {
@@ -1555,13 +1555,13 @@ static void _set_callback_handler (rbusHandle_t handle, rbusMessage request, rbu
                         {
                             RBUSLOG_WARN("Set Failed for %s; Component Owner returned Error", paramName);
                             pFailedElement = paramName;
-			    if(rollBack == 1)
-			    {
+                            if(rollBack == 1)
+                            {
                                 RBUSLOG_DEBUG("Reverting because set failed for this param:%s",pFailedElement);
-				/*===========< Rollback old values >============*/
-				rbusProperty_t prevProp = cachedData;
-				while(prevProp)
-				{
+                                /*===========< Rollback old values >============*/
+                                rbusProperty_t prevProp = cachedData;
+                                while(prevProp)
+                                {
                                     char const* prevParamName = rbusProperty_GetName(prevProp);
                                     el = retrieveInstanceElement(handleInfo->elementRoot, prevParamName);
                                     ELM_PRIVATE_LOCK(el);
@@ -1571,9 +1571,9 @@ static void _set_callback_handler (rbusHandle_t handle, rbusMessage request, rbu
                                     if(err != RBUS_ERROR_SUCCESS)
                                     {
                                         RBUSLOG_WARN("Reverting paramValues of %s to initial values failed",prevParamName);
-				    }
-				}
-			    }
+                                    }
+                                }
+                            }
                             break;
                         }
                         else
@@ -1598,6 +1598,8 @@ static void _set_callback_handler (rbusHandle_t handle, rbusMessage request, rbu
                         RBUSLOG_WARN("Set Failed for %s; No Handler found", paramName);
                         rc = RBUS_ERROR_NOT_WRITABLE;
                         pFailedElement = paramName;
+                        if(cachedData)
+                           rbusProperty_Release(cachedData);
                         break;
                     }
                 }
@@ -3301,10 +3303,10 @@ rbusError_t rbus_regDataElements(
                 rc = RBUS_ERROR_INVALID_NAMESPACE;
             }
             else
-	    {
+            {
                 rc = RBUS_ERROR_ELEMENT_NAME_DUPLICATE;
-	    }
-	    break;
+            }
+            break;
         }
         else
         {
@@ -3631,11 +3633,11 @@ rbusError_t rbus_getExt(rbusHandle_t handle, int paramCount, char const** pParam
                 rbusValue_Release(getVal);
                 *retProperties = outputVals;
             }
-	    else
-	    {
-		RBUSLOG_ERROR("Failed to get the data. Error : %d", errorcode);
-	    }
-	    return errorcode;	
+            else
+            {
+                RBUSLOG_ERROR("Failed to get the data. Error : %d", errorcode);
+            }
+            return errorcode;
         }
         else
         {
@@ -4192,7 +4194,7 @@ rbusError_t _setMultiInternal(rbusHandle_t handle, uint32_t numProps, rbusProper
             if(errorcode == RBUS_ERROR_INVALID_INPUT)
             {
                 free(componentNames);
-	        free(pParamNames);
+                free(pParamNames);
                 return RBUS_ERROR_INVALID_INPUT;
             }
 
@@ -6254,6 +6256,8 @@ rbusError_t rbus_createSession(rbusHandle_t handle, uint32_t *pSessionId)
         RBUSLOG_WARN("Invalid Input passed..");
         rc = RBUS_ERROR_INVALID_INPUT;
     }
+    if(outParams)
+        rbusObject_Release(outParams);
      return rc;
  }
 
@@ -6300,6 +6304,8 @@ rbusError_t rbus_getCurrentSession(rbusHandle_t handle, uint32_t *pSessionId)
         RBUSLOG_WARN("Invalid Input passed..");
         rc = RBUS_ERROR_INVALID_INPUT;
     }
+    if(outParams)
+        rbusObject_Release(outParams);
     return rc;
 }
 
@@ -6344,6 +6350,12 @@ rbusError_t rbus_closeSession(rbusHandle_t handle, uint32_t sessionId)
         {
             RBUSLOG_ERROR("Failed to communicated with session manager.");
         }
+        if(inputSession)
+            rbusValue_Release(inputSession);
+        if(inParams)
+            rbusObject_Release(inParams);
+        if(outParams)
+            rbusObject_Release(outParams);
     }
     else
     {
