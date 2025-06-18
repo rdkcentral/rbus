@@ -52,20 +52,21 @@ int main(int argc, char *argv[])
     rc = rbus_open(&handle, "rbusSubConsumer");
     if(rc != RBUS_ERROR_SUCCESS)
     {
-	printf("consumer: rbus_open failed: %d\n", rc);
-	goto exit1;
+       printf("consumer: rbus_open failed: %d\n", rc);
+       goto exit1;
     }
     rbus_setLogLevel(RBUS_LOG_DEBUG);
+    rbusHandle_ConfigGetTimeout(handle, 2000);
+
     rbusValue_t value = NULL;
     int count =0;
     while(1)
     {
-        rc = rbus_get(handle, paramNames[count], &value);
-        sleep(0.1);
         if(count >= TotalParams)
             count = 0;
-        else
-            count++;
+        rc = rbus_get(handle, paramNames[count], &value);
+        sleep(0.1);
+        count++;
     }
 
     rbus_close(handle);
