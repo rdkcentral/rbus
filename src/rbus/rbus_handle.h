@@ -28,6 +28,11 @@
 extern "C" {
 #endif
 
+#define RBUS_TMP_DIRECTORY      "/tmp"  /* temp directory where persistent data can be stored*/
+#define RBUS_SUBSCRIBE_TIMEOUT   600000     /*subscribe retry timeout in miliseconds*/
+#define RBUS_SUBSCRIBE_MAXWAIT   60000      /*subscribe retry max wait between retries in miliseconds*/
+#define RBUS_VALUECHANGE_PERIOD  2000       /*polling period for valuechange detector*/
+
 /*
   RBUS_MAX_HANDLES 16
 
@@ -98,7 +103,6 @@ typedef enum _rbusHandleType
     RBUS_HWDL_TYPE_UNKNOWN = 0xB0DE
 } rbusHandleType_t;
 
-
 struct _rbusHandle
 {
   char*                 componentName;
@@ -118,6 +122,7 @@ struct _rbusHandle
   pthread_mutex_t       handle_eventSubsMutex;
   pthread_mutex_t       handle_subsMutex;
   rtConnection          m_connectionParent;
+  rbusTimeoutValues_t   timeoutValues;
 };
 
 bool rbusHandleList_IsValidHandle(struct _rbusHandle* handle);
@@ -129,6 +134,12 @@ void rbusHandleList_ClientDisconnect(char const* clientListener);
 struct _rbusHandle* rbusHandleList_GetByComponentID(int32_t componentId);
 struct _rbusHandle* rbusHandleList_GetByName(char const* componentName);
 
+int rbusHandle_TimeoutValuesInit(rbusHandle_t handle);
+uint32_t rbusHandle_FetchGetTimeout(rbusHandle_t handle);
+uint32_t rbusHandle_FetchSetTimeout(rbusHandle_t handle);
+uint32_t rbusHandle_FetchGetMultiTimeout(rbusHandle_t handle);
+uint32_t rbusHandle_FetchSetMultiTimeout(rbusHandle_t handle);
+uint32_t rbusHandle_FetchSubscribeTimeout(rbusHandle_t handle);
 #ifdef __cplusplus
 }
 #endif

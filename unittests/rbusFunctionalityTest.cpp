@@ -134,8 +134,9 @@ static void exec_func_test(rbusGtest_t test)
           expected_consumer_status = RBUS_ERROR_DESTINATION_NOT_FOUND;
           break;
         case RBUS_GTEST_SET_MULTI5:
+        case RBUS_GTEST_SET_MULTI_EXT2:
         case RBUS_GTEST_SET2:
-          expected_consumer_status = RBUS_ERROR_INVALID_OPERATION;
+          expected_consumer_status = RBUS_ERROR_NOT_WRITABLE;
           break;
         case RBUS_GTEST_GET24:
           expected_consumer_status = RBUS_ERROR_INVALID_RESPONSE_FROM_DESTINATION;
@@ -415,6 +416,16 @@ TEST(rbusApiSetMulti, test4)
 TEST(rbusApiSetMulti, test5)
 {
   exec_func_test(RBUS_GTEST_SET_MULTI5);
+}
+
+TEST(rbusApiSetMultiExt, test1)
+{
+  exec_func_test(RBUS_GTEST_SET_MULTI_EXT1);
+}
+
+TEST(rbusApiSetMultiExt, test2)
+{
+  exec_func_test(RBUS_GTEST_SET_MULTI_EXT2);
 }
 
 TEST(rbusApiDiscoverComp, test1)

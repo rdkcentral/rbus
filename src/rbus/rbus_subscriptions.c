@@ -621,7 +621,7 @@ remove_bad_file:
         rbusBuffer_Destroy(buff);
 
     if(sub)
-        free(sub);
+        subscriptionFree(sub);
 
     if(remove(filePath) != 0)
         RBUSLOG_ERROR("failed to remove %s", filePath);
@@ -665,7 +665,11 @@ static void rbusSubscriptions_saveCache(rbusSubscriptions_t subscriptions)
     {
         rtListItem_GetData(item, (void**)&sub);
         if(!sub)
+        {
+            rbusBuffer_Destroy(buff);
+            fclose(file);
             return;
+        }
         rbusBuffer_WriteStringTLV(buff, sub->listener, strlen(sub->listener)+1);
         rbusBuffer_WriteStringTLV(buff, sub->eventName, strlen(sub->eventName)+1);
         rbusBuffer_WriteInt32TLV(buff, sub->componentId);

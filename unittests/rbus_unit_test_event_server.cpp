@@ -160,7 +160,7 @@ TEST_F(EventServerAPIs, rbus_registerEvent_test1)
     char obj_name[20] = "test_server_1.obj1";
     rbusCoreError_t err = RBUSCORE_SUCCESS;
     char data[] = "data";
-    char event_name[130] = "test_server_5.Event!";
+    char event_name[MAX_EVENT_NAME_LENGTH + 1] = "test_server_5.Event!";
 
     CREATE_RBUS_SERVER(counter);
 
@@ -252,7 +252,7 @@ TEST_F(EventServerAPIs, rbus_publishEvent_test2)
 {
     int counter = 3;
     bool conn_status = false;
-    char obj_name[129] = "0";
+    char obj_name[MAX_OBJECT_NAME_LENGTH + 1] = "0";
     rbusCoreError_t err = RBUSCORE_SUCCESS;
     rbusMessage msg1;
     char data[] = "data";
@@ -283,7 +283,7 @@ TEST_F(EventServerAPIs, addElementEvent_test1)
     rbusCoreError_t err = RBUSCORE_SUCCESS;
     char server_obj[] = "test_server_4.obj1";
     char server_event[] = "test_server.Event!";
-    char obj_name[130] = "test_server_5.obj";
+    char obj_name[MAX_OBJECT_NAME_LENGTH + 5] = "test_server_5.obj";
     char data[] = "data";
 
     CREATE_RBUS_SERVER(counter);
@@ -315,8 +315,8 @@ TEST_F(EventServerAPIs, addElementEvent_test1)
 TEST_F(EventServerAPIs, rbus_subscribeToEventTimeout_test1)
 {
     char client_name[MAX_SERVER_NAME] = "Event_Server_1";
-    char obj_name[130] = "0";
-    char event_name[130] ="0";
+    char obj_name[MAX_OBJECT_NAME_LENGTH + 5] = "0";
+    char event_name[MAX_EVENT_NAME_LENGTH + 5] ="0";
     rbusCoreError_t err = RBUSCORE_SUCCESS;
     //Neg test subscribe before establishing connection
     err = rbus_subscribeToEventTimeout("obj_name", "event_1",&event_callback, NULL, NULL, NULL, 1000, false, NULL, false);
@@ -339,7 +339,7 @@ TEST_F(EventServerAPIs, rbus_subscribeToEventTimeout_test1)
 TEST_F(EventServerAPIs, rbus_unsubscribeFromEvent_test1)
 {
     char client_name[MAX_SERVER_NAME] = "Event_Server_1";
-    char object_name[130] = "0";
+    char object_name[MAX_OBJECT_NAME_LENGTH + 5] = "0";
     rbusCoreError_t err = RBUSCORE_SUCCESS;
     RBUS_OPEN_BROKER_CONNECTION(client_name, RBUSCORE_SUCCESS);
     //Neg Test with more than MAX_OBJECT_NAME_LENGTH
@@ -355,7 +355,7 @@ TEST_F(EventServerAPIs, rbus_unsubscribeFromEvent_test1)
 TEST_F(EventServerAPIs, rbus_publishSubscriberEvent_test1)
 {
     char client_name[MAX_SERVER_NAME] = "Event_Server_1";
-    char object_name[130] = "0";
+    char object_name[MAX_OBJECT_NAME_LENGTH + 5] = "0";
     rbusCoreError_t err = RBUSCORE_SUCCESS;
     RBUS_OPEN_BROKER_CONNECTION(client_name, RBUSCORE_SUCCESS);
     //Neg Test with more than MAX_OBJECT_NAME_LENGTH

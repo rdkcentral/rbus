@@ -42,7 +42,7 @@ rtTime_t* rtTime_Now(rtTime_t* t)
 }
 
 
-void rtTime_Later(const rtTime_t* start, int ms, rtTime_t* result)
+void rtTime_Later(const rtTime_t* start, unsigned int  ms, rtTime_t* result)
 {
     rtTime_t now;
 

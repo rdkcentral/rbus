@@ -682,6 +682,7 @@ rbusCoreError_t rbus_closeBrokerConnection()
         return RBUSCORE_ERROR_GENERAL;
     }
     g_connection = NULL;
+    g_run_event_client_dispatch = false;
     unlock();
 
     pthread_mutex_destroy(&g_mutex);
@@ -1060,7 +1061,7 @@ rbusCoreError_t rbus_pushObj(const char * object_name, rbusMessage message, int 
     rbusMessage response = NULL;
     if((ret = rbus_invokeRemoteMethod(object_name, METHOD_SETPARAMETERVALUES, message, timeout_millisecs, &response)) != RBUSCORE_SUCCESS)
     {
-        RBUSCORELOG_ERROR("Failed to send message. Error code: 0x%x", err);
+        RBUSCORELOG_ERROR("Failed to send message. Error code: 0x%x", ret);
         return ret;
     }
     else
@@ -1080,7 +1081,7 @@ rbusCoreError_t rbus_pushObj(const char * object_name, rbusMessage message, int 
     return ret;
 }
 
-static rtError rbus_sendRequest(rtConnection con, rbusMessage req, char const* topic, rbusMessage* res, int32_t timeout)
+static rtError rbus_sendRequest(rtConnection con, rbusMessage req, char const* topic, rbusMessage* res, uint32_t timeout)
 {
     rtError err = RT_OK;
     uint8_t* data = NULL;
@@ -1102,20 +1103,18 @@ static rtError rbus_sendRequest(rtConnection con, rbusMessage req, char const* t
     return err;
 }
 
-rbusCoreError_t rbus_invokeRemoteMethod(const char * object_name, const char *method, rbusMessage out, int timeout_millisecs, rbusMessage *in)
+rbusCoreError_t rbus_invokeRemoteMethod(const char * object_name, const char *method, rbusMessage out, uint32_t timeout_millisecs, rbusMessage *in)
 {
     return rbus_invokeRemoteMethod2(g_connection, object_name, method, out, timeout_millisecs, in);
 }
 
-rbusCoreError_t rbus_invokeRemoteMethod2(rtConnection myConn, const char * object_name, const char *method, rbusMessage out, int timeout_millisecs, rbusMessage *in)
+rbusCoreError_t rbus_invokeRemoteMethod2(rtConnection myConn, const char * object_name, const char *method, rbusMessage out, uint32_t timeout_millisecs, rbusMessage *in)
 {
     rtError err = RT_OK;
     rbusCoreError_t ret = RBUSCORE_SUCCESS;
 
     char const *traceParent = NULL;
     char const *traceState = NULL;
-
-    rbus_getOpenTelemetryContext(&traceParent, &traceState);
 
     if(NULL == myConn)
     {
@@ -1128,6 +1127,8 @@ rbusCoreError_t rbus_invokeRemoteMethod2(rtConnection myConn, const char * objec
         RBUSCORELOG_ERROR("Object name is too long.");
         return RBUSCORE_ERROR_INVALID_PARAM;
     }
+
+    rbus_getOpenTelemetryContext(&traceParent, &traceState);
 
     *in = NULL;
     if(NULL == out)
