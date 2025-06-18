@@ -133,6 +133,7 @@ if (BUILD_FOR_DESKTOP)
   
 
 else()
+  find_package(cJSON REQUIRED)
   IF (NOT BUILD_ONLY_RTMESSAGE)
    find_package(msgpack REQUIRED)
    find_package(linenoise REQUIRED)
