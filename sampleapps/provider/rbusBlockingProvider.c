@@ -103,7 +103,8 @@ int main(int argc, char *argv[])
         goto exit2;
     }
 
-    rbus_setLogLevel(RBUS_LOG_DEBUG);
+    //rbus_setLogLevel(RBUS_LOG_DEBUG);
+    rbusHandle_ConfigGetTimeout(handle, 2000);
 
     rc = rbus_regDataElements(handle, dataElementsCount, dataElements);
     if(rc != RBUS_ERROR_SUCCESS)

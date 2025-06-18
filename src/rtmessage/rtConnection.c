@@ -1667,11 +1667,11 @@ rtConnection_Read(rtConnection con, int32_t timeout)
       {
          if(printErrorLog)
          {
-             rtLog_Error("PROVIDER_NOT_RESPONDING: %s failed to respond back, %lu messages queued up; Dropping incoming request", pBlockingTopic, size);
+             rtLog_Error("PROVIDER_NOT_RESPONDING: %s failed to respond back, %zu messages queued up; Dropping incoming request", pBlockingTopic, size);
              printErrorLog = false;
          }
          else
-             rtLog_Debug("PROVIDER_NOT_RESPONDING: %s failed to respond back, %lu messages queued up; Dropping incoming request", pBlockingTopic, size);
+             rtLog_Debug("PROVIDER_NOT_RESPONDING: %s failed to respond back, %zu messages queued up; Dropping incoming request", pBlockingTopic, size);
 
       }
       else
@@ -1679,7 +1679,7 @@ rtConnection_Read(rtConnection con, int32_t timeout)
           printErrorLog = true;
           if((size) && (size % 5 == 0))
           {
-              rtLog_Warn("PROVIDER_NOT_RESPONDING: %lu messages are queued up (%s)", size, pBlockingTopic);
+              rtLog_Warn("PROVIDER_NOT_RESPONDING: %zu messages are queued up (%s)", size, pBlockingTopic);
           }
           rtList_PushBack(con->callback_message_list, msginfo, NULL);
 
