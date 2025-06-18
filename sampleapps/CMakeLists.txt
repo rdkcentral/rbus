@@ -125,9 +125,14 @@ add_executable(rbusRawDataProvider provider/rbusRawDataProvider.c)
 add_dependencies(rbusRawDataProvider rbus)
 target_link_libraries(rbusRawDataProvider rbus)
 
+add_executable(rbusDmlBlockingConsumer consumer/rbusDmlBlockingConsumer.c)
+add_dependencies(rbusDmlBlockingConsumer rbus)
+target_link_libraries(rbusDmlBlockingConsumer rbus)
+
 install (TARGETS
     rbusSampleProvider
     rbusSampleConsumer
+    rbusDmlBlockingConsumer
     rbusTableProvider
     rbusSampleTableProvider
     rbusTableConsumer

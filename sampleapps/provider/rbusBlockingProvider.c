@@ -28,9 +28,6 @@
 #include <getopt.h>
 #include <rbus.h>
 
-//TODO handle filter matching
-
-
 rbusError_t eventSubHandler(rbusHandle_t handle, rbusEventSubAction_t action, const char* eventName, rbusFilter_t filter, int32_t interval, bool* autoPublish)
 {
     (void)handle;
@@ -66,13 +63,13 @@ rbusError_t getHandler(rbusHandle_t handle, rbusProperty_t property, rbusGetHand
     rbusProperty_SetValue(property, value);
 
     if(strcmp(name, "rbus_obj_block") == 0)
-	    sleep(30);
+        sleep(30);
+    if(strcmp(name, "Device.Blocking.Test0") == 0)
+        while(1);
 
     rbusValue_Release(value);
-
     return RBUS_ERROR_SUCCESS;
 }
-
 
 #define dataElementsCount sizeof(dataElements)/sizeof(dataElements[0])
 int main(int argc, char *argv[])
@@ -89,6 +86,12 @@ int main(int argc, char *argv[])
         {"rbus_event", RBUS_ELEMENT_TYPE_EVENT, {NULL, NULL, NULL, NULL, eventSubHandler, NULL}},
         {"rbus_obj_block", RBUS_ELEMENT_TYPE_PROPERTY, {getHandler, NULL, NULL, NULL, NULL, NULL}},
         {"rbus_obj_nonblock", RBUS_ELEMENT_TYPE_PROPERTY, {getHandler, NULL, NULL, NULL, NULL, NULL}},
+        {"Device.Blocking.Test0", RBUS_ELEMENT_TYPE_PROPERTY, {getHandler, NULL, NULL, NULL, NULL, NULL}},
+        {"Device.NonBlocking.Test1", RBUS_ELEMENT_TYPE_PROPERTY, {getHandler, NULL, NULL, NULL, NULL, NULL}},
+        {"Device.NonBlocking.Test2", RBUS_ELEMENT_TYPE_PROPERTY, {getHandler, NULL, NULL, NULL, NULL, NULL}},
+        {"Device.NonBlocking.Test3", RBUS_ELEMENT_TYPE_PROPERTY, {getHandler, NULL, NULL, NULL, NULL, NULL}},
+        {"Device.NonBlocking.Test4", RBUS_ELEMENT_TYPE_PROPERTY, {getHandler, NULL, NULL, NULL, NULL, NULL}},
+        {"Device.NonBlocking.Test5", RBUS_ELEMENT_TYPE_PROPERTY, {getHandler, NULL, NULL, NULL, NULL, NULL}},
     };
 
     printf("provider: start\n");
@@ -108,7 +111,25 @@ int main(int argc, char *argv[])
         printf("provider: rbus_regDataElements failed: %d\n", rc);
         goto exit1;
     }
+    else
+        printf("provider: rbus_regDataElements success\n");
+    int count=0;
+    while(1)
+    {
+        rbusProperty_t prop = NULL;
+        int numOfVals = 0;
+        const char* input[] =  {"Device.SampleProvider."};
+        rc = rbus_getExt(handle, 1, input, &numOfVals, &prop);
 
+        if(rc != RBUS_ERROR_SUCCESS)
+        {
+            printf ("rbus_get failed for %s with error [%d]\n", "Device.SampleProvider.", rc);
+            break;
+        }
+        count++;
+        sleep(1);
+        rbusProperty_Release(prop);
+    }
     pause(); 
 
     rbus_unregDataElements(handle, dataElementsCount, dataElements);
