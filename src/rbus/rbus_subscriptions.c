@@ -136,7 +136,10 @@ rbusSubscription_t* rbusSubscriptions_addSubscription(rbusSubscriptions_t subscr
         return NULL;
     }
     if(!subscriptions)
+    {
+        TokenChain_destroy(tokens);
         return NULL;
+    }
 
     sub = rt_malloc(sizeof(rbusSubscription_t));
 

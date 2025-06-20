@@ -61,6 +61,7 @@ typedef volatile int atomic_uint_least32_t;
 #include <sys/time.h>
 
 #define RTMSG_LISTENERS_MAX 128
+#define MAX_ALLOWED_MESSAGES 25
 #define RTCONNECTION_CREATE_EXPRESSION_ID 1
 #ifdef  RDKC_BUILD
 #define RTMSG_SEND_BUFFER_SIZE (1024 * 8)
@@ -290,13 +291,15 @@ rtConnection_ConnectAndRegister(rtConnection con, rtTime_t* reconnect_time)
   int first_to_handle = false;
   int is_first_connect = true;
   int reconnect_in_progress = 0;
-  rtTime_t last_reconnect_time = con->reconnect_time;
+  rtTime_t last_reconnect_time;
   char tbuff1[100];
   char tbuff2[100];
   char tbuff3[100];
 
   if (!con)
     return rtErrorFromErrno(EINVAL);
+
+  last_reconnect_time = con->reconnect_time;
 
   if(con->fd != -1)
     is_first_connect = false;
@@ -321,11 +324,11 @@ rtConnection_ConnectAndRegister(rtConnection con, rtTime_t* reconnect_time)
         rtTime_Now(&con->reconnect_time);
       }
     }
-    pthread_mutex_unlock(&con->reconnect_mutex);  
+    pthread_mutex_unlock(&con->reconnect_mutex);
 
-    rtLog_Debug("ConnectAndRegister reconnect state first_to_handle=%d reconnect_in_progress=%d threads_time=[%s] last_reconnect_time=[%s] new_reconnect_time=[%s]", 
-      first_to_handle, reconnect_in_progress, 
-      rtTime_ToString(&con->start_time, tbuff1), 
+    rtLog_Debug("ConnectAndRegister reconnect state first_to_handle=%d reconnect_in_progress=%d threads_time=[%s] last_reconnect_time=[%s] new_reconnect_time=[%s]",
+      first_to_handle, reconnect_in_progress,
+      rtTime_ToString(&con->start_time, tbuff1),
       rtTime_ToString(&last_reconnect_time, tbuff2),
       rtTime_ToString(&con->reconnect_time, tbuff3));
 
@@ -365,7 +368,8 @@ rtConnection_ConnectAndRegister(rtConnection con, rtTime_t* reconnect_time)
   if (fdManip < 0)
     return rtErrorFromErrno(errno);
 
-  setsockopt(con->fd, SOL_TCP, TCP_NODELAY, &i, sizeof(i));
+  if (setsockopt(con->fd, SOL_TCP, TCP_NODELAY, &i, sizeof(i)) < 0)
+    rtLog_Debug("Error setting TCP_NODELAY: %s", strerror(errno));
 
   rtSocketStorage_ToString(&con->remote_endpoint, remote_addr, sizeof(remote_addr), &remote_port);
 
@@ -1485,10 +1489,14 @@ rtConnection_Read(rtConnection con, int32_t timeout)
 
   rtMessageInfo_Init(&msginfo);
   if(!msginfo)
+  {
+    rtLog_Error("MsgInfo initialization failed");
     return rtErrorFromErrno(ENOMEM);
+  }
 
   if (!con)
   {
+    rtLog_Error("rtConnection is NULL");
     rtMessageInfo_Release(msginfo);
     return rtErrorFromErrno(EINVAL);
   }
@@ -1502,6 +1510,7 @@ rtConnection_Read(rtConnection con, int32_t timeout)
 
     if (err == RT_ERROR_TIMEOUT)
     {
+        rtLog_Error("rtConnection_Read timed out\n");
         rtMessageInfo_Release(msginfo); 
         return err;
     }
@@ -1537,6 +1546,7 @@ rtConnection_Read(rtConnection con, int32_t timeout)
       {
         msginfo->data = (uint8_t *)rt_try_malloc(msginfo->header.payload_length + 1);
         if(!msginfo->data){
+          rtLog_Error("Failed to allocate memory for msginfo->data");
           rtMessageInfo_Release(msginfo);
           return rtErrorFromErrno(ENOMEM);
         }
@@ -1584,6 +1594,7 @@ rtConnection_Read(rtConnection con, int32_t timeout)
     if (err != RT_OK && rtConnection_ShouldReregister(err))
     {
         rtMessageInfo_Release(msginfo);
+        rtLog_Error("No rtConnection, It should be Reregistered");
         return RT_NO_CONNECTION;
     }
   }
@@ -1636,31 +1647,54 @@ rtConnection_Read(rtConnection con, int32_t timeout)
     else
     {
       /*request message must be dispatched to the Callback thread*/
-      rtListItem listItem;
+
+      size_t size;
+      rtMessageInfo* blockingData;
+      rtListItem blockingItem;
+      static bool printErrorLog = true;
+
 
       pthread_mutex_lock(&con->callback_message_mutex);
-
-      rtList_PushBack(con->callback_message_list, msginfo, &listItem);
-      msginfo = NULL; /*the callback thread will release it*/
-
-      /*log something if the callback thread isn't processing fast enough*/
-      size_t size;
       rtList_GetSize(con->callback_message_list, &size);
-      if(size >= 5)
+      rtList_GetFront(con->callback_message_list, &blockingItem);
+      rtListItem_GetData(blockingItem, (void**)&blockingData);
+      char* pBlockingTopic = "";
+      if(blockingData)
+          pBlockingTopic = blockingData->header.topic;
+        
+      /*log something if the callback thread isn't processing fast enough*/
+      if(size > MAX_ALLOWED_MESSAGES)
       {
-        if(size == 5 || size == 10 || size == 20 || size == 40 || size == 80)
-          rtLog_Debug("callback_message_list has reached %lu", (unsigned long)size);
-        else if(size >= 100)
-          rtLog_Debug("callback_message_list has reached %lu", (unsigned long)size);
+         if(printErrorLog)
+         {
+             rtLog_Error("PROVIDER_NOT_RESPONDING: %s failed to respond back, %zu messages queued up; Dropping incoming request", pBlockingTopic, size);
+             printErrorLog = false;
+         }
+         else
+             rtLog_Debug("PROVIDER_NOT_RESPONDING: %s failed to respond back, %zu messages queued up; Dropping incoming request", pBlockingTopic, size);
+
       }
+      else
+      {
+          printErrorLog = true;
+          if((size) && (size % 5 == 0))
+          {
+              rtLog_Warn("PROVIDER_NOT_RESPONDING: %zu messages are queued up (%s)", size, pBlockingTopic);
+          }
+          rtList_PushBack(con->callback_message_list, msginfo, NULL);
 
-      /*wake the callback thread up to process new message*/
-      pthread_cond_signal(&con->callback_message_cond);
+          msginfo = NULL; /*the callback thread will release it*/
 
+          /*wake the callback thread up to process new message*/
+          int signal = pthread_cond_signal(&con->callback_message_cond);
+          if(signal !=0)
+          {
+              rtLog_Error("ReaderThread condition signal failed");
+          }
+      }
       pthread_mutex_unlock(&con->callback_message_mutex);
     }
   }
-
   /*if the message wasn't sent off to another thread then release it*/
   if(msginfo)
   {
