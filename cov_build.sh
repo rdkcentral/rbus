@@ -15,7 +15,7 @@ echo "==========================================================================
 echo "buliding rbus for coverity"
 
 cd ${GITHUB_WORKSPACE}
-cmake -S "$GITHUB_WORKSPACE" -B build/rbus  -DCMAKE_INSTALL_PREFIX="$GITHUB_WORKSPACE/install/usr" -DBUILD_FOR_DESKTOP=ON -DENABLE_UNIT_TESTING=ON -DENABLE_CODE_COVERAGE=ON -DCMAKE_BUILD_TYPE=Debug
+cmake -S "$GITHUB_WORKSPACE" -B build/rbus  -DCMAKE_INSTALL_PREFIX="$GITHUB_WORKSPACE/install/usr" -DBUILD_FOR_DESKTOP=ON -DENABLE_UNIT_TESTING=ON -DCMAKE_BUILD_TYPE=Debug
 
 cmake --build build/rbus --target install
 echo "======================================================================================"
