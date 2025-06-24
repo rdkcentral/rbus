@@ -12,6 +12,5 @@ cd ${GITHUB_WORKSPACE}
 #######################################
 #  Install Dependencies and packages  #
 #######################################
-apt update
-apt update && sudo apt install -y libcurl4-openssl-dev libgtest-dev lcov gcovr libmsgpack* libcjson-dev  build-essential
+apt update && apt install -y libcurl4-openssl-dev libgtest-dev lcov gcovr libmsgpack* libcjson-dev  build-essential
 
