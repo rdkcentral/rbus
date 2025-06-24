@@ -1,4 +1,4 @@
-name: Build Component in Native Environment
+name: Coverity Build
 
 on:
   push:
