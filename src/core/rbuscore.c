@@ -2548,7 +2548,7 @@ static void _rbuscore_directconnection_load_from_cache()
     uint8_t* pBuff = NULL;
     char cacheFileName[256] = "";
 
-    snprintf(cacheFileName, 256, RBUS_DIRECT_FILE_CACHE, __progname); 
+    snprintf(cacheFileName, 256, RBUS_DIRECT_FILE_CACHE, __progname);
 
     RBUSCORELOG_DEBUG("Entry of %s", __FUNCTION__);
 
@@ -2565,7 +2565,12 @@ static void _rbuscore_directconnection_load_from_cache()
         goto invalidFile;
     }
 
-    fseek(file, 0, SEEK_END);
+    if(fseek(file, 0, SEEK_END) != 0)
+    {
+        RBUSCORELOG_ERROR("failed to seek to end of file");
+        goto invalidFile;
+    }
+
     size = ftell(file);
     if(size <= 0)
     {
@@ -2576,7 +2581,12 @@ static void _rbuscore_directconnection_load_from_cache()
     pBuff  = rt_malloc(size);
     if(pBuff)
     {
-        fseek(file, 0, SEEK_SET);
+        if(fseek(file, 0, SEEK_SET) != 0)
+        {
+            RBUSCORELOG_ERROR("failed to seek to beginning of file");
+            goto invalidFile;
+        }
+
         if(fread(pBuff, 1, size, file) != (size_t)size)
         {
             RBUSCORELOG_ERROR("failed to read entire file");
