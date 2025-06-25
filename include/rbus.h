@@ -132,7 +132,8 @@ typedef enum _rbusError
     RBUS_ERROR_NOT_WRITABLE,                    /**< Set to the requested data element was not permitted by the provider component.*/
     RBUS_ERROR_NOT_READABLE,                    /**< Get to the requested data element was not permitted by the provider component.*/
     RBUS_ERROR_INVALID_PARAMETER_TYPE,          /**< Invalid parameter type.*/
-    RBUS_ERROR_INVALID_PARAMETER_VALUE          /**< Invalid parameter value.*/
+    RBUS_ERROR_INVALID_PARAMETER_VALUE,         /**< Invalid parameter value.*/
+    RBUS_ERROR_NOTIFICATION_REJECTED            /**< Set notification rejected */
 } rbusError_t;
 
 
