@@ -1103,7 +1103,7 @@ int subscribeHandlerImpl(
 
         if(rawData && autoPublish)
         {
-            RBUSLOG_ERROR("%s raw data subscription doesn't allow autoPublish=%d", __FUNCTION__, err);
+            RBUSLOG_ERROR("%s raw data subscription doesn't allow autoPublish=%d", err);
             return RBUS_ERROR_INVALID_INPUT;
         }
 
