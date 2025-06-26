@@ -2298,7 +2298,6 @@ rbusCoreError_t rbus_discoverRegisteredComponents(int * count, char *** componen
         }
 
         rtMessage_Release(msg);
-        ret = RBUSCORE_SUCCESS;
     }
     else
     {
