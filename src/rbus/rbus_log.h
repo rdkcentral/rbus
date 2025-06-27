@@ -31,12 +31,12 @@
 #include <stdarg.h>
 #include "rtLog.h"
 
-#define RBUSLOG_TRACE(format, ...)       rtLog_DebugPrint("RBUS", format"\n", ##__VA_ARGS__)
-#define RBUSLOG_DEBUG(format, ...)       rtLog_DebugPrint("RBUS", format"\n", ##__VA_ARGS__)
-#define RBUSLOG_INFO(format, ...)        rtLog_InfoPrint("RBUS", format"\n", ##__VA_ARGS__)
-#define RBUSLOG_WARN(format, ...)        rtLog_WarnPrint("RBUS", format"\n", ##__VA_ARGS__)
-#define RBUSLOG_ERROR(format, ...)       rtLog_ErrorPrint("RBUS", format"\n", ##__VA_ARGS__)
-#define RBUSLOG_FATAL(format, ...)       rtLog_FatalPrint("RBUS", format"\n", ##__VA_ARGS__)
+#define RBUSLOG_TRACE(format, ...)       rtLog_DebugPrint("RBUS", format, ##__VA_ARGS__)
+#define RBUSLOG_DEBUG(format, ...)       rtLog_DebugPrint("RBUS", format, ##__VA_ARGS__)
+#define RBUSLOG_INFO(format, ...)        rtLog_InfoPrint("RBUS", format, ##__VA_ARGS__)
+#define RBUSLOG_WARN(format, ...)        rtLog_WarnPrint("RBUS", format, ##__VA_ARGS__)
+#define RBUSLOG_ERROR(format, ...)       rtLog_ErrorPrint("RBUS", format, ##__VA_ARGS__)
+#define RBUSLOG_FATAL(format, ...)       rtLog_FatalPrint("RBUS", format, ##__VA_ARGS__)
 
 #endif
 
