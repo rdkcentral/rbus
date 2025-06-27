@@ -89,10 +89,14 @@ rtRouteBase_BindListener(char const* socket_name, int no_delay, int indefinite_r
   if (listener->local_endpoint.ss_family != AF_UNIX)
   {
     uint32_t one = 1;
-    if (no_delay)
-      setsockopt(listener->fd, SOL_TCP, TCP_NODELAY, &one, sizeof(one));
+    if (no_delay) {
+      if (setsockopt(listener->fd, SOL_TCP, TCP_NODELAY, &one, sizeof(one)) < 0)
+        rtLog_Warn("setsockopt TCP_NODELAY failed: %s", rtStrError(errno));
+    }
 
-    setsockopt(listener->fd, SOL_SOCKET, SO_REUSEADDR, (char *)&one, sizeof(one));
+    if (setsockopt(listener->fd, SOL_SOCKET, SO_REUSEADDR, (char *)&one, sizeof(one)) < 0)
+      rtLog_Warn("setsockopt SO_REUSEADDR failed: %s", rtStrError(errno));
+
     if(indefinite_retry == 1)
     {
       /* assigning maximum value of unsigned integer(0xFFFFFFFF - 4294967295) to num_retries */
