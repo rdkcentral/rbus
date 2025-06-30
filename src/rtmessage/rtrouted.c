@@ -1058,6 +1058,10 @@ rtRouted_OnMessageDiscoverObjectElements(rtConnectedClient* sender, rtMessageHea
         rtLog_Info("%s() Response couldn't be sent.", __func__);
       rtMessage_Release(response);   
     }
+    else
+    {
+      rtMessage_Release(response);
+    }
   }
   else
     rtLog_Error("Cannot create response message to registered components.");
