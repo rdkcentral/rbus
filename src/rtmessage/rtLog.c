@@ -271,7 +271,7 @@ void rtLogPrintf(rtLogLevel level, const char* mod, const char* file, int line, 
 
   if (NULL != sLogHandler)
   {
-    sLogHandler(level, path, line, threadId, buff);
+    sLogHandler(level, "", 0, threadId, buff);
   }
 #ifdef ENABLE_RDKLOGGER
   else if (sOption == RT_USE_RDKLOGGER)
@@ -279,7 +279,7 @@ void rtLogPrintf(rtLogLevel level, const char* mod, const char* file, int line, 
     char module[MODULE_BUFFER_SIZE] = {0};
     rdk_LogLevel rdklevel = rdkLogLevelFromrtLogLevel(level);
     sprintf(module, "LOG.RDK.%s", mod);
-    RDK_LOG(rdklevel, module, buff);
+    RDK_LOG(rdklevel, module, "%s\n", buff);
   }
 #endif
   else
@@ -292,7 +292,7 @@ void rtLogPrintf(rtLogLevel level, const char* mod, const char* file, int line, 
     gettimeofday(&tv, NULL);
     lt = localtime(&tv.tv_sec);
 
-    printf("%.2d:%.2d:%.2d.%.6lld  %-10s %5s %s:%d -- Thread-%" RT_THREADID_FMT ": %s",
+    printf("%.2d:%.2d:%.2d.%.6lld  %-10s %5s %s:%d -- Thread-%" RT_THREADID_FMT ": %s\n",
         lt->tm_hour, lt->tm_min, lt->tm_sec, (long long int)tv.tv_usec, mod,
         rtLogLevelToString(level), path, line, threadId, buff);
   }
