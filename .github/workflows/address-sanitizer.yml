@@ -54,6 +54,7 @@ jobs:
           make -C build/rbus install
       - name: Verify script location
         run: |
+         mkdir -p /tmp/provider_logs
          cat << 'EOF' >address_sanitizer.sh
          #!/bin/sh
 
@@ -77,28 +78,15 @@ jobs:
           cd install/usr
           export PREFIX=$PWD
           export LD_LIBRARY_PATH=$PREFIX/lib
-          nohup ./bin/rtrouted -f -l DEBUG > /tmp/rtrouted_log.txt &
-      - name: Run Gtest Cases
-        run: |
-          cd build/rbus
-          export ASAN_OPTIONS=log_path=/tmp/asan_log_gtest
-          nohup ./src/session_manager/rbus_session_mgr &
-          ./unittests/rbus_gtest.bin || true
-          cd /tmp
-          ls -lt
-           if ls /tmp/asan_log_gtest.* 1> /dev/null 2>&1; then
-            cat /tmp/asan_log_gtest.* >> /tmp/asan_gtest_log.log
-            rm -rf /tmp/asan_log_gtest.*
-            cd ${{github.workspace}}
-           ./address_sanitizer.sh /tmp/asan_gtest_log.log
-           fi
+          export ASAN_OPTIONS=log_path=/tmp/asan_log_rtrouted
+          nohup ./bin/rtrouted -f -l DEBUG > /tmp/provider_logs/rtrouted_log.txt &
       - name: Run RbusTestTimeoutValues Unit test
         run: |
           cd install/usr
           export PREFIX=$PWD
           export LD_LIBRARY_PATH=$PREFIX/lib
           export ASAN_OPTIONS=log_path=/tmp/asan_log_rbusTestTimeoutValues
-          nohup ./bin/rbusTestTimeoutValuesProvider &
+          nohup ./bin/rbusTestTimeoutValuesProvider > /tmp/provider_logs/rbusTestTimeoutValuesProvider_log.txt &
           ./bin/rbusTestTimeoutValuesConsumer || true
           if ls /tmp/asan_log_rbusTestTimeoutValues.* 1> /dev/null 2>&1; then
            cat /tmp/asan_log_rbusTestTimeoutValues.* >>/tmp/asan_rbusTestTimeoutValues_log.log
@@ -112,7 +100,7 @@ jobs:
           export PREFIX=$PWD
           export LD_LIBRARY_PATH=$PREFIX/lib
           export ASAN_OPTIONS=log_path=/tmp/asan_log_rbusTest
-          nohup ./bin/rbusTestProvider >/tmp/plog.txt &
+          nohup ./bin/rbusTestProvider >/tmp/provider_logs/log_rbusTestProvider.txt &
           ./bin/rbusTestConsumer -a || true
           if ls /tmp/asan_log_rbusTest.* 1> /dev/null 2>&1; then
            cat /tmp/asan_log_rbusTest.* >>/tmp/asan_rbusTest_log.log
@@ -126,13 +114,14 @@ jobs:
           export PREFIX=$PWD
           export LD_LIBRARY_PATH=$PREFIX/lib
           export ASAN_OPTIONS=log_path=/tmp/asan_log_multiRbusOpenMethod
-          nohup ./bin/multiRbusOpenMethodProvider &
+          nohup ./bin/multiRbusOpenMethodProvider > /tmp/provider_logs/log_multiRbusOpenMethodPrpvider.txt &
           ./bin/multiRbusOpenMethodConsumer || true
           if ls /tmp/asan_log_multiRbusOpenMethod.* 1> /dev/null 2>&1; then
            cat /tmp/asan_log_multiRbusOpenMethod.* >>/tmp/asan_multiRbusOpenMethod_log.log
            rm -rf /tmp/asan_log_multiRbusOpenMethod.*
            cd ${{github.workspace}}
-          ./address-sanitizer.sh /tmp/asan_multiRbusOpenMethod_log.log
+           ls -lt
+           ./address-sanitizer.sh /tmp/asan_multiRbusOpenMethod_log.log
           fi
       - name: Run multiRbusOpenSubscribe Unit test
         run: |
@@ -140,7 +129,7 @@ jobs:
           export PREFIX=$PWD
           export LD_LIBRARY_PATH=$PREFIX/lib
           export ASAN_OPTIONS=log_path=/tmp/asan_log_multiRbusOpen
-          nohup ./bin/multiRbusOpenProvider >/tmp/log_multiRbusOpenProvider.txt &
+          nohup ./bin/multiRbusOpenProvider >/tmp/provider_logs/log_multiRbusOpenProvider.txt &
           ./bin/multiRbusOpenConsumer || true
           if ls /tmp/asan_log_multiRbusOpen.* 1> /dev/null 2>&1; then
            cat /tmp/asan_log_multiRbusOpen.* >>/tmp/asan_multiRbusOpen_log.log
@@ -154,7 +143,7 @@ jobs:
           export PREFIX=$PWD
           export LD_LIBRARY_PATH=$PREFIX/lib
           export ASAN_OPTIONS=log_path=/tmp/asan_log_multiRbusOpenRbusGet
-          nohup ./bin/multiRbusOpenRbusGetProvider >/tmp/log_multiRbusOpenRbusGetProvider.txt &
+          nohup ./bin/multiRbusOpenRbusGetProvider >/tmp/provider_logs/log_multiRbusOpenRbusGetProvider.txt &
           ./bin/multiRbusOpenRbusGetConsumer || true
           if ls /tmp/asan_log_multiRbusOpenRbusGet.* 1> /dev/null 2>&1; then
            cat /tmp/asan_log_multiRbusOpenRbusGet.* >>tmp/asan_multiRbusOpenRbusGet_log.log
@@ -168,8 +157,16 @@ jobs:
         run: |
           cd build/rbus
           export ASAN_OPTIONS=log_path=/tmp/asan_log_gtest
-          nohup ./src/session_manager/rbus_session_mgr &
-          ./unittests/rbus_gtest.bin || true
+          #nohup ./src/session_manager/rbus_session_mgr &
+          #./unittests/rbus_gtest.bin || true
+          nohup ./src/session_manager/rbus_session_mgr > /tmp/provider_logs/rbus_session_mgr.log 2>&1 &
+          sleep 2
+          # nohup ./unittests/rbus_gtest.bin --gtest_filter=StressTestServer.* > rbus_gtest.log 2>&1 || true
+          nohup ./unittests/rbus_gtest.bin  > rbus_gtest.log 2>&1 || true
+          ls -lt
+          echo "rbus_gtest logss...."
+          cat rbus_gtest.log
+          echo "END OF RBUS_GTEST LOG!!!!!!!!!!"
           if ls /tmp/asan_log_gtest.* 1> /dev/null 2>&1; then
            cat /tmp/asan_log_gtest.* >> /tmp/asan_gtest_log.log
            rm -rf /tmp/asan_log_gtest.*
@@ -178,8 +175,25 @@ jobs:
           fi 
       - name: Stop SessionManager
         run: |
-          killall -9 rbus_session_mgr
+          killall -15 rbus_session_mgr
       - name: Stop rtrouted
         run: |
-          killall -9 rtrouted    
-
+          cd install/usr
+          export PREFIX=$PWD
+          export LD_LIBRARY_PATH=$PREFIX/lib
+          nohup ./bin/rtrouted_diag shutdown
+          rm -rf /tmp/rtrouted*
+          ls -lt
+          if ls /tmp/asan_log_rtrouted.* 1> /dev/null 2>&1; then
+           cat /tmp/asan_log_rtrouted.* >> /tmp/asan_rtrouted_log.log
+           rm -rf /tmp/asan_log_rtrouted.*
+           cd ${{github.workspace}}
+           ./address_sanitizer.sh /tmp/asan_rtrouted_log.log
+          else
+            echo "No adress sanitizer error !!!!" 
+          fi
+      - name: Upload the address sanitizer logs using actions
+        uses: actions/upload-artifact@v4
+        with:
+          name: address_sanitizer_logs
+          path: /tmp/provider_logs/    
