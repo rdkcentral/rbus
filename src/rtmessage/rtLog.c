@@ -110,6 +110,43 @@ struct LogLevelSetter
 static LogLevelSetter __logLevelSetter; // force RT_LOG_LEVEL to be read from env
 #endif
 
+#ifdef ENABLE_RDKLOGGER
+
+#ifdef __cplusplus
+static void setLogTypeFromEnvironment()
+#else
+static void setLogTypeFromEnvironment() __attribute__((constructor));
+void setLogTypeFromEnvironment()
+#endif
+{
+  const char* s = getenv("RT_LOGGER_TYPE");
+  if (s && strlen(s))
+  {
+    rtLoggerSelection option;
+    if      (strcasecmp(s, "rtlogger") == 0) option = RT_USE_RTLOGGER;
+    else if (strcasecmp(s, "rdklogger") == 0) option = RT_USE_RDKLOGGER;
+    else
+    {
+      fprintf(stderr, "invalid RT_LOG_TYPE set: %s", s);
+      abort();
+    }
+    rtLog_SetOption(option);
+  }
+}
+
+#ifdef __cplusplus
+struct LogTypeSetter
+{
+  LogTypeSetter()
+  {
+    setLogTypeFromEnvironment();
+  }
+};
+
+static LogTypeSetter __logTypeSetter; // force RT_LOG_TYPE to be read from env
+#endif
+#endif /* ENABLE_RDKLOGGER */
+
 const char* rtLogLevelToString(rtLogLevel l)
 {
   const char* s = "OUT-OF-BOUNDS";
