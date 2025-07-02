@@ -3488,7 +3488,7 @@ rbusError_t rbus_get(rbusHandle_t handle, char const* name, rbusValue_t* value)
 
     if(err != RBUSCORE_SUCCESS)
     {
-        RBUSLOG_ERROR("%s for %s failed with RBUS Daemon error: %s", __FUNCTION__, name, rbusCoreErrorToString(err));
+        RBUSLOG_ERROR("%s for %s failed with error: %s", __FUNCTION__, name, rbusCoreErrorToString(err));
         errorcode = rbusCoreError_to_rbusError(err);
     }
     else
@@ -3675,7 +3675,7 @@ rbusError_t rbus_getExt(rbusHandle_t handle, int paramCount, char const** pParam
 
                         if(err != RBUSCORE_SUCCESS)
                         {
-                            RBUSLOG_ERROR("%s for %s failed with RBUS Daemon error: %s", __FUNCTION__, destinations[i], rbusCoreErrorToString(err));
+                            RBUSLOG_ERROR("%s for %s failed with error: %s", __FUNCTION__, destinations[i], rbusCoreErrorToString(err));
                             errorcode = rbusCoreError_to_rbusError(err);
                         }
                         else
@@ -3836,7 +3836,7 @@ rbusError_t rbus_getExt(rbusHandle_t handle, int paramCount, char const** pParam
 
                     if((err = rbus_invokeRemoteMethod(firstParamName, METHOD_GETPARAMETERVALUES, request, rbusHandle_FetchGetTimeout(handle), &response)) != RBUSCORE_SUCCESS)
                     {
-                        RBUSLOG_ERROR("%s for %s failed with RBUS Daemon error: %s", __FUNCTION__, firstParamName, rbusCoreErrorToString(err));
+                        RBUSLOG_ERROR("%s for %s failed with error: %s", __FUNCTION__, firstParamName, rbusCoreErrorToString(err));
                         errorcode = rbusCoreError_to_rbusError(err);
                         break;
                     }
@@ -4000,7 +4000,7 @@ rbusError_t _setInternal(rbusHandle_t handle, char const* name, rbusValue_t valu
 
     if((err = rbus_invokeRemoteMethod2(myConn, name, METHOD_SETPARAMETERVALUES, setRequest, timeout, &setResponse)) != RBUSCORE_SUCCESS)
     {
-        RBUSLOG_ERROR("%s for %s failed with RBUS Daemon error: %s", __FUNCTION__, name, rbusCoreErrorToString(err));
+        RBUSLOG_ERROR("%s for %s failed with error: %s", __FUNCTION__, name, rbusCoreErrorToString(err));
         errorcode = rbusCoreError_to_rbusError(err);
     }
     else
@@ -4073,7 +4073,7 @@ rbusError_t rbus_setCommit(rbusHandle_t handle, char const* name, rbusSetOptions
         myConn = handleInfo->m_connection;
     if((err = rbus_invokeRemoteMethod2(myConn, name, METHOD_COMMIT, setRequest, rbusHandle_FetchSetTimeout(handle),  &setResponse)) != RBUSCORE_SUCCESS)
     {
-        RBUSLOG_ERROR("%s for %s failed with RBUS Daemon error: %s", __FUNCTION__, name, rbusCoreErrorToString(err));
+        RBUSLOG_ERROR("%s for %s failed with error: %s", __FUNCTION__, name, rbusCoreErrorToString(err));
         errorcode = rbusCoreError_to_rbusError(err);
     }
     else
@@ -4262,7 +4262,7 @@ rbusError_t _setMultiInternal(rbusHandle_t handle, uint32_t numProps, rbusProper
 
                     if((err = rbus_invokeRemoteMethod(firstParamName, METHOD_SETPARAMETERVALUES, setRequest, timeout, &setResponse)) != RBUSCORE_SUCCESS)
                     {
-                        RBUSLOG_ERROR("%s for %s failed with RBUS Daemon error: %s", __FUNCTION__, firstParamName, rbusCoreErrorToString(err));
+                        RBUSLOG_ERROR("%s for %s failed with error: %s", __FUNCTION__, firstParamName, rbusCoreErrorToString(err));
                         errorcode = rbusCoreError_to_rbusError(err);
                     }
                     else
@@ -4482,7 +4482,7 @@ rbusError_t rbusTable_addRow(
         rbusHandle_FetchSetTimeout(handle),
         &response)) != RBUSCORE_SUCCESS)
     {
-        RBUSLOG_ERROR("%s for %s failed with RBUS Daemon error: %s", __FUNCTION__, tableName, rbusCoreErrorToString(err));
+        RBUSLOG_ERROR("%s for %s failed with error: %s", __FUNCTION__, tableName, rbusCoreErrorToString(err));
         return rbusCoreError_to_rbusError(err);
     }
     else
@@ -4548,7 +4548,7 @@ rbusError_t rbusTable_removeRow(
         rbusHandle_FetchSetTimeout(handle),
         &response)) != RBUSCORE_SUCCESS)
     {
-        RBUSLOG_ERROR(" %s for %s failed with RBUS Daemon error: %s", __FUNCTION__, rowName, rbusCoreErrorToString(err));
+        RBUSLOG_ERROR(" %s for %s failed with error: %s", __FUNCTION__, rowName, rbusCoreErrorToString(err));
         return rbusCoreError_to_rbusError(err);
     }
     else
@@ -6060,7 +6060,7 @@ rbusError_t rbusMethod_InvokeInternal(
         timeout, 
         &response)) != RBUSCORE_SUCCESS)
     {
-        RBUSLOG_ERROR("rbusMethod Invoke for %s failed with RBUS Daemon error:%s", methodName, rbusCoreErrorToString(err));
+        RBUSLOG_ERROR("rbusMethod Invoke for %s failed with error:%s", methodName, rbusCoreErrorToString(err));
         /* Updating the outParmas as RBUS core is returning failure */
         rbusObject_Init(outParams, NULL);
         rbusValue_Init(&value1);
