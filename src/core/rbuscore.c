@@ -2373,6 +2373,10 @@ rbus_getOpenTelemetryContextFromThreadLocal()
             memset(ot_ctx->otTraceState, 0, sizeof(ot_ctx->otTraceState));
             pthread_setspecific(_open_telemetry_key, ot_ctx);
         }
+        else
+        {
+            RBUSCORELOG_ERROR("Failed to allocate memory for OpenTelemetry context");
+        }
     }
 
     return ot_ctx;
@@ -2810,7 +2814,8 @@ rbusCoreError_t rbuscore_startPrivateListener(const char* pPrivateConnAddress, c
         if (!obj)
         {
             rbusServerDirectHandler_t *pInstance = rt_malloc(sizeof(rbusServerDirectHandler_t));
-            strcpy(pInstance->m_privConnAddress, pPrivateConnAddress);
+            //strcpy(pInstance->m_privConnAddress, pPrivateConnAddress);
+	    snprintf(pInstance->m_privConnAddress, sizeof(pInstance->m_privConnAddress), "%s", pPrivateConnAddress);
             pInstance->m_fnRouteCallback = _onDirectMessage;
 
             if((err = pthread_create(&pid, NULL, rbuscore_PrivateThreadFunc, pInstance)) != 0)
@@ -2829,9 +2834,12 @@ rbusCoreError_t rbuscore_startPrivateListener(const char* pPrivateConnAddress, c
 
         // Update the DMLs
         rbusServerDMLList_t *pTemp = rt_malloc(sizeof(rbusServerDMLList_t));
-        strcpy(pTemp->m_privConnAddress, pPrivateConnAddress);
-        strcpy(pTemp->m_consumerName, pConsumerName);
-        strcpy(pTemp->m_privateDML, pDMLName);
+        //strcpy(pTemp->m_privConnAddress, pPrivateConnAddress);
+        //strcpy(pTemp->m_consumerName, pConsumerName);
+        //strcpy(pTemp->m_privateDML, pDMLName);
+	snprintf(pTemp->m_privConnAddress, sizeof(pTemp->m_privConnAddress), "%s", pPrivateConnAddress);
+        snprintf(pTemp->m_consumerName, sizeof(pTemp->m_consumerName), "%s", pConsumerName);
+        snprintf(pTemp->m_privateDML, sizeof(pTemp->m_privateDML), "%s", pDMLName);
         memcpy(&pTemp->m_consumerInfo, &privConsInfo, sizeof(rtPrivateClientInfo));
         pTemp->m_pid = pid;
         pTemp->m_fnCallbackHandler = handler;

@@ -306,6 +306,7 @@ bool TokenChain_match(TokenChain* chain, elementNode* instNode)
             }
             else if(token->type == TokenAlias)
             {
+                rc = 1; /* Initialize rc to non-zero value to indicate no match by default */
                 if(inst->alias)
                 {
                     rc = strcmp(inst->alias, token->text);

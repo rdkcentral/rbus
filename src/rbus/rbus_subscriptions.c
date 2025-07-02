@@ -393,8 +393,10 @@ void rbusSubscriptions_onTableRowRemoved(rbusSubscriptions_t subscriptions, elem
 
 static pid_t rbusSubscriptions_getListenerPid(char const* listener)
 {
+
     pid_t pid;
     const char* p = listener + strlen(listener) - 1;
+
     while(*p != '.' && p != listener)
     {
         p--;
@@ -499,13 +501,17 @@ static void rbusSubscriptions_loadCache(rbusSubscriptions_t subscriptions)
         if(rbusBuffer_ReadUInt16(buff, &length) < 0) goto remove_bad_file;
         if(type != RBUS_STRING || length >= RBUS_MAX_NAME_LENGTH) goto remove_bad_file;
 
-        sub->listener = rt_try_malloc(length);
+        //sub->listener = rt_try_malloc(length);
+        //sub->eventName = rt_try_calloc(length + 1, 1); //second approach
+        sub->listener =  rt_try_malloc(length + 1); // +1 for null terminator
+
         if(!sub->listener)
         {
             RBUSLOG_ERROR("failed to malloc %d bytes for listener", length);
             goto remove_bad_file;
         }
         memcpy(sub->listener, buff->data + buff->posRead, length);
+        sub->listener[length] = '\0'; // ensure null termination
         buff->posRead += length;
 
         //read eventName
@@ -513,13 +519,16 @@ static void rbusSubscriptions_loadCache(rbusSubscriptions_t subscriptions)
         if(rbusBuffer_ReadUInt16(buff, &length) < 0) goto remove_bad_file;
         if(type != RBUS_STRING || length >= RBUS_MAX_NAME_LENGTH) goto remove_bad_file;
 
-        sub->eventName = rt_try_malloc(length);
+        //sub->eventName = rt_try_malloc(length);
+        //sub->eventName = rt_try_calloc(length + 1, 1); //second_approach
+        sub->eventName =  rt_try_malloc(length + 1); // +1 for null terminator
         if(!sub->eventName)
         {
             RBUSLOG_ERROR("failed to malloc %d bytes for eventName", length);
             goto remove_bad_file;
         }
         memcpy(sub->eventName, buff->data + buff->posRead, length);
+        sub->eventName[length] = '\0'; // ensure null termination
         buff->posRead += length;
 
         //read componentId
