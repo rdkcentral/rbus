@@ -27,8 +27,6 @@
 #include <string.h>
 #include <getopt.h>
 #include <rbus.h>
-#include <rtLog.h>
-#include <rtAtomic.h>
 #include <stdatomic.h>
 
 static atomic_int wait = 1;
@@ -132,7 +130,7 @@ int main(int argc, char *argv[])
         if(rc != RBUS_ERROR_SUCCESS)
         {
             printf ("rbus_get failed for %s with error [%d]\n", "Device.SampleProvider.", rc);
-            rt_atomic_fetch_sub(&wait, 1);
+            atomic_store(&wait, 0);
             break;
         }
         count++;
