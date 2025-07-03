@@ -192,7 +192,8 @@ int server_object_compare(const void* left, const void* right)
 void server_object_create(server_object_t* obj, char const* name, rbus_callback_t callback, void* data)
 {
     (*obj) = rt_malloc(sizeof(struct _server_object));
-    strcpy((*obj)->name, name);
+    strncpy((*obj)->name, name, sizeof((*obj)->name) - 1);
+    (*obj)->name[sizeof((*obj)->name) - 1] = '\0';
     (*obj)->callback = callback;
     (*obj)->data = data;
     (*obj)->process_event_subscriptions = false;
