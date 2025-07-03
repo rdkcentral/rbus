@@ -1949,9 +1949,6 @@ rbusCoreError_t rbus_discoverWildcardDestinations(const char * expression, int *
             }
 
             rtMessage_Release(msg);
-
-            ret = RBUSCORE_SUCCESS;
-
         }
         else
         {
