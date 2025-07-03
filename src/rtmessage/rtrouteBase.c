@@ -521,7 +521,8 @@ rtRouteDirect_SendMessage(const rtPrivateClientInfo* pClient, uint8_t const* pIn
             new_header.control_data = pClient->clientID;
 
         strncpy(new_header.topic, pClient->clientTopic, RTMSG_HEADER_MAX_TOPIC_LENGTH-1);
-        new_header.topic_length = strlen(pClient->clientTopic);
+        new_header.topic[RTMSG_HEADER_MAX_TOPIC_LENGTH-1] = '\0';
+        new_header.topic_length = strlen(new_header.topic);
         new_header.reply_topic[0] = '\0';
         new_header.reply_topic_length = 0;
       
@@ -531,7 +532,7 @@ rtRouteDirect_SendMessage(const rtPrivateClientInfo* pClient, uint8_t const* pIn
         rtLog_Debug("SendMessage topic=%s expression...", new_header.topic);
         static uint8_t buffer[RTMSG_CLIENT_READ_BUFFER_SIZE];
 
-        memset(buffer, 0,RTMSG_CLIENT_READ_BUFFER_SIZE); 
+        memset(buffer, 0, RTMSG_CLIENT_READ_BUFFER_SIZE);
         rtMessageHeader_Encode(&new_header, buffer);
         struct iovec send_vec[] = {{buffer, new_header.header_length}, {(void *)pInBuff, inLength}};
         struct msghdr send_hdr = {NULL, 0, send_vec, 2, NULL, 0, 0};
