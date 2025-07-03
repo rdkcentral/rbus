@@ -63,8 +63,10 @@ static rtTreeTopic* createTreeTopic(const char* name, rtTreeTopic* parent)
     treeTopic->name = strdup(name);
     if(parent->fullName)
     {
-        treeTopic->fullName = rt_malloc(strlen(parent->fullName) + 1 + strlen(name) + 1);
-        sprintf(treeTopic->fullName, "%s.%s", parent->fullName, name);
+        size_t len1 = strlen(parent->fullName);
+        size_t len2 = strlen(name);
+        treeTopic->fullName = rt_malloc(len1 + 1 + len2 + 1);
+        snprintf(treeTopic->fullName, len1 + 1 + len2 + 1, "%s.%s", parent->fullName, name);
     }
     else
     {
