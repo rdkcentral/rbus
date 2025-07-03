@@ -2626,7 +2626,10 @@ invalidFile:
     if(pBuff)
         free(pBuff);
 
-    remove(cacheFileName);
+    if(remove(cacheFileName) != 0)
+    {
+        RBUSCORELOG_ERROR("failed to remove file %s", cacheFileName);
+    }
 }
 
 rbusServerDMLList_t* rbuscore_FindServerPrivateClient (const char *pParameterName, const char *pConsumerName)
