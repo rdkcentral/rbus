@@ -22,10 +22,10 @@
 #include <stdarg.h>
 #include "rtLog.h"
 
-#define RBUSCORELOG_ERROR(format, ...)       rtLog_ErrorPrint("RBUSCORE", format"\n", ##__VA_ARGS__)
-#define RBUSCORELOG_WARN(format, ...)        rtLog_WarnPrint("RBUSCORE", format"\n", ##__VA_ARGS__)
-#define RBUSCORELOG_INFO(format, ...)        rtLog_InfoPrint("RBUSCORE", format"\n", ##__VA_ARGS__)
-#define RBUSCORELOG_DEBUG(format, ...)       rtLog_DebugPrint("RBUSCORE", format"\n", ##__VA_ARGS__)
-#define RBUSCORELOG_TRACE(format, ...)       rtLog_DebugPrint("RBUSCORE", format"\n", ##__VA_ARGS__)
+#define RBUSCORELOG_ERROR(format, ...)       rtLog_ErrorPrint("RBUSCORE", format, ##__VA_ARGS__)
+#define RBUSCORELOG_WARN(format, ...)        rtLog_WarnPrint("RBUSCORE", format, ##__VA_ARGS__)
+#define RBUSCORELOG_INFO(format, ...)        rtLog_InfoPrint("RBUSCORE", format, ##__VA_ARGS__)
+#define RBUSCORELOG_DEBUG(format, ...)       rtLog_DebugPrint("RBUSCORE", format, ##__VA_ARGS__)
+#define RBUSCORELOG_TRACE(format, ...)       rtLog_DebugPrint("RBUSCORE", format, ##__VA_ARGS__)
 
 #endif  // __RBUS_CORE_LOG_H__
