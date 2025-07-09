@@ -26,7 +26,7 @@ include_directories(${PROJECT_SOURCE_DIR}/src/session_manager)
 
 string(REPLACE "-Werror" "" CMAKE_CXX_FLAGS_DEBUG ${CMAKE_CXX_FLAGS_DEBUG})
 string(REPLACE "-Werror" "" CMAKE_CXX_FLAGS_RELEASE ${CMAKE_CXX_FLAGS_RELEASE})
-if (NOT GTEST_INCLUDE_DIR)
+if (NOT GTEST_LIBRARIES)
     message("Warning GTest wasn't found. GTest library will be built.")
     include(ExternalProject)
     #include(GoogleTest)
@@ -54,7 +54,7 @@ if (NOT GTEST_INCLUDE_DIR)
 
     include_directories("${source_dir}/googletest/include" "${source_dir}/googlemock/include")
 else ()
-    include_directories("${GTEST_INCLUDE_DIR}")
+    include_directories("GTEST_INCLUDE_DIRS")
 endif()
 
 # someone needs to figure out how to run this stuff under valgrind
@@ -102,7 +102,7 @@ add_executable(rbus_gtest.bin
   main.cpp)
 add_dependencies(rbus_gtest.bin rbus)
 
-if (NOT GTEST_INCLUDE_DIR)
+if (NOT GTEST_LIBRARIES)
     target_link_libraries(rbus_gtest.bin rbus libgtest libgmock gcov)
 else ()
     target_link_libraries(rbus_gtest.bin rbus gtest gcov)
