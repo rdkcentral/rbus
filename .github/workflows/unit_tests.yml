@@ -109,6 +109,9 @@ jobs:
           killall -15 rbus_session_mgr
       - name: Stop rtrouted
         run: |
+          cd install/usr
+          export PREFIX=$PWD
+          export LD_LIBRARY_PATH=$PREFIX/lib
           nohup ./bin/rtrouted_diag shutdown
       - name:  Run CodeCoverage
         run: |

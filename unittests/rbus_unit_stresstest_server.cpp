@@ -488,7 +488,7 @@ TEST_F(StressTestServer, rbus_resolveWildcardDestination_test1)
             CLOSE_BROKER_CONNECTION();
 
         kill(pid,SIGTERM);
-	sleep(2);
+	usleep(100000);
         //printf("Stoping server instance from createServer test\n");
     }
     else
@@ -551,7 +551,7 @@ TEST_F(StressTestServer, rbus_resolveWildcardDestination_test2)
             CLOSE_BROKER_CONNECTION();
 
         kill(pid,SIGTERM);
-	sleep(2);
+	usleep(100000);
         //printf("Stoping server instance from createServer test\n");
     }
     else
@@ -615,7 +615,7 @@ TEST_F(StressTestServer, rbus_resolveWildcardDestination_test3)
             CLOSE_BROKER_CONNECTION();
 
         kill(pid,SIGTERM);
-	sleep(2);
+	usleep(100000);
         //printf("Stoping server instance from createServer test\n");
     }
     else
@@ -678,7 +678,7 @@ TEST_F(StressTestServer, rbus_resolveWildcardDestination_test4)
             CLOSE_BROKER_CONNECTION();
 
         kill(pid,SIGTERM);
-	sleep(2);
+	usleep(100000);
         //printf("Stoping server instance from createServer test\n");
     }
     else
@@ -755,7 +755,7 @@ TEST_F(StressTestServer, rbus_resolveWildcardDestination_test5)
             CLOSE_BROKER_CONNECTION();
 
         kill(pid,SIGTERM);
-	sleep(2);
+	usleep(100000);
         //printf("Stoping server instance from createServer test\n");
     }
     else
