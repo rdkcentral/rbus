@@ -2820,7 +2820,8 @@ rbusCoreError_t rbuscore_startPrivateListener(const char* pPrivateConnAddress, c
         if (!obj)
         {
             rbusServerDirectHandler_t *pInstance = rt_malloc(sizeof(rbusServerDirectHandler_t));
-            strcpy(pInstance->m_privConnAddress, pPrivateConnAddress);
+            strncpy(pInstance->m_privConnAddress, pPrivateConnAddress, sizeof(pInstance->m_privConnAddress)-1);
+            pInstance->m_privConnAddress[sizeof(pInstance->m_privConnAddress)-1] = '\0';
             pInstance->m_fnRouteCallback = _onDirectMessage;
 
             if((err = pthread_create(&pid, NULL, rbuscore_PrivateThreadFunc, pInstance)) != 0)
@@ -2839,9 +2840,12 @@ rbusCoreError_t rbuscore_startPrivateListener(const char* pPrivateConnAddress, c
 
         // Update the DMLs
         rbusServerDMLList_t *pTemp = rt_malloc(sizeof(rbusServerDMLList_t));
-        strcpy(pTemp->m_privConnAddress, pPrivateConnAddress);
-        strcpy(pTemp->m_consumerName, pConsumerName);
-        strcpy(pTemp->m_privateDML, pDMLName);
+        strncpy(pTemp->m_privConnAddress, pPrivateConnAddress, sizeof(pTemp->m_privConnAddress)-1);
+        pTemp->m_privConnAddress[sizeof(pTemp->m_privConnAddress)-1] = '\0';
+        strncpy(pTemp->m_consumerName, pConsumerName, sizeof(pTemp->m_consumerName)-1);
+        pTemp->m_consumerName[sizeof(pTemp->m_consumerName)-1] = '\0';
+        strncpy(pTemp->m_privateDML, pDMLName, sizeof(pTemp->m_privateDML)-1);
+        pTemp->m_privateDML[sizeof(pTemp->m_privateDML)-1] = '\0';
         memcpy(&pTemp->m_consumerInfo, &privConsInfo, sizeof(rtPrivateClientInfo));
         pTemp->m_pid = pid;
         pTemp->m_fnCallbackHandler = handler;
