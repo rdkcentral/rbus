@@ -2503,7 +2503,9 @@ static void _rbuscore_directconnection_save_to_cache()
     if(0 == sz)
     {
         RBUSCORELOG_DEBUG("no direct connection exist, so removing cache file");
-        remove(cacheFileName);
+        if (remove(cacheFileName) != 0) {
+            RBUSCORELOG_ERROR("failed to remove %s", cacheFileName);
+        }
     }
     else
     {
