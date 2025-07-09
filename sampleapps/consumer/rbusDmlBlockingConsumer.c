@@ -66,6 +66,8 @@ int main(int argc, char *argv[])
             count = 0;
         rc = rbus_get(handle, paramNames[count], &value);
         sleep(0.1);
+        if(rc == RBUS_ERROR_DESTINATION_NOT_FOUND)
+            break;
         count++;
     }
 
