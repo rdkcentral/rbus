@@ -132,17 +132,4 @@ jobs:
           nohup valgrind --leak-check=full --log-file=/tmp/valgrind/multiRbusOpenRbusGetProvider.log ./bin/multiRbusOpenRbusGetProvider >  /tmp/multiRbusOpenRbusGetProvider.out 2>&1  &
           nohup valgrind --leak-check=full --log-file=/tmp/valgrind/multiRbusOpenRbusSetConsumer.log ./bin/multiRbusOpenRbusSetConsumer > /tmp/multiRbusOpenRbusSetProvider.out 2>&1 &
           cd ${{github.workspace}} && ./memoryleak.sh
-      #- name: Run Gtest Cases with Valgrind
-        #run: |
-          #cd install/usr
-          #export PREFIX=$PWD
-          #export LD_LIBRARY_PATH=$PREFIX/lib
-          #valgrind --leak-check=full --log-file=/tmp/valgrind/rbus_session_manager.log ./bin/rbus_session_manager &
-          #valgrind --leak-check=full --log-file=/tmp/valgrind/rbus_gtest.log --track-origins=yes --verbose ./bin/rbus_gtest.bin  
-     # - name: Stop rtrouted
-        #run: |
-          #cd install/usr
-          #export PREFIX=$PWD
-          #export LD_LIBRARY_PATH=$PREFIX/lib
-          #killall -9 rtrouted
           

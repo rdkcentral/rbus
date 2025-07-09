@@ -106,10 +106,10 @@ jobs:
           ./unittests/rbus_gtest.bin
       - name: Stop SessionManager
         run: |
-          killall -9 rbus_session_mgr
+          killall -15 rbus_session_mgr
       - name: Stop rtrouted
         run: |
-          killall -9 rtrouted
+          nohup ./bin/rtrouted_diag shutdown
       - name:  Run CodeCoverage
         run: |
             rm -rf /tmp/rtrouted*
