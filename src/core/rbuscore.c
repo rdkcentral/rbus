@@ -125,7 +125,8 @@ void server_event_create(server_event_t* event, const char * event_name, server_
 {
     (*event) = rt_malloc(sizeof(struct _server_event));
     rtVector_Create(&(*event)->listeners);
-    strcpy((*event)->name, event_name);
+    strncpy((*event)->name, event_name, sizeof((*event)->name) - 1);
+    (*event)->name[sizeof((*event)->name) - 1] = '\0';
     (*event)->object = obj;
     (*event)->sub_callback = sub_callback;
     (*event)->sub_data = sub_data;
