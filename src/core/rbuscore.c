@@ -3000,8 +3000,12 @@ rbusCoreError_t rbuscore_openPrivateConnectionToProvider(rtConnection *pPrivateC
             /* Update the Vector to avoid multiple connections */
             pNewObj = rt_malloc(sizeof(rbusClientDMLList_t));
 
-            strcpy(pNewObj->m_privateDML, pParameterName);
-            strcpy(pNewObj->m_providerName, pProviderName);
+            strncpy(pNewObj->m_privateDML, pParameterName, sizeof(pNewObj->m_privateDML) - 1);
+            pNewObj->m_privateDML[sizeof(pNewObj->m_privateDML) - 1] = '\0';
+
+            strncpy(pNewObj->m_providerName, pProviderName, sizeof(pNewObj->m_providerName) - 1);
+            pNewObj->m_providerName[sizeof(pNewObj->m_providerName) - 1] = '\0';
+
             pNewObj->m_privConn = connection;
 
             rtVector_PushBack(gListOfClientDirectDMLs, pNewObj);
