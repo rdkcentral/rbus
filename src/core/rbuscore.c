@@ -286,7 +286,8 @@ void client_event_create(client_event_t* event, const char* name, rbus_event_cal
     (*event) = rt_malloc(sizeof(struct _client_event));
     (*event)->callback = callback;
     (*event)->data = data;
-    strcpy((*event)->name, name);
+    strncpy((*event)->name, name, sizeof((*event)->name) - 1);
+    (*event)->name[sizeof((*event)->name) - 1] = '\0';
 }
 
 int client_event_compare(const void* left, const void* right)
