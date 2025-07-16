@@ -1126,13 +1126,18 @@ int subscribeHandlerImpl(
             RBUSLOG_ERROR("rbus interval subscription not supported for this event %s\n", eventName);
             return RBUS_ERROR_INVALID_OPERATION;
         }
+    }
 
-        subscription = rbusSubscriptions_getSubscription(handleInfo->subscriptions, listener, eventName, componentId, filter, interval, duration, rawData);
+    HANDLE_SUBS_MUTEX_LOCK(handle);
+    subscription = rbusSubscriptions_getSubscription(handleInfo->subscriptions, listener, eventName, componentId, filter, interval, duration, rawData);
+    if (added)
+    {
         if(!subscription)
         {
             subscription = rbusSubscriptions_addSubscription(handleInfo->subscriptions, listener, eventName, componentId, filter, interval, duration, autoPublish, el, rawData);
             if(!subscription)
             {
+                HANDLE_SUBS_MUTEX_UNLOCK(handle);
                 return RBUS_ERROR_INVALID_INPUT; // Adding fails because of invalid input
             }
             else
@@ -1140,16 +1145,16 @@ int subscribeHandlerImpl(
         }
         else
         {
+            HANDLE_SUBS_MUTEX_UNLOCK(handle);
             return RBUS_ERROR_SUBSCRIPTION_ALREADY_EXIST;
         }
     }
     else
     {
-        subscription = rbusSubscriptions_getSubscription(handleInfo->subscriptions, listener, eventName, componentId, filter, interval, duration, rawData);
-    
         if(!subscription)
         {
             RBUSLOG_ERROR("unsubscribing from event which isn't currectly subscribed to event=%s listener=%s", eventName, listener);
+            HANDLE_SUBS_MUTEX_UNLOCK(handle);
             return RBUS_ERROR_INVALID_INPUT; /*unsubscribing from event which isn't currectly subscribed to*/
         }
     }
@@ -1159,6 +1164,7 @@ int subscribeHandlerImpl(
     if(rawData && el->type != RBUS_ELEMENT_TYPE_EVENT)
     {
         RBUSLOG_INFO("rawDataSubscription is only allowed for events");
+        HANDLE_SUBS_MUTEX_UNLOCK(handle);
         return RBUS_ERROR_INVALID_INPUT;
     }
     else
@@ -1213,6 +1219,7 @@ int subscribeHandlerImpl(
     {
         rbusSubscriptions_removeSubscription(handleInfo->subscriptions, subscription);
     }
+    HANDLE_SUBS_MUTEX_UNLOCK(handle);
     return RBUS_ERROR_SUCCESS;
 }
 
@@ -2609,9 +2616,7 @@ static void _subscribe_callback_handler (rbusHandle_t handle, rbusMessage reques
             rbusMessage_GetInt32(request, &rawData);
             if(ret == RBUS_ERROR_SUCCESS)
             {
-                HANDLE_SUBS_MUTEX_LOCK(handle);
                 ret = subscribeHandlerImpl(handle, added, el, event_name, sender, componentId, interval, duration, filter, rawData, &subscriptionId);
-                HANDLE_SUBS_MUTEX_UNLOCK(handle);
             }
             rbusMessage_SetInt32(*response, ret);
 
