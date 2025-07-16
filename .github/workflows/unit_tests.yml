@@ -1,9 +1,9 @@
 name: unit_tests
 on:
   push:
-     branches: [ main, 'rbus-**' ]
+     branches: [ main, develop, release, support/*, hotfix/*, topic/* ]
   pull_request:
-     branches: [ main, 'rbus-**' ]
+     branches: [ main, develop, release, support/*, hotfix/*, topic/* ]
 jobs:
   all:
     runs-on: ubuntu-22.04
