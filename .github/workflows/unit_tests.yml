@@ -1,9 +1,9 @@
 name: unit_tests
 on:
   push:
-     branches: [ main, 'rbus-**' ]
+     branches: [ main, develop, release, support/*, hotfix/*, topic/* ]
   pull_request:
-     branches: [ main, 'rbus-**' ]
+     branches: [ main, develop, release, support/*, hotfix/*, topic/* ]
 jobs:
   all:
     runs-on: ubuntu-22.04
@@ -120,10 +120,13 @@ jobs:
           ./unittests/rbus_gtest.bin
       - name: Stop SessionManager
         run: |
-          killall -9 rbus_session_mgr
+          killall -15 rbus_session_mgr
       - name: Stop rtrouted
         run: |
-          killall -9 rtrouted
+          cd install/usr
+          export PREFIX=$PWD
+          export LD_LIBRARY_PATH=$PREFIX/lib
+          nohup ./bin/rtrouted_diag shutdown
       - name:  Run CodeCoverage
         run: |
             rm -rf /tmp/rtrouted*
