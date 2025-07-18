@@ -1756,7 +1756,7 @@ int main(int argc, char* argv[])
     printf("failed to open pid file. %s\n", strerror(errno));
     return 0;
   }
-  
+
   int fd = fileno(pid_file);
   int retval = flock(fd, LOCK_EX | LOCK_NB);
   if (retval != 0 && errno == EWOULDBLOCK)
@@ -1764,7 +1764,9 @@ int main(int argc, char* argv[])
     rtLog_Warn("another instance of rtrouted is already running");
     exit(12);
   }
-  mkdir("/tmp/.rbus", 0755);
+  if (mkdir("/tmp/.rbus", 0755) == -1) {
+    rtLog_Warn("Failed to create directory /tmp/.rbus. %s", strerror(errno));
+  }
 #ifdef ENABLE_RDKLOGGER
     rdk_logger_init("/etc/debug.ini");
 #endif
@@ -1796,7 +1798,7 @@ int main(int argc, char* argv[])
   while (1)
   {
     int option_index = 0;
-    static struct option long_options[] = 
+    static struct option long_options[] =
     {
       {"foreground",  no_argument,        0, 'f'},
       {"no-delay",    no_argument,        0, 'd' },
