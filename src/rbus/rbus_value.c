@@ -694,15 +694,18 @@ int rbusValue_Decode(rbusValue_t* value, rbusBuffer_t const buff)
     uint16_t    length;
     rbusValue_t current;
 
-    rbusValue_Init(value);
-
     if(!value)
         return -1;
+
+    rbusValue_Init(value);
+
     current = *value;
 
     // read value
-    rbusBuffer_ReadUInt16(buff, &type);
-    rbusBuffer_ReadUInt16(buff, &length);
+    if(rbusBuffer_ReadUInt16(buff, &type) != 0)
+        return -1;
+    if(rbusBuffer_ReadUInt16(buff, &length) != 0)
+        return -1;
     if(!buff)
         return -1;
     current->type = type;
