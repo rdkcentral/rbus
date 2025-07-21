@@ -86,11 +86,11 @@ void rtLogPrintf(rtLogLevel level, const char* pModule, const char* file, int li
 #define rtLog_ErrorPrint(mod,FORMAT...)  rtLogPrintf(RT_LOG_ERROR, mod, __FILE__, __LINE__, FORMAT)
 #define rtLog_FatalPrint(mod,FORMAT...)  rtLogPrintf(RT_LOG_FATAL, mod, __FILE__, __LINE__, FORMAT)
 
-#define rtLog_Debug(FORMAT,...) rtLog_DebugPrint("RTMESSAGE",FORMAT"\n", ##__VA_ARGS__)
-#define rtLog_Info(FORMAT,...)  rtLog_InfoPrint("RTMESSAGE",FORMAT"\n", ##__VA_ARGS__)
-#define rtLog_Warn(FORMAT,...)  rtLog_WarnPrint("RTMESSAGE",FORMAT"\n", ##__VA_ARGS__)
-#define rtLog_Error(FORMAT,...) rtLog_ErrorPrint("RTMESSAGE",FORMAT"\n", ##__VA_ARGS__)
-#define rtLog_Fatal(FORMAT,...) rtLog_FatalPrint("RTMESSAGE",FORMAT"\n", ##__VA_ARGS__)
+#define rtLog_Debug(FORMAT,...) rtLog_DebugPrint("RTMESSAGE",FORMAT, ##__VA_ARGS__)
+#define rtLog_Info(FORMAT,...)  rtLog_InfoPrint("RTMESSAGE",FORMAT, ##__VA_ARGS__)
+#define rtLog_Warn(FORMAT,...)  rtLog_WarnPrint("RTMESSAGE",FORMAT, ##__VA_ARGS__)
+#define rtLog_Error(FORMAT,...) rtLog_ErrorPrint("RTMESSAGE",FORMAT, ##__VA_ARGS__)
+#define rtLog_Fatal(FORMAT,...) rtLog_FatalPrint("RTMESSAGE",FORMAT, ##__VA_ARGS__)
 
 #ifdef __cplusplus
 }
