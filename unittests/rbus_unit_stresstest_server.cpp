@@ -376,14 +376,13 @@ TEST_F(StressTestServer, dataPushPull_test3)
         printf("fork failed.\n");
     }
 }
-
 TEST_F(StressTestServer, rbus_resolveWildcardDestination_test1)
 {
     int counter = 4, i = 0;
     char client_name[] = "TEST_CLIENT_1";
-    char server_obj1[] = "Test_Obj1";
-    char server_obj2[] = "Test_Obj2";
-    char server_obj3[] = "Test_Obj3";
+    char server_obj1[] = "Test1_Obj1";
+    char server_obj2[] = "Test1_Obj2";
+    char server_obj3[] = "Test1_Obj3";
     int obj1_element_count = 9;
     int obj2_element_count = 9;
     int obj3_element_count = 3;
@@ -489,6 +488,7 @@ TEST_F(StressTestServer, rbus_resolveWildcardDestination_test1)
             CLOSE_BROKER_CONNECTION();
 
         kill(pid,SIGTERM);
+	usleep(100000);
         //printf("Stoping server instance from createServer test\n");
     }
     else
@@ -501,8 +501,8 @@ TEST_F(StressTestServer, rbus_resolveWildcardDestination_test2)
 {
     int counter = 4, i = 0;
     char client_name[] = "TEST_CLIENT_1";
-    char server_obj1[] = "Test_Obj1";
-    char server_obj2[] = "Test_Obj2";
+    char server_obj1[] = "Test2_Obj1";
+    char server_obj2[] = "Test2_Obj2";
     int obj1_element_count = 3;
     int obj2_element_count = 2;
     char obj1_elements[][MAX_ELEMENT_NAME_LENGTH] = { "test.dac1.box1",
@@ -551,6 +551,7 @@ TEST_F(StressTestServer, rbus_resolveWildcardDestination_test2)
             CLOSE_BROKER_CONNECTION();
 
         kill(pid,SIGTERM);
+	usleep(100000);
         //printf("Stoping server instance from createServer test\n");
     }
     else
@@ -563,8 +564,8 @@ TEST_F(StressTestServer, rbus_resolveWildcardDestination_test3)
 {
     int counter = 4, i = 0;
     char client_name[] = "TEST_CLIENT_1";
-    char server_obj1[] = "Test_Obj1";
-    char server_obj2[] = "Test_Obj2";
+    char server_obj1[] = "Test3_Obj1";
+    char server_obj2[] = "Test3_Obj2";
     int obj1_element_count = 4;
     int obj2_element_count = 2;
     char obj1_elements[][MAX_ELEMENT_NAME_LENGTH] = { "global.obj1.foo.1",
@@ -614,6 +615,7 @@ TEST_F(StressTestServer, rbus_resolveWildcardDestination_test3)
             CLOSE_BROKER_CONNECTION();
 
         kill(pid,SIGTERM);
+	usleep(100000);
         //printf("Stoping server instance from createServer test\n");
     }
     else
@@ -626,8 +628,8 @@ TEST_F(StressTestServer, rbus_resolveWildcardDestination_test4)
 {
     int counter = 4, i = 0;
     char client_name[] = "TEST_CLIENT_1";
-    char server_obj1[] = "Test_Obj1";
-    char server_obj2[] = "Test_Obj2";
+    char server_obj1[] = "Test4_Obj1";
+    char server_obj2[] = "Test4_Obj2";
     int obj1_element_count = 3;
     int obj2_element_count = 2;
     char obj1_elements[][MAX_ELEMENT_NAME_LENGTH] = { "global.obj1.foo.1",
@@ -676,6 +678,7 @@ TEST_F(StressTestServer, rbus_resolveWildcardDestination_test4)
             CLOSE_BROKER_CONNECTION();
 
         kill(pid,SIGTERM);
+	usleep(100000);
         //printf("Stoping server instance from createServer test\n");
     }
     else
@@ -688,8 +691,8 @@ TEST_F(StressTestServer, rbus_resolveWildcardDestination_test5)
 {
     int counter = 4, i = 0;
     char client_name[] = "TEST_CLIENT_1";
-    char server_obj1[] = "Test_Obj1";
-    char server_obj2[] = "Test_Obj2";
+    char server_obj1[] = "Test5_Obj1";
+    char server_obj2[] = "Test5_Obj2";
     int obj1_element_count = 4;
     int obj2_element_count = 2;
     char obj1_elements[][MAX_ELEMENT_NAME_LENGTH] = { "global.obj1.foo.1",
@@ -752,6 +755,7 @@ TEST_F(StressTestServer, rbus_resolveWildcardDestination_test5)
             CLOSE_BROKER_CONNECTION();
 
         kill(pid,SIGTERM);
+	usleep(100000);
         //printf("Stoping server instance from createServer test\n");
     }
     else
@@ -759,7 +763,6 @@ TEST_F(StressTestServer, rbus_resolveWildcardDestination_test5)
         printf("fork failed.\n");
     }
 }
-
 TEST_F(StressTestServer, rbus_addElement_test1)
 {
     int counter = 4, i = 0;
