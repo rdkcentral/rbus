@@ -237,14 +237,14 @@ rtRouted_ReadTextFile(char const* fname, char** content)
 static rtError
 rtRouted_ParseConfig(char const* fname)
 {
-  int       i;
-  int       n = 0;
-  char*     buff = NULL;
-  cJSON*    json = NULL;
-  cJSON*    listeners = NULL;
-  cJSON*    loglevel = NULL;
+  int i;
+  int n = 0;
+  char* buff = NULL;
+  cJSON* json = NULL;
+  cJSON* listeners = NULL;
+  cJSON* loglevel = NULL;
 #if WITH_SPAKE2
-  cJSON*    spake2plus = NULL;
+  cJSON* spake2plus = NULL;
 #endif
   if (!fname || strlen(fname) == 0)
   {
@@ -254,7 +254,7 @@ rtRouted_ParseConfig(char const* fname)
 
   rtLog_Debug("parsing configuration from file %s", fname);
 
-  if(rtRouted_ReadTextFile(fname, &buff) != RT_OK)
+  if((rtRouted_ReadTextFile(fname, &buff) != RT_OK) || (buff == NULL))
     return RT_FAIL;
 
   json = cJSON_Parse(buff);
@@ -262,19 +262,8 @@ rtRouted_ParseConfig(char const* fname)
 
   if (!json)
   {
-    rtLog_Error("error parising configuration file");
-
-    char const* p = cJSON_GetErrorPtr();
-    if (p)
-    {
-      char const* end = (buff + strlen(buff));
-      int n = (int) (end - p);
-      if (n > 64)
-        n = 64;
-      rtLog_Error("%.*s\n", n, p);
-    }
-
-    exit(1);
+    rtLog_Error("Error parsing configuration file %s: %s", fname, cJSON_GetErrorPtr());
+    return RT_FAIL;
   }
   else
   {
@@ -388,31 +377,31 @@ rtRouted_AddRoute(rtRouteMessageHandler handler, char const* exp, rtSubscription
 static bool
 rtRouted_ShouldLimitLog(char const* pTopicExpression)
 {
-    static const int LOGGING_TIMELIMIT_DUP_ENTRY = 60000; /* 60s interval */
-    static char storedTopicExp[RTMSG_MAX_EXPRESSION_LEN] = "";
-    static rtTime_t storedTime = {0};
-    rtTime_t currentTime = {0};
+  static const int LOGGING_TIMELIMIT_DUP_ENTRY = 60000; /* 60s interval */
+  static char storedTopicExp[RTMSG_MAX_EXPRESSION_LEN] = "";
+  static rtTime_t storedTime = {0};
+  rtTime_t currentTime = {0};
 
-    if (strncmp(storedTopicExp, pTopicExpression, RTMSG_MAX_EXPRESSION_LEN) == 0)
+  if (strncmp(storedTopicExp, pTopicExpression, RTMSG_MAX_EXPRESSION_LEN) == 0)
+  {
+    int timeDiff = -2;
+    rtTime_Now(&currentTime);
+    timeDiff = rtTime_Elapsed (&storedTime, &currentTime);
+
+    if (timeDiff >= LOGGING_TIMELIMIT_DUP_ENTRY)
     {
-        int timeDiff = -2;
-        rtTime_Now(&currentTime);
-        timeDiff = rtTime_Elapsed (&storedTime, &currentTime);
-
-        if (timeDiff >= LOGGING_TIMELIMIT_DUP_ENTRY)
-        {
-            rtTime_Now(&storedTime);
-            return true;
-        }
-
-        return false;
+      rtTime_Now(&storedTime);
+      return true;
     }
-    else
-    {
-        rtTime_Now(&storedTime);
-        snprintf(storedTopicExp, RTMSG_MAX_EXPRESSION_LEN - 1, "%s", pTopicExpression);
-        return true;
-    }
+
+    return false;
+  }
+  else
+  {
+    rtTime_Now(&storedTime);
+    snprintf(storedTopicExp, RTMSG_MAX_EXPRESSION_LEN - 1, "%s", pTopicExpression);
+    return true;
+  }
 }
 
 static rtError
@@ -422,8 +411,8 @@ rtRouted_AddAlias(char const* exp, rtRouteEntry * route)
   rtLog_Debug("AddAlias route=[%p] address=[%s] expression=[%s] alias=[%s]", route, route->subscription->client->ident, route->expression, exp);
   rc = rtRoutingTree_AddTopicRoute(gRoutingTree, exp, (void *)route, 1/*error if duplicate entry*/);
   if (RT_ERROR_DUPLICATE_ENTRY == rc)
-      if (rtRouted_ShouldLimitLog(exp))
-          rtLog_Warn("Rejecting Duplicate Registration of [%s] by [%s] thro [%s]", exp, route->expression, route->subscription->client->ident);
+    if (rtRouted_ShouldLimitLog(exp))
+      rtLog_Warn("Rejecting Duplicate Registration of [%s] by [%s] thro [%s]", exp, route->expression, route->subscription->client->ident);
 
   return rc;
 }
@@ -531,7 +520,7 @@ rtRouted_SendMessage(rtMessageHeader * request_hdr, rtMessage message, rtConnect
                 rtLog_Warn("error forwarding message to client. %d %s", errno, strerror(errno));
                 rtRouted_PrintClientInfo(client);
                 if(skipClient)
-                    rtRouted_PrintClientInfo(skipClient);
+                  rtRouted_PrintClientInfo(skipClient);
                 ret = RT_FAIL;
               }
               break;
@@ -546,8 +535,8 @@ rtRouted_SendMessage(rtMessageHeader * request_hdr, rtMessage message, rtConnect
   {
     if(strcmp(request_hdr->topic, "_RTROUTED.ADVISORY"))
     {
-        ret = RT_FAIL;
-        rtLog_Warn("Could not find route to destination. Topic=%s ", request_hdr->topic);
+      ret = RT_FAIL;
+      rtLog_Warn("Could not find route to destination. Topic=%s ", request_hdr->topic);
     }
   }
   rtMessage_FreeByteArray(buffer);
@@ -656,8 +645,8 @@ rtRouted_ForwardMessage(rtConnectedClient* sender, rtMessageHeader* hdr, uint8_t
 
     if(!sender->encryption_key)
     {
-        rtLog_Info("no encryption key found, cannot decrypt message");
-        return RT_FAIL;
+      rtLog_Info("no encryption key found, cannot decrypt message");
+      return RT_FAIL;
     }
 
     if(rtCipher_DecryptWithKey( sender->encryption_key, 
@@ -789,9 +778,9 @@ rtRouted_OnMessageSubscribe(rtConnectedClient* sender, rtMessageHeader* hdr, uin
 
           if(strstr(expression, ".INBOX.") && sender->inbox[0] == '\0')
           {
-              strncpy(sender->inbox, expression, RTMSG_HEADER_MAX_TOPIC_LENGTH);
-              rtLog_Debug("init client inbox to %s", sender->inbox);
-              rtRouted_SendAdvisoryMessage(sender, rtAdviseClientConnect);
+            strncpy(sender->inbox, expression, RTMSG_HEADER_MAX_TOPIC_LENGTH);
+            rtLog_Debug("init client inbox to %s", sender->inbox);
+            rtRouted_SendAdvisoryMessage(sender, rtAdviseClientConnect);
           }
         }
       }
@@ -828,13 +817,13 @@ rtRouted_OnMessageSubscribe(rtConnectedClient* sender, rtMessageHeader* hdr, uin
   /* Send Response */
   if(hdr->flags & rtMessageFlags_Request)
   {
-      rtMessage_Create(&response);
-      rtMessage_SetInt32(response, "result", rc);
-      rtMessageHeader new_header;
-      prep_reply_header_from_request(&new_header, hdr);
-      if(RT_OK != rtRouted_SendMessage(&new_header, response, NULL))
-          rtLog_Info("%s() Response couldn't be sent.", __func__);
-      rtMessage_Release(response);
+    rtMessage_Create(&response);
+    rtMessage_SetInt32(response, "result", rc);
+    rtMessageHeader new_header;
+    prep_reply_header_from_request(&new_header, hdr);
+    if(RT_OK != rtRouted_SendMessage(&new_header, response, NULL))
+      rtLog_Info("%s() Response couldn't be sent.", __func__);
+    rtMessage_Release(response);
   }
 }
 
@@ -903,33 +892,33 @@ rtRouted_OnMessageDiscoverRegisteredComponents(rtConnectedClient* sender, rtMess
 
   if((hdr->flags & rtMessageFlags_Request) && (RT_OK == rtMessage_Create(&response)))
   {
-      int counter = 0, pass = 0;
-      for (pass = 0; pass <= 1; pass ++)
+    int counter = 0, pass = 0;
+    for (pass = 0; pass <= 1; pass ++)
+    {
+      for (i = 0; i < rtVector_Size(gRoutes); i++)
       {
-          for (i = 0; i < rtVector_Size(gRoutes); i++)
-          {
-              rtRouteEntry* route = (rtRouteEntry *) rtVector_At(gRoutes, i);
-              if((route) && (strcmp(route->expression, "")) && ('_' != route->expression[0]))
-              {
-                  if(pass == 0)
-                      counter++;
-                  else
-                      rtMessage_AddString(response, RTM_DISCOVERY_ITEMS, route->expression);
-              }
-          }
-          if (pass == 0)
-              rtMessage_SetInt32(response, RTM_DISCOVERY_COUNT, counter);
+        rtRouteEntry* route = (rtRouteEntry *) rtVector_At(gRoutes, i);
+        if((route) && (strcmp(route->expression, "")) && ('_' != route->expression[0]))
+        {
+          if(pass == 0)
+            counter++;
+          else
+            rtMessage_AddString(response, RTM_DISCOVERY_ITEMS, route->expression);
+        }
       }
+      if (pass == 0)
+        rtMessage_SetInt32(response, RTM_DISCOVERY_COUNT, counter);
+    }
 
-      rtMessageHeader new_header;
-      prep_reply_header_from_request(&new_header, hdr);
-      if(RT_OK != rtRouted_SendMessage(&new_header, response, NULL))
-          rtLog_Info("%s() Response couldn't be sent.", __func__);
-      rtMessage_Release(response);
+    rtMessageHeader new_header;
+    prep_reply_header_from_request(&new_header, hdr);
+    if(RT_OK != rtRouted_SendMessage(&new_header, response, NULL))
+      rtLog_Info("%s() Response couldn't be sent.", __func__);
+    rtMessage_Release(response);
   }
   else
   {
-      rtLog_Error("Cannot create response message to registered components.");
+    rtLog_Error("Cannot create response message to registered components.");
   }
 
   (void)sender;
@@ -1045,19 +1034,19 @@ rtRouted_OnMessageDiscoverObjectElements(rtConnectedClient* sender, rtMessageHea
         rtList_GetFront(list, &item);
         while(item)
         {
-            rtTreeTopic* treeTopic;
-            rtListItem_GetData(item, (void**)&treeTopic);
-            rtMessage_AddString(response, RTM_DISCOVERY_ITEMS, treeTopic->fullName);
-            //rtLog_Debug("ElementEnumeration add element=%s", treeTopic->fullName);
-            rtListItem_GetNext(item, &item);
+          rtTreeTopic* treeTopic;
+          rtListItem_GetData(item, (void**)&treeTopic);
+          rtMessage_AddString(response, RTM_DISCOVERY_ITEMS, treeTopic->fullName);
+          //rtLog_Debug("ElementEnumeration add element=%s", treeTopic->fullName);
+          rtListItem_GetNext(item, &item);
         }
       }
       rtMessageHeader new_header;
       prep_reply_header_from_request(&new_header, hdr);
       if (RT_OK != rtRouted_SendMessage(&new_header, response, NULL))
         rtLog_Info("%s() Response couldn't be sent.", __func__);
-      rtMessage_Release(response);   
     }
+    rtMessage_Release(response);
   }
   else
     rtLog_Error("Cannot create response message to registered components.");
@@ -1686,9 +1675,9 @@ rtRouted_RegisterNewClient(int fd, struct sockaddr_storage* remote_endpoint)
 static void
 rtRouted_AcceptClientConnection(rtListener* listener)
 {
-  int                       fd;
-  socklen_t                 socket_length;
-  struct sockaddr_storage   remote_endpoint;
+  int fd;
+  socklen_t socket_length;
+  struct sockaddr_storage remote_endpoint;
 
   socket_length = sizeof(struct sockaddr_storage);
   memset(&remote_endpoint, 0, sizeof(struct sockaddr_storage));
@@ -1885,23 +1874,27 @@ int main(int argc, char* argv[])
 
   if (config_file && rtRouted_FileExists(config_file))
   {
-    rtRouted_ParseConfig(config_file);
+    if (RT_OK != rtRouted_ParseConfig(config_file))
+    {
+      rtLog_Fatal("Failed to parse config file: %s", config_file);
+      exit(1);
+    }
   }
   else
   {
     if(0 == num_listeners)
     {
-	    socket_name[0] = "unix:///tmp/rtrouted";
-	    num_listeners = 1;
+      socket_name[0] = "unix:///tmp/rtrouted";
+      num_listeners = 1;
     }
 
     int indefinite_retry = 0;
     for(i = 0; i < num_listeners; i++)
     {
-        rtListener* listener = NULL;
-	    rtRouteBase_BindListener(socket_name[i], use_no_delay, indefinite_retry, &listener);
-        rtVector_PushBack(gListeners, listener);
-        indefinite_retry  = 1;
+      rtListener* listener = NULL;
+	  rtRouteBase_BindListener(socket_name[i], use_no_delay, indefinite_retry, &listener);
+      rtVector_PushBack(gListeners, listener);
+      indefinite_retry  = 1;
     }
   }
 
@@ -1911,10 +1904,10 @@ int main(int argc, char* argv[])
   while (is_running)
   {
     int n;
-    int                         max_fd;
-    fd_set                      read_fds;
-    fd_set                      err_fds;
-    struct timeval              timeout;
+    int max_fd;
+    fd_set read_fds;
+    fd_set err_fds;
+    struct timeval timeout;
 
     max_fd= -1;
     FD_ZERO(&read_fds);

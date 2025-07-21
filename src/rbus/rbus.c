@@ -1126,13 +1126,18 @@ int subscribeHandlerImpl(
             RBUSLOG_ERROR("rbus interval subscription not supported for this event %s\n", eventName);
             return RBUS_ERROR_INVALID_OPERATION;
         }
+    }
 
-        subscription = rbusSubscriptions_getSubscription(handleInfo->subscriptions, listener, eventName, componentId, filter, interval, duration, rawData);
+    HANDLE_SUBS_MUTEX_LOCK(handle);
+    subscription = rbusSubscriptions_getSubscription(handleInfo->subscriptions, listener, eventName, componentId, filter, interval, duration, rawData);
+    if (added)
+    {
         if(!subscription)
         {
             subscription = rbusSubscriptions_addSubscription(handleInfo->subscriptions, listener, eventName, componentId, filter, interval, duration, autoPublish, el, rawData);
             if(!subscription)
             {
+                HANDLE_SUBS_MUTEX_UNLOCK(handle);
                 return RBUS_ERROR_INVALID_INPUT; // Adding fails because of invalid input
             }
             else
@@ -1140,16 +1145,16 @@ int subscribeHandlerImpl(
         }
         else
         {
+            HANDLE_SUBS_MUTEX_UNLOCK(handle);
             return RBUS_ERROR_SUBSCRIPTION_ALREADY_EXIST;
         }
     }
     else
     {
-        subscription = rbusSubscriptions_getSubscription(handleInfo->subscriptions, listener, eventName, componentId, filter, interval, duration, rawData);
-    
         if(!subscription)
         {
             RBUSLOG_ERROR("unsubscribing from event which isn't currectly subscribed to event=%s listener=%s", eventName, listener);
+            HANDLE_SUBS_MUTEX_UNLOCK(handle);
             return RBUS_ERROR_INVALID_INPUT; /*unsubscribing from event which isn't currectly subscribed to*/
         }
     }
@@ -1159,6 +1164,7 @@ int subscribeHandlerImpl(
     if(rawData && el->type != RBUS_ELEMENT_TYPE_EVENT)
     {
         RBUSLOG_INFO("rawDataSubscription is only allowed for events");
+        HANDLE_SUBS_MUTEX_UNLOCK(handle);
         return RBUS_ERROR_INVALID_INPUT;
     }
     else
@@ -1213,6 +1219,7 @@ int subscribeHandlerImpl(
     {
         rbusSubscriptions_removeSubscription(handleInfo->subscriptions, subscription);
     }
+    HANDLE_SUBS_MUTEX_UNLOCK(handle);
     return RBUS_ERROR_SUCCESS;
 }
 
@@ -1425,6 +1432,8 @@ static int _master_event_callback_handler(char const* sender, char const* eventN
     if(!handleInfo)
     {
         RBUSLOG_ERROR("Received master event callback with invalid componentId: sender=%s eventName=%s componentId=%d", sender, eventName, componentId);
+        rbusObject_Release(event.data);
+        rbusFilter_Release(filter);
         return RBUSCORE_ERROR_EVENT_NOT_HANDLED;
     }
 
@@ -1459,8 +1468,8 @@ static int _master_event_callback_handler(char const* sender, char const* eventN
     {
         RBUSLOG_DEBUG("Received master event callback: sender=%s eventName=%s, but no subscription found", sender, event.name);
         HANDLE_EVENTSUBS_MUTEX_UNLOCK(handleInfo);
-        if(event.data)
-            rbusObject_Release(event.data);
+        rbusObject_Release(event.data);
+        rbusFilter_Release(filter);
         return RBUSCORE_ERROR_EVENT_NOT_HANDLED;
     }
 exit_1:
@@ -2609,9 +2618,7 @@ static void _subscribe_callback_handler (rbusHandle_t handle, rbusMessage reques
             rbusMessage_GetInt32(request, &rawData);
             if(ret == RBUS_ERROR_SUCCESS)
             {
-                HANDLE_SUBS_MUTEX_LOCK(handle);
                 ret = subscribeHandlerImpl(handle, added, el, event_name, sender, componentId, interval, duration, filter, rawData, &subscriptionId);
-                HANDLE_SUBS_MUTEX_UNLOCK(handle);
             }
             rbusMessage_SetInt32(*response, ret);
 
@@ -3488,7 +3495,7 @@ rbusError_t rbus_get(rbusHandle_t handle, char const* name, rbusValue_t* value)
 
     if(err != RBUSCORE_SUCCESS)
     {
-        RBUSLOG_ERROR("%s for %s failed with RBUS Daemon error: %s", __FUNCTION__, name, rbusCoreErrorToString(err));
+        RBUSLOG_ERROR("%s for %s failed with error: %s", __FUNCTION__, name, rbusCoreErrorToString(err));
         errorcode = rbusCoreError_to_rbusError(err);
     }
     else
@@ -3675,7 +3682,7 @@ rbusError_t rbus_getExt(rbusHandle_t handle, int paramCount, char const** pParam
 
                         if(err != RBUSCORE_SUCCESS)
                         {
-                            RBUSLOG_ERROR("%s for %s failed with RBUS Daemon error: %s", __FUNCTION__, destinations[i], rbusCoreErrorToString(err));
+                            RBUSLOG_ERROR("%s for %s failed with error: %s", __FUNCTION__, destinations[i], rbusCoreErrorToString(err));
                             errorcode = rbusCoreError_to_rbusError(err);
                         }
                         else
@@ -3836,7 +3843,7 @@ rbusError_t rbus_getExt(rbusHandle_t handle, int paramCount, char const** pParam
 
                     if((err = rbus_invokeRemoteMethod(firstParamName, METHOD_GETPARAMETERVALUES, request, rbusHandle_FetchGetTimeout(handle), &response)) != RBUSCORE_SUCCESS)
                     {
-                        RBUSLOG_ERROR("%s for %s failed with RBUS Daemon error: %s", __FUNCTION__, firstParamName, rbusCoreErrorToString(err));
+                        RBUSLOG_ERROR("%s for %s failed with error: %s", __FUNCTION__, firstParamName, rbusCoreErrorToString(err));
                         errorcode = rbusCoreError_to_rbusError(err);
                         break;
                     }
@@ -4000,7 +4007,7 @@ rbusError_t _setInternal(rbusHandle_t handle, char const* name, rbusValue_t valu
 
     if((err = rbus_invokeRemoteMethod2(myConn, name, METHOD_SETPARAMETERVALUES, setRequest, timeout, &setResponse)) != RBUSCORE_SUCCESS)
     {
-        RBUSLOG_ERROR("%s for %s failed with RBUS Daemon error: %s", __FUNCTION__, name, rbusCoreErrorToString(err));
+        RBUSLOG_ERROR("%s for %s failed with error: %s", __FUNCTION__, name, rbusCoreErrorToString(err));
         errorcode = rbusCoreError_to_rbusError(err);
     }
     else
@@ -4073,7 +4080,7 @@ rbusError_t rbus_setCommit(rbusHandle_t handle, char const* name, rbusSetOptions
         myConn = handleInfo->m_connection;
     if((err = rbus_invokeRemoteMethod2(myConn, name, METHOD_COMMIT, setRequest, rbusHandle_FetchSetTimeout(handle),  &setResponse)) != RBUSCORE_SUCCESS)
     {
-        RBUSLOG_ERROR("%s for %s failed with RBUS Daemon error: %s", __FUNCTION__, name, rbusCoreErrorToString(err));
+        RBUSLOG_ERROR("%s for %s failed with error: %s", __FUNCTION__, name, rbusCoreErrorToString(err));
         errorcode = rbusCoreError_to_rbusError(err);
     }
     else
@@ -4262,7 +4269,7 @@ rbusError_t _setMultiInternal(rbusHandle_t handle, uint32_t numProps, rbusProper
 
                     if((err = rbus_invokeRemoteMethod(firstParamName, METHOD_SETPARAMETERVALUES, setRequest, timeout, &setResponse)) != RBUSCORE_SUCCESS)
                     {
-                        RBUSLOG_ERROR("%s for %s failed with RBUS Daemon error: %s", __FUNCTION__, firstParamName, rbusCoreErrorToString(err));
+                        RBUSLOG_ERROR("%s for %s failed with error: %s", __FUNCTION__, firstParamName, rbusCoreErrorToString(err));
                         errorcode = rbusCoreError_to_rbusError(err);
                     }
                     else
@@ -4482,7 +4489,7 @@ rbusError_t rbusTable_addRow(
         rbusHandle_FetchSetTimeout(handle),
         &response)) != RBUSCORE_SUCCESS)
     {
-        RBUSLOG_ERROR("%s for %s failed with RBUS Daemon error: %s", __FUNCTION__, tableName, rbusCoreErrorToString(err));
+        RBUSLOG_ERROR("%s for %s failed with error: %s", __FUNCTION__, tableName, rbusCoreErrorToString(err));
         return rbusCoreError_to_rbusError(err);
     }
     else
@@ -4548,7 +4555,7 @@ rbusError_t rbusTable_removeRow(
         rbusHandle_FetchSetTimeout(handle),
         &response)) != RBUSCORE_SUCCESS)
     {
-        RBUSLOG_ERROR(" %s for %s failed with RBUS Daemon error: %s", __FUNCTION__, rowName, rbusCoreErrorToString(err));
+        RBUSLOG_ERROR(" %s for %s failed with error: %s", __FUNCTION__, rowName, rbusCoreErrorToString(err));
         return rbusCoreError_to_rbusError(err);
     }
     else
@@ -6060,7 +6067,7 @@ rbusError_t rbusMethod_InvokeInternal(
         timeout, 
         &response)) != RBUSCORE_SUCCESS)
     {
-        RBUSLOG_ERROR("rbusMethod Invoke for %s failed with RBUS Daemon error:%s", methodName, rbusCoreErrorToString(err));
+        RBUSLOG_ERROR("rbusMethod Invoke for %s failed with error:%s", methodName, rbusCoreErrorToString(err));
         /* Updating the outParmas as RBUS core is returning failure */
         rbusObject_Init(outParams, NULL);
         rbusValue_Init(&value1);
