@@ -1949,9 +1949,6 @@ rbusCoreError_t rbus_discoverWildcardDestinations(const char * expression, int *
             }
 
             rtMessage_Release(msg);
-
-            ret = RBUSCORE_SUCCESS;
-
         }
         else
         {
@@ -2502,7 +2499,9 @@ static void _rbuscore_directconnection_save_to_cache()
     if(0 == sz)
     {
         RBUSCORELOG_DEBUG("no direct connection exist, so removing cache file");
-        remove(cacheFileName);
+        if (remove(cacheFileName) != 0) {
+            RBUSCORELOG_ERROR("failed to remove %s", cacheFileName);
+        }
     }
     else
     {
@@ -2547,7 +2546,7 @@ static void _rbuscore_directconnection_load_from_cache()
     uint8_t* pBuff = NULL;
     char cacheFileName[256] = "";
 
-    snprintf(cacheFileName, 256, RBUS_DIRECT_FILE_CACHE, __progname); 
+    snprintf(cacheFileName, 256, RBUS_DIRECT_FILE_CACHE, __progname);
 
     RBUSCORELOG_DEBUG("Entry of %s", __FUNCTION__);
 
@@ -2564,7 +2563,12 @@ static void _rbuscore_directconnection_load_from_cache()
         goto invalidFile;
     }
 
-    fseek(file, 0, SEEK_END);
+    if(fseek(file, 0, SEEK_END) != 0)
+    {
+        RBUSCORELOG_ERROR("failed to seek to end of file");
+        goto invalidFile;
+    }
+
     size = ftell(file);
     if(size <= 0)
     {
@@ -2575,7 +2579,12 @@ static void _rbuscore_directconnection_load_from_cache()
     pBuff  = rt_malloc(size);
     if(pBuff)
     {
-        fseek(file, 0, SEEK_SET);
+        if(fseek(file, 0, SEEK_SET) != 0)
+        {
+            RBUSCORELOG_ERROR("failed to seek to beginning of file");
+            goto invalidFile;
+        }
+
         if(fread(pBuff, 1, size, file) != (size_t)size)
         {
             RBUSCORELOG_ERROR("failed to read entire file");
@@ -2625,7 +2634,10 @@ invalidFile:
     if(pBuff)
         free(pBuff);
 
-    remove(cacheFileName);
+    if(remove(cacheFileName) != 0)
+    {
+        RBUSCORELOG_ERROR("failed to remove file %s", cacheFileName);
+    }
 }
 
 rbusServerDMLList_t* rbuscore_FindServerPrivateClient (const char *pParameterName, const char *pConsumerName)
@@ -3076,7 +3088,6 @@ rbusCoreError_t rbuscore_closePrivateConnection(const char *pParameterName)
                 memcpy(providerName, obj->m_providerName, MAX_OBJECT_NAME_LENGTH);
                 providerName[MAX_OBJECT_NAME_LENGTH] = '\0';
                 rtVector_RemoveItem(gListOfClientDirectDMLs, obj, rtVector_Cleanup_Free);
-                obj = NULL;
             }
             rbusMessage_Release(response);
         }

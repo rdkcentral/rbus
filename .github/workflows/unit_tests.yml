@@ -1,9 +1,9 @@
 name: unit_tests
 on:
   push:
-     branches: [ main, 'rbus-**' ]
+     branches: [ main, develop, release, support/*, hotfix/*, topic/* ]
   pull_request:
-     branches: [ main, 'rbus-**' ]
+     branches: [ main, develop, release, support/*, hotfix/*, topic/* ]
 jobs:
   all:
     runs-on: ubuntu-22.04
@@ -57,6 +57,20 @@ jobs:
           export PREFIX=$PWD
           export LD_LIBRARY_PATH=$PREFIX/lib
           nohup ./bin/rtrouted -f -l DEBUG > /tmp/rtrouted_log.txt &
+      - name: Run drop test with inactive provider
+        continue-on-error: true
+        run: |
+          cd install/usr
+          export PREFIX=$PWD
+          export LD_LIBRARY_PATH=$PREFIX/lib
+          nohup ./bin/rbusSampleProvider > sampleProvider.log 2>&1 &
+          sleep 1
+          nohup stdbuf -oL -eL ./bin/rbusBlockingProvider > blockingProvider.log 2>&1 &
+          sleep 1
+          ./bin/rbusDmlBlockingConsumer > dmlBlockingConsumer.log 2>&1
+          cat sampleProvider.log || true
+          cat blockingProvider.log || true
+          cat dmlBlockingConsumer.log || true
       - name: Run RbusTestTimeoutValues Unit test
         run: |
           cd install/usr
@@ -106,10 +120,13 @@ jobs:
           ./unittests/rbus_gtest.bin
       - name: Stop SessionManager
         run: |
-          killall -9 rbus_session_mgr
+          killall -15 rbus_session_mgr
       - name: Stop rtrouted
         run: |
-          killall -9 rtrouted
+          cd install/usr
+          export PREFIX=$PWD
+          export LD_LIBRARY_PATH=$PREFIX/lib
+          nohup ./bin/rtrouted_diag shutdown
       - name:  Run CodeCoverage
         run: |
             rm -rf /tmp/rtrouted*
