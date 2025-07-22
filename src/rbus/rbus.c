@@ -501,6 +501,12 @@ rbusError_t rbusValue_initFromMessage(rbusValue_t* value, rbusMessage msg)
     int type;
     char const* pBuffer = NULL;
 
+    if (!value)
+    {
+        RBUSLOG_ERROR("rbusValue_initFromMessage: value is NULL");
+        return RBUS_ERROR_INVALID_INPUT;
+    }
+
     rbusValue_Init(value);
 
     rbusMessage_GetInt32(msg, (int*) &type);
@@ -610,6 +616,13 @@ rbusError_t rbusProperty_initFromMessage(rbusProperty_t* property, rbusMessage m
 #if DEBUG_SERIALIZER
     RBUSLOG_INFO("> prop pop name=%s", name);
 #endif
+
+    if (!property)
+    {
+        RBUSLOG_ERROR("rbusProperty_initFromMessage: property is NULL");
+        return RBUS_ERROR_INVALID_INPUT;
+    }
+
     rbusProperty_Init(property, name, NULL);
     err= rbusValue_initFromMessage(&value, msg);
     rbusProperty_SetValue(*property, value);
@@ -6035,6 +6048,7 @@ rbusError_t rbusMethod_InvokeInternal(
 
     VERIFY_NULL(handle);
     VERIFY_NULL(methodName);
+    VERIFY_NULL(outParams);
 
     RBUSLOG_DEBUG("Method_InvokeInternal: %s", methodName);
 
@@ -6104,6 +6118,7 @@ rbusError_t rbusMethod_Invoke(
 {
     VERIFY_HANDLE(handle);
     VERIFY_NULL(methodName);
+    VERIFY_NULL(outParams);
     
     struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
 
