@@ -2500,7 +2500,9 @@ static void _rbuscore_directconnection_save_to_cache()
     if(0 == sz)
     {
         RBUSCORELOG_DEBUG("no direct connection exist, so removing cache file");
-        remove(cacheFileName);
+        if (remove(cacheFileName) != 0) {
+            RBUSCORELOG_ERROR("failed to remove %s", cacheFileName);
+        }
     }
     else
     {
@@ -2633,7 +2635,10 @@ invalidFile:
     if(pBuff)
         free(pBuff);
 
-    remove(cacheFileName);
+    if(remove(cacheFileName) != 0)
+    {
+        RBUSCORELOG_ERROR("failed to remove file %s", cacheFileName);
+    }
 }
 
 rbusServerDMLList_t* rbuscore_FindServerPrivateClient (const char *pParameterName, const char *pConsumerName)
@@ -3084,7 +3089,6 @@ rbusCoreError_t rbuscore_closePrivateConnection(const char *pParameterName)
                 memcpy(providerName, obj->m_providerName, MAX_OBJECT_NAME_LENGTH);
                 providerName[MAX_OBJECT_NAME_LENGTH] = '\0';
                 rtVector_RemoveItem(gListOfClientDirectDMLs, obj, rtVector_Cleanup_Free);
-                obj = NULL;
             }
             rbusMessage_Release(response);
         }
