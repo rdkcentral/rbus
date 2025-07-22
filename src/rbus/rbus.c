@@ -3178,10 +3178,10 @@ rbusError_t rbus_close(rbusHandle_t handle)
     snprintf(filename, RTMSG_HEADER_MAX_TOPIC_LENGTH-1, "%s%d_%d", "/tmp/.rbus/", getpid(), handleInfo->componentId);
     remove(filename);
 
+    HANDLE_EVENTSUBS_MUTEX_LOCK(handle);
     if(handleInfo->eventSubs)
     {
         int i;
-        HANDLE_EVENTSUBS_MUTEX_LOCK(handle);
         int count = (int)rtVector_Size(handleInfo->eventSubs);
         RBUSLOG_DEBUG("Cleaning up all (%d) subscriptions", count);
         for(i = 0; i < count; ++i)
@@ -3201,8 +3201,8 @@ rbusError_t rbus_close(rbusHandle_t handle)
         }
         rtVector_Destroy(handleInfo->eventSubs, NULL);
         handleInfo->eventSubs = NULL;
-        HANDLE_EVENTSUBS_MUTEX_UNLOCK(handle);
     }
+    HANDLE_EVENTSUBS_MUTEX_UNLOCK(handle);
 
     if (handleInfo->messageCallbacks)
     {
