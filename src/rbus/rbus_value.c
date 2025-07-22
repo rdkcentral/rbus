@@ -690,6 +690,7 @@ void rbusValue_SetTLV(rbusValue_t v, rbusValueType_t type, uint32_t length, void
 
 int rbusValue_Decode(rbusValue_t* value, rbusBuffer_t const buff)
 {
+    int rc = 0;
     uint16_t    type;
     uint16_t    length;
     rbusValue_t current;
@@ -697,17 +698,27 @@ int rbusValue_Decode(rbusValue_t* value, rbusBuffer_t const buff)
     if(!value)
         return -1;
 
-    rbusValue_Init(value);
+    if(!buff)
+        return -1;
+
+    if(rbusValue_Init(value) == NULL)
+        return -1;
 
     current = *value;
 
     // read value
     if(rbusBuffer_ReadUInt16(buff, &type) != 0)
+    {
+        rbusValue_Release(*value);
         return -1;
+    }
+
     if(rbusBuffer_ReadUInt16(buff, &length) != 0)
+    {
+        rbusValue_Release(*value);
         return -1;
-    if(!buff)
-        return -1;
+    }
+
     current->type = type;
     switch(type)
     {
@@ -716,6 +727,7 @@ int rbusValue_Decode(rbusValue_t* value, rbusBuffer_t const buff)
         if(!(buff->posRead + length <= buff->lenAlloc))
         {
             RBUSLOG_WARN("rbusValue_Decode failed");
+            rbusValue_Release(*value);
             return -1;
         }
         assert(strlen((char const*)buff->data + buff->posRead) + 1 == (size_t)length);/*length should captures null term*/
@@ -726,6 +738,7 @@ int rbusValue_Decode(rbusValue_t* value, rbusBuffer_t const buff)
         if(!(buff->posRead + length <= buff->lenAlloc))
         {
             RBUSLOG_WARN("rbusValue_Decode failed");
+            rbusValue_Release(*value);
             return -1;
         }
         rbusValue_SetBytes(current, buff->data + buff->posRead, length);
@@ -733,37 +746,60 @@ int rbusValue_Decode(rbusValue_t* value, rbusBuffer_t const buff)
         return length;
     /* For the other types, its ok to read directly into them and set the type below */
     case RBUS_BOOLEAN:
-        return rbusBuffer_ReadBoolean(buff, &current->d.b);
+        rc = rbusBuffer_ReadBoolean(buff, &current->d.b);
+        break;
     case RBUS_INT32:
-        return rbusBuffer_ReadInt32(buff, &current->d.i32);
+        rc = rbusBuffer_ReadInt32(buff, &current->d.i32);
+        break;
     case RBUS_UINT32:
-        return rbusBuffer_ReadUInt32(buff, &current->d.u32);
+        rc = rbusBuffer_ReadUInt32(buff, &current->d.u32);
+        break;
     case RBUS_CHAR:
-        return rbusBuffer_ReadChar(buff, &current->d.c);
+        rc = rbusBuffer_ReadChar(buff, &current->d.c);
+        break;
     case RBUS_BYTE:
-        return rbusBuffer_ReadByte(buff, &current->d.u);
+        rc = rbusBuffer_ReadByte(buff, &current->d.u);
+        break;
     case RBUS_INT8:
-        return rbusBuffer_ReadInt8(buff, &current->d.i8);
+        rc = rbusBuffer_ReadInt8(buff, &current->d.i8);
+        break;
     case RBUS_UINT8:
-        return rbusBuffer_ReadUInt8(buff, &current->d.u8);
+        rc = rbusBuffer_ReadUInt8(buff, &current->d.u8);
+        break;
     case RBUS_INT16:
-        return rbusBuffer_ReadInt16(buff, &current->d.i16);
+        rc = rbusBuffer_ReadInt16(buff, &current->d.i16);
+        break;
     case RBUS_UINT16:
-        return rbusBuffer_ReadUInt16(buff, &current->d.u16);
+        rc = rbusBuffer_ReadUInt16(buff, &current->d.u16);
+        break;
     case RBUS_INT64:
-        return rbusBuffer_ReadInt64(buff, &current->d.i64);
+        rc = rbusBuffer_ReadInt64(buff, &current->d.i64);
+        break;
     case RBUS_UINT64:
-        return rbusBuffer_ReadUInt64(buff, &current->d.u64);
+        rc = rbusBuffer_ReadUInt64(buff, &current->d.u64);
+        break;
     case RBUS_SINGLE:
-        return rbusBuffer_ReadSingle(buff, &current->d.f32);
+        rc = rbusBuffer_ReadSingle(buff, &current->d.f32);
+        break;
     case RBUS_DOUBLE:
-        return rbusBuffer_ReadDouble(buff, &current->d.f64);
+        rc = rbusBuffer_ReadDouble(buff, &current->d.f64);
+        break;
     case RBUS_DATETIME:
-        return rbusBuffer_ReadDateTime(buff, &current->d.tv);
+        rc = rbusBuffer_ReadDateTime(buff, &current->d.tv);
+        break;
     default:
+        rbusValue_Release(*value);
         assert(false);
         return -1;
     }
+    if (rc != 0)
+    {
+        RBUSLOG_WARN("rbusValue_Decode failed for type %d", type);
+        rbusValue_Release(*value);
+        return -1;
+    }
+    /* If we reach here, we have successfully read the value */
+    return rc;
 }
 
 void rbusValue_Encode(rbusValue_t value, rbusBuffer_t buff)
