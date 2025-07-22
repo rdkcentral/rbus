@@ -89,10 +89,14 @@ rtRouteBase_BindListener(char const* socket_name, int no_delay, int indefinite_r
   if (listener->local_endpoint.ss_family != AF_UNIX)
   {
     uint32_t one = 1;
-    if (no_delay)
-      setsockopt(listener->fd, SOL_TCP, TCP_NODELAY, &one, sizeof(one));
+    if (no_delay) {
+      if (setsockopt(listener->fd, SOL_TCP, TCP_NODELAY, &one, sizeof(one)) < 0)
+        rtLog_Warn("setsockopt TCP_NODELAY failed: %s", rtStrError(errno));
+    }
 
-    setsockopt(listener->fd, SOL_SOCKET, SO_REUSEADDR, (char *)&one, sizeof(one));
+    if (setsockopt(listener->fd, SOL_SOCKET, SO_REUSEADDR, (char *)&one, sizeof(one)) < 0)
+      rtLog_Warn("setsockopt SO_REUSEADDR failed: %s", rtStrError(errno));
+
     if(indefinite_retry == 1)
     {
       /* assigning maximum value of unsigned integer(0xFFFFFFFF - 4294967295) to num_retries */
@@ -185,8 +189,11 @@ _rtdirect_prepare_reply_from_request(rtMessageHeader *reply, const rtMessageHead
   reply->flags = rtMessageFlags_Response;
   reply->control_data = 0;//subscription->id;
 
-  snprintf(reply->topic, RTMSG_HEADER_MAX_TOPIC_LENGTH, "%s", request->reply_topic);
-  snprintf(reply->reply_topic, RTMSG_HEADER_MAX_TOPIC_LENGTH, "%s", request->topic);
+  strncpy(reply->topic, request->reply_topic, RTMSG_HEADER_MAX_TOPIC_LENGTH-1);
+  reply->topic[RTMSG_HEADER_MAX_TOPIC_LENGTH-1] = '\0';
+  strncpy(reply->reply_topic, request->topic, RTMSG_HEADER_MAX_TOPIC_LENGTH-1);
+  reply->reply_topic[RTMSG_HEADER_MAX_TOPIC_LENGTH-1] = '\0';
+
   reply->topic_length = request->reply_topic_length;
   reply->reply_topic_length = request->topic_length;
 }
@@ -520,8 +527,11 @@ rtRouteDirect_SendMessage(const rtPrivateClientInfo* pClient, uint8_t const* pIn
         else
             new_header.control_data = pClient->clientID;
 
-        snprintf(new_header.topic, RTMSG_HEADER_MAX_TOPIC_LENGTH, "%s", pClient->clientTopic);
-        new_header.topic_length = strlen(pClient->clientTopic);
+
+        strncpy(new_header.topic, pClient->clientTopic, RTMSG_HEADER_MAX_TOPIC_LENGTH-1);
+        new_header.topic[RTMSG_HEADER_MAX_TOPIC_LENGTH-1] = '\0';
+        new_header.topic_length = strlen(new_header.topic);
+
         new_header.reply_topic[0] = '\0';
         new_header.reply_topic_length = 0;
       
@@ -531,7 +541,7 @@ rtRouteDirect_SendMessage(const rtPrivateClientInfo* pClient, uint8_t const* pIn
         rtLog_Debug("SendMessage topic=%s expression...", new_header.topic);
         static uint8_t buffer[RTMSG_CLIENT_READ_BUFFER_SIZE];
 
-        memset(buffer, 0,RTMSG_CLIENT_READ_BUFFER_SIZE); 
+        memset(buffer, 0, RTMSG_CLIENT_READ_BUFFER_SIZE);
         rtMessageHeader_Encode(&new_header, buffer);
         struct iovec send_vec[] = {{buffer, new_header.header_length}, {(void *)pInBuff, inLength}};
         struct msghdr send_hdr = {NULL, 0, send_vec, 2, NULL, 0, 0};

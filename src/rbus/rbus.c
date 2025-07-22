@@ -1126,13 +1126,18 @@ int subscribeHandlerImpl(
             RBUSLOG_ERROR("rbus interval subscription not supported for this event %s\n", eventName);
             return RBUS_ERROR_INVALID_OPERATION;
         }
+    }
 
-        subscription = rbusSubscriptions_getSubscription(handleInfo->subscriptions, listener, eventName, componentId, filter, interval, duration, rawData);
+    HANDLE_SUBS_MUTEX_LOCK(handle);
+    subscription = rbusSubscriptions_getSubscription(handleInfo->subscriptions, listener, eventName, componentId, filter, interval, duration, rawData);
+    if (added)
+    {
         if(!subscription)
         {
             subscription = rbusSubscriptions_addSubscription(handleInfo->subscriptions, listener, eventName, componentId, filter, interval, duration, autoPublish, el, rawData);
             if(!subscription)
             {
+                HANDLE_SUBS_MUTEX_UNLOCK(handle);
                 return RBUS_ERROR_INVALID_INPUT; // Adding fails because of invalid input
             }
             else
@@ -1140,16 +1145,16 @@ int subscribeHandlerImpl(
         }
         else
         {
+            HANDLE_SUBS_MUTEX_UNLOCK(handle);
             return RBUS_ERROR_SUBSCRIPTION_ALREADY_EXIST;
         }
     }
     else
     {
-        subscription = rbusSubscriptions_getSubscription(handleInfo->subscriptions, listener, eventName, componentId, filter, interval, duration, rawData);
-    
         if(!subscription)
         {
             RBUSLOG_ERROR("unsubscribing from event which isn't currectly subscribed to event=%s listener=%s", eventName, listener);
+            HANDLE_SUBS_MUTEX_UNLOCK(handle);
             return RBUS_ERROR_INVALID_INPUT; /*unsubscribing from event which isn't currectly subscribed to*/
         }
     }
@@ -1159,6 +1164,7 @@ int subscribeHandlerImpl(
     if(rawData && el->type != RBUS_ELEMENT_TYPE_EVENT)
     {
         RBUSLOG_INFO("rawDataSubscription is only allowed for events");
+        HANDLE_SUBS_MUTEX_UNLOCK(handle);
         return RBUS_ERROR_INVALID_INPUT;
     }
     else
@@ -1213,6 +1219,7 @@ int subscribeHandlerImpl(
     {
         rbusSubscriptions_removeSubscription(handleInfo->subscriptions, subscription);
     }
+    HANDLE_SUBS_MUTEX_UNLOCK(handle);
     return RBUS_ERROR_SUCCESS;
 }
 
@@ -1425,6 +1432,8 @@ static int _master_event_callback_handler(char const* sender, char const* eventN
     if(!handleInfo)
     {
         RBUSLOG_ERROR("Received master event callback with invalid componentId: sender=%s eventName=%s componentId=%d", sender, eventName, componentId);
+        rbusObject_Release(event.data);
+        rbusFilter_Release(filter);
         return RBUSCORE_ERROR_EVENT_NOT_HANDLED;
     }
 
@@ -1459,8 +1468,8 @@ static int _master_event_callback_handler(char const* sender, char const* eventN
     {
         RBUSLOG_DEBUG("Received master event callback: sender=%s eventName=%s, but no subscription found", sender, event.name);
         HANDLE_EVENTSUBS_MUTEX_UNLOCK(handleInfo);
-        if(event.data)
-            rbusObject_Release(event.data);
+        rbusObject_Release(event.data);
+        rbusFilter_Release(filter);
         return RBUSCORE_ERROR_EVENT_NOT_HANDLED;
     }
 exit_1:
@@ -2609,9 +2618,7 @@ static void _subscribe_callback_handler (rbusHandle_t handle, rbusMessage reques
             rbusMessage_GetInt32(request, &rawData);
             if(ret == RBUS_ERROR_SUCCESS)
             {
-                HANDLE_SUBS_MUTEX_LOCK(handle);
                 ret = subscribeHandlerImpl(handle, added, el, event_name, sender, componentId, interval, duration, filter, rawData, &subscriptionId);
-                HANDLE_SUBS_MUTEX_UNLOCK(handle);
             }
             rbusMessage_SetInt32(*response, ret);
 
@@ -3158,10 +3165,10 @@ rbusError_t rbus_close(rbusHandle_t handle)
     snprintf(filename, RTMSG_HEADER_MAX_TOPIC_LENGTH-1, "%s%d_%d", "/tmp/.rbus/", getpid(), handleInfo->componentId);
     remove(filename);
 
+    HANDLE_EVENTSUBS_MUTEX_LOCK(handle);
     if(handleInfo->eventSubs)
     {
         int i;
-        HANDLE_EVENTSUBS_MUTEX_LOCK(handle);
         int count = (int)rtVector_Size(handleInfo->eventSubs);
         RBUSLOG_DEBUG("Cleaning up all (%d) subscriptions", count);
         for(i = 0; i < count; ++i)
@@ -3181,8 +3188,8 @@ rbusError_t rbus_close(rbusHandle_t handle)
         }
         rtVector_Destroy(handleInfo->eventSubs, NULL);
         handleInfo->eventSubs = NULL;
-        HANDLE_EVENTSUBS_MUTEX_UNLOCK(handle);
     }
+    HANDLE_EVENTSUBS_MUTEX_UNLOCK(handle);
 
     if (handleInfo->messageCallbacks)
     {
