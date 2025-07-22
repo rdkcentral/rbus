@@ -2037,7 +2037,6 @@ rbusCoreError_t rbus_discoverObjectElements(const char * object, int * count, ch
 
         rtMessage_Release(msg);
 
-        ret = RBUSCORE_SUCCESS;
     }
     else
     {
