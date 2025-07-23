@@ -91,7 +91,7 @@ typedef enum _rbus_legacy_support
     RBUS_LEGACY_DOUBLE,        /**< Double (ex: 2.3E-308 or 1.7E+308) as String                      */
     RBUS_LEGACY_BYTE,
     RBUS_LEGACY_NONE
-} rbusLegacyDataType_t;
+} rbusLegacyDataType_t
 
 typedef enum _rbus_legacy_returns {
     RBUS_LEGACY_ERR_SUCCESS = 100,
