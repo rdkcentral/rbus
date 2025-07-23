@@ -124,7 +124,6 @@ jobs:
           nohup valgrind --leak-check=full --log-file=/tmp/valgrind/rbusTestProvider.log ./bin/rbusTestProvider >/tmp/rbusTestProvider.out 2>&1 &
           nohup valgrind --leak-check=full --log-file=/tmp/valgrind/rbusTestConsumer.log ./bin/rbusTestConsumer -a   > /tmp/rbusTestConsumer.out 2>&1 & 
           cd ${{github.workspace}} && ./memoryleak.sh    
-
       - name: Run test with rbusmethod provider
         run: |
           cd install/usr
