@@ -2436,9 +2436,9 @@ void rbus_setOpenTelemetryContext(const char *traceParent, const char *traceStat
 
 typedef struct _rbusServerDMLList 
 {
-    char                    m_privConnAddress[MAX_OBJECT_NAME_LENGTH+1];
-    char                    m_consumerName[MAX_OBJECT_NAME_LENGTH+1];
-    char                    m_privateDML [MAX_OBJECT_NAME_LENGTH+1];
+    char                    m_privConnAddress[MAX_OBJECT_NAME_LENGTH];
+    char                    m_consumerName[MAX_OBJECT_NAME_LENGTH];
+    char                    m_privateDML [MAX_OBJECT_NAME_LENGTH];
     rtPrivateClientInfo     m_consumerInfo;
     pthread_t               m_pid;
     rbus_callback_t         m_fnCallbackHandler;
@@ -2447,15 +2447,15 @@ typedef struct _rbusServerDMLList
 
 typedef struct _server_directHandler
 {
-    char                  m_privConnAddress[MAX_OBJECT_NAME_LENGTH+1];
+    char                  m_privConnAddress[MAX_OBJECT_NAME_LENGTH];
     rtDriectClientHandler m_fnRouteCallback;
 } rbusServerDirectHandler_t;
 
 typedef struct _rbusClientDMLList
 {
-    char          m_privateDML[MAX_OBJECT_NAME_LENGTH+1];
-    char          m_providerName[MAX_OBJECT_NAME_LENGTH+1];
-    char          m_consumerName[MAX_OBJECT_NAME_LENGTH+1];
+    char          m_privateDML[MAX_OBJECT_NAME_LENGTH];
+    char          m_providerName[MAX_OBJECT_NAME_LENGTH];
+    char          m_consumerName[MAX_OBJECT_NAME_LENGTH];
     rtConnection  m_privConn;
 } rbusClientDMLList_t;
 
@@ -2811,7 +2811,7 @@ rbusCoreError_t rbuscore_startPrivateListener(const char* pPrivateConnAddress, c
     rbusServerDMLList_t *obj = NULL;
     int err = 0;
     pthread_t pid;
-    rtPrivateClientInfo  privConsInfo;
+    rtPrivateClientInfo  privConsInfo = {0};
 
     if (pDMLName && pPrivateConnAddress && handler)
     {
@@ -2838,10 +2838,13 @@ rbusCoreError_t rbuscore_startPrivateListener(const char* pPrivateConnAddress, c
         }
 
         // Update the DMLs
-        rbusServerDMLList_t *pTemp = rt_malloc(sizeof(rbusServerDMLList_t));
-        strcpy(pTemp->m_privConnAddress, pPrivateConnAddress);
-        strcpy(pTemp->m_consumerName, pConsumerName);
-        strcpy(pTemp->m_privateDML, pDMLName);
+        rbusServerDMLList_t *pTemp = rt_calloc(1,sizeof(rbusServerDMLList_t));
+        strncpy(pTemp->m_privConnAddress, pPrivateConnAddress,MAX_OBJECT_NAME_LENGTH - 1);
+        pTemp->m_privConnAddress[MAX_OBJECT_NAME_LENGTH - 1] = '\0';
+        strncpy(pTemp->m_consumerName, pConsumerName,MAX_OBJECT_NAME_LENGTH - 1);
+	pTemp->m_consumerName[MAX_OBJECT_NAME_LENGTH - 1] = '\0';
+        strncpy(pTemp->m_privateDML, pDMLName,MAX_OBJECT_NAME_LENGTH - 1);
+	pTemp->m_privateDML[MAX_OBJECT_NAME_LENGTH - 1] = '\0';
         memcpy(&pTemp->m_consumerInfo, &privConsInfo, sizeof(rtPrivateClientInfo));
         pTemp->m_pid = pid;
         pTemp->m_fnCallbackHandler = handler;

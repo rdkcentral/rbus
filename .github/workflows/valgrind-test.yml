@@ -108,6 +108,22 @@ jobs:
           export LD_LIBRARY_PATH=$PREFIX/lib
           valgrind --leak-check=full   ./bin/rtrouted -f -l DEBUG  &
           #cd ${{github.workspace}}/rbus && ./memoryleak.sh
+      - name: Run RbusTestTimeoutValues Unit test
+        run: |
+          cd install/usr
+          export PREFIX=$PWD
+          export LD_LIBRARY_PATH=$PREFIX/lib
+          nohup valgrind --leak-check=full --log-file=/tmp/valgrind/rbusTestTimeoutValuesProvider.log ./bin/rbusTestTimeoutValuesProvider > /tmp/rbusTestTimeoutValuesProvider.out 2>&1 &
+          nohup valgrind --leak-check=full --log-file=/tmp/valgrind/rbusTestTimeoutValuesConsumer.log ./bin/rbusTestTimeoutValuesConsumer > /tmp/rbusTestTimeoutValuesConsumer.out 2>&1 &
+          cd ${{github.workspace}} && ./memoryleak.sh 
+      - name: Run Unit test
+        run: |
+          cd install/usr
+          export PREFIX=$PWD
+          export LD_LIBRARY_PATH=$PREFIX/lib
+          nohup valgrind --leak-check=full --log-file=/tmp/valgrind/rbusTestProvider.log ./bin/rbusTestProvider >/tmp/rbusTestProvider.out 2>&1 &
+          nohup valgrind --leak-check=full --log-file=/tmp/valgrind/rbusTestConsumer.log ./bin/rbusTestConsumer -a   > /tmp/rbusTestConsumer.out 2>&1 & 
+          cd ${{github.workspace}} && ./memoryleak.sh    
       - name: Run test with rbusmethod provider
         run: |
           cd install/usr
