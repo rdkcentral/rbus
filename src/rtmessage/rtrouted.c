@@ -98,13 +98,11 @@ rtRouted_TransactionTimingDetails(rtMessageHeader header_details)
   rtTime_t timestamp = {0};
   time_t boottime = 0;
   rtTime_t uptime = {0};
-  
 
   rtTime_Now(&uptime);
   boottime = time(NULL) - uptime.tv_sec; /* To calculate actual boot time of the device
                                             time(NULL) - Time since Epoch time(1st Jan 1970)
                                             uptime.tv_sec - Time since boot of device */
-
   rtLog_Info("=======================================================================");
   timestamp.tv_sec = header_details.T1 + boottime;
   rtTime_ToString(&timestamp, time_buff);
