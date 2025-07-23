@@ -1949,9 +1949,6 @@ rbusCoreError_t rbus_discoverWildcardDestinations(const char * expression, int *
             }
 
             rtMessage_Release(msg);
-
-            ret = RBUSCORE_SUCCESS;
-
         }
         else
         {
@@ -2040,7 +2037,6 @@ rbusCoreError_t rbus_discoverObjectElements(const char * object, int * count, ch
 
         rtMessage_Release(msg);
 
-        ret = RBUSCORE_SUCCESS;
     }
     else
     {
@@ -2298,7 +2294,6 @@ rbusCoreError_t rbus_discoverRegisteredComponents(int * count, char *** componen
         }
 
         rtMessage_Release(msg);
-        ret = RBUSCORE_SUCCESS;
     }
     else
     {

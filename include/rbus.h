@@ -1805,7 +1805,7 @@ rbusError_t  rbusEvent_PublishRawData(
                             provider is responsible in sending the errorcode and error string.
                             other error like no method/handling issues, internal err
                             will be taken care by rbus.
-                            consumer side errors returning (RBUS_ERROR_INVALID_HANDLE and RBUS_ERROR_INVALID_INPUT) will                             not contain outparams for input validation.
+                            consumer side errors returning (RBUS_ERROR_INVALID_HANDLE and RBUS_ERROR_INVALID_INPUT) will not contain outparams for input validation.
  *  @return RBus error code as defined by rbusError_t.
  *  Possible values are: RBUS_ERROR_SUCCESS, RBUS_ERROR_BUS_ERROR, RBUS_ERROR_INVALID_INPUT, RBUS_ERROR_TIMEOUT, RBUS_ERROR_INVALID_METHOD, RBUS_ERROR_INVALID_HANDLE
  *  @ingroup Methods
