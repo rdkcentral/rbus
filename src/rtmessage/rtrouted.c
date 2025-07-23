@@ -96,7 +96,7 @@ rtRouted_TransactionTimingDetails(rtMessageHeader header_details)
 {
   char time_buff[64] = {0};
   rtTime_t timestamp = {0};
-  uint64_t boottime = 0;
+  time_t boottime = 0;
   rtTime_t uptime = {0};
   
 
