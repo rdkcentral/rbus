@@ -1469,8 +1469,7 @@ dispatch:
     {
       /*Turn this message around without the payload. Set the right error flag.*/
       
-      strcpy(clnt->header.topic, clnt->header.reply_topic);
-
+      strncpy(clnt->header.topic, clnt->header.reply_topic, (strlen(clnt->header.reply_topic) + 1));
       clnt->header.flags &= ~rtMessageFlags_Request; 
       clnt->header.flags |= (rtMessageFlags_Response | rtMessageFlags_Undeliverable);
       clnt->header.payload_length = 0;
