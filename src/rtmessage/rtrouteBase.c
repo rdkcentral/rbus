@@ -193,6 +193,7 @@ _rtdirect_prepare_reply_from_request(rtMessageHeader *reply, const rtMessageHead
   reply->topic[RTMSG_HEADER_MAX_TOPIC_LENGTH-1] = '\0';
   strncpy(reply->reply_topic, request->topic, RTMSG_HEADER_MAX_TOPIC_LENGTH-1);
   reply->reply_topic[RTMSG_HEADER_MAX_TOPIC_LENGTH-1] = '\0';
+
   reply->topic_length = request->reply_topic_length;
   reply->reply_topic_length = request->topic_length;
 }
@@ -526,9 +527,11 @@ rtRouteDirect_SendMessage(const rtPrivateClientInfo* pClient, uint8_t const* pIn
         else
             new_header.control_data = pClient->clientID;
 
+
         strncpy(new_header.topic, pClient->clientTopic, RTMSG_HEADER_MAX_TOPIC_LENGTH-1);
         new_header.topic[RTMSG_HEADER_MAX_TOPIC_LENGTH-1] = '\0';
         new_header.topic_length = strlen(new_header.topic);
+
         new_header.reply_topic[0] = '\0';
         new_header.reply_topic_length = 0;
       
@@ -593,7 +596,7 @@ rtRouteDirect_StartInstance(const char* socket_name, rtDriectClientHandler messa
   if (!route)
       return rtErrorFromErrno(ENOMEM);
   route->subscription = NULL;
-  strncpy(route->expression, "_RTDIRECT>", RTMSG_MAX_EXPRESSION_LEN-1);
+  snprintf(route->expression, RTMSG_MAX_EXPRESSION_LEN, "%s", "_RTDIRECT>");
   route->message_handler = _rtdirect_OnMessage;
 
   int ltIsrunning = 1;
