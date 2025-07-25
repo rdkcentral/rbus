@@ -308,7 +308,7 @@ rtRouted_ParseConfig(char const* fname)
         {
           int vlength = strlen(item->valuestring) + 1;
           g_spake2_L = rt_calloc(1, vlength);
-	  rtString_Copy(g_spake2_L, item->valuestring, vlength);
+          rtString_Copy(g_spake2_L, item->valuestring, vlength);
         }
       }
 
@@ -325,7 +325,7 @@ rtRouted_ParseConfig(char const* fname)
         {
           int w0Length = strlen(item->valuestring) + 1 ;
           g_spake2_w0 = rt_calloc(1, w0Length);
-	  rtString_Copy(g_spake2_w0, item->valuestring, w0Length);
+          rtString_Copy(g_spake2_w0, item->valuestring, w0Length);
         }
       }
 
@@ -781,7 +781,7 @@ rtRouted_OnMessageSubscribe(rtConnectedClient* sender, rtMessageHeader* hdr, uin
 
           if(strstr(expression, ".INBOX.") && sender->inbox[0] == '\0')
           {
-	    rtString_Copy(sender->inbox, expression, RTMSG_HEADER_MAX_TOPIC_LENGTH);
+            rtString_Copy(sender->inbox, expression, RTMSG_HEADER_MAX_TOPIC_LENGTH);
             rtLog_Debug("init client inbox to %s", sender->inbox);
             rtRouted_SendAdvisoryMessage(sender, rtAdviseClientConnect);
           }
@@ -1839,7 +1839,7 @@ int main(int argc, char* argv[])
         route = (rtRouteEntry *)rt_malloc(sizeof(rtRouteEntry));
         route->subscription = NULL;
         route->message_handler = &rtRouted_TrafficMonitorLog;
-	rtString_Copy(route->expression, ">", RTMSG_MAX_EXPRESSION_LEN);
+        rtString_Copy(route->expression, ">", RTMSG_MAX_EXPRESSION_LEN);
         rtVector_PushBack(gRoutes, route);
       }
       case '?':
@@ -1894,7 +1894,7 @@ int main(int argc, char* argv[])
     for(i = 0; i < num_listeners; i++)
     {
       rtListener* listener = NULL;
-	  rtRouteBase_BindListener(socket_name[i], use_no_delay, indefinite_retry, &listener);
+      rtRouteBase_BindListener(socket_name[i], use_no_delay, indefinite_retry, &listener);
       rtVector_PushBack(gListeners, listener);
       indefinite_retry  = 1;
     }
