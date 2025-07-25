@@ -343,31 +343,31 @@ void* g_master_event_user_data = NULL;
 /* End global variables*/
 static int directServerLock()
 {
-	return pthread_mutex_lock(&g_directServMutex);
+    return pthread_mutex_lock(&g_directServMutex);
 }
 
 static int directServerUnlock()
 {
-	return pthread_mutex_unlock(&g_directServMutex);
+    return pthread_mutex_unlock(&g_directServMutex);
 }
 
 static int directClientLock()
 {
-	return pthread_mutex_lock(&g_directCliMutex);
+    return pthread_mutex_lock(&g_directCliMutex);
 }
 
 static int directClientUnlock()
 {
-	return pthread_mutex_unlock(&g_directCliMutex);
+    return pthread_mutex_unlock(&g_directCliMutex);
 }
 static int lock()
 {
-	return pthread_mutex_lock(&g_mutex);
+    return pthread_mutex_lock(&g_mutex);
 }
 
 static int unlock()
 {
-	return pthread_mutex_unlock(&g_mutex);
+    return pthread_mutex_unlock(&g_mutex);
 }
 
 static rbusCoreError_t send_subscription_request(const char * object_name, const char * event_name, bool activate, const rbusMessage payload, int* providerError, int timeout, bool publishOnSubscribe, rbusMessage *response, bool rawData);
@@ -601,61 +601,61 @@ rbusCoreError_t rbus_openBrokerConnection(const char * component_name)
 
 rbusCoreError_t rbus_openBrokerConnection2(const char * component_name, const char* broker_address)
 {
-	rbusCoreError_t ret = RBUSCORE_SUCCESS;
-	rtError result = RT_OK;
+    rbusCoreError_t ret = RBUSCORE_SUCCESS;
+    rtError result = RT_OK;
 
-	if(!component_name)
-	{
-		RBUSCORELOG_ERROR("Invalid parameter: component name null");
-		return RBUSCORE_ERROR_INVALID_PARAM;
-	}
+    if(!component_name)
+    {
+        RBUSCORELOG_ERROR("Invalid parameter: component name null");
+        return RBUSCORE_ERROR_INVALID_PARAM;
+    }
 
-	/*TODO we really need a 1 call per process init function to initialize the global variables
-	and it might not be safe to switch from PTHREAD_MUTEX_ERRORCHECK and use static initializer PTHREAD_MUTEX_INITIALIZER*/
-	if(!g_mutex_init)
-	{
-		pthread_mutexattr_t attr;
-		pthread_mutexattr_init(&attr);
-		pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_ERRORCHECK);
-		pthread_mutex_init(&g_mutex, &attr);
-		pthread_mutex_init(&g_directServMutex, &attr);
-		pthread_mutex_init(&g_directCliMutex, &attr);
-		g_mutex_init = 1;
-	}
+    /*TODO we really need a 1 call per process init function to initialize the global variables
+    and it might not be safe to switch from PTHREAD_MUTEX_ERRORCHECK and use static initializer PTHREAD_MUTEX_INITIALIZER*/
+    if(!g_mutex_init)
+    {
+        pthread_mutexattr_t attr;
+        pthread_mutexattr_init(&attr);
+        pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_ERRORCHECK);
+        pthread_mutex_init(&g_mutex, &attr);
+        pthread_mutex_init(&g_directServMutex, &attr);
+        pthread_mutex_init(&g_directCliMutex, &attr);
+        g_mutex_init = 1;
+    }
 
-	lock();
+    lock();
 
-	/*only 1 connection per process*/
-	if(g_connection)
-	{
-		RBUSCORELOG_DEBUG("using previously opened connection for %s", component_name);
-		unlock();
-		return RBUSCORE_SUCCESS;
-	}
+    /*only 1 connection per process*/
+    if(g_connection)
+    {
+        RBUSCORELOG_DEBUG("using previously opened connection for %s", component_name);
+        unlock();
+        return RBUSCORE_SUCCESS;
+    }
 
-	/*nobody calls rbus_openBrokerConnection2 directly (except maybe some unit tests) so broker_address is always NULL*/
-	if(broker_address == NULL)
-	{
-		configure_router_address();/*this allows devices with split cpu environment to connect to rtrouted over tcp*/
-		broker_address = g_daemon_address;
-	}
+    /*nobody calls rbus_openBrokerConnection2 directly (except maybe some unit tests) so broker_address is always NULL*/
+    if(broker_address == NULL)
+    {
+        configure_router_address();/*this allows devices with split cpu environment to connect to rtrouted over tcp*/
+        broker_address = g_daemon_address;
+    }
 
-	RBUSCORELOG_INFO("Broker address: %s", broker_address);
+    RBUSCORELOG_INFO("Broker address: %s", broker_address);
 
-	perform_init();
-	result = rtConnection_Create(&g_connection, "rbus", broker_address);
-	if(RT_OK != result)
-	{
-		RBUSCORELOG_ERROR("Failed to create a connection for %s: Error: %d", component_name, result);
-		g_connection = NULL;
-		perform_cleanup();
-		unlock();
-		return RBUSCORE_ERROR_GENERAL;
-	}
+    perform_init();
+    result = rtConnection_Create(&g_connection, "rbus", broker_address);
+    if(RT_OK != result)
+    {
+        RBUSCORELOG_ERROR("Failed to create a connection for %s: Error: %d", component_name, result);
+        g_connection = NULL;
+        perform_cleanup();
+        unlock();
+        return RBUSCORE_ERROR_GENERAL;
+    }
 
-	RBUSCORELOG_DEBUG("Successfully created connection for %s", component_name );
-	unlock();
-	return ret;
+    RBUSCORELOG_DEBUG("Successfully created connection for %s", component_name );
+    unlock();
+    return ret;
 }
 
 rbusCoreError_t rbus_closeBrokerConnection()
@@ -889,8 +889,8 @@ rbusCoreError_t rbus_registerMethod(const char * object_name, const char *method
 rbusCoreError_t rbus_unregisterMethod(const char * object_name, const char *method_name)
 {
     /*using namespace rbus_server;*/
-	rbusCoreError_t ret = RBUSCORE_SUCCESS;
-	lock();
+    rbusCoreError_t ret = RBUSCORE_SUCCESS;
+    lock();
 
     server_object_t obj = get_object(object_name);
     if(obj)
@@ -907,7 +907,7 @@ rbusCoreError_t rbus_unregisterMethod(const char * object_name, const char *meth
             ret = RBUSCORE_ERROR_GENERAL;
         }
     }
-    else	
+    else
     {
         RBUSCORELOG_ERROR("Couldn't locate object %s.", object_name);
         ret = RBUSCORE_ERROR_INVALID_PARAM;
@@ -1159,7 +1159,7 @@ rbusCoreError_t rbus_invokeRemoteMethod2(rtConnection myConn, const char * objec
     {
         method = NULL;
         rbusMessage_BeginMetaSectionRead(*in);
-		    rbusMessage_GetString(*in, &method);
+            rbusMessage_GetString(*in, &method);
         rbusMessage_EndMetaSectionRead(*in);
         if(NULL != method)
         {
@@ -1189,7 +1189,7 @@ rbusCoreError_t rbus_invokeRemoteMethod2(rtConnection myConn, const char * objec
 /*TODO: make this really fire and forget.*/
 rbusCoreError_t rbus_pushObjNoAck(const char * object_name, rbusMessage message)
 {
-	return rbus_pushObj(object_name, message, TIMEOUT_VALUE_FIRE_AND_FORGET);
+    return rbus_pushObj(object_name, message, TIMEOUT_VALUE_FIRE_AND_FORGET);
 }
 
 rbusCoreError_t rbus_pullObj(const char * object_name, int timeout_millisecs, rbusMessage *response)
@@ -2021,7 +2021,7 @@ rbusCoreError_t rbus_discoverObjectElements(const char * object, int * count, ch
                             free(array_ptr[j]);
                         free(array_ptr);
                         array_ptr=NULL;
-			*elements = NULL;
+                        *elements = NULL;
                         RBUSCORELOG_ERROR("Read/Memory allocation failure");
                         ret = RBUSCORE_ERROR_GENERAL;
                         break;
@@ -2341,9 +2341,7 @@ rbusCoreError_t rbus_sendResponse(const rtMessageHeader* hdr, rbusMessage respon
         }
 
         _rbusMessage_SetMetaInfo(response, METHOD_RESPONSE, NULL, NULL);
-
         rbusMessage_ToBytes(response, &data, &dataLength);
-
         if((err= rtConnection_SendBinaryResponse(g_connection, hdr, data, dataLength, TIMEOUT_VALUE_FIRE_AND_FORGET)) != RT_OK)
         {
             RBUSCORELOG_ERROR("Failed to send async response. Error code: 0x%x", err);
@@ -2404,14 +2402,14 @@ void rbus_setOpenTelemetryContext(const char *traceParent, const char *traceStat
 
     if (traceParent)
     {
-	size_t tpLen = strlen(traceParent);
-	if ((tpLen > 0) && (tpLen < (RBUS_OPEN_TELEMETRY_DATA_MAX - 1)))
-	{
+        size_t tpLen = strlen(traceParent);
+        if ((tpLen > 0) && (tpLen < (RBUS_OPEN_TELEMETRY_DATA_MAX - 1)))
+        {
             memset(ot_ctx->otTraceParent, '\0', sizeof(ot_ctx->otTraceParent));
-	    strncpy(ot_ctx->otTraceParent, traceParent, tpLen);
+            strncpy(ot_ctx->otTraceParent, traceParent, tpLen);
             ot_ctx->otTraceParent[tpLen + 1] = '\0';
-	}
-	else
+        }
+        else
             ot_ctx->otTraceParent[0] = '\0';
     }
     else
@@ -2420,19 +2418,18 @@ void rbus_setOpenTelemetryContext(const char *traceParent, const char *traceStat
     if (traceState)
     {
         size_t tsLen = strlen(traceState);
-	if ((tsLen > 0) && (tsLen < (RBUS_OPEN_TELEMETRY_DATA_MAX - 1)))
-	{
+        if ((tsLen > 0) && (tsLen < (RBUS_OPEN_TELEMETRY_DATA_MAX - 1)))
+        {
             memset(ot_ctx->otTraceState, '\0', sizeof(ot_ctx->otTraceState));
-	    strncpy(ot_ctx->otTraceState, traceState, tsLen);
+            strncpy(ot_ctx->otTraceState, traceState, tsLen);
             ot_ctx->otTraceState[tsLen + 1] = '\0';
-	}
-	else
+        }
+        else
             ot_ctx->otTraceState[0] = '\0';
     }
     else
         ot_ctx->otTraceState[0] = '\0';
 }
-
 
 typedef struct _rbusServerDMLList 
 {
@@ -2458,8 +2455,6 @@ typedef struct _rbusClientDMLList
     char          m_consumerName[MAX_OBJECT_NAME_LENGTH];
     rtConnection  m_privConn;
 } rbusClientDMLList_t;
-
-
 
 
 /////// Server Side ///////
@@ -2725,7 +2720,6 @@ void* rbuscore_PrivateThreadFunc (void* ptr)
     _rbuscore_directconnection_save_to_cache();
     directServerUnlock();
 
-
     free (pInstance);
     return NULL;
 }
@@ -2792,7 +2786,6 @@ static rtError _onDirectMessage(uint8_t isClientRequest, rtMessageHeader* hdr, u
             for(i = 0; i < sz; ++i)
             {
                 pSubObj = rtVector_At(gListOfServerDirectDMLs, i);
-
                 if (0 == strncmp(pSubObj->m_consumerName, pPrivCliInfo->clientTopic, MAX_OBJECT_NAME_LENGTH))
                 {
                     memcpy(&pSubObj->m_consumerInfo, pPrivCliInfo, sizeof(rtPrivateClientInfo));
@@ -2820,7 +2813,7 @@ rbusCoreError_t rbuscore_startPrivateListener(const char* pPrivateConnAddress, c
         if (!obj)
         {
             rbusServerDirectHandler_t *pInstance = rt_malloc(sizeof(rbusServerDirectHandler_t));
-	    rtString_Copy(pInstance->m_privConnAddress, pPrivateConnAddress, MAX_OBJECT_NAME_LENGTH);
+            rtString_Copy(pInstance->m_privConnAddress, pPrivateConnAddress, MAX_OBJECT_NAME_LENGTH);
             pInstance->m_fnRouteCallback = _onDirectMessage;
 
             if((err = pthread_create(&pid, NULL, rbuscore_PrivateThreadFunc, pInstance)) != 0)
@@ -2839,8 +2832,8 @@ rbusCoreError_t rbuscore_startPrivateListener(const char* pPrivateConnAddress, c
 
         // Update the DMLs
         rbusServerDMLList_t *pTemp = rt_calloc(1, sizeof(rbusServerDMLList_t));
-	rtString_Copy(pTemp->m_privConnAddress, pPrivateConnAddress, MAX_OBJECT_NAME_LENGTH);
-	rtString_Copy(pTemp->m_consumerName, pConsumerName, MAX_OBJECT_NAME_LENGTH);
+        rtString_Copy(pTemp->m_privConnAddress, pPrivateConnAddress, MAX_OBJECT_NAME_LENGTH);
+        rtString_Copy(pTemp->m_consumerName, pConsumerName, MAX_OBJECT_NAME_LENGTH);
         rtString_Copy(pTemp->m_privateDML, pDMLName, MAX_OBJECT_NAME_LENGTH);
         memcpy(&pTemp->m_consumerInfo, &privConsInfo, sizeof(rtPrivateClientInfo));
         pTemp->m_pid = pid;
