@@ -2838,7 +2838,7 @@ rbusCoreError_t rbuscore_startPrivateListener(const char* pPrivateConnAddress, c
         }
 
         // Update the DMLs
-        rbusServerDMLList_t *pTemp = rt_calloc(1,sizeof(rbusServerDMLList_t));
+        rbusServerDMLList_t *pTemp = rt_calloc(1, sizeof(rbusServerDMLList_t));
 	rtString_Copy(pTemp->m_privConnAddress, pPrivateConnAddress, MAX_OBJECT_NAME_LENGTH);
 	rtString_Copy(pTemp->m_consumerName, pConsumerName, MAX_OBJECT_NAME_LENGTH);
         rtString_Copy(pTemp->m_privateDML, pDMLName, MAX_OBJECT_NAME_LENGTH);
