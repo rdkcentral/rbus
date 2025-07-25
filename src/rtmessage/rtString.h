@@ -1,8 +1,11 @@
 #ifndef RT_STRING_H
 #define RT_STRING_H
 
+#include <stdio.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <string.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
