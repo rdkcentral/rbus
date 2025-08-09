@@ -75,6 +75,7 @@ add_library(
       rtVector.c
       rtList.c
       rtTime.c
+      rtString.c
       rtSemaphore.c
       rtRetainable.c
       rtBase64.c
@@ -143,6 +144,7 @@ install (
   rtLog.h
   rtList.h
   rtTime.h
+  rtString.h
   rtAtomic.h
   rtAdvisory.h
   rtThreadPool.h

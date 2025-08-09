@@ -38,24 +38,42 @@ struct _rtMessage
 };
 
 /**
- * Allocate storage and initializes it as new message
- * @param pointer to the new message
- * @return rtError
+ * Allocate storage and initializes it as new message.
+ * @param message Pointer to the new message to be created (output parameter).
+ * @return rtError RT_OK on success, RT_FAIL if cJSON_CreateObject fails, rtErrorFromErrno(ENOMEM) if memory allocation fails, or other error code on failures.
  **/
 rtError
 rtMessage_Create(rtMessage* message)
 {
+  // rt_try_malloc allocates memory and returns NULL if allocation fails.
+  // If allocation fails, rtMessage_Create returns rtErrorFromErrno(ENOMEM).
+  if (!message)
+    return RT_ERROR_INVALID_ARG;
+
+  // Allocate memory for the new message structure
+  // and check if allocation was successful.
   *message = (rtMessage) rt_try_malloc(sizeof(struct _rtMessage));
   if(!*message)
     return rtErrorFromErrno(ENOMEM);
-  if (message)
+
+  // Initialize reference count to 0
+  (*message)->count = 0;
+
+  // Create a new cJSON object for the message payload
+  (*message)->json = cJSON_CreateObject();
+
+  // Returns RT_FAIL if cJSON_CreateObject fails
+  if (!(*message)->json)
   {
-    (*message)->count = 0;
-    (*message)->json = cJSON_CreateObject();
-    rt_atomic_fetch_add(&(*message)->count, 1);
-    return RT_OK;
+    free(*message);
+    *message = NULL;
+    return RT_FAIL;
   }
-  return RT_FAIL;
+
+  // Increment reference count to indicate ownership of the newly created message
+  rt_atomic_fetch_add(&(*message)->count, 1);
+
+  return RT_OK;
 }
 
 /**
