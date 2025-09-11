@@ -142,7 +142,7 @@ void server_event_addListener(server_event_t event, char const* listener)
 {
     if(!listener)
     {
-        RBUSCORELOG_ERROR("Listener is empty.");
+        RBUSCORELOG_DEBUG("Listener is empty.");
     }
     else if(!rtVector_HasItem(event->listeners, listener, rtVector_Compare_String))
     {
@@ -157,7 +157,7 @@ void server_event_addListener(server_event_t event, char const* listener)
     }
     else
     {
-        RBUSCORELOG_WARN("Listener %s is already registered for event %s.", listener, event->name);
+        RBUSCORELOG_DEBUG("Listener %s is already registered for event %s.", listener, event->name);
     }
 }
 
@@ -165,11 +165,11 @@ void server_event_removeListener(server_event_t event, char const* listener)
 {
     if(!listener)
     {
-        RBUSCORELOG_ERROR("Listener is empty.");
+        RBUSCORELOG_DEBUG("Listener is empty.");
     }
     else if(rtVector_HasItem(event->listeners, listener, rtVector_Compare_String))
     {
-        RBUSCORELOG_WARN("Removing listener %s for event %s.", listener, event->name);
+        RBUSCORELOG_DEBUG("Removing listener %s for event %s.", listener, event->name);
 
         rtVector_RemoveItemByCompare(event->listeners, listener, rtVector_Compare_String, rtVector_Cleanup_Free);
 
@@ -180,7 +180,7 @@ void server_event_removeListener(server_event_t event, char const* listener)
     }
     else
     {
-        RBUSCORELOG_ERROR("Listener %s not found for event %s.", listener, event->name);
+        RBUSCORELOG_DEBUG("Listener %s not found for event %s.", listener, event->name);
     }
 }
 
@@ -218,7 +218,7 @@ rbusCoreError_t server_object_subscription_handler(server_object_t obj, const ch
        (MAX_SUBSCRIBER_NAME_LENGTH <= strlen(subscriber)) ||
        (MAX_EVENT_NAME_LENGTH <= strlen(event)))
     {
-        RBUSCORELOG_ERROR("Cannot %s subscriber %s to event %s. Length exceeds limits.", added ? "add":"remove", subscriber, event);
+        RBUSCORELOG_DEBUG("Cannot %s subscriber %s to event %s. Length exceeds limits.", added ? "add":"remove", subscriber, event);
         return RBUSCORE_ERROR_INVALID_PARAM;
     }
 
@@ -245,7 +245,7 @@ rbusCoreError_t server_object_subscription_handler(server_object_t obj, const ch
     }
     else
     {
-        RBUSCORELOG_ERROR("Object %s doesn't support event %s. Cannot %s listener.", obj->name, event, added ? "add":"remove");
+        RBUSCORELOG_DEBUG("Object %s doesn't support event %s. Cannot %s listener.", obj->name, event, added ? "add":"remove");
         return RBUSCORE_ERROR_UNSUPPORTED_EVENT;
     }
 }
@@ -590,7 +590,7 @@ rbusCoreError_t rbus_openBrokerConnection(const char * component_name)
 {
     if(RBUSCORE_DISABLED == rbuscore_checkBusStatus())
     {
-        RBUSCORELOG_ERROR("RBUS is disabled");
+        RBUSCORELOG_DEBUG("RBUS is disabled");
         return RBUSCORE_ERROR_GENERAL;
     }
     else
@@ -606,7 +606,7 @@ rbusCoreError_t rbus_openBrokerConnection2(const char * component_name, const ch
 
     if(!component_name)
     {
-        RBUSCORELOG_ERROR("Invalid parameter: component name null");
+        RBUSCORELOG_DEBUG("Invalid parameter: component name null");
         return RBUSCORE_ERROR_INVALID_PARAM;
     }
 
@@ -646,7 +646,7 @@ rbusCoreError_t rbus_openBrokerConnection2(const char * component_name, const ch
     result = rtConnection_Create(&g_connection, "rbus", broker_address);
     if(RT_OK != result)
     {
-        RBUSCORELOG_ERROR("Failed to create a connection for %s: Error: %d", component_name, result);
+        RBUSCORELOG_DEBUG("Failed to create a connection for %s: Error: %d", component_name, result);
         g_connection = NULL;
         perform_cleanup();
         unlock();
@@ -678,7 +678,7 @@ rbusCoreError_t rbus_closeBrokerConnection()
     err = rtConnection_Destroy(g_connection);
     if(RT_OK != err)
     {
-        RBUSCORELOG_ERROR("Could not destroy connection. Error: 0x%x.", err);
+        RBUSCORELOG_DEBUG("Could not destroy connection. Error: 0x%x.", err);
         return RBUSCORE_ERROR_GENERAL;
     }
     g_connection = NULL;
@@ -747,7 +747,7 @@ static rbusCoreError_t send_subscription_request(const char * object_name, const
             {
                 /*For some reason, event publisher couldnt' handle the request.*/
                 //TODO: Expand to troubleshoot causes of a failed subscription.
-                RBUSCORELOG_ERROR("Error %s subscription for %s::%s. Server returned error %d.", (activate? "adding" : "removing"), object_name, event_name, result);
+                RBUSCORELOG_DEBUG("Error %s subscription for %s::%s. Server returned error %d.", (activate? "adding" : "removing"), object_name, event_name, result);
                 ret = RBUSCORE_ERROR_GENERAL;
                 if(providerError)
                     *providerError = result;
@@ -755,7 +755,7 @@ static rbusCoreError_t send_subscription_request(const char * object_name, const
         }
         else
         {
-            RBUSCORELOG_ERROR("Error adding subscription for %s::%s. Received unexpected response.", object_name, event_name);
+            RBUSCORELOG_DEBUG("Error adding subscription for %s::%s. Received unexpected response.", object_name, event_name);
             ret = RBUSCORE_ERROR_MALFORMED_RESPONSE;
         }
         if(response != NULL)
@@ -770,7 +770,7 @@ static rbusCoreError_t send_subscription_request(const char * object_name, const
     }
     else
     {
-        RBUSCORELOG_ERROR("Error %s subscription for %s::%s. Communication issues. %d", (activate? "adding" : "removing"), object_name, event_name, ret);
+        RBUSCORELOG_DEBUG("Error %s subscription for %s::%s. Communication issues. %d", (activate? "adding" : "removing"), object_name, event_name, ret);
         ret = RBUSCORE_ERROR_REMOTE_END_FAILED_TO_RESPOND;
     }
 
@@ -784,20 +784,20 @@ rbusCoreError_t rbus_registerObj(const char * object_name, rbus_callback_t handl
 
     if(NULL == g_connection)
     {
-        RBUSCORELOG_ERROR("Not connected. Cannot register objects yet.");
+        RBUSCORELOG_DEBUG("Not connected. Cannot register objects yet.");
         return RBUSCORE_ERROR_INVALID_STATE;
     }
 
     if(NULL == object_name)
     {
-        RBUSCORELOG_ERROR("Object name is NULL");
+        RBUSCORELOG_DEBUG("Object name is NULL");
         return RBUSCORE_ERROR_INVALID_PARAM;
     }
 
     int object_name_len = strlen(object_name);
     if((MAX_OBJECT_NAME_LENGTH <= object_name_len) || (0 == object_name_len))
     {
-        RBUSCORELOG_ERROR("object_name name is too long/short.");
+        RBUSCORELOG_DEBUG("object_name name is too long/short.");
         return RBUSCORE_ERROR_INVALID_PARAM;
     }
 
@@ -806,7 +806,7 @@ rbusCoreError_t rbus_registerObj(const char * object_name, rbus_callback_t handl
     unlock();
     if(obj)
     {
-        RBUSCORELOG_ERROR("%s is already registered. Rejecting duplicate registration.", object_name);
+        RBUSCORELOG_DEBUG("%s is already registered. Rejecting duplicate registration.", object_name);
         return RBUSCORE_ERROR_INVALID_PARAM;
     }
 
@@ -829,13 +829,13 @@ rbusCoreError_t rbus_registerObj(const char * object_name, rbus_callback_t handl
         RBUSCORELOG_DEBUG("Registered object %s", object_name);
         if(sz >= MAX_REGISTERED_OBJECTS)
         {
-            RBUSCORELOG_WARN("Number of registered objects is %zu", sz);
+            RBUSCORELOG_DEBUG("Number of registered objects is %zu", sz);
         }
         return RBUSCORE_SUCCESS;
     }
     else
     {
-        RBUSCORELOG_ERROR("Failed to register object. Error: 0x%x", err);
+        RBUSCORELOG_DEBUG("Failed to register object. Error: 0x%x", err);
         server_object_destroy(obj);
         return RBUSCORE_ERROR_GENERAL;
     }
@@ -855,7 +855,7 @@ rbusCoreError_t rbus_registerMethod(const char * object_name, const char *method
     {
         if(MAX_SUPPORTED_METHODS <= rtVector_Size(obj->methods))
         {
-            RBUSCORELOG_ERROR("Too many methods registered with object %s. Cannot register more.", object_name);
+            RBUSCORELOG_DEBUG("Too many methods registered with object %s. Cannot register more.", object_name);
             ret = RBUSCORE_ERROR_OUT_OF_RESOURCES;
         }
         else
@@ -865,7 +865,7 @@ rbusCoreError_t rbus_registerMethod(const char * object_name, const char *method
             if(method)
             {
                unlock();
-               RBUSCORELOG_ERROR("Method %s is already registered,Rejecting duplicate registration.", method_name);
+               RBUSCORELOG_DEBUG("Method %s is already registered,Rejecting duplicate registration.", method_name);
                return RBUSCORE_ERROR_INVALID_PARAM;
             }
             else
@@ -878,7 +878,7 @@ rbusCoreError_t rbus_registerMethod(const char * object_name, const char *method
     }
     else
     {
-        RBUSCORELOG_ERROR("Couldn't locate object %s.", object_name);
+        RBUSCORELOG_DEBUG("Couldn't locate object %s.", object_name);
         ret = RBUSCORE_ERROR_INVALID_PARAM;
     }
     unlock();
@@ -903,13 +903,13 @@ rbusCoreError_t rbus_unregisterMethod(const char * object_name, const char *meth
         }
         else
         {
-            RBUSCORELOG_ERROR("Couldn't find a method %s registered with object %s.", method_name, object_name);
+            RBUSCORELOG_DEBUG("Couldn't find a method %s registered with object %s.", method_name, object_name);
             ret = RBUSCORE_ERROR_GENERAL;
         }
     }
     else
     {
-        RBUSCORELOG_ERROR("Couldn't locate object %s.", object_name);
+        RBUSCORELOG_DEBUG("Couldn't locate object %s.", object_name);
         ret = RBUSCORE_ERROR_INVALID_PARAM;
     }
     unlock();
@@ -929,7 +929,7 @@ rbusCoreError_t rbus_registerMethodTable(const char * object_name, rbus_method_t
     {
         if((ret = rbus_registerMethod(object_name, table[i].method, table[i].callback, table[i].user_data)) != RBUSCORE_SUCCESS)
         {
-            RBUSCORELOG_ERROR("Failed to register table with object %s. Method: %s. Aborting remaining method registrations.", object_name, table[i].method);
+            RBUSCORELOG_DEBUG("Failed to register table with object %s. Method: %s. Aborting remaining method registrations.", object_name, table[i].method);
             break;
         }
     }
@@ -944,7 +944,7 @@ rbusCoreError_t rbus_unregisterMethodTable(const char * object_name, rbus_method
     {
         if((ret = rbus_unregisterMethod(object_name, table[i].method)) != RBUSCORE_SUCCESS)
         {
-            RBUSCORELOG_ERROR("Failed to unregister table with object %s. Method: %s. Aborting remaining method unregistrations.", object_name, table[i].method);
+            RBUSCORELOG_DEBUG("Failed to unregister table with object %s. Method: %s. Aborting remaining method unregistrations.", object_name, table[i].method);
             break;
         }
     }
@@ -958,13 +958,13 @@ rbusCoreError_t rbus_unregisterObj(const char * object_name)
     rbusCoreError_t ret = RBUSCORE_SUCCESS;
     if((NULL == object_name) || ('\0' == object_name[0]) || (MAX_OBJECT_NAME_LENGTH <= strlen(object_name)))
     {
-        RBUSCORELOG_ERROR("object_name is invalid.");
+        RBUSCORELOG_DEBUG("object_name is invalid.");
         return RBUSCORE_ERROR_INVALID_PARAM;
     }
     err = rtConnection_RemoveListener(g_connection, object_name);
     if(RT_OK != err)
     {
-        RBUSCORELOG_ERROR("rtConnection_RemoveListener %s failed: Err=%d", object_name, err);
+        RBUSCORELOG_DEBUG("rtConnection_RemoveListener %s failed: Err=%d", object_name, err);
         return RBUSCORE_ERROR_GENERAL;
     }
 
@@ -977,7 +977,7 @@ rbusCoreError_t rbus_unregisterObj(const char * object_name)
     }
     else
     {
-        RBUSCORELOG_ERROR("No matching entry for object %s.", object_name);
+        RBUSCORELOG_DEBUG("No matching entry for object %s.", object_name);
         ret = RBUSCORE_ERROR_GENERAL;
     }
     unlock();
@@ -991,13 +991,13 @@ rbusCoreError_t rbus_addElement(const char * object_name, const char * element)
 
     if(NULL == g_connection)
     {
-        RBUSCORELOG_ERROR("Not connected.");
+        RBUSCORELOG_DEBUG("Not connected.");
         return RBUSCORE_ERROR_INVALID_STATE;
     }
 
     if((NULL == object_name) || (NULL == element))
     {
-        RBUSCORELOG_ERROR("Object/element name is NULL");
+        RBUSCORELOG_DEBUG("Object/element name is NULL");
         return RBUSCORE_ERROR_INVALID_PARAM;
     }
 
@@ -1006,14 +1006,14 @@ rbusCoreError_t rbus_addElement(const char * object_name, const char * element)
     if((MAX_OBJECT_NAME_LENGTH <= object_name_len) || (0 == object_name_len) ||
             (MAX_OBJECT_NAME_LENGTH <= element_name_len) || (0 == element_name_len))
     {
-        RBUSCORELOG_ERROR("object/element name is too long/short.");
+        RBUSCORELOG_DEBUG("object/element name is too long/short.");
         return RBUSCORE_ERROR_INVALID_PARAM;
     }
 
     err = rtConnection_AddAlias(g_connection, object_name, element);
     if(RT_OK != err)
     {
-        RBUSCORELOG_ERROR("Failed to add element. Error: 0x%x", err);
+        RBUSCORELOG_DEBUG("Failed to add element. Error: 0x%x", err);
         if (RT_ERROR_DUPLICATE_ENTRY == err)
             return RBUSCORE_ERROR_DUPLICATE_ENTRY;
         else if (RT_ERROR_PROTOCOL_ERROR == err)
@@ -1030,13 +1030,13 @@ rbusCoreError_t rbus_removeElement(const char * object, const char * element)
 {
     if(NULL == g_connection)
     {
-        RBUSCORELOG_ERROR("Not connected.");
+        RBUSCORELOG_DEBUG("Not connected.");
         return RBUSCORE_ERROR_INVALID_STATE;
     }
 
     if((NULL == object) || (NULL == element))
     {
-        RBUSCORELOG_ERROR("Object/element name is NULL");
+        RBUSCORELOG_DEBUG("Object/element name is NULL");
         return RBUSCORE_ERROR_INVALID_PARAM;
     }
 
@@ -1045,7 +1045,7 @@ rbusCoreError_t rbus_removeElement(const char * object, const char * element)
     if((MAX_OBJECT_NAME_LENGTH <= object_name_len) || (0 == object_name_len) ||
             (MAX_OBJECT_NAME_LENGTH <= element_name_len) || (0 == element_name_len))
     {
-        RBUSCORELOG_ERROR("object/element name is too long/short.");
+        RBUSCORELOG_DEBUG("object/element name is too long/short.");
         return RBUSCORE_ERROR_INVALID_PARAM;
     }
     rtError err = rtConnection_RemoveAlias(g_connection, object, element);
@@ -1061,7 +1061,7 @@ rbusCoreError_t rbus_pushObj(const char * object_name, rbusMessage message, int 
     rbusMessage response = NULL;
     if((ret = rbus_invokeRemoteMethod(object_name, METHOD_SETPARAMETERVALUES, message, timeout_millisecs, &response)) != RBUSCORE_SUCCESS)
     {
-        RBUSCORELOG_ERROR("Failed to send message. Error code: 0x%x", ret);
+        RBUSCORELOG_DEBUG("Failed to send message. Error code: 0x%x", ret);
         return ret;
     }
     else
@@ -1073,7 +1073,7 @@ rbusCoreError_t rbus_pushObj(const char * object_name, rbusMessage message, int 
         }
         else
         {
-            RBUSCORELOG_ERROR("%s.", stringify(RBUSCORE_ERROR_MALFORMED_RESPONSE));
+            RBUSCORELOG_DEBUG("%s.", stringify(RBUSCORE_ERROR_MALFORMED_RESPONSE));
             ret = RBUSCORE_ERROR_MALFORMED_RESPONSE;
         }
         rbusMessage_Release(response);
@@ -1118,13 +1118,13 @@ rbusCoreError_t rbus_invokeRemoteMethod2(rtConnection myConn, const char * objec
 
     if(NULL == myConn)
     {
-        RBUSCORELOG_ERROR("Not connected.");
+        RBUSCORELOG_DEBUG("Not connected.");
         return RBUSCORE_ERROR_INVALID_STATE;
     }
 
     if(MAX_OBJECT_NAME_LENGTH <= strnlen(object_name, MAX_OBJECT_NAME_LENGTH))
     {
-        RBUSCORELOG_ERROR("Object name is too long.");
+        RBUSCORELOG_DEBUG("Object name is too long.");
         return RBUSCORE_ERROR_INVALID_PARAM;
     }
 
@@ -1146,12 +1146,12 @@ rbusCoreError_t rbus_invokeRemoteMethod2(rtConnection myConn, const char * objec
         }
         else if(RT_ERROR_TIMEOUT == err)
         {
-            RBUSCORELOG_ERROR("Request timed out. Error code: 0x%x", err);
+            RBUSCORELOG_DEBUG("Request timed out. Error code: 0x%x", err);
             ret = RBUSCORE_ERROR_REMOTE_TIMED_OUT;
         }
         else
         {
-            RBUSCORELOG_ERROR("Failed to send message. Error code: 0x%x", err);
+            RBUSCORELOG_DEBUG("Failed to send message. Error code: 0x%x", err);
             ret = RBUSCORE_ERROR_GENERAL;
         }
     }
@@ -1165,13 +1165,13 @@ rbusCoreError_t rbus_invokeRemoteMethod2(rtConnection myConn, const char * objec
         {
             if(0 != strncmp(METHOD_RESPONSE, method, MAX_METHOD_NAME_LENGTH))
             {
-                RBUSCORELOG_ERROR("%s.", stringify(RBUSCORE_ERROR_MALFORMED_RESPONSE));
+                RBUSCORELOG_DEBUG("%s.", stringify(RBUSCORE_ERROR_MALFORMED_RESPONSE));
                 ret = RBUSCORE_ERROR_MALFORMED_RESPONSE;
             }
         }
         else
         {
-            RBUSCORELOG_ERROR("%s.", stringify(RBUSCORE_ERROR_MALFORMED_RESPONSE));
+            RBUSCORELOG_DEBUG("%s.", stringify(RBUSCORE_ERROR_MALFORMED_RESPONSE));
             ret = RBUSCORE_ERROR_MALFORMED_RESPONSE;
         }
     }
@@ -1198,7 +1198,7 @@ rbusCoreError_t rbus_pullObj(const char * object_name, int timeout_millisecs, rb
     rtError err = RT_OK;
     if((ret = rbus_invokeRemoteMethod(object_name, METHOD_GETPARAMETERVALUES, NULL, timeout_millisecs, response)) != RBUSCORE_SUCCESS)
     {
-        RBUSCORELOG_ERROR("Failed to send message. Error code: 0x%x", ret);
+        RBUSCORELOG_DEBUG("Failed to send message. Error code: 0x%x", ret);
     }
     else
     {
@@ -1209,7 +1209,7 @@ rbusCoreError_t rbus_pullObj(const char * object_name, int timeout_millisecs, rb
         }
         else
         {
-            RBUSCORELOG_ERROR("%s.", stringify(RBUSCORE_ERROR_MALFORMED_RESPONSE));
+            RBUSCORELOG_DEBUG("%s.", stringify(RBUSCORE_ERROR_MALFORMED_RESPONSE));
             ret = RBUSCORE_ERROR_MALFORMED_RESPONSE;
         }
         if(RBUSCORE_SUCCESS != ret)
@@ -1227,7 +1227,7 @@ rbusCoreError_t rbus_sendData(const void* data, uint32_t dataLength, const char 
 
     if(NULL == g_connection)
     {
-        RBUSCORELOG_ERROR("Not connected.");
+        RBUSCORELOG_DEBUG("Not connected.");
         return RBUSCORE_ERROR_INVALID_STATE;
     }
 
@@ -1243,7 +1243,7 @@ static rbusCoreError_t rbus_sendMessage(rbusMessage msg, const char * destinatio
 
     if(NULL == g_connection)
     {
-        RBUSCORELOG_ERROR("Not connected.");
+        RBUSCORELOG_DEBUG("Not connected.");
         return RBUSCORE_ERROR_INVALID_STATE;
     }
 
@@ -1271,7 +1271,7 @@ static int subscription_handler(const char *not_used, const char * method_name, 
         /*Extract arguments*/
         if((NULL == sender) || (NULL == event_name))
         {
-            RBUSCORELOG_ERROR("Malformed subscription request. Sender: %s. Event: %s.", sender, event_name);
+            RBUSCORELOG_DEBUG("Malformed subscription request. Sender: %s. Event: %s.", sender, event_name);
             rbusMessage_SetInt32(*out, RBUSCORE_ERROR_INVALID_PARAM);
         }
         else
@@ -1313,13 +1313,13 @@ static void rtrouted_advisory_callback(rtMessageHeader const* hdr, uint8_t const
             }
             else
             {
-                RBUSCORELOG_ERROR("Failed to get inbox from advisory msg");
+                RBUSCORELOG_DEBUG("Failed to get inbox from advisory msg");
             }
         }
     }
     else
     {
-        RBUSCORELOG_ERROR("Failed to get event from advisory msg");
+        RBUSCORELOG_DEBUG("Failed to get event from advisory msg");
     }
 
     rtMessage_Release(msg);
@@ -1343,13 +1343,13 @@ static rbusCoreError_t install_subscription_handlers(server_object_t object)
     RBUSCORELOG_DEBUG("Adding handler for subscription requests for %s.", object->name);
     if((ret = rbus_registerMethod(object->name, METHOD_SUBSCRIBE, subscription_handler, object)) != RBUSCORE_SUCCESS)
     {
-        RBUSCORELOG_ERROR("Could not register add_subscription_handler.");
+        RBUSCORELOG_DEBUG("Could not register add_subscription_handler.");
     }
     else
     {
         if((ret = rbus_registerMethod(object->name, METHOD_UNSUBSCRIBE, subscription_handler, object)) != RBUSCORE_SUCCESS)
         {
-            RBUSCORELOG_ERROR("Could not register remove_subscription_handler.");
+            RBUSCORELOG_DEBUG("Could not register remove_subscription_handler.");
         }
         else
         {
@@ -1368,7 +1368,7 @@ rbusCoreError_t rbus_registerEvent(const char* object_name, const char * event_n
 
     if(NULL == g_connection)
     {
-        RBUSCORELOG_ERROR("Not connected.");
+        RBUSCORELOG_DEBUG("Not connected.");
         return RBUSCORE_ERROR_INVALID_STATE;
     }
 
@@ -1376,12 +1376,12 @@ rbusCoreError_t rbus_registerEvent(const char* object_name, const char * event_n
         event_name = DEFAULT_EVENT;
     if(NULL == object_name)
     {
-        RBUSCORELOG_ERROR("Invalid parameter(s)");
+        RBUSCORELOG_DEBUG("Invalid parameter(s)");
         return RBUSCORE_ERROR_INVALID_PARAM;
     }
     if(MAX_EVENT_NAME_LENGTH <= strnlen(event_name, MAX_EVENT_NAME_LENGTH))
     {
-        RBUSCORELOG_ERROR("Event name is too long.");
+        RBUSCORELOG_DEBUG("Event name is too long.");
         return RBUSCORE_ERROR_INVALID_PARAM;
     }
 
@@ -1406,7 +1406,7 @@ rbusCoreError_t rbus_registerEvent(const char* object_name, const char * event_n
     }
     else
     {
-        RBUSCORELOG_ERROR("Could not find object %s", object_name);
+        RBUSCORELOG_DEBUG("Could not find object %s", object_name);
         ret = RBUSCORE_ERROR_INVALID_PARAM;
     }
     unlock();
@@ -1441,7 +1441,7 @@ rbusCoreError_t rbus_unregisterEvent(const char* object_name, const char * event
     }
     else
     {
-        RBUSCORELOG_ERROR("Could not find object %s", object_name);
+        RBUSCORELOG_DEBUG("Could not find object %s", object_name);
         ret = RBUSCORE_ERROR_INVALID_PARAM;
     }
     unlock();
@@ -1464,7 +1464,7 @@ static void master_event_callback(rtMessageHeader const* hdr, uint8_t const* dat
    /*Sanitize the incoming data.*/
     if(MAX_OBJECT_NAME_LENGTH <= strlen(sender))
     {
-        RBUSCORELOG_ERROR("Object name length exceeds limits.");
+        RBUSCORELOG_DEBUG("Object name length exceeds limits.");
         return;
     }
 
@@ -1477,7 +1477,7 @@ static void master_event_callback(rtMessageHeader const* hdr, uint8_t const* dat
     rbusMessage_EndMetaSectionRead(msg);
     if(RT_OK != err)
     {
-        RBUSCORELOG_ERROR("Event message doesn't contain an event name.");
+        RBUSCORELOG_DEBUG("Event message doesn't contain an event name.");
         rbusMessage_Release(msg);
         return;
     }
@@ -1495,7 +1495,7 @@ static void master_event_callback(rtMessageHeader const* hdr, uint8_t const* dat
         }
         else
         {
-            RBUSCORELOG_ERROR("Received rbus event but no master callback registered yet.");
+            RBUSCORELOG_DEBUG("Received rbus event but no master callback registered yet.");
         }
     }
 
@@ -1522,7 +1522,7 @@ static void master_event_callback(rtMessageHeader const* hdr, uint8_t const* dat
     }
     /* If no matching objects exist in records. Create a new entry.*/
     unlock();
-    RBUSCORELOG_WARN("Received event %s::%s for which no subscription exists.", sender, event_name);
+    RBUSCORELOG_DEBUG("Received event %s::%s for which no subscription exists.", sender, event_name);
     rbusMessage_Release(msg);
     return;
 }
@@ -1552,7 +1552,7 @@ static rbusCoreError_t remove_subscription_callback(const char * object_name,  c
         }
         else
         {
-            RBUSCORELOG_WARN("Subscription for event %s::%s not found.", object_name, event_name);
+            RBUSCORELOG_DEBUG("Subscription for event %s::%s not found.", object_name, event_name);
         }
     }
     unlock();
@@ -1572,23 +1572,23 @@ static rbusCoreError_t rbus_subscribeToEventInternal(const char * object_name,  
 
     if(NULL == g_connection)
     {
-        RBUSCORELOG_ERROR("Not connected.");
+        RBUSCORELOG_DEBUG("Not connected.");
         return RBUSCORE_ERROR_INVALID_STATE;
     }
 
     if((NULL == object_name) || (NULL == callback))
     {
-        RBUSCORELOG_ERROR("Invalid parameter(s)");
+        RBUSCORELOG_DEBUG("Invalid parameter(s)");
         return RBUSCORE_ERROR_INVALID_PARAM;
     }
     if(MAX_OBJECT_NAME_LENGTH <= strnlen(object_name, MAX_OBJECT_NAME_LENGTH))
     {
-        RBUSCORELOG_ERROR("Object name is too long.");
+        RBUSCORELOG_DEBUG("Object name is too long.");
         return RBUSCORE_ERROR_INVALID_PARAM;
     }
     if(MAX_EVENT_NAME_LENGTH <= strnlen(event_name, MAX_EVENT_NAME_LENGTH))
     {
-        RBUSCORELOG_ERROR("Event name is too long.");
+        RBUSCORELOG_DEBUG("Event name is too long.");
         return RBUSCORE_ERROR_INVALID_PARAM;
     }
 
@@ -1612,7 +1612,7 @@ static rbusCoreError_t rbus_subscribeToEventInternal(const char * object_name,  
             if(rtVector_Find(sub->events, event_name, client_event_compare))
             {
                 /*sub already exist and event already registered so do nothing*/
-                RBUSCORELOG_WARN("Subscription exists for event %s::%s.", object_name, event_name);
+                RBUSCORELOG_DEBUG("Subscription exists for event %s::%s.", object_name, event_name);
                 unlock();
                 return RBUSCORE_SUCCESS;
             }
@@ -1665,12 +1665,12 @@ rbusCoreError_t rbus_unsubscribeFromEvent(const char * object_name,  const char 
 
     if(NULL == object_name)
     {
-        RBUSCORELOG_ERROR("Invalid parameter(s)");
+        RBUSCORELOG_DEBUG("Invalid parameter(s)");
         return ret;
     }
     if(MAX_OBJECT_NAME_LENGTH <= strnlen(object_name, MAX_OBJECT_NAME_LENGTH))
     {
-        RBUSCORELOG_ERROR("Object name is too long.");
+        RBUSCORELOG_DEBUG("Object name is too long.");
         return RBUSCORE_ERROR_INVALID_PARAM;
     }
     if(NULL == event_name)
@@ -1689,7 +1689,7 @@ rbusCoreError_t rbus_publishEvent(const char* object_name,  const char * event_n
 
     if(NULL == g_connection)
     {
-        RBUSCORELOG_ERROR("Not connected.");
+        RBUSCORELOG_DEBUG("Not connected.");
         return RBUSCORE_ERROR_INVALID_STATE;
     }
 
@@ -1697,7 +1697,7 @@ rbusCoreError_t rbus_publishEvent(const char* object_name,  const char * event_n
         event_name = DEFAULT_EVENT;
     if(MAX_OBJECT_NAME_LENGTH <= strnlen(object_name, MAX_OBJECT_NAME_LENGTH))
     {
-        RBUSCORELOG_ERROR("Object name is too long.");
+        RBUSCORELOG_DEBUG("Object name is too long.");
         return RBUSCORE_ERROR_INVALID_PARAM;
     }
     rbusMessage_BeginMetaSectionWrite(out);
@@ -1723,20 +1723,20 @@ rbusCoreError_t rbus_publishEvent(const char* object_name,  const char * event_n
                 char const* listener = (char const*)rtVector_At(evt->listeners, i);
                 if(RBUSCORE_SUCCESS != rbus_sendMessage(out, listener, object_name))
                 {
-                    RBUSCORELOG_ERROR("Couldn't send event %s::%s to %s.", object_name, event_name, listener);
+                    RBUSCORELOG_DEBUG("Couldn't send event %s::%s to %s.", object_name, event_name, listener);
                 }
             }
         }
         else
         {
-            RBUSCORELOG_ERROR("Could not find event %s", event_name);
+            RBUSCORELOG_DEBUG("Could not find event %s", event_name);
             ret = RBUSCORE_ERROR_INVALID_PARAM;
         }
     }
     else
     {
         /*Object not present yet. Register it now.*/
-        RBUSCORELOG_ERROR("Could not find object %s", object_name);
+        RBUSCORELOG_DEBUG("Could not find object %s", object_name);
         ret = RBUSCORE_ERROR_INVALID_PARAM;
     }
     unlock();
@@ -1751,7 +1751,7 @@ rbusCoreError_t rbus_registerSubscribeHandler(const char* object_name, rbus_even
 
     if((NULL == object_name) || (NULL == callback))
     {
-        RBUSCORELOG_ERROR("Invalid parameter(s)");
+        RBUSCORELOG_DEBUG("Invalid parameter(s)");
         return RBUSCORE_ERROR_INVALID_PARAM;
     }
 
@@ -1766,7 +1766,7 @@ rbusCoreError_t rbus_registerSubscribeHandler(const char* object_name, rbus_even
     }
     else
     {
-        RBUSCORELOG_ERROR("Could not find object %s", object_name);
+        RBUSCORELOG_DEBUG("Could not find object %s", object_name);
         ret = RBUSCORE_ERROR_INVALID_PARAM;
     }
     unlock();
@@ -1791,7 +1791,7 @@ rbusCoreError_t rbus_registerClientDisconnectHandler(rbus_client_disconnect_call
         }
         else
         {
-            RBUSCORELOG_ERROR("Failed to add advisory listener: %d", err);
+            RBUSCORELOG_DEBUG("Failed to add advisory listener: %d", err);
             unlock();
             return RBUSCORE_ERROR_GENERAL;
         }
@@ -1837,7 +1837,7 @@ rbusCoreError_t rbus_publishSubscriberEvent(const char* object_name,  const char
         event_name = DEFAULT_EVENT;
     if(MAX_OBJECT_NAME_LENGTH <= strnlen(object_name, MAX_OBJECT_NAME_LENGTH))
     {
-        RBUSCORELOG_ERROR("Object name is too long.");
+        RBUSCORELOG_DEBUG("Object name is too long.");
         return RBUSCORE_ERROR_INVALID_PARAM;
     }
     rbusMessage_BeginMetaSectionWrite(out);
@@ -1863,13 +1863,13 @@ rbusCoreError_t rbus_publishSubscriberEvent(const char* object_name,  const char
         if(NULL == obj)
         {
             /*Object not present yet. Register it now.*/
-            RBUSCORELOG_ERROR("Could not find object %s", object_name);
+            RBUSCORELOG_DEBUG("Could not find object %s", object_name);
             ret = RBUSCORE_ERROR_INVALID_PARAM;
         }
 
         if(rbus_sendMessage(out, listener, object_name) != RBUSCORE_SUCCESS)
         {
-           RBUSCORELOG_ERROR("Couldn't send event %s::%s to %s.", object_name, event_name, listener);
+           RBUSCORELOG_DEBUG("Couldn't send event %s::%s to %s.", object_name, event_name, listener);
         }
         unlock();
     }
@@ -1884,13 +1884,13 @@ rbusCoreError_t rbus_discoverWildcardDestinations(const char * expression, int *
 
     if(NULL == g_connection)
     {
-        RBUSCORELOG_ERROR("Not connected.");
+        RBUSCORELOG_DEBUG("Not connected.");
         return RBUSCORE_ERROR_INVALID_STATE;
     }
 
     if((NULL == expression) || (NULL == count) || (NULL == destinations))
     {
-        RBUSCORELOG_ERROR("expression/count/destinations pointer is NULL");
+        RBUSCORELOG_DEBUG("expression/count/destinations pointer is NULL");
         return RBUSCORE_ERROR_INVALID_PARAM;
     }
 
@@ -1916,7 +1916,7 @@ rbusCoreError_t rbus_discoverWildcardDestinations(const char * expression, int *
 
             if(size != length)
             {
-                RBUSCORELOG_ERROR("rbus_resolveWildcardDestination size missmatch");
+                RBUSCORELOG_DEBUG("rbus_resolveWildcardDestination size missmatch");
             }
 
             if(size && length)
@@ -1934,7 +1934,7 @@ rbusCoreError_t rbus_discoverWildcardDestinations(const char * expression, int *
                             for (int j = 0; j < i; j++)
                                 free(array_ptr[j]);
                             free(array_ptr);
-                            RBUSCORELOG_ERROR("Read/Memory allocation failure");
+                            RBUSCORELOG_DEBUG("Read/Memory allocation failure");
                             ret = RBUSCORE_ERROR_GENERAL;
                             break;
                         }
@@ -1942,7 +1942,7 @@ rbusCoreError_t rbus_discoverWildcardDestinations(const char * expression, int *
                 }
                 else
                 {
-                    RBUSCORELOG_ERROR("Memory allocation failure");
+                    RBUSCORELOG_DEBUG("Memory allocation failure");
                     ret = RBUSCORE_ERROR_INSUFFICIENT_MEMORY;
                 }
             }
@@ -1970,13 +1970,13 @@ rbusCoreError_t rbus_discoverObjectElements(const char * object, int * count, ch
 
     if(NULL == g_connection)
     {
-        RBUSCORELOG_ERROR("Not connected.");
+        RBUSCORELOG_DEBUG("Not connected.");
         return RBUSCORE_ERROR_INVALID_STATE;
     }
 
     if((NULL == object) || (NULL == elements) || (NULL == count))
     {
-        RBUSCORELOG_ERROR("Object/elements/count is NULL");
+        RBUSCORELOG_DEBUG("Object/elements/count is NULL");
         return RBUSCORE_ERROR_INVALID_PARAM;
     }
 
@@ -2001,7 +2001,7 @@ rbusCoreError_t rbus_discoverObjectElements(const char * object, int * count, ch
 
         if(size != length)
         {
-            RBUSCORELOG_ERROR("rbus_GetElementsAddedByObject size missmatch");
+            RBUSCORELOG_DEBUG("rbus_GetElementsAddedByObject size missmatch");
         }
 
         *count = size;
@@ -2021,7 +2021,7 @@ rbusCoreError_t rbus_discoverObjectElements(const char * object, int * count, ch
                         free(array_ptr);
                         array_ptr=NULL;
                         *elements = NULL;
-                        RBUSCORELOG_ERROR("Read/Memory allocation failure");
+                        RBUSCORELOG_DEBUG("Read/Memory allocation failure");
                         ret = RBUSCORE_ERROR_GENERAL;
                         break;
                     }
@@ -2029,7 +2029,7 @@ rbusCoreError_t rbus_discoverObjectElements(const char * object, int * count, ch
             }
             else
             {
-                RBUSCORELOG_ERROR("Memory allocation failure");
+                RBUSCORELOG_DEBUG("Memory allocation failure");
                 ret = RBUSCORE_ERROR_INSUFFICIENT_MEMORY;
             }
         }
@@ -2057,7 +2057,7 @@ rbusCoreError_t rbus_discoverElementObjects(const char* element, int * count, ch
     }
     else
     {
-        RBUSCORELOG_ERROR("Null entries in element list.");
+        RBUSCORELOG_DEBUG("Null entries in element list.");
         rtMessage_Release(msg);
         return RBUSCORE_ERROR_INVALID_PARAM;
     }
@@ -2092,7 +2092,7 @@ rbusCoreError_t rbus_discoverElementObjects(const char* element, int * count, ch
                             for (int j = 0; j < i; j++)
                                 free(array_ptr[j]);
                             free(array_ptr);
-                            RBUSCORELOG_ERROR("Read/Memory allocation failure");
+                            RBUSCORELOG_DEBUG("Read/Memory allocation failure");
                             ret = RBUSCORE_ERROR_GENERAL;
                             break;
                         }
@@ -2100,7 +2100,7 @@ rbusCoreError_t rbus_discoverElementObjects(const char* element, int * count, ch
                 }
                 else
                 {
-                    RBUSCORELOG_ERROR("Memory allocation failure");
+                    RBUSCORELOG_DEBUG("Memory allocation failure");
                     ret = RBUSCORE_ERROR_INSUFFICIENT_MEMORY;
                 }
             }
@@ -2139,7 +2139,7 @@ rbusCoreError_t rbus_discoverElementsObjects(int numElements, const char** eleme
     }
     else
     {
-        RBUSCORELOG_ERROR("Null entries in element list.");
+        RBUSCORELOG_DEBUG("Null entries in element list.");
         rtMessage_Release(msg);
         return RBUSCORE_ERROR_INVALID_PARAM;
     }
@@ -2173,7 +2173,7 @@ rbusCoreError_t rbus_discoverElementsObjects(int numElements, const char** eleme
                             next = (char **)rt_try_realloc(array_ptr, (array_count + numComponents) * sizeof(char *));
                         if (!next)
                         {
-                            RBUSCORELOG_ERROR("Memory allocation failure");
+                            RBUSCORELOG_DEBUG("Memory allocation failure");
                             ret = RBUSCORE_ERROR_GENERAL;
                             break;
                         }
@@ -2182,7 +2182,7 @@ rbusCoreError_t rbus_discoverElementsObjects(int numElements, const char** eleme
                         {
                             if (RT_OK != rtMessage_GetStringItem(msg, RTM_DISCOVERY_ITEMS, array_count, &component))
                             {
-                                RBUSCORELOG_ERROR("Read item failure");
+                                RBUSCORELOG_DEBUG("Read item failure");
                                 ret = RBUSCORE_ERROR_GENERAL;
                                 break;
                             }
@@ -2190,7 +2190,7 @@ rbusCoreError_t rbus_discoverElementsObjects(int numElements, const char** eleme
                             {
                                 if (NULL == (array_ptr[array_count++] = strndup(component, MAX_OBJECT_NAME_LENGTH)))
                                 {
-                                    RBUSCORELOG_ERROR("Memory allocation failure");
+                                    RBUSCORELOG_DEBUG("Memory allocation failure");
                                     ret = RBUSCORE_ERROR_GENERAL;
                                     break;
                                 }
@@ -2200,7 +2200,7 @@ rbusCoreError_t rbus_discoverElementsObjects(int numElements, const char** eleme
                 }
                 else
                 {
-                    RBUSCORELOG_ERROR("rbus_discoverElementsObjects: failed at %s", elements[i]);
+                    RBUSCORELOG_DEBUG("rbus_discoverElementsObjects: failed at %s", elements[i]);
                     ret = RBUSCORE_ERROR_GENERAL;
                     break;
                 }
@@ -2245,7 +2245,7 @@ rbusCoreError_t rbus_discoverRegisteredComponents(int * count, char *** componen
 
     if(NULL == g_connection)
     {
-        RBUSCORELOG_ERROR("Not connected.");
+        RBUSCORELOG_DEBUG("Not connected.");
         rtMessage_Release(out);
         return RBUSCORE_ERROR_INVALID_STATE;
     }
@@ -2262,7 +2262,7 @@ rbusCoreError_t rbus_discoverRegisteredComponents(int * count, char *** componen
 
         if(size != length)
         {
-            RBUSCORELOG_ERROR("rbus_registeredComponents size missmatch");
+            RBUSCORELOG_DEBUG("rbus_registeredComponents size missmatch");
         }
 
         char **array_ptr = (char **)rt_try_malloc(size * sizeof(char *));
@@ -2278,7 +2278,7 @@ rbusCoreError_t rbus_discoverRegisteredComponents(int * count, char *** componen
                     for (int j = 0; j < i; j++)
                         free(array_ptr[j]);
                     free(array_ptr);
-                    RBUSCORELOG_ERROR("Read/Memory allocation failure");
+                    RBUSCORELOG_DEBUG("Read/Memory allocation failure");
                     ret = RBUSCORE_ERROR_GENERAL;
                     break;
                 }
@@ -2286,14 +2286,14 @@ rbusCoreError_t rbus_discoverRegisteredComponents(int * count, char *** componen
         }
         else
         {
-            RBUSCORELOG_ERROR("Memory allocation failure");
+            RBUSCORELOG_DEBUG("Memory allocation failure");
             ret = RBUSCORE_ERROR_INSUFFICIENT_MEMORY;
         }
         rtMessage_Release(msg);
     }
     else
     {
-        RBUSCORELOG_ERROR("Failed with error code %d", err);
+        RBUSCORELOG_DEBUG("Failed with error code %d", err);
         ret = RBUSCORE_ERROR_GENERAL;
     }
 
@@ -2340,7 +2340,7 @@ rbusCoreError_t rbus_sendResponse(const rtMessageHeader* hdr, rbusMessage respon
         rbusMessage_ToBytes(response, &data, &dataLength);
         if((err= rtConnection_SendBinaryResponse(g_connection, hdr, data, dataLength, TIMEOUT_VALUE_FIRE_AND_FORGET)) != RT_OK)
         {
-            RBUSCORELOG_ERROR("Failed to send async response. Error code: 0x%x", err);
+            RBUSCORELOG_DEBUG("Failed to send async response. Error code: 0x%x", err);
         }
         rbusMessage_Release(response);
     }
@@ -2490,7 +2490,7 @@ static void _rbuscore_directconnection_save_to_cache()
     {
         RBUSCORELOG_DEBUG("no direct connection exist, so removing cache file");
         if (remove(cacheFileName) != 0) {
-            RBUSCORELOG_ERROR("failed to remove %s", cacheFileName);
+            RBUSCORELOG_DEBUG("failed to remove %s", cacheFileName);
         }
     }
     else
@@ -2503,7 +2503,7 @@ static void _rbuscore_directconnection_save_to_cache()
         file = fopen(cacheFileName, "wb");
         if(!file)
         {
-            RBUSCORELOG_ERROR("failed to open %s", cacheFileName);
+            RBUSCORELOG_DEBUG("failed to open %s", cacheFileName);
             return;
         }
 
@@ -2549,13 +2549,13 @@ static void _rbuscore_directconnection_load_from_cache()
     file = fopen(cacheFileName, "rb");
     if(!file)
     {
-        RBUSCORELOG_ERROR("failed to open file %s", cacheFileName);
+        RBUSCORELOG_DEBUG("failed to open file %s", cacheFileName);
         goto invalidFile;
     }
 
     if(fseek(file, 0, SEEK_END) != 0)
     {
-        RBUSCORELOG_ERROR("failed to seek to end of file");
+        RBUSCORELOG_DEBUG("failed to seek to end of file");
         goto invalidFile;
     }
 
@@ -2571,13 +2571,13 @@ static void _rbuscore_directconnection_load_from_cache()
     {
         if(fseek(file, 0, SEEK_SET) != 0)
         {
-            RBUSCORELOG_ERROR("failed to seek to beginning of file");
+            RBUSCORELOG_DEBUG("failed to seek to beginning of file");
             goto invalidFile;
         }
 
         if(fread(pBuff, 1, size, file) != (size_t)size)
         {
-            RBUSCORELOG_ERROR("failed to read entire file");
+            RBUSCORELOG_DEBUG("failed to read entire file");
             goto invalidFile;
         }
 
@@ -2616,7 +2616,7 @@ static void _rbuscore_directconnection_load_from_cache()
 
 invalidFile:
 
-    RBUSCORELOG_WARN("removing corrupted file %s", cacheFileName);
+    RBUSCORELOG_DEBUG("removing corrupted file %s", cacheFileName);
 
     if(file)
         fclose(file);
@@ -2626,7 +2626,7 @@ invalidFile:
 
     if(remove(cacheFileName) != 0)
     {
-        RBUSCORELOG_ERROR("failed to remove file %s", cacheFileName);
+        RBUSCORELOG_DEBUG("failed to remove file %s", cacheFileName);
     }
 }
 
@@ -2687,7 +2687,7 @@ rbusCoreError_t rbuscore_updatePrivateListener(const char* pConsumerName, const 
         }
         else
         {
-            RBUSCORELOG_WARN("No Direct Connection for this DML(%s) exist for this consumer(%s)", pDMLName, pConsumerName);
+            RBUSCORELOG_DEBUG("No Direct Connection for this DML(%s) exist for this consumer(%s)", pDMLName, pConsumerName);
             ret = RBUSCORE_ERROR_INVALID_PARAM;
         }
     }
@@ -2748,7 +2748,7 @@ static rtError _onDirectMessage(uint8_t isClientRequest, rtMessageHeader* hdr, u
         {
             rbusMessage_Init(&response);
             rbusMessage_SetInt32(response, RBUSCORE_ERROR_UNSUPPORTED_METHOD);
-            RBUSCORELOG_WARN("Could not find the DML in Private Connection List..");
+            RBUSCORELOG_DEBUG("Could not find the DML in Private Connection List..");
         }
         _rbusMessage_SetMetaInfo(response, METHOD_RESPONSE, NULL, NULL);
         uint8_t* pData = NULL;
@@ -2814,7 +2814,7 @@ rbusCoreError_t rbuscore_startPrivateListener(const char* pPrivateConnAddress, c
 
             if((err = pthread_create(&pid, NULL, rbuscore_PrivateThreadFunc, pInstance)) != 0)
             {
-                RBUSCORELOG_ERROR("pthread_create failed: err=%d", err);
+                RBUSCORELOG_DEBUG("pthread_create failed: err=%d", err);
                 directServerUnlock();
                 return RBUSCORE_ERROR_GENERAL;
             }
@@ -2912,7 +2912,7 @@ static void rbuscore_private_connection_advisory_callback(rtMessageHeader const*
     (void)closure;
     int32_t advisory_event;
 
-    RBUSCORELOG_ERROR("got event from advisory msg");
+    RBUSCORELOG_DEBUG("got event from advisory msg");
     rtMessage_FromBytes(&msg, data, dataLen);
     if(rtMessage_GetInt32(msg, RTMSG_ADVISE_EVENT, &advisory_event) == RT_OK)
     {
@@ -2926,13 +2926,13 @@ static void rbuscore_private_connection_advisory_callback(rtMessageHeader const*
             }
             else
             {
-                RBUSCORELOG_ERROR("Failed to get inbox from advisory msg");
+                RBUSCORELOG_DEBUG("Failed to get inbox from advisory msg");
             }
         }
     }
     else
     {
-        RBUSCORELOG_ERROR("Failed to get event from advisory msg");
+        RBUSCORELOG_DEBUG("Failed to get event from advisory msg");
     }
 
     rtMessage_Release(msg);
@@ -2966,7 +2966,7 @@ rbusCoreError_t rbuscore_openPrivateConnectionToProvider(rtConnection *pPrivateC
             err = rtConnection_CreateWithConfig(&connection, config);
             if (err != RT_OK)
             {
-                RBUSCORELOG_ERROR("failed to create connection to router %s. %s", pPrivateConnAddress, rtStrError(err));
+                RBUSCORELOG_DEBUG("failed to create connection to router %s. %s", pPrivateConnAddress, rtStrError(err));
                 rtMessage_Release(config);
                 directClientUnlock();
                 return RBUSCORE_ERROR_GENERAL;
@@ -3062,7 +3062,7 @@ rbusCoreError_t rbuscore_closePrivateConnection(const char *pParameterName)
         err = rbus_invokeRemoteMethod(pParameterName, METHOD_CLOSEDIRECT_CONN, request, 5000, &response);
         if(RBUSCORE_SUCCESS != err)
         {
-            RBUSCORELOG_ERROR("Received error %d from RBUS Daemon for the object (%s)", err, pParameterName);
+            RBUSCORELOG_DEBUG("Received error %d from RBUS Daemon for the object (%s)", err, pParameterName);
         }
         else
         {
