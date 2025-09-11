@@ -153,7 +153,7 @@ void server_event_addListener(server_event_t event, char const* listener)
             event->sub_callback(event->object->name, event->name, listener, 1, NULL, event->sub_data);
         }
 
-        RBUSCORELOG_INFO("Listener %s added for event %s.", listener, event->name);
+        RBUSCORELOG_DEBUG("Listener %s added for event %s.", listener, event->name);
     }
     else
     {
@@ -399,7 +399,7 @@ static void perform_cleanup()
     sz = rtVector_Size(g_event_subscriptions_for_client);
     if(sz>0)
     {
-        RBUSCORELOG_INFO("Cancelling active event subscriptions.");
+        RBUSCORELOG_DEBUG("Cancelling active event subscriptions.");
         unlock();
         for(i = 0; i < sz; ++i)
         {
@@ -640,7 +640,7 @@ rbusCoreError_t rbus_openBrokerConnection2(const char * component_name, const ch
         broker_address = g_daemon_address;
     }
 
-    RBUSCORELOG_INFO("Broker address: %s", broker_address);
+    RBUSCORELOG_DEBUG("Broker address: %s", broker_address);
 
     perform_init();
     result = rtConnection_Create(&g_connection, "rbus", broker_address);
@@ -664,12 +664,12 @@ rbusCoreError_t rbus_closeBrokerConnection()
     lock();
     if(NULL == g_connection)
     {
-        RBUSCORELOG_INFO("No connection exist to close.");
+        RBUSCORELOG_DEBUG("No connection exist to close.");
         return RBUSCORE_ERROR_INVALID_STATE;
     }
     if(1 < rtVector_Size(g_server_objects))
     {
-        RBUSCORELOG_INFO("Should not destroy/close connection when one or more active connection exits.");
+        RBUSCORELOG_DEBUG("Should not destroy/close connection when one or more active connection exits.");
         unlock();
         return RBUSCORE_SUCCESS;
     }
@@ -690,7 +690,7 @@ rbusCoreError_t rbus_closeBrokerConnection()
     pthread_mutex_destroy(&g_directCliMutex);
     g_mutex_init = 0;
 
-    RBUSCORELOG_INFO("Destroyed connection.");
+    RBUSCORELOG_DEBUG("Destroyed connection.");
     return RBUSCORE_SUCCESS;
 }
 
@@ -740,7 +740,7 @@ static rbusCoreError_t send_subscription_request(const char * object_name, const
             if(RBUSCORE_SUCCESS == result)
             {
                 /*Event registration was successful.*/
-                RBUSCORELOG_INFO("Subscription for %s::%s is now %s.", object_name, event_name, (activate? "active" : "cancelled"));
+                RBUSCORELOG_DEBUG("Subscription for %s::%s is now %s.", object_name, event_name, (activate? "active" : "cancelled"));
                 ret = RBUSCORE_SUCCESS;
             }
             else
@@ -899,7 +899,7 @@ rbusCoreError_t rbus_unregisterMethod(const char * object_name, const char *meth
         if(method)
         {
             rtVector_RemoveItem(obj->methods, method, rtVector_Cleanup_Free);
-            RBUSCORELOG_INFO("Successfully unregistered method %s from object %s", method_name, object_name);
+            RBUSCORELOG_DEBUG("Successfully unregistered method %s from object %s", method_name, object_name);
         }
         else
         {
@@ -924,7 +924,7 @@ rbusCoreError_t rbus_addElementEvent(const char * object_name, const char* event
 rbusCoreError_t rbus_registerMethodTable(const char * object_name, rbus_method_table_entry_t *table, unsigned int num_entries)
 {
     rbusCoreError_t ret= RBUSCORE_SUCCESS;
-    RBUSCORELOG_INFO("Registering method table for object %s", object_name);
+    RBUSCORELOG_DEBUG("Registering method table for object %s", object_name);
     for(unsigned int i = 0; i < num_entries; i++)
     {
         if((ret = rbus_registerMethod(object_name, table[i].method, table[i].callback, table[i].user_data)) != RBUSCORE_SUCCESS)
@@ -939,7 +939,7 @@ rbusCoreError_t rbus_registerMethodTable(const char * object_name, rbus_method_t
 rbusCoreError_t rbus_unregisterMethodTable(const char * object_name, rbus_method_table_entry_t *table, unsigned int num_entries)
 {
     rbusCoreError_t ret = RBUSCORE_SUCCESS;
-    RBUSCORELOG_INFO("Unregistering method table for object %s", object_name);
+    RBUSCORELOG_DEBUG("Unregistering method table for object %s", object_name);
     for(unsigned int i = 0; i < num_entries; i++)
     {
         if((ret = rbus_unregisterMethod(object_name, table[i].method)) != RBUSCORE_SUCCESS)
@@ -973,7 +973,7 @@ rbusCoreError_t rbus_unregisterObj(const char * object_name)
     if(NULL != obj)
     {
         rtVector_RemoveItem(g_server_objects, obj, server_object_destroy);
-        RBUSCORELOG_INFO("Unregistered object %s.", object_name);
+        RBUSCORELOG_DEBUG("Unregistered object %s.", object_name);
     }
     else
     {
@@ -1335,7 +1335,7 @@ static rbusCoreError_t install_subscription_handlers(server_object_t object)
 
     if(method)
     {
-        RBUSCORELOG_INFO("Object already accepts subscription requests.");
+        RBUSCORELOG_DEBUG("Object already accepts subscription requests.");
         return ret;
     }
 
@@ -1393,13 +1393,13 @@ rbusCoreError_t rbus_registerEvent(const char* object_name, const char * event_n
 
         if(evt)
         {
-            RBUSCORELOG_INFO("Event %s already exists in subscription table.", event_name);
+            RBUSCORELOG_DEBUG("Event %s already exists in subscription table.", event_name);
         }
         else
         {
             server_event_create(&evt, event_name, obj, callback, user_data);
             rtVector_PushBack(obj->subscriptions, evt);
-            RBUSCORELOG_INFO("Registered event %s::%s.", object_name, event_name);
+            RBUSCORELOG_DEBUG("Registered event %s::%s.", object_name, event_name);
         }
         if(!obj->process_event_subscriptions)
             ret = install_subscription_handlers(obj);
@@ -1430,12 +1430,12 @@ rbusCoreError_t rbus_unregisterEvent(const char* object_name, const char * event
         if(evt)
         {
             rtVector_RemoveItem(obj->subscriptions, evt, server_event_destroy);
-            RBUSCORELOG_INFO("Event %s::%s has been unregistered.", object_name, event_name);
+            RBUSCORELOG_DEBUG("Event %s::%s has been unregistered.", object_name, event_name);
             /* If we've removed all events and RPC registrations, delete the object itself.*/
         }
         else
         {
-            RBUSCORELOG_INFO("Event %s could not be found in subscription table of object %s.", event_name, object_name);
+            RBUSCORELOG_DEBUG("Event %s could not be found in subscription table of object %s.", event_name, object_name);
             ret = RBUSCORE_ERROR_INVALID_PARAM;
         }
     }
@@ -2306,16 +2306,16 @@ rbuscore_bus_status_t rbuscore_checkBusStatus(void)
 #ifdef RBUS_SUPPORT_DISABLING
     if(0 != access("/nvram/rbus_disable", F_OK))
     {
-        RBUSCORELOG_INFO ("Currently RBus Enabled");
+        RBUSCORELOG_DEBUG ("Currently RBus Enabled");
         return RBUSCORE_ENABLED;
     }
     else
     {
-        RBUSCORELOG_INFO ("Currently RBus Disabled");
+        RBUSCORELOG_DEBUG ("Currently RBus Disabled");
         return RBUSCORE_DISABLED;
     }
 #else
-    RBUSCORELOG_INFO ("RBus Enabled");
+    RBUSCORELOG_DEBUG ("RBus Enabled");
     return RBUSCORE_ENABLED;
 #endif /* RBUS_SUPPORT_DISABLING */
 }
@@ -2596,7 +2596,7 @@ static void _rbuscore_directconnection_load_from_cache()
             rbusMessage_GetMessage(msg, &tmpMsg);
             rbusMessage_GetString(tmpMsg, &pDMLName);
             rbusMessage_GetString(tmpMsg, &pConsumerName);
-            RBUSCORELOG_INFO("Direct Connection Existed for DML (%s) for this client(%s)", pDMLName, pConsumerName);
+            RBUSCORELOG_DEBUG("Direct Connection Existed for DML (%s) for this client(%s)", pDMLName, pConsumerName);
 
             //TODO
             /* Add it to vector and when add_element is called, start a listener */
@@ -2955,7 +2955,7 @@ rbusCoreError_t rbuscore_openPrivateConnectionToProvider(rtConnection *pPrivateC
         obj = rtVector_Find(gListOfClientDirectDMLs, pProviderName, _findClientPrivateConnection);
         if (!obj)
         {
-            RBUSCORELOG_INFO("Connection does not exist; create new");
+            RBUSCORELOG_DEBUG("Connection does not exist; create new");
 
             rtMessage_Create(&config);
             rtMessage_SetString(config, "appname", "rbus");
