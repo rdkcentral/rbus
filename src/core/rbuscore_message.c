@@ -30,7 +30,7 @@
 #define VERIFY_UNPACK_NEXT_ITEM()\
     if(msgpack_unpack_next(&message->upk, message->sbuf.data, message->sbuf.size, &message->read_offset) != MSGPACK_UNPACK_SUCCESS)\
     {\
-        RBUSCORELOG_ERROR("%s failed to unpack next item", __FUNCTION__);\
+        RBUSCORELOG_DEBUG("%s failed to unpack next item", __FUNCTION__);\
         return RT_FAIL;\
     }
 
@@ -38,7 +38,7 @@
     VERIFY_UNPACK_NEXT_ITEM()\
     if(message->upk.data.type != T)\
     {\
-        RBUSCORELOG_ERROR("%s unexpected data type %d", __FUNCTION__, message->upk.data.type);\
+        RBUSCORELOG_DEBUG("%s unexpected data type %d", __FUNCTION__, message->upk.data.type);\
         return RT_FAIL;\
     }
 
@@ -46,14 +46,14 @@
     VERIFY_UNPACK_NEXT_ITEM()\
     if(message->upk.data.type != T && message->upk.data.type != T2)\
     {\
-        RBUSCORELOG_ERROR("%s unexpected data type %d", __FUNCTION__, message->upk.data.type);\
+        RBUSCORELOG_DEBUG("%s unexpected data type %d", __FUNCTION__, message->upk.data.type);\
         return RT_FAIL;\
     }
 
 #define VERIFY_PACK(T)\
     if(msgpack_pack_##T(&message->pk, value) != 0)\
     {\
-        RBUSCORELOG_ERROR("%s failed pack value", __FUNCTION__);\
+        RBUSCORELOG_DEBUG("%s failed pack value", __FUNCTION__);\
         return RT_FAIL;\
     }\
     return RT_OK;
@@ -61,12 +61,12 @@
 #define VERIFY_PACK_BUFFER(T, V, L)\
     if(msgpack_pack_##T(&message->pk, (L)) != 0)\
     {\
-        RBUSCORELOG_ERROR("%s failed pack buffer length", __FUNCTION__);\
+        RBUSCORELOG_DEBUG("%s failed pack buffer length", __FUNCTION__);\
         return RT_FAIL;\
     }\
     if(msgpack_pack_##T##_body(&message->pk, (V), (L)) != 0)\
     {\
-        RBUSCORELOG_ERROR("%s failed pack buffer body", __FUNCTION__);\
+        RBUSCORELOG_DEBUG("%s failed pack buffer body", __FUNCTION__);\
         return RT_FAIL;\
     }\
     return RT_OK;
