@@ -373,16 +373,9 @@ elementNode* insertElement(elementNode* root, rbusDataElement_t* elem)
     free(name);
     UNLOCK();
 
-    if(ret == 0)
-    {
-        replicateAcrossTableRowInstances(currentNode);
+    replicateAcrossTableRowInstances(currentNode);
 
-        return currentNode;
-    }
-    else
-    {
-        return NULL;
-    }
+    return currentNode;
 }
 
 elementNode* retrieveElement(elementNode* root, const char* elmentName)

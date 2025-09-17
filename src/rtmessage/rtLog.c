@@ -278,7 +278,7 @@ void rtLogPrintf(rtLogLevel level, const char* mod, const char* file, int line, 
   {
     char module[MODULE_BUFFER_SIZE] = {0};
     rdk_LogLevel rdklevel = rdkLogLevelFromrtLogLevel(level);
-    sprintf(module, "LOG.RDK.%s", mod);
+    snprintf(module, MODULE_BUFFER_SIZE, "LOG.RDK.%s", mod);
     RDK_LOG(rdklevel, module, "%s\n", buff);
   }
 #endif

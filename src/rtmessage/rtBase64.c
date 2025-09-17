@@ -121,8 +121,6 @@ rtError rtBase64_encode(const void * in, const unsigned int in_size, unsigned ch
             write_buff[write_index++] = '=';
             break;
 
-        default:
-            rtLog_Error("Unexpected condition.");
     }
     write_buff[write_index] = '\0';
     *out = write_buff;
