@@ -6555,4 +6555,50 @@ rbusError_t rbus_registerDynamicTableSyncHandler(
     return RBUS_ERROR_SUCCESS;
 }
 
+rbusError_t rbus_setPropertyChangeComponent(
+    rbusHandle_t handle,
+    char const* elementName,
+    char const* componentName)
+{
+
+    struct _rbusHandle* handleInfo;
+    elementNode* node;
+    VERIFY_HANDLE(handle);
+    VERIFY_NULL(elementName);
+
+    handleInfo = (struct _rbusHandle*)handle;
+    node = retrieveElement(handleInfo->elementRoot, elementName);
+    if (!node)
+        return RBUS_ERROR_ELEMENT_DOES_NOT_EXIST;
+    if (node->type == RBUS_ELEMENT_TYPE_PROPERTY)
+        setPropertyChangeComponent(node, componentName);
+    return RBUS_ERROR_SUCCESS;
+}
+
+rbusError_t rbus_getPropertyChangeComponent(
+    rbusHandle_t handle,
+    char const* elementName,
+    char* componentName)
+{
+    struct _rbusHandle* handleInfo;
+    elementNode* node;
+    VERIFY_HANDLE(handle);
+    VERIFY_NULL(elementName);
+    VERIFY_NULL(componentName);
+
+    handleInfo = (struct _rbusHandle*)handle;
+    node = retrieveElement(handleInfo->elementRoot, elementName);
+    if (!node)
+        return RBUS_ERROR_ELEMENT_DOES_NOT_EXIST;
+
+    if (node->changeComp)
+    {
+        strncpy(componentName, node->changeComp, RBUS_MAX_NAME_LENGTH - 1);
+    }
+    else
+    {
+        componentName[0] = '\0';
+    }
+    return RBUS_ERROR_SUCCESS;
+}
 /* End of File */

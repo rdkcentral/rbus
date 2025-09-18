@@ -2082,6 +2082,10 @@ rbusError_t rbusHandle_ConfigSetMultiTimeout(rbusHandle_t handle, uint32_t timeo
  *  @return     RBus error code as defined by rbusError_t.
  */
 rbusError_t rbusHandle_ConfigSubscribeTimeout(rbusHandle_t handle, uint32_t timeout);
+
+rbusError_t rbus_setPropertyChangeComponent(rbusHandle_t handle, char const* elementName, char const* componentName);
+
+rbusError_t rbus_getPropertyChangeComponent(rbusHandle_t handle, char const* elementName, char* componentName);
 /** @} */
 
 #ifdef __cplusplus
