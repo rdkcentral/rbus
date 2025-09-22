@@ -433,7 +433,6 @@ static bool rbusSubscriptions_isListenerRunning(char const* listener)
 
 static void rbusSubscriptions_loadCache(rbusSubscriptions_t subscriptions)
 {
-    struct stat st;
     long size;
     uint16_t type, length;
     int32_t hasFilter;
@@ -447,12 +446,6 @@ static void rbusSubscriptions_loadCache(rbusSubscriptions_t subscriptions)
     snprintf(filePath, 256, CACHE_FILE_PATH_FORMAT, subscriptions->tmpDir, subscriptions->componentName);
 
     RBUSLOG_INFO("file %s", filePath);
-
-    if(stat(filePath, &st) != 0)
-    {
-        RBUSLOG_DEBUG("file doesn't exist %s", filePath);
-        return;
-    }
 
     file = fopen(filePath, "rb");
     if(!file)

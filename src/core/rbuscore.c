@@ -2586,7 +2586,6 @@ static void _rbuscore_directconnection_save_to_cache()
 
 static void _rbuscore_directconnection_load_from_cache()
 {
-    struct stat st;
     long size;
     FILE* file = NULL;
     uint8_t* pBuff = NULL;
@@ -2595,12 +2594,6 @@ static void _rbuscore_directconnection_load_from_cache()
     snprintf(cacheFileName, 256, RBUS_DIRECT_FILE_CACHE, __progname);
 
     RBUSCORELOG_DEBUG("Entry of %s", __FUNCTION__);
-
-    if(stat(cacheFileName, &st) != 0)
-    {
-        RBUSCORELOG_DEBUG("file doesn't exist");
-        return;
-    }
 
     file = fopen(cacheFileName, "rb");
     if(!file)
