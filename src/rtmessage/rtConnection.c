@@ -368,7 +368,7 @@ rtConnection_ConnectAndRegister(rtConnection con, rtTime_t* reconnect_time)
 
   if (setsockopt(con->fd, SOL_TCP, TCP_NODELAY, &i, sizeof(i)) < 0)
   {
-    rtLog_Warn("setsockopt(TCP_NODELAY) failed: %s", strerror(errno));
+    rtLog_Debug("setsockopt(TCP_NODELAY) failed: %s", strerror(errno));
   }
   rtSocketStorage_ToString(&con->remote_endpoint, remote_addr, sizeof(remote_addr), &remote_port);
 
