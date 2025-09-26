@@ -93,40 +93,43 @@ rtRouted_SendAdvisoryMessage(rtConnectedClient* clnt, rtAdviseEvent event);
 
 #if MSG_ROUNDTRIP_TIME
 static void
-rtRouted_TransactionTimingDetails(rtMessageHeader header_details)
+rtRouted_TransactionTimingDetails(const rtMessageHeader* header_details)
 {
   char time_buff[64] = {0};
   rtTime_t timestamp = {0};
   time_t boottime = 0;
   rtTime_t uptime = {0};
 
+  if (!header_details)
+      return;
+
   rtTime_Now(&uptime);
   boottime = time(NULL) - uptime.tv_sec; /* To calculate actual boot time of the device
                                             time(NULL) - Time since Epoch time(1st Jan 1970)
                                             uptime.tv_sec - Time since boot of device */
   rtLog_Info("=======================================================================");
-  timestamp.tv_sec = header_details.T1 + boottime;
+  timestamp.tv_sec = header_details->T1 + boottime;
   rtTime_ToString(&timestamp, time_buff);
-  rtLog_Info("Consumer : %s", header_details.topic);
-  rtLog_Info("Provider : %s", header_details.reply_topic);
+  rtLog_Info("Consumer : %s", header_details->topic);
+  rtLog_Info("Provider : %s", header_details->reply_topic);
   rtLog_Info("Time at which consumer sends the request to daemon     : %s", time_buff);
   memset(time_buff, 0, sizeof(time_buff));
-  timestamp.tv_sec = header_details.T2 + boottime;
+  timestamp.tv_sec = header_details->T2 + boottime;
   rtTime_ToString(&timestamp, time_buff);
   rtLog_Info("Time at which daemon receives the message from consumer: %s", time_buff);
   memset(time_buff, 0, sizeof(time_buff));
-  timestamp.tv_sec = header_details.T3 + boottime;
+  timestamp.tv_sec = header_details->T3 + boottime;
   rtTime_ToString(&timestamp, time_buff);
   rtLog_Info("Time at which daemon writes to provider socket         : %s", time_buff);
   memset(time_buff, 0, sizeof(time_buff));
-  timestamp.tv_sec = header_details.T4 + boottime;
+  timestamp.tv_sec = header_details->T4 + boottime;
   rtTime_ToString(&timestamp, time_buff);
   rtLog_Info("Time at which provider sends back the response         : %s", time_buff);
   memset(time_buff, 0, sizeof(time_buff));
-  timestamp.tv_sec = header_details.T5 + boottime;
+  timestamp.tv_sec = header_details->T5 + boottime;
   rtTime_ToString(&timestamp, time_buff);
   rtLog_Info("Time at which daemon received the response             : %s", time_buff);
-  rtLog_Info("Total duration                                         : %lld seconds", (long long int)(header_details.T5 - header_details.T1));
+  rtLog_Info("Total duration                                         : %lld seconds", (long long int)(header_details->T5 - header_details->T1));
   rtLog_Info("=======================================================================");
 }
 #endif
@@ -880,7 +883,7 @@ rtRouted_OnMessageTimeOut(rtConnectedClient* sender, rtMessageHeader* hdr, uint8
   snprintf(header.topic, sizeof(header.topic), "%s", topic);
   snprintf(header.reply_topic, sizeof(header.reply_topic), "%s", reply_topic);
   rtLog_Info("Consumer exist but the request timed out");
-  rtRouted_TransactionTimingDetails(header);
+  rtRouted_TransactionTimingDetails(&header);
 
   rtMessage_Release(m);
   (void)hdr;
@@ -1474,7 +1477,7 @@ dispatch:
     if((clnt->header.flags & rtMessageFlags_Request) || (clnt->header.flags & rtMessageFlags_Response))
     {
       rtLog_Info("Consumer does not exist");
-      rtRouted_TransactionTimingDetails(clnt->header);
+      rtRouted_TransactionTimingDetails(&clnt->header);
     }
 #endif
   }
