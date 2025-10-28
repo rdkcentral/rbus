@@ -1698,9 +1698,12 @@ rtRouted_AcceptClientConnection(rtListener* listener)
     return;
   }
 
-  uint32_t one = 1;
-  setsockopt(fd, SOL_TCP, TCP_NODELAY, &one, sizeof(one));
-
+  if(remote_endpoint.ss_family != AF_UNIX)
+  {
+    uint32_t one = 1;
+    if (setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &one, sizeof(one)) < 0)
+      rtLog_Warn("setsockopt failed: %s", strerror(errno));
+  }
   rtRouted_RegisterNewClient(fd, &remote_endpoint);
 }
 
