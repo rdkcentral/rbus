@@ -141,4 +141,37 @@ jobs:
         with:
           name: coverage-report
           path: /tmp/coverage_report
-            
+      - name: Extract coverage summary
+        id: coverage
+        run: |
+          lcov --list coverage.info
+          lcov --summary coverage.info >>log.txt
+          cat log.txt
+          LINE_COVERAGE=$(grep -m1 "lines" log.txt | awk '{print $2}')
+          FUNCTION_COVERAGE=$(grep -m1 "functions" log.txt | awk '{print $2}')
+          echo "line_coverage=${LINE_COVERAGE}" >> $GITHUB_OUTPUT
+          echo "function_coverage=${FUNCTION_COVERAGE}" >> $GITHUB_OUTPUT
+          echo "Check: Extracted for output: Line coverage: $LINE_COVERAGE"
+          echo "Check: Extracted for output: Function coverage: $FUNCTION_COVERAGE"   
+      - name: Checkout PR
+        uses: actions/checkout@v3
+
+      - name: Run git fetch
+        id: lines_added
+        run : |
+            cd ${{ github.workspace }}
+            git fetch origin ${{ github.event.pull_request.base.ref }}
+            git fetch origin ${{ github.event.pull_request.head.ref }}
+            ADDED_LINES=$(git diff --unified=0 origin/${{ github.event.pull_request.base.ref }} origin/${{ github.event.pull_request.head.ref }} -- src/ | grep '^+' | grep -v '^+++' | wc -l)
+            echo "added_lines=${ADDED_LINES}" >> $GITHUB_OUTPUT
+            echo "check : added_lines $ADDED_LINES"      
+      - name: Post coverage comment on PR
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: peter-evans/create-or-update-comment@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          issue-number: ${{ github.event.pull_request.number }}
+          body: |
+            Newly added lines compared to develop ✅ : ${{ steps.lines_added.outputs.added_lines }}
+            Line coverage ✅ : ${{ steps.coverage.outputs.line_coverage }}
+            Function coverage ✅ : ${{ steps.coverage.outputs.function_coverage }}    
