@@ -1591,7 +1591,7 @@ rtConnectedClient_Read(rtConnectedClient* clnt)
         }
 #ifdef ENABLE_ROUTER_BENCHMARKING
         if(clnt->header.flags & rtMessageFlags_Tainted)
-          clock_gettime(CLOCK_MONOTONIC, &g_entry_exit_timestamps[g_timestamp_index][0]);
+          clock_gettime(CLOCK_MONOTONIC_RAW, &g_entry_exit_timestamps[g_timestamp_index][0]);
 #endif
         clnt->bytes_to_read += clnt->header.payload_length;
         clnt->state = rtConnectionState_ReadPayload;
@@ -1625,7 +1625,7 @@ rtConnectedClient_Read(rtConnectedClient* clnt)
 #ifdef ENABLE_ROUTER_BENCHMARKING
         if(clnt->header.flags & rtMessageFlags_Tainted)
         {
-          clock_gettime(CLOCK_MONOTONIC, &g_entry_exit_timestamps[g_timestamp_index][1]);
+          clock_gettime(CLOCK_MONOTONIC_RAW, &g_entry_exit_timestamps[g_timestamp_index][1]);
           if(g_timestamp_index < (MAX_TIMESTAMP_ENTRIES - 1))
             g_timestamp_index++;
         }
