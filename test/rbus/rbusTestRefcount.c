@@ -18,18 +18,35 @@
 # limitations under the License.
 ##########################################################################
 */
-#include <rtRetainable.h>
+#include <assert.h>
+#include <stdlib.h>
 
-void rtRetainable_retainInternal(rtRetainable* r)
+#include <rbus.h>
+
+// pick up headers for testing. this isn't a public header
+#include "src/rtmessage/rtRetainable.h"
+
+void testReferenceCount()
 {
-    rt_atomic_fetch_add(&r->refCount, 1);
+    rbusValue_t val;
+    rbusValue_Init(&val);
+
+    {
+        rtRetainable* r = (rtRetainable *) val;
+        assert( r->refCount == 1 );
+    }
+
+
+    rbusValue_SetString(val, "Hello World");
+    rbusValue_Release(val);
 }
 
-void rtRetainable_releaseInternal(rtRetainable* r, void (*destructor)(rtRetainable*))
+int main(int argc, char *argv[])
 {
-    int original_value = rt_atomic_fetch_sub(&r->refCount, 1);
-    if(original_value == 1)
-    {
-        destructor(r);
-    }
+    (void) argc;
+    (void) argv;
+
+    testReferenceCount();
+
+    return 0;
 }
