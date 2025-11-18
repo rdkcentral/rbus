@@ -144,6 +144,9 @@ add_executable(rbusTestSetMultiConsumer
 add_dependencies(rbusTestSetMultiConsumer rbus)
 target_link_libraries(rbusTestSetMultiConsumer rbus)
 
+add_executable(rbusTestRefcount rbusTestRefcount.c)
+add_dependencies(rbusTestRefcount rbus)
+target_link_libraries(rbusTestRefcount rbus)
 
 
 set (CMAKE_C_FLAGS "-Wno-overflow ${CMAKE_C_FLAGS}")
