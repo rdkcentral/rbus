@@ -227,7 +227,10 @@ rtRouted_ReadTextFile(char const* fname, char** content)
       rtLog_Error("failed to read file %s. %s", fname, strerror(errno));
       err = RT_FAIL;
     }
-    (*content)[sz] = 0;
+    else
+    {
+      (*content)[sz] = 0;
+    }
     fclose(pf);
   }
   else
