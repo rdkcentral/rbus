@@ -161,6 +161,12 @@ static void* rbusValueChange_pollingThreadFunc(void *userData)
             if(!rec)
                 continue;
 
+            if(!rec->node || !rec->node->cbTable.getHandler)
+            {
+                RBUSLOG_ERROR("NULL node or getHandler for ValueChangeRecord at index %zu", i);
+                continue;
+            }
+
             rbusProperty_Init(&property,rbusProperty_GetName(rec->property), NULL);
 
             rbusGetHandlerOptions_t opts;
