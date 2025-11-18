@@ -30,7 +30,7 @@
 #include <vector>
 #include <atomic>
 #include <algorithm>
-#define CLOCK_TYPE CLOCK_MONOTONIC
+#define CLOCK_TYPE CLOCK_MONOTONIC_RAW
 
 static void timespec_sub(struct timespec * recent, struct timespec * old, struct timespec *difference)
 {
