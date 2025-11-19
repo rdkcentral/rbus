@@ -1365,9 +1365,9 @@ void _subscribe_async_callback_handler(rbusHandle_t handle, rbusEventSubscriptio
 {
     struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
 
-    subscription->asyncHandler(subscription->handle, subscription, error);
     if(subscription)
     {
+        subscription->asyncHandler(subscription->handle, subscription, error);
         if(error == RBUS_ERROR_SUCCESS)
         {
             HANDLE_EVENTSUBS_MUTEX_LOCK(handle);
@@ -1389,6 +1389,10 @@ void _subscribe_async_callback_handler(rbusHandle_t handle, rbusEventSubscriptio
         {
             rbusEventSubscription_free(subscription);
         }
+    }
+    else
+    {
+        RBUSLOG_ERROR("Null subscription pointer in _subscribe_async_callback_handler");
     }
 }
 
