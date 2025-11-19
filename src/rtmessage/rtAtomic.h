@@ -55,21 +55,42 @@ static inline void rt_atomic_fetch_add(atomic_int* var, int value)
 #endif
 }
 
-static inline void rt_atomic_fetch_sub(atomic_int* var, int value)
+
+
+/**
+ * @brief Atomically subtracts a value from an atomic integer and returns the original value.
+ *
+ * This function performs an atomic subtraction operation on the given atomic integer.
+ * Depending on the platform and available atomic primitives, it uses one of the following:
+ * - `__atomic_fetch_sub` if `RT_ATOMIC_HAS_ATOMIC_FETCH` is defined.
+ * - `__sync_fetch_and_sub` if `RT_ATOMIC_HAS_SYNC_FETCH` is defined.
+ * - A fallback implementation using a mutex if neither atomic primitive is available.
+ *
+ * @param var Pointer to the atomic integer to be modified.
+ * @param value The value to subtract from the atomic integer.
+ * @return The original value of the atomic integer before the subtraction.
+ */
+static inline int rt_atomic_fetch_sub(atomic_int* var, int value)
 {
 #if defined(RT_ATOMIC_HAS_ATOMIC_FETCH)
-    __atomic_fetch_sub(var, value, __ATOMIC_SEQ_CST);
+    return __atomic_fetch_sub(var, value, __ATOMIC_SEQ_CST);
 #elif defined(RT_ATOMIC_HAS_SYNC_FETCH)
-    __sync_fetch_and_sub(var, value);
+    return __sync_fetch_and_sub(var, value);
 #else
+    int original_value = 0;
     pthread_mutex_lock(&g_atomic_mutex);
-    if(NULL != var)
+    if(NULL != var) {
+        original_value = *var;
         *(var) = *(var) - value;
+    }
     pthread_mutex_unlock(&g_atomic_mutex);
+    return original_value;
 #endif
 }
 
 #ifdef __cplusplus
 }
 #endif
+
+
 #endif

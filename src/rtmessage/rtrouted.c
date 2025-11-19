@@ -227,7 +227,10 @@ rtRouted_ReadTextFile(char const* fname, char** content)
       rtLog_Error("failed to read file %s. %s", fname, strerror(errno));
       err = RT_FAIL;
     }
-    (*content)[sz] = 0;
+    else
+    {
+      (*content)[sz] = 0;
+    }
     fclose(pf);
   }
   else
@@ -1776,7 +1779,11 @@ int main(int argc, char* argv[])
     rtLog_Warn("another instance of rtrouted is already running");
     exit(12);
   }
-  mkdir("/tmp/.rbus", 0755);
+  ret = mkdir("/tmp/.rbus", 0755);
+  if (ret != 0 && errno != EEXIST)
+  {
+    rtLog_Warn("failed to create directory /tmp/.rbus, errno=%d", errno);
+  }
 #ifdef ENABLE_RDKLOGGER
     rdk_logger_init("/etc/debug.ini");
 #endif
