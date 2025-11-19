@@ -2905,7 +2905,7 @@ char *hints(const char *buf, int *color, int *bold) {
             hint = " type(string,int,uint,boolean,...) value";
         }
     }
-    else if(num == 3)
+    else if(num == 4)
     {
         runSteps = __LINE__;
         if(strcmp(tokens[0], "method_va") == 0)
