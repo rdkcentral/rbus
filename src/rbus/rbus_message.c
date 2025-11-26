@@ -251,12 +251,16 @@ rbusError_t rbusMessage_RemoveAllListeners(
     for (i = 0, n = rtVector_Size(handle->messageCallbacks); i < n; ++i)
     {
         rbusMessageHandlerContext_t* ctx = rtVector_At(handle->messageCallbacks, i);
-        VERIFY_NULL(ctx);
+        if(!ctx)
+        {
+            RBUSLOG_WARN("rbusMessage_RemoveAllListener: messageCallbacks[%d] is NULL", i);
+            continue;
+        }
         rtError e = rtConnection_RemoveListenerWithId(con, ctx->expression, ctx->subscriptionId);
         if (e != RT_OK)
         {
             RBUSLOG_WARN("rbusMessage_RemoveAllListener %s :%s", ctx->expression, rtStrError(e));
-        }    
+        }
         free(ctx->expression);
         free(ctx);
     }
