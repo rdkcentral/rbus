@@ -17,6 +17,7 @@
  * limitations under the License.
 */
 
+#include <errno.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -1364,9 +1365,9 @@ void _subscribe_async_callback_handler(rbusHandle_t handle, rbusEventSubscriptio
 {
     struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
 
-    subscription->asyncHandler(subscription->handle, subscription, error);
     if(subscription)
     {
+        subscription->asyncHandler(subscription->handle, subscription, error);
         if(error == RBUS_ERROR_SUCCESS)
         {
             HANDLE_EVENTSUBS_MUTEX_LOCK(handle);
@@ -1388,6 +1389,10 @@ void _subscribe_async_callback_handler(rbusHandle_t handle, rbusEventSubscriptio
         {
             rbusEventSubscription_free(subscription);
         }
+    }
+    else
+    {
+        RBUSLOG_ERROR("Null subscription pointer in _subscribe_async_callback_handler");
     }
 }
 
@@ -3184,7 +3189,11 @@ rbusError_t rbus_close(rbusHandle_t handle)
     LockMutex();
     char filename[RTMSG_HEADER_MAX_TOPIC_LENGTH];
     snprintf(filename, RTMSG_HEADER_MAX_TOPIC_LENGTH-1, "%s%d_%d", "/tmp/.rbus/", getpid(), handleInfo->componentId);
-    remove(filename);
+    int removeRet = remove(filename);
+    if(removeRet != 0 && errno != ENOENT)
+    {
+        RBUSLOG_ERROR("remove(%s) failed with error %d", filename, errno);
+    }
 
     HANDLE_EVENTSUBS_MUTEX_LOCK(handle);
     if(handleInfo->eventSubs)
@@ -5319,7 +5328,15 @@ rbusError_t  rbusEvent_SubscribeRawData(
         }
         memset(rawDataTopic, '\0', strlen(rawDataTopic));
         snprintf(rawDataTopic, RBUS_MAX_NAME_LENGTH, "%s", eventName);
-        errorcode = rbusMessage_AddPrivateListener(handle, rawDataTopic, _subscribe_rawdata_handler, (void *)(subInternal->sub), subInternal->subscriptionId);
+        if(subInternal)
+        {
+            errorcode = rbusMessage_AddPrivateListener(handle, rawDataTopic, _subscribe_rawdata_handler, (void *)(subInternal->sub), subInternal->subscriptionId);
+        }
+        else
+        {
+            RBUSLOG_ERROR("SubscribeRawData: subInternal is NULL for %s", eventName);
+            errorcode = RBUS_ERROR_INVALID_INPUT;
+        }
         if(errorcode != RBUS_ERROR_SUCCESS)
         {
             RBUSLOG_ERROR("%s: Listener failed err: %d", __FUNCTION__, errorcode);
@@ -5329,8 +5346,16 @@ rbusError_t  rbusEvent_SubscribeRawData(
     {
         subInternal = rbusEventSubscription_find(handleInfo->eventSubs, eventName, NULL, 0, 0, true);
         snprintf(rawDataTopic, RBUS_MAX_NAME_LENGTH, "rawdata.%s", eventName);
-        errorcode = rbusMessage_AddListener(handle, rawDataTopic,
-                _subscribe_rawdata_handler, (void *)(subInternal->sub), subInternal->subscriptionId);
+        if(subInternal)
+        {
+            errorcode = rbusMessage_AddListener(handle, rawDataTopic,
+                    _subscribe_rawdata_handler, (void *)(subInternal->sub), subInternal->subscriptionId);
+        }
+        else
+        {
+            RBUSLOG_ERROR("SubscribeRawData: subInternal is NULL for %s", eventName);
+            errorcode = RBUS_ERROR_INVALID_INPUT;
+        }
         if(errorcode != RBUS_ERROR_SUCCESS)
         {
             RBUSLOG_ERROR("%s: Listener failed err: %d", __FUNCTION__, errorcode);

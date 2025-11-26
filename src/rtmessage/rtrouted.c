@@ -227,7 +227,10 @@ rtRouted_ReadTextFile(char const* fname, char** content)
       rtLog_Error("failed to read file %s. %s", fname, strerror(errno));
       err = RT_FAIL;
     }
-    (*content)[sz] = 0;
+    else
+    {
+      (*content)[sz] = 0;
+    }
     fclose(pf);
   }
   else
@@ -1591,7 +1594,7 @@ rtConnectedClient_Read(rtConnectedClient* clnt)
         }
 #ifdef ENABLE_ROUTER_BENCHMARKING
         if(clnt->header.flags & rtMessageFlags_Tainted)
-          clock_gettime(CLOCK_MONOTONIC, &g_entry_exit_timestamps[g_timestamp_index][0]);
+          clock_gettime(CLOCK_MONOTONIC_RAW, &g_entry_exit_timestamps[g_timestamp_index][0]);
 #endif
         clnt->bytes_to_read += clnt->header.payload_length;
         clnt->state = rtConnectionState_ReadPayload;
@@ -1625,7 +1628,7 @@ rtConnectedClient_Read(rtConnectedClient* clnt)
 #ifdef ENABLE_ROUTER_BENCHMARKING
         if(clnt->header.flags & rtMessageFlags_Tainted)
         {
-          clock_gettime(CLOCK_MONOTONIC, &g_entry_exit_timestamps[g_timestamp_index][1]);
+          clock_gettime(CLOCK_MONOTONIC_RAW, &g_entry_exit_timestamps[g_timestamp_index][1]);
           if(g_timestamp_index < (MAX_TIMESTAMP_ENTRIES - 1))
             g_timestamp_index++;
         }
@@ -1698,9 +1701,12 @@ rtRouted_AcceptClientConnection(rtListener* listener)
     return;
   }
 
-  uint32_t one = 1;
-  setsockopt(fd, SOL_TCP, TCP_NODELAY, &one, sizeof(one));
-
+  if(remote_endpoint.ss_family != AF_UNIX)
+  {
+    uint32_t one = 1;
+    if (setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &one, sizeof(one)) < 0)
+      rtLog_Warn("setsockopt failed: %s", strerror(errno));
+  }
   rtRouted_RegisterNewClient(fd, &remote_endpoint);
 }
 
@@ -1773,7 +1779,11 @@ int main(int argc, char* argv[])
     rtLog_Warn("another instance of rtrouted is already running");
     exit(12);
   }
-  mkdir("/tmp/.rbus", 0755);
+  ret = mkdir("/tmp/.rbus", 0755);
+  if (ret != 0 && errno != EEXIST)
+  {
+    rtLog_Warn("failed to create directory /tmp/.rbus, errno=%d", errno);
+  }
 #ifdef ENABLE_RDKLOGGER
     rdk_logger_init("/etc/debug.ini");
 #endif
