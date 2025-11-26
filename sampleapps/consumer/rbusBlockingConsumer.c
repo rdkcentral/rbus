@@ -43,7 +43,7 @@ static void eventHandler(
     if(someText)
         printf("  someText: %s\n", rbusValue_GetString(someText, NULL));
 
-    printf("  My user data: %s\n", (char*)subscription->userData);
+    printf("  My user data: %s\n ", (char*)subscription->userData);
 
     (void)handle;
 }
