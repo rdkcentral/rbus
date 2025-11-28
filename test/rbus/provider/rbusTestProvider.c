@@ -390,7 +390,6 @@ rbusError_t addTable2RowHandler(TableNode* tableNode, char const* alias, uint32_
     table3Node = createTableNode((Node*)rowNode, "Table3", addTable3RowHandler);
     if(!table3Node)
     {
-        RBUSLOG_ERROR("Failed to create Table3 node for row");
         return RBUS_ERROR_OUT_OF_RESOURCES;
     }
 
@@ -398,7 +397,6 @@ rbusError_t addTable2RowHandler(TableNode* tableNode, char const* alias, uint32_
     dataProperty = createPropertyNode((Node*)rowNode, "data");
     if(!dataProperty)
     {
-        RBUSLOG_ERROR("Failed to create data property node for row");
         return RBUS_ERROR_OUT_OF_RESOURCES;
     }
 
