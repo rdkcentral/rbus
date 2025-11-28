@@ -406,6 +406,8 @@ rbusError_t addTable2RowHandler(TableNode* tableNode, char const* alias, uint32_
 rbusError_t addTable1RowHandler(TableNode* tableNode, char const* alias, uint32_t* instNum)
 {
     TableRowNode* rowNode;
+    TableNode* table2Node;
+    PropertyNode* dataProperty;
     rbusError_t err;
 
     err = createTableRowNode((Node*)tableNode, alias, instNum, &rowNode);
@@ -414,8 +416,19 @@ rbusError_t addTable1RowHandler(TableNode* tableNode, char const* alias, uint32_
         return err;
 
     /*add properties and tables to the new row object*/
-    createTableNode((Node*)rowNode, "Table2", addTable2RowHandler);
-    createPropertyNode((Node*)rowNode, "data");
+    /* Store the return value to prevent resource leak and enable proper error handling */
+    table2Node = createTableNode((Node*)rowNode, "Table2", addTable2RowHandler);
+    if(!table2Node)
+    {
+        return RBUS_ERROR_OUT_OF_RESOURCES;
+    }
+
+    /* Store the return value to prevent resource leak and enable proper error handling */
+    dataProperty = createPropertyNode((Node*)rowNode, "data");
+    if(!dataProperty)
+    {
+        return RBUS_ERROR_OUT_OF_RESOURCES;
+    }
 
     return RBUS_ERROR_SUCCESS;
 }
