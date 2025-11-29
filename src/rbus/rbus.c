@@ -3679,7 +3679,7 @@ rbusError_t rbus_getExt(rbusHandle_t handle, int paramCount, char const** pParam
         else
         {
             int numDestinations = 0;
-            char** destinations;
+            char** destinations = NULL;
             //int length = strlen(pParamNames[0]);
 
             err = rbus_discoverWildcardDestinations(pParamNames[0], &numDestinations, &destinations);
@@ -3692,7 +3692,9 @@ rbusError_t rbus_getExt(rbusHandle_t handle, int paramCount, char const** pParam
                 {
                     RBUSLOG_DEBUG("It is possibly a table entry from single component.");
                     /* Free destinations allocated by rbus_discoverWildcardDestinations */
-                    free(destinations);
+                    if (destinations != NULL)
+                        free(destinations);
+                    return RBUS_ERROR_ELEMENT_DOES_NOT_EXIST;
                 }
                 else
                 {
