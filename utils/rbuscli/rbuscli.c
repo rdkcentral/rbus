@@ -1000,10 +1000,7 @@ void execute_discover_component_cmd(int argc, char* argv[])
     else
     {
         printf ("Failed to discover components. Error Code = %d\r\n", rc);
-        if (pComponentNames != NULL)
-        {
-            free(pComponentNames);
-        }
+        free(pComponentNames);
         return;
     }
 }
@@ -1050,10 +1047,7 @@ void execute_discover_elements_cmd(int argc, char *argv[])
     else
     {
         printf ("Failed to discover elements. Error Code = %d\r\n", rc);
-        if (pElementNames != NULL)
-        {
-            free(pElementNames);
-        }
+        free(pElementNames);
         return;
     }
 }
@@ -1099,10 +1093,7 @@ void execute_discover_wildcard_dests_cmd(int argc, char* argv[])
     else
     {
         printf ("Failed to discover components. Error Code = %d\r\n", rc);
-        if (destinations != NULL)
-        {
-            free(destinations);
-        }
+        free(destinations);
         return;
     }
 }
