@@ -402,7 +402,7 @@ void testValue_InitGetSetByType()
     rbusProperty_Release(vobj);
     rbusProperty_Release(prop);
     rbusProperty_Release(prop2);
-    
+
     // Release objects individually
     rbusObject_Release(obj);
     rbusObject_Release(obj2);
