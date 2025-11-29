@@ -395,7 +395,9 @@ TEST(rbusPropertyTest, testGetProperty)
   rbusProperty_t prop2 = rbusProperty_InitProperty("MyProp2",prop);
   rbusProperty_SetProperty(prop2, prop1);
   EXPECT_EQ(rbusProperty_GetProperty(prop2), prop1);
-  rbusProperty_Releases(3, prop,prop1,prop2);
+  /* Explicitly release prop2 to prevent resource leak detected by Coverity */
+  rbusProperty_Release(prop2);
+  rbusProperty_Releases(2, prop,prop1);
 }
 
 TEST(rbusPropertyTest, testGetObject)
