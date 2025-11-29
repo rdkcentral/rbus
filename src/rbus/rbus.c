@@ -757,6 +757,10 @@ void rbusObject_initFromMessage(rbusObject_t* obj, rbusMessage msg)
     rbusProperty_Release(prop);
     rbusObject_SetChildren(*obj, children);
     rbusObject_Release(children);
+    
+    /* Free the name string allocated by rbusMessage_GetString */
+    if(name)
+        free((void*)name);
 }
 
 void rbusValue_appendToMessage(char const* name, rbusValue_t value, rbusMessage msg)
