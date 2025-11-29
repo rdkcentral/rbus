@@ -552,8 +552,8 @@ rtConnection_CreateInternal(rtConnection* con, char const* application_name, cha
   {
     pthread_mutex_destroy(&c->mutex);
     pthread_mutex_destroy(&c->callback_message_mutex);
-    pthread_mutex_destroy(&c->reconnect_mutex);
     pthread_cond_destroy(&c->callback_message_cond);
+    pthread_mutex_destroy(&c->reconnect_mutex);
     free(c);
     return rtErrorFromErrno(ENOMEM);
   }
@@ -563,8 +563,8 @@ rtConnection_CreateInternal(rtConnection* con, char const* application_name, cha
     free(c->send_buffer);
     pthread_mutex_destroy(&c->mutex);
     pthread_mutex_destroy(&c->callback_message_mutex);
-    pthread_mutex_destroy(&c->reconnect_mutex);
     pthread_cond_destroy(&c->callback_message_cond);
+    pthread_mutex_destroy(&c->reconnect_mutex);
     free(c);
     return rtErrorFromErrno(ENOMEM);
   }
