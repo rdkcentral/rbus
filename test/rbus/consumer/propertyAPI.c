@@ -383,8 +383,29 @@ void testValue_InitGetSetByType()
     TEST(rbusProperty_GetProperty(vprop) != NULL && rbusProperty_GetName(rbusProperty_GetProperty(vprop)) && !strcmp(rbusProperty_GetName(rbusProperty_GetProperty(vprop)), "MyProp2"));
     TEST(rbusProperty_GetObject(vobj) != NULL && rbusObject_GetName(rbusProperty_GetObject(vobj)) && !strcmp(rbusObject_GetName(rbusProperty_GetObject(vobj)), "MyObj2"));
 
-    rbusProperty_Releases(17, vbtrue, vbfalse, vi16_n1234, vu16_4321, vi32_689013, vu32_856712, vi64_987654321213, vu64_987654321213, vf32_354dot678, vf64_789dot4738291023, vtv, vs, vbytes, vprop, vobj, prop, prop2);
-    rbusObject_Releases(2, obj, obj2);
+    // Release all properties individually for Coverity static analysis
+    // (Coverity cannot track variadic function arguments)
+    rbusProperty_Release(vbtrue);
+    rbusProperty_Release(vbfalse);
+    rbusProperty_Release(vi16_n1234);
+    rbusProperty_Release(vu16_4321);
+    rbusProperty_Release(vi32_689013);
+    rbusProperty_Release(vu32_856712);
+    rbusProperty_Release(vi64_987654321213);
+    rbusProperty_Release(vu64_987654321213);
+    rbusProperty_Release(vf32_354dot678);
+    rbusProperty_Release(vf64_789dot4738291023);
+    rbusProperty_Release(vtv);
+    rbusProperty_Release(vs);
+    rbusProperty_Release(vbytes);
+    rbusProperty_Release(vprop);
+    rbusProperty_Release(vobj);
+    rbusProperty_Release(prop);
+    rbusProperty_Release(prop2);
+    
+    // Release objects individually
+    rbusObject_Release(obj);
+    rbusObject_Release(obj2);
 }
 
 void testPropertyAPI(rbusHandle_t handle, int* countPass, int* countFail)
