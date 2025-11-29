@@ -549,10 +549,25 @@ rtConnection_CreateInternal(rtConnection* con, char const* application_name, cha
   c->send_buffer_in_use = 0;
   c->send_buffer = (uint8_t *) rt_try_malloc(RTMSG_SEND_BUFFER_SIZE);
   if(!c->send_buffer)
+  {
+    pthread_mutex_destroy(&c->mutex);
+    pthread_mutex_destroy(&c->callback_message_mutex);
+    pthread_mutex_destroy(&c->reconnect_mutex);
+    pthread_cond_destroy(&c->callback_message_cond);
+    free(c);
     return rtErrorFromErrno(ENOMEM);
+  }
   c->recv_buffer = (uint8_t *) rt_try_malloc(RTMSG_SEND_BUFFER_SIZE);
   if(!c->recv_buffer)
+  {
+    free(c->send_buffer);
+    pthread_mutex_destroy(&c->mutex);
+    pthread_mutex_destroy(&c->callback_message_mutex);
+    pthread_mutex_destroy(&c->reconnect_mutex);
+    pthread_cond_destroy(&c->callback_message_cond);
+    free(c);
     return rtErrorFromErrno(ENOMEM);
+  }
   c->recv_buffer_capacity = RTMSG_SEND_BUFFER_SIZE;
   c->sequence_number = 1;
 #ifdef C11_ATOMICS_SUPPORTED
