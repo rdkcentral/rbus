@@ -1230,6 +1230,7 @@ TEST_F(TestServer, rtmsg_rtMessage_SetMessage_test1)
     err = rtMessage_SetMessage(NULL, "params", item);
     EXPECT_EQ(err, RT_ERROR_INVALID_ARG) << "rtMessage_SetMessage failed";
     //Neg test passing invalid param
+    rtMessage_Release(item);  // Release original item before reassignment
     err = rtMessage_GetMessage(req, "config", &item);
     EXPECT_EQ(err, RT_PROPERTY_NOT_FOUND) << "rtMessage_GetMessage failed";
     //Neg test passing invalid param
