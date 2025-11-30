@@ -2068,12 +2068,14 @@ void validate_and_execute_subscribe_cmd (int argc, char *argv[], bool add, bool 
     }
     else if(subinterval || argc > 7)
     {
-exit_error:
-        runSteps = __LINE__;
-        printf ("Invalid arguments. Please see the help\r\n");
-        rt_free(userData);
-        return;
+        goto exit_error;
     }
+
+exit_error:
+    runSteps = __LINE__;
+    printf ("Invalid arguments. Please see the help\r\n");
+    rt_free(userData);
+    return;
 
     rbusEventSubscription_t subscription_rawdata = {argv[2], filter, interval, duration, event_receive_handler1, userData, NULL, NULL, publishOnSubscribe};
     rbusEventSubscription_t subscription = {argv[2], filter, interval, duration, event_receive_handler2, userData, NULL, NULL, publishOnSubscribe};
