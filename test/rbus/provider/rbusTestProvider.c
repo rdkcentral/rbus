@@ -386,13 +386,13 @@ rbusError_t addTable2RowHandler(TableNode* tableNode, char const* alias, uint32_
     /*add properties and tables to the new row object*/
     if(!createTableNode((Node*)rowNode, "Table3", addTable3RowHandler))
     {
-        destroyTableRowNode(rowNode);
+        destroyNode((Node*)rowNode);
         return RBUS_ERROR_OUT_OF_RESOURCES;
     }
     
     if(!createPropertyNode((Node*)rowNode, "data"))
     {
-        destroyTableRowNode(rowNode);
+        destroyNode((Node*)rowNode);
         return RBUS_ERROR_OUT_OF_RESOURCES;
     }
 
@@ -412,13 +412,13 @@ rbusError_t addTable1RowHandler(TableNode* tableNode, char const* alias, uint32_
     /*add properties and tables to the new row object*/
     if(!createTableNode((Node*)rowNode, "Table2", addTable2RowHandler))
     {
-        destroyTableRowNode(rowNode);
+        destroyNode((Node*)rowNode);
         return RBUS_ERROR_OUT_OF_RESOURCES;
     }
     
     if(!createPropertyNode((Node*)rowNode, "data"))
     {
-        destroyTableRowNode(rowNode);
+        destroyNode((Node*)rowNode);
         return RBUS_ERROR_OUT_OF_RESOURCES;
     }
 
