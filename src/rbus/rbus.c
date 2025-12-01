@@ -718,7 +718,7 @@ void rbusObject_initFromMessage(rbusObject_t* obj, rbusMessage msg)
     char const* name = NULL;
     int type = 0;
     int numChild = 0;
-    rbusProperty_t prop;
+    rbusProperty_t prop = NULL;
     rbusObject_t children=NULL, previous=NULL;
 
     rbusMessage_GetString(msg, &name);
