@@ -3762,6 +3762,8 @@ rbusError_t rbus_getExt(rbusHandle_t handle, int paramCount, char const** pParam
                             for(int j = 0; j < numDestinations; j++)
                                 free(destinations[j]);
                             free(destinations);
+                            destinations = NULL;  /* Prevent double-free */
+                            numDestinations = 0;
                             break;
                         }
                         else
