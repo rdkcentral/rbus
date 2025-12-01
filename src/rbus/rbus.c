@@ -3679,7 +3679,7 @@ rbusError_t rbus_getExt(rbusHandle_t handle, int paramCount, char const** pParam
         else
         {
             int numDestinations = 0;
-            char** destinations;
+            char** destinations = NULL;
             //int length = strlen(pParamNames[0]);
 
             err = rbus_discoverWildcardDestinations(pParamNames[0], &numDestinations, &destinations);
@@ -3758,6 +3758,10 @@ rbusError_t rbus_getExt(rbusHandle_t handle, int paramCount, char const** pParam
                         if (errorcode != RBUS_ERROR_SUCCESS)
                         {
                             RBUSLOG_WARN("Failed to get the data from %s Component", destinations[i]);
+                            /* Cleanup before breaking to prevent resource leak */
+                            for(int j = 0; j < numDestinations; j++)
+                                free(destinations[j]);
+                            free(destinations);
                             break;
                         }
                         else
