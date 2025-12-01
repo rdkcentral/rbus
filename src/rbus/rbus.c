@@ -3758,13 +3758,17 @@ rbusError_t rbus_getExt(rbusHandle_t handle, int paramCount, char const** pParam
                         if (errorcode != RBUS_ERROR_SUCCESS)
                         {
                             RBUSLOG_WARN("Failed to get the data from %s Component", destinations[i]);
-                            /* Cleanup before breaking to prevent resource leak */
+                            /* Cleanup and return to prevent resource leak */
                             for(int j = 0; j < numDestinations; j++)
                                 free(destinations[j]);
                             free(destinations);
-                            destinations = NULL;  /* Prevent double-free */
-                            numDestinations = 0;
-                            break;
+                            /* Return directly to skip normal cleanup path */
+                            if (*retProperties != NULL)
+                            {
+                                RBUSLOG_WARN("Query for expression %s was partially successful", pParamNames[0]);
+                                return RBUS_ERROR_SUCCESS;
+                            }
+                            return errorcode;
                         }
                         else
                         {
