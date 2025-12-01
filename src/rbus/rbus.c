@@ -718,7 +718,7 @@ void rbusObject_initFromMessage(rbusObject_t* obj, rbusMessage msg)
     char const* name = NULL;
     int type = 0;
     int numChild = 0;
-    rbusProperty_t prop;
+    rbusProperty_t prop = NULL;
     rbusObject_t children=NULL, previous=NULL;
 
     rbusMessage_GetString(msg, &name);
@@ -3679,7 +3679,7 @@ rbusError_t rbus_getExt(rbusHandle_t handle, int paramCount, char const** pParam
         else
         {
             int numDestinations = 0;
-            char** destinations;
+            char** destinations = NULL;
             //int length = strlen(pParamNames[0]);
 
             err = rbus_discoverWildcardDestinations(pParamNames[0], &numDestinations, &destinations);
@@ -3758,7 +3758,17 @@ rbusError_t rbus_getExt(rbusHandle_t handle, int paramCount, char const** pParam
                         if (errorcode != RBUS_ERROR_SUCCESS)
                         {
                             RBUSLOG_WARN("Failed to get the data from %s Component", destinations[i]);
-                            break;
+                            /* Cleanup and return to prevent resource leak */
+                            for(int j = 0; j < numDestinations; j++)
+                                free(destinations[j]);
+                            free(destinations);
+                            /* Return directly to skip normal cleanup path */
+                            if (*retProperties != NULL)
+                            {
+                                RBUSLOG_WARN("Query for expression %s was partially successful", pParamNames[0]);
+                                return RBUS_ERROR_SUCCESS;
+                            }
+                            return errorcode;
                         }
                         else
                         {
