@@ -32,7 +32,10 @@ void testReferenceCount()
     rbusValue_Init(&val);
 
     {
-	assert(((rtRetainable *)val)->refCount == 1);
+        rtRetainable* r = r;
+	r = (rtRetainable *) val;
+        assert(r);
+        assert( r->refCount == 1 );	
     }
 
 
