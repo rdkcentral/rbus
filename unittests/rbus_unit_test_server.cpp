@@ -1308,6 +1308,7 @@ TEST_F(TestServer, rtmsg_rtMessage_SetMessage_test3)
     rtMessage_Release(item);
 }
 
+
 TEST_F(TestServer, rtmsg_rtMessage_Retain_test1)
 {
   rtError err;
@@ -1317,8 +1318,7 @@ TEST_F(TestServer, rtmsg_rtMessage_Retain_test1)
   err = rtMessage_Retain(msg);
   EXPECT_EQ(err, RT_OK);
   rtMessage_Release(msg);
-  if(msg)
-     rtMessage_Release(msg);
+  rtMessage_Release(msg);
 }
 
 TEST_F(TestServer, rtmsg_rtMessage_Clone_test1)
