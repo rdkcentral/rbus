@@ -5176,13 +5176,10 @@ static rbusError_t rbusEvent_SubscribeWithRetries(
             
             /* Cleanup: Remove the subscription entry that was just added */
             HANDLE_EVENTSUBS_MUTEX_LOCK(handle);
-            rtVector_RemoveItem(handleInfo->eventSubs, subInternal, rbusEventSubscription_compare);
+            rtVector_RemoveItem(handleInfo->eventSubs, subInternal, rbusEventSubscriptionInternal_free);
             HANDLE_EVENTSUBS_MUTEX_UNLOCK(handle);
             
-            /* Free allocated subscription structure */
-            free(subInternal);
-            
-            return RBUS_ERROR_INVALID_RESPONSE;
+            return RBUS_ERROR_INVALID_RESPONSE_FROM_DESTINATION;
         }
         
         /* Safe to dereference response now */
