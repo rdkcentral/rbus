@@ -5168,18 +5168,55 @@ static rbusError_t rbusEvent_SubscribeWithRetries(
         subInternal->rawData = rawData;
         rtVector_PushBack(handleInfo->eventSubs, subInternal);
         HANDLE_EVENTSUBS_MUTEX_UNLOCK(handle);
+        
+        /* Validate response pointer before any dereference operations */
+        if(!response)
+        {
+            RBUSLOG_ERROR("%s subscribe failed: null response received from provider", eventName);
+            
+            /* Cleanup: Remove the subscription entry that was just added */
+            HANDLE_EVENTSUBS_MUTEX_LOCK(handle);
+            rtVector_RemoveItem(handleInfo->eventSubs, subInternal, rbusEventSubscription_compare);
+            HANDLE_EVENTSUBS_MUTEX_UNLOCK(handle);
+            
+            /* Free allocated subscription structure */
+            free(subInternal);
+            
+            return RBUS_ERROR_INVALID_RESPONSE;
+        }
+        
+        /* Safe to dereference response now */
         if(publishOnSubscribe)
         {
-            rbusMessage_GetInt32(response, &initial_value);
-            if(initial_value)
+            int result = rbusMessage_GetInt32(response, &initial_value);
+            if(result == RBUS_ERROR_SUCCESS && initial_value)
             {
                 _master_event_callback_handler(NULL, eventName, response, userData);
             }
+            else if(result != RBUS_ERROR_SUCCESS)
+            {
+                RBUSLOG_WARN("%s subscribe: failed to get initial value from response (error=%d)", 
+                            eventName, result);
+            }
         }
-        rbusMessage_GetInt32(response, &subscriptionId);
-        subInternal->subscriptionId = subscriptionId;
-        if(response)
-            rbusMessage_Release(response);
+        
+        /* Extract subscription ID from response */
+        int result = rbusMessage_GetInt32(response, &subscriptionId);
+        if(result == RBUS_ERROR_SUCCESS)
+        {
+            subInternal->subscriptionId = subscriptionId;
+            RBUSLOG_DEBUG("%s subscribe: assigned subscriptionId=%d", eventName, subscriptionId);
+        }
+        else
+        {
+            RBUSLOG_WARN("%s subscribe: failed to get subscription ID from response (error=%d), using default", 
+                        eventName, result);
+            subInternal->subscriptionId = 0;
+        }
+        
+        /* Release response message */
+        rbusMessage_Release(response);
+        
         RBUSLOG_INFO("%s subscribe retries succeeded", eventName);
         return RBUS_ERROR_SUCCESS;
     }
