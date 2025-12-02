@@ -5633,16 +5633,15 @@ rbusError_t rbusEvent_SubscribeExRawData(
                 {
                     RBUSLOG_ERROR("%s: subInternal is NULL for event %s", __FUNCTION__, subscription[i].eventName);
                     errorcode = RBUS_ERROR_INVALID_STATE;
+                    HANDLE_EVENTSUBS_MUTEX_UNLOCK(handle);
+                    break;
                 }
-                else
+                memset(rawDataTopic, '\0', strlen(rawDataTopic));
+                snprintf(rawDataTopic, RBUS_MAX_NAME_LENGTH, "%s", subscription[i].eventName);
+                errorcode = rbusMessage_AddPrivateListener(handle, rawDataTopic, _subscribe_rawdata_handler, (void *)(subInternal->sub), subInternal->subscriptionId);
+                if(errorcode != RBUS_ERROR_SUCCESS)
                 {
-                    memset(rawDataTopic, '\0', strlen(rawDataTopic));
-                    snprintf(rawDataTopic, RBUS_MAX_NAME_LENGTH, "%s", subscription[i].eventName);
-                    errorcode = rbusMessage_AddPrivateListener(handle, rawDataTopic, _subscribe_rawdata_handler, (void *)(subInternal->sub), subInternal->subscriptionId);
-                    if(errorcode != RBUS_ERROR_SUCCESS)
-                    {
-                        RBUSLOG_ERROR("%s: Listener failed err: %d", __FUNCTION__, errorcode);
-                    }
+                    RBUSLOG_ERROR("%s: Listener failed err: %d", __FUNCTION__, errorcode);
                 }
             }
             else
@@ -5652,16 +5651,15 @@ rbusError_t rbusEvent_SubscribeExRawData(
                 {
                     RBUSLOG_ERROR("%s: subInternal is NULL for event %s", __FUNCTION__, subscription[i].eventName);
                     errorcode = RBUS_ERROR_INVALID_STATE;
+                    HANDLE_EVENTSUBS_MUTEX_UNLOCK(handle);
+                    break;
                 }
-                else
+                snprintf(rawDataTopic, RBUS_MAX_NAME_LENGTH, "rawdata.%s", subscription[i].eventName);
+                errorcode = rbusMessage_AddListener(handle, rawDataTopic,
+                        _subscribe_rawdata_handler, (void *)(subInternal->sub), subInternal->subscriptionId);
+                if(errorcode != RBUS_ERROR_SUCCESS)
                 {
-                    snprintf(rawDataTopic, RBUS_MAX_NAME_LENGTH, "rawdata.%s", subscription[i].eventName);
-                    errorcode = rbusMessage_AddListener(handle, rawDataTopic,
-                            _subscribe_rawdata_handler, (void *)(subInternal->sub), subInternal->subscriptionId);
-                    if(errorcode != RBUS_ERROR_SUCCESS)
-                    {
-                        RBUSLOG_ERROR("%s: Listener failed err: %d", __FUNCTION__, errorcode);
-                    }
+                    RBUSLOG_ERROR("%s: Listener failed err: %d", __FUNCTION__, errorcode);
                 }
             }
             HANDLE_EVENTSUBS_MUTEX_UNLOCK(handle);
