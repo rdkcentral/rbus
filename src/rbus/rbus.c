@@ -5632,7 +5632,7 @@ rbusError_t rbusEvent_SubscribeExRawData(
                 if(!subInternal)
                 {
                     RBUSLOG_ERROR("%s: subInternal is NULL for event %s", __FUNCTION__, subscription[i].eventName);
-                    errorcode = RBUS_ERROR_INVALID_STATE;
+                    errorcode = RBUS_ERROR_INVALID_INPUT;
                 }
                 else
                 {
@@ -5651,7 +5651,7 @@ rbusError_t rbusEvent_SubscribeExRawData(
                 if(!subInternal)
                 {
                     RBUSLOG_ERROR("%s: subInternal is NULL for event %s", __FUNCTION__, subscription[i].eventName);
-                    errorcode = RBUS_ERROR_INVALID_STATE;
+                    errorcode = RBUS_ERROR_INVALID_INPUT;
                 }
                 else
                 {
