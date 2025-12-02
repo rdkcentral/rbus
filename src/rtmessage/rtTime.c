@@ -26,7 +26,7 @@
 #include <string.h>
 #include <time.h>
 
-#define RT_CLOCK_ID CLOCK_MONOTONIC_RAW
+#define RT_CLOCK_ID CLOCK_MONOTONIC
 
 rtTime_t* rtTime_Now(rtTime_t* t)
 {
