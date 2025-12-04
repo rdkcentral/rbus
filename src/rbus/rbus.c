@@ -3017,7 +3017,7 @@ rbusError_t rbus_open(rbusHandle_t* handle, char const* componentName)
     if (rbusHandle_TimeoutValuesInit(tmpHandle) != 0)
     {
         RBUSLOG_ERROR("(%s): rbusHandle_TimeoutValuesInit failed", componentName);
-        goto exit_error2;
+        goto exit_error3;
     }
     tmpHandle->componentName = strdup(componentName);
     tmpHandle->componentId = ++sLastComponentId;
@@ -3045,6 +3045,8 @@ rbusError_t rbus_open(rbusHandle_t* handle, char const* componentName)
 
     RBUSLOG_INFO(" rbus open (%s) success", componentName);
     return RBUS_ERROR_SUCCESS;
+
+exit_error3:
 
     if((err = rbus_unregisterObj(componentName)) != RBUSCORE_SUCCESS)
         RBUSLOG_ERROR("(%s): unregisterObj error %d", componentName, err);
