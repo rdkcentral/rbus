@@ -17,6 +17,7 @@
  * limitations under the License.
 */
 #include "rbus_handle.h"
+#include <errno.h>
 #include <string.h>
 #include <rbuscore.h>
 #include <rtMemory.h>
@@ -232,84 +233,62 @@ rbusError_t rbusHandle_ConfigSubscribeTimeout(rbusHandle_t handle, uint32_t time
     return RBUS_ERROR_SUCCESS;
 }
 
+static uint32_t rbusHandle_FetchTimeoutFromFile(const char* fileName, uint32_t defaultTimeout)
+{
+    FILE* fp = fopen(fileName, "r");
+    if(fp)
+    {
+        char buf[25] = {0};
+        if(fgets(buf, sizeof(buf), fp))
+        {
+            char* endptr = NULL;
+            errno = 0;
+            float ftimeout = strtof(buf, &endptr);
+            if(endptr != buf && errno != ERANGE && ftimeout > 0.0f && ftimeout <= (float)UINT32_MAX / 1000.0f)
+            {
+                fclose(fp);
+                return (uint32_t)(ftimeout * 1000.0f);
+            }
+        }
+        fclose(fp);
+    }
+    return defaultTimeout;
+}
+
 uint32_t rbusHandle_FetchGetTimeout(rbusHandle_t handle)
 {
     VERIFY_NULL(handle, return 0)
-    int timeout = 0;
-    FILE *fp = NULL;
-    char buf[25] = {0};
     char fileName[BUF_LEN] = {'\0'};
     snprintf(fileName, BUF_LEN-1, "%s/rbus_%s_timeout_get", RBUS_TMP_DIRECTORY, __progname);
     fileName[BUF_LEN-1] = '\0';
-    fp = fopen(fileName, "r");
-    if(fp != NULL) {
-        if (fgets(buf, sizeof(buf), fp) != NULL)
-            timeout = atoi(buf);
-    fclose(fp);
-    }
-    if (timeout > 0)
-        return timeout * 1000;
-    return handle->timeoutValues.getTimeout;
+    return rbusHandle_FetchTimeoutFromFile(fileName, handle->timeoutValues.getTimeout);
 }
 
 uint32_t rbusHandle_FetchSetTimeout(rbusHandle_t handle)
 {
     VERIFY_NULL(handle, return 0)
-    int timeout = 0;
-    FILE *fp = NULL;
-    char buf[25] = {0};
     char fileName[BUF_LEN] = {'\0'};
     snprintf(fileName, BUF_LEN-1, "%s/rbus_%s_timeout_set", RBUS_TMP_DIRECTORY, __progname);
     fileName[BUF_LEN-1] = '\0';
-    fp = fopen(fileName, "r");
-    if(fp != NULL) {
-        if (fgets(buf, sizeof(buf), fp) != NULL)
-            timeout = atoi(buf);
-        fclose(fp);
-    }
-    if (timeout > 0)
-        return timeout * 1000;
-    return handle->timeoutValues.setTimeout;
+    return rbusHandle_FetchTimeoutFromFile(fileName, handle->timeoutValues.setTimeout);
 }
 
 uint32_t rbusHandle_FetchGetMultiTimeout(rbusHandle_t handle)
 {
     VERIFY_NULL(handle, return 0)
-    int timeout = 0;
-    FILE *fp = NULL;
-    char buf[25] = {0};
     char fileName[BUF_LEN] = {'\0'};
     snprintf(fileName, BUF_LEN-1, "%s/rbus_%s_timeout_get_wildcard_query", RBUS_TMP_DIRECTORY, __progname);
     fileName[BUF_LEN-1] = '\0';
-    fp = fopen(fileName, "r");
-    if(fp != NULL) {
-        if (fgets(buf, sizeof(buf), fp) != NULL)
-            timeout = atoi(buf);
-        fclose(fp);
-    }
-    if (timeout > 0)
-        return timeout * 1000;
-    return handle->timeoutValues.getMultiTimeout;
+    return rbusHandle_FetchTimeoutFromFile(fileName, handle->timeoutValues.getMultiTimeout);
 }
 
 uint32_t rbusHandle_FetchSetMultiTimeout(rbusHandle_t handle)
 {
     VERIFY_NULL(handle, return 0)
-    int timeout = 0;
-    FILE *fp = NULL;
-    char buf[25] = {0};
     char fileName[BUF_LEN] = {'\0'};
     snprintf(fileName, BUF_LEN-1, "%s/rbus_%s_timeout_setMulti", RBUS_TMP_DIRECTORY, __progname);
     fileName[BUF_LEN-1] = '\0';
-    fp = fopen(fileName, "r");
-    if(fp != NULL) {
-        if (fgets(buf, sizeof(buf), fp) != NULL)
-            timeout = atoi(buf);
-        fclose(fp);
-    }
-    if (timeout > 0)
-        return timeout * 1000;
-    return handle->timeoutValues.setMultiTimeout;
+    return rbusHandle_FetchTimeoutFromFile(fileName, handle->timeoutValues.setMultiTimeout);
 }
 
 uint32_t rbusHandle_FetchSubscribeTimeout(rbusHandle_t handle)
