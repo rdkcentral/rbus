@@ -17,6 +17,7 @@
  * limitations under the License.
 */
 
+#include <errno.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -3021,7 +3022,7 @@ rbusError_t rbus_open(rbusHandle_t* handle, char const* componentName)
     if (rbusHandle_TimeoutValuesInit(tmpHandle) != 0)
     {
         RBUSLOG_ERROR("(%s): rbusHandle_TimeoutValuesInit failed", componentName);
-        goto exit_error2;
+        goto exit_error3;
     }
     tmpHandle->componentName = strdup(componentName);
     tmpHandle->componentId = ++sLastComponentId;
@@ -3049,6 +3050,8 @@ rbusError_t rbus_open(rbusHandle_t* handle, char const* componentName)
 
     RBUSLOG_INFO(" rbus open (%s) success", componentName);
     return RBUS_ERROR_SUCCESS;
+
+exit_error3:
 
     if((err = rbus_unregisterObj(componentName)) != RBUSCORE_SUCCESS)
         RBUSLOG_ERROR("(%s): unregisterObj error %d", componentName, err);
@@ -3188,7 +3191,11 @@ rbusError_t rbus_close(rbusHandle_t handle)
     LockMutex();
     char filename[RTMSG_HEADER_MAX_TOPIC_LENGTH];
     snprintf(filename, RTMSG_HEADER_MAX_TOPIC_LENGTH-1, "%s%d_%d", "/tmp/.rbus/", getpid(), handleInfo->componentId);
-    remove(filename);
+    int removeRet = remove(filename);
+    if(removeRet != 0 && errno != ENOENT)
+    {
+        RBUSLOG_ERROR("remove(%s) failed with error %d", filename, errno);
+    }
 
     HANDLE_EVENTSUBS_MUTEX_LOCK(handle);
     if(handleInfo->eventSubs)
