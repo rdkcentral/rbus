@@ -33,7 +33,9 @@ void testReferenceCount()
 
     {
         rtRetainable* r = (rtRetainable *) val;
-        assert( r->refCount == 1 );
+        (void) r;
+        assert(r);
+        assert( r->refCount == 1 );	
     }
 
 
