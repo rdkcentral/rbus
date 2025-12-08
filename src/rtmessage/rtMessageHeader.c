@@ -86,6 +86,8 @@ rtMessageHeader_Encode(rtMessageHeader* hdr, uint8_t* buff)
 rtError
 rtMessageHeader_Decode(rtMessageHeader* hdr, uint8_t const* buff)
 {
+  RT_CHECK_INVALID_ARG(hdr);
+  RT_CHECK_INVALID_ARG(buff);
   uint8_t const* ptr = buff;
   uint16_t marker = 0;
   rtEncoder_DecodeUInt16(&ptr, &marker);
@@ -103,19 +105,11 @@ rtMessageHeader_Decode(rtMessageHeader* hdr, uint8_t const* buff)
     rtLog_Warn("RTROUTED_INVALID_LENGTH: rtMessageHeader_Decode() - topic_length %d", hdr->topic_length);
     return RT_ERROR;
   }
-  if(NULL == ptr) {
-    rtLog_Warn("RTROUTED_INVALID_PTR: rtMessageHeader_Decode() - PTR is NULL");
-    return RT_ERROR;
-  }
   rtEncoder_DecodeStr(&ptr, hdr->topic, hdr->topic_length);
 
   rtEncoder_DecodeUInt32(&ptr, &hdr->reply_topic_length);
   if(hdr->reply_topic_length >= sizeof(hdr->reply_topic)) {
     rtLog_Warn("RTROUTED_INVALID_LENGTH: rtMessageHeader_Decode() - reply_topic_length %d", hdr->reply_topic_length);
-    return RT_ERROR;
-  }
-  if(NULL == ptr) {
-    rtLog_Warn("RTROUTED_INVALID_PTR: rtMessageHeader_Decode() - PTR is NULL");
     return RT_ERROR;
   }
   rtEncoder_DecodeStr(&ptr, hdr->reply_topic, hdr->reply_topic_length);
