@@ -5062,6 +5062,7 @@ static rbusError_t rbusEvent_SubscribeWithRetries(
     HANDLE_EVENTSUBS_MUTEX_LOCK(handle);
     if ((subInternal = rbusEventSubscription_find(handleInfo->eventSubs, eventName, filter, interval, duration, rawData)) != NULL)
     {
+        rbusError_t ret = RBUS_ERROR_SUCCESS;
         /*Allow only for dirty subscription*/
         if (subInternal->dirty)
         {
@@ -5069,9 +5070,10 @@ static rbusError_t rbusEvent_SubscribeWithRetries(
         }
         else
         {
-            HANDLE_EVENTSUBS_MUTEX_UNLOCK(handle);
-            return RBUS_ERROR_SUBSCRIPTION_ALREADY_EXIST;
+            ret = RBUS_ERROR_SUBSCRIPTION_ALREADY_EXIST;
         }
+        HANDLE_EVENTSUBS_MUTEX_UNLOCK(handle);
+        return ret;
     }
     else if (rbusAsyncSubscribe_GetSubscription(handle, eventName, filter))
     {
