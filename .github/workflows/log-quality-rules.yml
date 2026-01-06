@@ -59,62 +59,6 @@ jobs:
           export PREFIX=$PWD
           export LD_LIBRARY_PATH=$PREFIX/lib
           nohup ./bin/rtrouted -f -l DEBUG > /tmp/rtrouted_log.txt &
-      - name: Run drop test with inactive provider
-        continue-on-error: true
-        run: |
-          cd install/usr
-          export PREFIX=$PWD
-          export LD_LIBRARY_PATH=$PREFIX/lib
-          nohup ./bin/rbusSampleProvider > sampleProvider.log 2>&1 &
-          sleep 1
-          nohup stdbuf -oL -eL ./bin/rbusBlockingProvider > blockingProvider.log 2>&1 &
-          sleep 1
-          ./bin/rbusDmlBlockingConsumer > dmlBlockingConsumer.log 2>&1
-          cat sampleProvider.log || true
-          cat blockingProvider.log || true
-          cat dmlBlockingConsumer.log || true
-      - name: Run RbusTestTimeoutValues Unit test
-        run: |
-          cd install/usr
-          export PREFIX=$PWD
-          export LD_LIBRARY_PATH=$PREFIX/lib
-          nohup ./bin/rbusTestTimeoutValuesProvider &
-          ./bin/rbusTestTimeoutValuesConsumer
-      - name: Run Unit test
-        run: |
-          cd install/usr
-          export PREFIX=$PWD
-          export LD_LIBRARY_PATH=$PREFIX/lib
-          nohup ./bin/rbusTestProvider >/tmp/plog.txt &
-          ./bin/rbusTestConsumer -a
-      - name: Run multiRbusOpenMethod Unit Test
-        run: |
-          cd install/usr
-          export PREFIX=$PWD
-          export LD_LIBRARY_PATH=$PREFIX/lib
-          ./bin/multiRbusOpenMethodProvider &
-          ./bin/multiRbusOpenMethodConsumer &
-      - name: Run multiRbusOpenSubscribe Unit test
-        run: |
-          cd install/usr
-          export PREFIX=$PWD
-          export LD_LIBRARY_PATH=$PREFIX/lib
-          nohup ./bin/multiRbusOpenProvider >/tmp/log_multiRbusOpenProvider.txt &
-          ./bin/multiRbusOpenConsumer
-      - name: Run multiRbusOpenGet Unit test
-        run: |
-          cd install/usr
-          export PREFIX=$PWD
-          export LD_LIBRARY_PATH=$PREFIX/lib
-          nohup ./bin/multiRbusOpenRbusGetProvider >/tmp/log_multiRbusOpenRbusGetProvider.txt &
-          ./bin/multiRbusOpenRbusGetConsumer
-      - name: Run multiRbusOpenSet Unit test
-        run: |
-          cd install/usr
-          export PREFIX=$PWD
-          export LD_LIBRARY_PATH=$PREFIX/lib
-          nohup ./bin/multiRbusOpenRbusGetProvider >/tmp/log_multiRbusOpenRbusSetProvider.txt &
-          ./bin/multiRbusOpenRbusSetConsumer
       - name: Run Gtest Cases
         run: |
           cd build/rbus
@@ -122,7 +66,7 @@ jobs:
           ./unittests/rbus_gtest.bin > logs.txt &
       - name: Analyze logs
         run: |
-          python noisylogdetector.py logs.txt
+          cd ${{github.workspace}} && python noisylogdetector.py logs.txt
       - name: Stop SessionManager
         run: |
           killall -15 rbus_session_mgr
