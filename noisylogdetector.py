@@ -171,8 +171,8 @@ def generate_html(noisy, sensitive, severity):
     html_out.append("</ul>")
  
     html_out.append("</body></html>")
- 
-    with open("noisy_log_report.html", "w", encoding="utf-8") as f:
+    output_path = "/tmp/noisy_log_report.html"
+    with open(output_path, "w", encoding="utf-8") as f:
         f.write("\n".join(html_out))
  
 # -----------------------------
@@ -194,3 +194,4 @@ def main():
  
 if __name__ == "__main__":
     main()
+
