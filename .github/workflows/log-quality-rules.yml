@@ -78,3 +78,8 @@ jobs:
           export PREFIX=$PWD
           export LD_LIBRARY_PATH=$PREFIX/lib
           nohup ./bin/rtrouted_diag shutdown
+      - name: Upload the noisy log report to Pull request using actions
+        uses: actions/upload-artifact@v4
+        with:
+          name: noisy-log-report
+          path: /tmp/noisy_log_report.html
