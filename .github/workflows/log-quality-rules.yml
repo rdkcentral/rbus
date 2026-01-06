@@ -67,7 +67,7 @@ jobs:
       - name: Analyze logs
         run: |
           cd ${{github.workspace}}
-          python noisylogdetector.py logs.txt
+          python ./noisylogdetector.py logs.txt
       - name: Stop SessionManager
         run: |
           killall -15 rbus_session_mgr
