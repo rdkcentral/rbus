@@ -1,32 +1,36 @@
-execution_context:
-  entry_patterns:
+entry_patterns:
     - "\\b([a-zA-Z0-9_]+)\\s*\\("   # function call detected
  
-noisy_logs:
-  disallowed_sources:
-    - internal_
-    - helper_
-    - util_
-    - validate_
-    - impl_
-    - static_
-    - private_
+internal_api_patterns:
+  - internal
+  - helper
+  - util
+  - impl
+  - private
  
-severity_rules:
-  failure_keywords:
-    - fail
-    - failed
-    - error
-    - invalid
-    - timeout
-  required_levels:
-    - ERROR
-    - WARN
+noisy_log_levels:
+  - INFO
+  - DEBUG
+  - TRACE
+ 
+failure_keywords:
+  - fail
+  - failed
+  - error
+  - timeout
+  - denied
+  - invalid
+ 
+required_severity_on_failure:
+  - WARN
+  - ERROR
  
 sensitive_patterns:
-  - name: IP_ADDRESS
-    regex: "\\b(?:\\d{1,3}\\.){3}\\d{1,3}\\b"
-  - name: MAC_ADDRESS
-    regex: "\\b(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}\\b"
-  - name: TOKEN
-    regex: "(?i)(token|apikey|secret|password)[:=]\\S+"
+  - password
+  - passwd
+  - token
+  - secret
+  - api[_-]?key
+  - mac
+  - ipv4
+  - email
