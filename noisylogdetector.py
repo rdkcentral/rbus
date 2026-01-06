@@ -43,7 +43,7 @@ def extract_logs(input_path):
                 content = f.read().decode("utf-8", "replace")
                 read_file(m.name, content)
     else:
-        with open('logs.txt') as f:
+        with open(input_path) as f:
             for line in f:
             # Example: 05:57:05.793185 RBUS ERROR rbus_tokenchain.c:82 -- Thread-5676: ERROR: regNode NULL
                 match = re.search(r'(\d{2}:\d{2}:\d{2}\.\d+) RBUS (\w+) ([\w\.]+):(\d+) -- [^:]+: (.+)', line)
