@@ -66,7 +66,7 @@ jobs:
           ./unittests/rbus_gtest.bin > logs.txt &
       - name: Analyze logs
         run: |
-          cd ${{github.workspace}}
+          cd ${{github.workspace}}/rbus
           ls -l
           python noisylogdetector.py logs.txt
       - name: Stop SessionManager
