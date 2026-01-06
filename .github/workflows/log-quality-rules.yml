@@ -63,7 +63,7 @@ jobs:
         run: |
           cd build/rbus
           nohup ./src/session_manager/rbus_session_mgr &
-          ./unittests/rbus_gtest.bin > logs.txt &
+          ./unittests/rbus_gtest.bin > logs.txt
       - name: Analyze logs
         run: |
           cd ${{github.workspace}}/rbus
