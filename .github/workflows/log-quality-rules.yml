@@ -63,12 +63,12 @@ jobs:
         run: |
           cd build/rbus
           nohup ./src/session_manager/rbus_session_mgr &
-          ./unittests/rbus_gtest.bin > logs.txt
+          ./unittests/rbus_gtest.bin > /tmp/logs.txt &
       - name: Analyze logs
         run: |
           cd ${{github.workspace}}/rbus
           ls -l
-          python noisylogdetector.py logs.txt
+          python noisylogdetector.py /tmp/logs.txt
       - name: Stop SessionManager
         run: |
           killall -15 rbus_session_mgr
