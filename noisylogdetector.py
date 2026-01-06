@@ -190,7 +190,7 @@ def main():
     noisy, sensitive, severity = analyze(logs, rules)
     generate_html(noisy, sensitive, severity)
  
-    print(f"Report generated: {output_path}")
+    print(f"Report generated: noisy_log_report.html")
  
 if __name__ == "__main__":
     main()
