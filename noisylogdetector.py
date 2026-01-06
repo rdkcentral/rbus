@@ -46,12 +46,12 @@ def extract_logs(input_path):
         with open('logs.txt') as f:
             for line in f:
             # Example: 05:57:05.793185 RBUS ERROR rbus_tokenchain.c:82 -- Thread-5676: ERROR: regNode NULL
-            match = re.search(r'(\d{2}:\d{2}:\d{2}\.\d+) RBUS (\w+) ([\w\.]+):(\d+) -- [^:]+: (.+)', line)
-            if match:
-                timestamp, severity, file, line_num, message = match.groups()
-                print(f"{severity}: {file}:{line_num} - {message}")
-            else:
-                pass
+                match = re.search(r'(\d{2}:\d{2}:\d{2}\.\d+) RBUS (\w+) ([\w\.]+):(\d+) -- [^:]+: (.+)', line)
+                if match:
+                    timestamp, severity, file, line_num, message = match.groups()
+                    print(f"{severity}: {file}:{line_num} - {message}")
+                else:
+                    pass
 #with open(input_path, "rb") as f:
 #           content = f.read().decode("utf-8", "replace")
 #            read_file(os.path.basename(input_path), content)
