@@ -21,7 +21,6 @@ def load_rules(path="rules.yml"):
     # Compile internal and public API patterns too (optional)
     rules["internal_log_patterns_compiled"] = [re.compile(p, re.IGNORECASE) for p in rules.get("internal_log_patterns", [])]
     rules["public_api_patterns_compiled"] = [re.compile(p, re.IGNORECASE) for p in rules.get("public_api_patterns", [])]
-    rules["failure_keywords_compiled"] = [re.compile(p, re.IGNORECASE) for p in rules.get("failure_keywords", [])]
  
     return rules
 # -----------------------------------
@@ -47,6 +46,16 @@ def detect_level(line):
             return lvl
     return "UNKNOWN"
 
+def matches_any(patterns, text):
+    for p in patterns:
+        if isinstance(p, str):
+            if re.search(p, text, re.IGNORECASE):
+                return True
+        elif isinstance(p, dict):
+            for v in p.values():
+                if re.search(str(v), text, re.IGNORECASE):
+                    return True
+    return False
 def matches_any_compiled(compiled_patterns, text):
     return any(p.search(text) for p in compiled_patterns)
 
@@ -90,7 +99,7 @@ def analyze(log_file, rules):
                 })
 
             # Failure severity enforcement
-            if matches_any_compiled(rules["failure_keywords_compiled"], line):
+            if matches_any(rules["failure_keywords"], line):
                 if level not in rules["required_severity_on_failure"]:
                     severity_violations.append({
                         "line": ln,
