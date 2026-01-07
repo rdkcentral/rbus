@@ -33,11 +33,7 @@ sensitive_patterns:
  
 # Patterns that identify start of public API execution
 public_api_patterns:
-#Any log line containing a word like rbus_*, rbusEvent_*, rbusTable*, rbusElementInfo* is considered a public API
-  - '\brbus_[a-zA-Z0-9_]+\b'
-  - '\brbusEvent_[a-zA-Z0-9_]+\b'
-  - '\brbusTable_[a-zA-Z0-9_]*\b'
-  - '\brbusElementInfo_[a-zA-Z0-9_]*\b'
+  - rbus.c
  
 # Patterns for internal logs that are considered noisy during public API
 #internal_log_patterns:
