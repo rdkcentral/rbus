@@ -21,6 +21,7 @@ def load_rules(path="rules.yml"):
     # Compile internal and public API patterns too (optional)
     rules["internal_log_patterns_compiled"] = [re.compile(p, re.IGNORECASE) for p in rules.get("internal_log_patterns", [])]
     rules["public_api_patterns_compiled"] = [re.compile(p, re.IGNORECASE) for p in rules.get("public_api_patterns", [])]
+    rules["failure_keywords_compiled"] = [re.compile(p, re.IGNORECASE) for p in rules.get("failure_keywords", [])]
  
     return rules
 # -----------------------------------
