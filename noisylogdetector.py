@@ -4,151 +4,155 @@ import sys
 import yaml
 from collections import defaultdict
 from html import escape
+from pathlib import Path
  
-# -------------------------------
+# -----------------------------
 def load_rules(path="rules.yml"):
     with open(path, "r") as f:
-        rules = yaml.safe_load(f)
-    # Compile regex patterns for speed
-    rules["sensitive_patterns_compiled"] = [re.compile(p) for p in rules.get("sensitive_patterns", [])]
-    rules["public_api_patterns_compiled"] = [re.compile(p) for p in rules.get("public_api_patterns", [])]
-    rules["internal_log_patterns_compiled"] = [re.compile(p, re.IGNORECASE) for p in rules.get("internal_log_patterns", [])]
-    rules["failure_keywords_compiled"] = [re.compile(p, re.IGNORECASE) for p in rules.get("failure_keywords", [])]
-    return rules
+        return yaml.safe_load(f)
  
-# -------------------------------
-TIMESTAMP_AT_START = re.compile(
-    r"""
-    ^\s*(
-        \[\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(?:\.\d+)?\]? |
-        \d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(?:\.\d+)? |
-        \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z? |
-        \d{2}:\d{2}:\d{2}[.,]\d+ |
-        [A-Z][a-z]{2}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2}
-    )
-    """,
-    re.VERBOSE
-)
- 
+# -----------------------------
 def starts_with_timestamp(line):
-    return bool(TIMESTAMP_AT_START.match(line))
-# -------------------------------
+    """
+    Matches:
+    04:31:14.109764
+    2024-11-11 04:31:14.109
+    Nov 11 04:31:14
+    """
+    return bool(re.match(
+        r'^(\d{2}:\d{2}:\d{2}\.\d+|\d{4}-\d{2}-\d{2}|\w{3}\s+\d+\s+\d{2}:\d{2}:\d{2})',
+        line
+    ))
+ 
 def detect_level(line):
-    for lvl in ["ERROR", "WARN", "INFO", "DEBUG", "TRACE"]:
+    for lvl in ("ERROR", "WARN", "INFO", "DEBUG", "TRACE"):
         if re.search(rf"\b{lvl}\b", line):
             return lvl
     return "UNKNOWN"
  
-def matches_any_compiled(compiled_patterns, text):
-    return any(p.search(text) for p in compiled_patterns)
+# -----------------------------
+def compile_patterns(patterns):
+    return [re.compile(p, re.IGNORECASE) for p in patterns]
  
-# -------------------------------
+# -----------------------------
 def analyze(log_file, rules):
-    noisy = []
-    sensitive = []
+    noisy_logs = []
+    sensitive_logs = []
     severity_violations = []
+ 
+    public_api_res = compile_patterns(rules["public_api_patterns"])
+    sensitive_res = compile_patterns(rules["sensitive_patterns"])
+    failure_keywords = rules["failure_keywords"]
+ 
+    in_public_api = False
+    active_public_api = None
  
     with open(log_file, "r", errors="ignore") as f:
         for ln, line in enumerate(f, 1):
-#line = line.rstrip()
+            line = line.rstrip()
+ 
             if not starts_with_timestamp(line):
-                continue  # skip lines without timestamp at start
-
+                continue
+ 
             level = detect_level(line)
-
-            # Determine if this line is a public API log (rbus_*)
-            is_public_api = matches_any_compiled(rules["public_api_patterns_compiled"], line)
-
-            # Noisy logs: any log not matching rbus_* and with a noisy level
-            if not is_public_api and level in rules["noisy_log_levels"]:
-                noisy.append({
-                    "line": ln,
-                    "log": line,
-                    "rule": "NOISY_INTERNAL_API_LOG",
-                    "reason": "Non-rbus_* log printed at noisy level"
-                })
-
-            # Sensitive / PII detection
-            if matches_any_compiled(rules["sensitive_patterns_compiled"], line):
-                sensitive.append({
-                    "line": ln,
-                    "log": line,
-                    "rule": "SENSITIVE_PII_LOG",
-                    "reason": "Potential sensitive information detected"
-                })
-
-            # Failure severity enforcement
-            if matches_any_compiled(rules["failure_keywords_compiled"], line):
+ 
+            # ----------------- Detect public API start
+            for r in public_api_res:
+                m = r.search(line)
+                if m:
+                    in_public_api = True
+                    active_public_api = m.group(0)
+                    break
+ 
+            # ----------------- Noisy logs
+            if in_public_api:
+                if active_public_api not in line:
+                    if level in rules["noisy_log_levels"]:
+                        noisy_logs.append({
+                            "line": ln,
+                            "level": level,
+                            "log": line,
+                            "reason": f"Internal log during public API execution ({active_public_api})"
+                        })
+ 
+            # ----------------- Sensitive logs
+            for r in sensitive_res:
+                if r.search(line):
+                    sensitive_logs.append({
+                        "line": ln,
+                        "log": line,
+                        "reason": "Sensitive / PII data detected"
+                    })
+                    break
+ 
+            # ----------------- Severity enforcement
+            if any(k in line.lower() for k in failure_keywords):
                 if level not in rules["required_severity_on_failure"]:
                     severity_violations.append({
                         "line": ln,
+                        "level": level,
                         "log": line,
-                        "rule": "SEVERITY_VIOLATION",
-                        "reason": f"Expected severity {rules['required_severity_on_failure']}, got {level}"
+                        "reason": "Failure logged without ERROR/WARN"
                     })
-
-    return noisy, sensitive, severity_violations
-# -------------------------------
-def generate_html(noisy, sensitive, severity, out="/tmp/noisy_log_report.html"):
+ 
+            # ----------------- End of public API
+            if any(k in line.lower() for k in rules["execution_end_patterns"]):
+                in_public_api = False
+                active_public_api = None
+ 
+    return noisy_logs, sensitive_logs, severity_violations
+ 
+# -----------------------------
+def generate_html(noisy, sensitive, severity, out="/tmp/log_quality_report.html"):
     with open(out, "w", encoding="utf-8") as f:
         f.write("""
-<html><head><title>Log Quality Report</title>
+<html>
+<head>
+<title>Log Quality Report</title>
 <style>
-body{font-family:Arial;}
-table{border-collapse:collapse;width:100%;}
-th,td{border:1px solid #ccc;padding:6px;}
-th{background:#f0f0f0;}
+body { font-family: Arial; }
+table { border-collapse: collapse; width: 100%; margin-bottom: 30px; }
+th, td { border: 1px solid #ccc; padding: 6px; text-align: left; }
+th { background: #f0f0f0; }
 </style>
-</head><body>
-<h2>Noisy Logs</h2>
-<table>
-<tr><th>Type</th><th>Count</th><th>Reason</th><th>Samples</th></tr>
+</head>
+<body>
+<h1>Log Quality Report</h1>
 """)
-        # Group noisy logs by rule
-        from collections import defaultdict
-        rule_map = defaultdict(list)
-        for item in noisy:
-            rule_map[item["rule"]].append(item)
-
-        for rule, items in rule_map.items():
-            # show up to 3 full lines per rule
-            for sample_item in items[:3]:
+ 
+        def write_section(title, rows):
+            f.write(f"<h2>{title}</h2>")
+            f.write("<table>")
+            f.write("<tr><th>Line</th><th>Reason</th><th>Log</th></tr>")
+            for r in rows:
                 f.write(
-                    f"<tr>"
-                    f"<td>{sample_item['rule']}</td>"
-                    f"<td>1</td>"
-                    f"<td>{escape(sample_item['reason'])}</td>"
-                    f"<td>{escape(sample_item['log'])}</td>"
-                    f"</tr>"
+                    f"<tr><td>{r['line']}</td>"
+                    f"<td>{escape(r['reason'])}</td>"
+                    f"<td>{escape(r['log'])}</td></tr>"
                 )
+            f.write("</table>")
  
-        f.write("""
-</table>
-<h2>Sensitive / PII Logs</h2>
-<table><tr><th>Line</th><th>Reason</th><th>Log</th></tr>
-""")
-        for item in sensitive:
-            f.write(f"<tr><td>{item['line']}</td><td>{escape(item['reason'])}</td><td>{escape(item['log'])}</td></tr>")
+        write_section("Noisy Logs", noisy)
+        write_section("Sensitive / PII Logs", sensitive)
+        write_section("Severity Violations", severity)
  
-        f.write("""
-</table>
-<h2>Severity Violations</h2>
-<table><tr><th>Line</th><th>Reason</th><th>Log</th></tr>
-""")
-        for item in severity:
-            f.write(f"<tr><td>{item['line']}</td><td>{escape(item['reason'])}</td><td>{escape(item['log'])}</td></tr>")
+        f.write("</body></html>")
  
-        f.write("</table></body></html>")
+    print(f"✅ Report generated: {out}")
  
-    print(f"Report generated: {out}")
- 
-# -------------------------------
+# -----------------------------
 if __name__ == "__main__":
+ 
     if len(sys.argv) < 2:
-        print("Usage: python3 analyzer.py <log_file>")
+        print("Usage: python3 noisy_log_detector.py <log_file>")
         sys.exit(1)
  
     log_file = sys.argv[1]
+ 
+    if not Path(log_file).exists():
+        print(f"Log file not found: {log_file}")
+        sys.exit(1)
+ 
     rules = load_rules()
     noisy, sensitive, severity = analyze(log_file, rules)
     generate_html(noisy, sensitive, severity)
