@@ -16,10 +16,17 @@ def detect_level(line):
         if re.search(rf"\b{lvl}\b", line):
             return lvl
     return "UNKNOWN"
- 
+
 def matches_any(patterns, text):
-    return any(re.search(p, text, re.IGNORECASE) for p in patterns)
- 
+    for p in patterns:
+        if isinstance(p, str):
+            if re.search(p, text, re.IGNORECASE):
+                return True
+        elif isinstance(p, dict):
+            for v in p.values():
+                if re.search(str(v), text, re.IGNORECASE):
+                    return True
+    return False
 # -----------------------------------
 def analyze(log_file, rules):
     noisy = defaultdict(list)
