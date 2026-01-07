@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import re
+import sys
 import yaml
 from collections import defaultdict
 from html import escape
@@ -50,7 +51,7 @@ def analyze(log_file, rules):
                 if level not in rules["required_severity_on_failure"]:
                     severity_violations.append((ln, line.strip()))
  
-            # Heuristic reset (end of request)
+            # End of request heuristic
             if "request completed" in line.lower():
                 in_public_api = False
  
@@ -97,18 +98,14 @@ th{background:#f0f0f0;}
     print(f"Report generated: {out}")
  
 # -----------------------------------
-def main():
-    import sys
-    if len(sys.argv) != 2:
-        print("Usage: python noisy_log_analyzer.py <log|tgz|tar>")
+if __name__ == "__main__":
+ 
+    if len(sys.argv) < 2:
+        print("Usage: python3 analyzer.py <log_file>")
         sys.exit(1)
  
+    log_file = sys.argv[1]
+ 
     rules = load_rules()
-    log_file = sys.argv[1]; 
     noisy, sensitive, severity = analyze(log_file, rules)
     generate_html(noisy, sensitive, severity)
- 
-    print(f"Report generated: noisy_log_report.html")
- 
-if __name__ == "__main__":
-    main()
