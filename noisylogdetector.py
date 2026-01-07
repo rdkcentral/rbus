@@ -66,11 +66,11 @@ def analyze(log_file, rules):
             level = detect_level(line)
  
             # Detect public API context
-            if matches_any_compiled(rules["public_api_patterns"], line):
+            if matches_any_compiled(rules["public_api_patterns_compiled"], line):
                 in_public_api = True
- 
+
             # Noisy logs: internal logs during public API execution
-            if in_public_api and matches_any_compiled(rules["internal_log_patterns"], line):
+            if in_public_api and matches_any_compiled(rules["internal_log_patterns_compiled"], line):
                 if level in rules["noisy_log_levels"]:
                     noisy.append({
                         "line": ln,
@@ -78,18 +78,18 @@ def analyze(log_file, rules):
                         "rule": "NOISY_INTERNAL_API_LOG",
                         "reason": "Internal API log printed during public API execution"
                     })
- 
+
             # Sensitive / PII detection
-            if matches_any_compiled(rules["sensitive_patterns"], line):
+            if matches_any_compiled(rules["sensitive_patterns_compiled"], line):
                 sensitive.append({
                     "line": ln,
                     "log": line,
                     "rule": "SENSITIVE_PII_LOG",
                     "reason": "Potential sensitive information detected"
                 })
- 
+
             # Failure severity enforcement
-            if matches_any_compiled(rules["failure_keywords"], line):
+            if matches_any_compiled(rules["failure_keywords_compiled"], line):
                 if level not in rules["required_severity_on_failure"]:
                     severity_violations.append({
                         "line": ln,
