@@ -95,10 +95,6 @@ def analyze(log_file, rules):
                         "reason": "Failure logged without ERROR/WARN"
                     })
  
-            # ----------------- End of public API
-            if any(k in line.lower() for k in rules["execution_end_patterns"]):
-                in_public_api = False
-                active_public_api = None
  
     return noisy_logs, sensitive_logs, severity_violations
  
