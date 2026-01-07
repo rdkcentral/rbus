@@ -1,36 +1,48 @@
-entry_patterns:
-    - "\\b([a-zA-Z0-9_]+)\\s*\\("   # function call detected
+# What defines a public/external API entry
+public_api_patterns:
+  - '\bapi\b\s*[:=]\s*\w+'
+  - '\brequest\s+received\b'
+  - '\bentry\s+point\b'
  
-internal_api_patterns:
-  - internal
-  - helper
-  - util
-  - impl
-  - private
+# What defines internal logs
+internal_log_patterns:
+  - '\binternal\b'
+  - '\bhelper\b'
+  - '\butil\b'
+  - '\bvalidate\b'
+  - '\bparse\b'
+  - '\bserialize\b'
+  - '\bcache\b'
+  - '\bdb\b'
+  - '\bipc\b'
  
+# Log levels considered noisy when internal
 noisy_log_levels:
   - INFO
   - DEBUG
   - TRACE
  
+# Keywords indicating failure
 failure_keywords:
   - fail
-  - failed
   - error
-  - timeout
-  - denied
   - invalid
+  - timeout
+  - null
+  - refused
  
+# Allowed severities when failure occurs
 required_severity_on_failure:
-  - WARN
   - ERROR
+  - WARN
  
+# Sensitive / PII detection
 sensitive_patterns:
   - password
   - passwd
   - token
   - secret
-  - api[_-]?key
+  - serial
   - mac
-  - ipv4
-  - email
+  - bearer\s+[a-z0-9\-_\.]+
+  - ip\s*=\s*\d+\.\d+\.\d+\.\d+
