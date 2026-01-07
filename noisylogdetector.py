@@ -11,29 +11,12 @@ def load_rules(path="rules.yml"):
         return yaml.safe_load(f)
  
 # -----------------------------------
-TIMESTAMP_AT_START = re.compile(
-    r"""
-    ^\s*(
-        \[\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(?:\.\d+)?\]? |
-        \d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(?:\.\d+)? |
-        \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z? |
-        \d{2}:\d{2}:\d{2}[.,]\d+ |
-        [A-Z][a-z]{2}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2}
-    )
-    """,
-    re.VERBOSE
-)
- 
-def has_timestamp_at_start(line):
-    return bool(TIMESTAMP_AT_START.match(line))
- 
-# -----------------------------------
 def detect_level(line):
     for lvl in ["ERROR", "WARN", "INFO", "DEBUG", "TRACE"]:
         if re.search(rf"\b{lvl}\b", line):
             return lvl
     return "UNKNOWN"
-
+ 
 def matches_any(patterns, text):
     for p in patterns:
         if isinstance(p, str):
@@ -44,9 +27,26 @@ def matches_any(patterns, text):
                 if re.search(str(v), text, re.IGNORECASE):
                     return True
     return False
+ -----------------------------------
+-TIMESTAMP_AT_START = re.compile(
+-    r"""
+-    ^\s*(
+-        \[\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(?:\.\d+)?\]? |
+-        \d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(?:\.\d+)? |
+-        \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z? |
+-        \d{2}:\d{2}:\d{2}[.,]\d+ |
+-        [A-Z][a-z]{2}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2}
+-    )
+-    """,
+-    re.VERBOSE
+-)
+- 
+-def starts_with_timestamp(line):
+-    return bool(TIMESTAMP_AT_START.match(line))
+ 
 # -----------------------------------
 def analyze(log_file, rules):
-    noisy = defaultdict(list)
+    noisy = []
     sensitive = []
     severity_violations = []
  
@@ -54,10 +54,9 @@ def analyze(log_file, rules):
  
     with open(log_file, "r", errors="ignore") as f:
         for ln, line in enumerate(f, 1):
- 
-            #  PROCESS ONLY TIMESTAMPED LOGS
-            if not has_timestamp_at_start(line):
-                continue
+            line = line.rstrip()
+            if not line or not starts_with_timestamp(line):
+                continue  # skip lines without timestamp at start
  
             level = detect_level(line)
  
@@ -66,19 +65,33 @@ def analyze(log_file, rules):
                 in_public_api = True
  
             # Noisy logs: internal logs during public API execution
-            if in_public_api:
-                if matches_any(rules["internal_log_patterns"], line):
-                    if level in rules["noisy_log_levels"]:
-                        noisy["internal"].append((ln, line.strip()))
+            if in_public_api and matches_any(rules["internal_log_patterns"], line):
+                if level in rules["noisy_log_levels"]:
+                    noisy.append({
+                        "line": ln,
+                        "log": line,
+                        "rule": "NOISY_INTERNAL_API_LOG",
+                        "reason": "Internal API log printed during public API execution"
+                    })
  
             # Sensitive / PII detection
             if matches_any(rules["sensitive_patterns"], line):
-                sensitive.append((ln, line.strip()))
+                sensitive.append({
+                    "line": ln,
+                    "log": line,
+                    "rule": "SENSITIVE_PII_LOG",
+                    "reason": "Potential sensitive information detected"
+                })
  
             # Failure severity enforcement
             if matches_any(rules["failure_keywords"], line):
                 if level not in rules["required_severity_on_failure"]:
-                    severity_violations.append((ln, line.strip()))
+                    severity_violations.append({
+                        "line": ln,
+                        "log": line,
+                        "rule": "SEVERITY_VIOLATION",
+                        "reason": f"Expected severity {rules['required_severity_on_failure']}, got {level}"
+                    })
  
             # End of request heuristic
             if "request completed" in line.lower():
@@ -94,33 +107,60 @@ def generate_html(noisy, sensitive, severity, out="/tmp/noisy_log_report.html"):
 <style>
 body{font-family:Arial;}
 table{border-collapse:collapse;width:100%;}
-th,td{border:1px solid #ccc;padding:6px;}
+th,td{border:1px solid #ccc;padding:6px;vertical-align:top;}
 th{background:#f0f0f0;}
 </style>
 </head><body>
 <h2>Noisy Logs</h2>
 <table>
-<tr><th>Type</th><th>Count</th><th>Samples</th></tr>
+<tr><th>Line</th><th>Rule</th><th>Reason</th><th>Log</th></tr>
 """)
-        for k, logs in noisy.items():
-            sample = "<br>".join(escape(l[1]) for l in logs[:5])
-            f.write(f"<tr><td>{k}</td><td>{len(logs)}</td><td>{sample}</td></tr>")
+        # Group by rule
+        rule_map = defaultdict(list)
+        for item in noisy:
+            rule_map[item["rule"]].append(item)
+ 
+        for rule, items in rule_map.items():
+            # show up to 3 full lines per rule
+            for sample_item in items[:3]:
+                f.write(
+                    f"<tr>"
+                    f"<td>{sample_item['line']}</td>"
+                    f"<td>{sample_item['rule']}</td>"
+                    f"<td>{sample_item['reason']}</td>"
+                    f"<td>{escape(sample_item['log'])}</td>"
+                    f"</tr>"
+                )
  
         f.write("""
 </table>
 <h2>Sensitive / PII Logs</h2>
-<table><tr><th>Line</th><th>Log</th></tr>
+<table><tr><th>Line</th><th>Rule</th><th>Reason</th><th>Log</th></tr>
 """)
-        for ln, l in sensitive:
-            f.write(f"<tr><td>{ln}</td><td>{escape(l)}</td></tr>")
+        for item in sensitive:
+            f.write(
+                f"<tr>"
+                f"<td>{item['line']}</td>"
+                f"<td>{item['rule']}</td>"
+                f"<td>{item['reason']}</td>"
+                f"<td>{escape(item['log'])}</td>"
+                f"</tr>"
+            )
  
         f.write("""
 </table>
 <h2>Severity Violations</h2>
-<table><tr><th>Line</th><th>Log</th></tr>
+<table><tr><th>Line</th><th>Rule</th><th>Reason</th><th>Log</th></tr>
 """)
-        for ln, l in severity:
-            f.write(f"<tr><td>{ln}</td><td>{escape(l)}</td></tr>")
+        for item in severity:
+            f.write(
+                f"<tr>"
+                f"<td>{item['line']}</td>"
+                f"<td>{item['rule']}</td>"
+                f"<td>{item['reason']}</td>"
+                f"<td>{escape(item['log'])}</td>"
+                f"</tr>"
+            )
  
         f.write("</table></body></html>")
  
@@ -138,3 +178,4 @@ if __name__ == "__main__":
     rules = load_rules()
     noisy, sensitive, severity = analyze(log_file, rules)
     generate_html(noisy, sensitive, severity)
+ 
