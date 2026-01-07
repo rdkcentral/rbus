@@ -24,7 +24,7 @@ TIMESTAMP_AT_START = re.compile(
     re.VERBOSE
 )
  
-def has_timestamp_at_start(line):
+def starts_with_timestamp(line):
     return bool(TIMESTAMP_AT_START.match(line))
 # --------------------------------------
 def detect_level(line):
