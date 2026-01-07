@@ -1,80 +1,59 @@
-# What defines a public/external API entry
-public_api_patterns:
-  - '\bapi\b\s*[:=]\s*\w+'
-  - '\brequest\s+received\b'
-  - '\bentry\s+point\b'
+# ------------------------------
+# Rules for log analyzer
+# ------------------------------
  
-# What defines internal logs
-internal_log_patterns:
-  - '\binternal\b'
-  - '\bhelper\b'
-  - '\butil\b'
-  - '\bvalidate\b'
-  - '\bparse\b'
-  - '\bserialize\b'
-  - '\bcache\b'
-  - '\bdb\b'
-  - '\bipc\b'
- 
-# Log levels considered noisy when internal
-noisy_log_levels:
-  - INFO
-  - DEBUG
-  - TRACE
- 
-# Keywords indicating failure
-failure_keywords:
-  - fail
-  - error
-  - invalid
-  - timeout
-  - null
-  - refused
- 
-# Allowed severities when failure occurs
-required_severity_on_failure:
-  - ERROR
-  - WARN
-
+# Patterns to detect sensitive information
 sensitive_patterns:
-  # -------------------------------
-  # Credentials / Secrets
-  # -------------------------------
- 
-  # JWT tokens (only when value is printed)
-  - '(?i)token\s*[:=]\s*[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+'
+  # JWT tokens
+  - '(?i)\btoken\s*[:=]\s*[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\b'
  
   # API keys
-  - '(?i)(api[_-]?key|apikey)\s*[:=]\s*[A-Za-z0-9]{20,}'
+  - '(?i)\b(api[_-]?key|apikey)\s*[:=]\s*[A-Za-z0-9]{20,}\b'
  
   # Password assignments
-  - '(?i)(password|passwd|pwd)\s*[:=]\s*\S{6,}'
+  - '(?i)\b(password|passwd|pwd)\s*[:=]\s*\S{6,}\b'
  
   # Authorization headers
-  - '(?i)authorization\s*[:=]\s*(bearer|basic)\s+[A-Za-z0-9+/=._-]+'
+  - '(?i)\bauthorization\s*[:=]\s*(bearer|basic)\s+[A-Za-z0-9+/=._-]+\b'
  
-  # AWS access key
-  - 'AKIA[0-9A-Z]{16}'
+  # AWS keys
+  - '\bAKIA[0-9A-Z]{16}\b'
  
   # Private key blocks
   - '-----BEGIN .*PRIVATE KEY-----'
  
-  # -------------------------------
-  # URLs (only when full URL is logged)
-  # -------------------------------
-  - '(?i)\bhttps?://[^\s<>"]+'
+  # URLs
+  - r'\bhttps?://[^\s]+'
  
-  # -------------------------------
-  # IP Addresses
-  # -------------------------------
+  # IP addresses
+  - r'\b(?:\d{1,3}\.){3}\d{1,3}\b'
  
-  # IPv4
-  - '\b(?:\d{1,3}\.){3}\d{1,3}\b'
+  # MAC addresses
+  - r'\b([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})\b'
  
-  # IPv6 (basic)
-  - '\b(?:[A-Fa-f0-9]{1,4}:){2,7}[A-Fa-f0-9]{1,4}\b'
+# Patterns that identify start of public API execution
+public_api_patterns:
+  - r'\b(rbus_set|rbus_get|execute_api)\b'
  
-  # -------------------------------
-  # MAC Addresses
-  # -------------------------------
-  - '\b(?:[0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}\b'
+# Patterns for internal logs that are considered noisy during public API
+internal_log_patterns:
+  - r'\binternal_api\b'
+  - r'\bdebug_internal\b'
+  - r'\bhelper_function\b'
+ 
+# Log levels considered noisy
+noisy_log_levels:
+  - DEBUG
+  - TRACE
+  - INFO
+ 
+# Keywords indicating failure
+failure_keywords:
+  - 'failed'
+  - 'error'
+  - 'exception'
+ 
+# Required log levels for failure messages
+required_severity_on_failure:
+  - ERROR
+  - WARN
