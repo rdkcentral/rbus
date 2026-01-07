@@ -61,17 +61,23 @@ def analyze(log_file, rules):
                 continue
  
             level = detect_level(line)
- 
-            # Detect public API context
-            if matches_any_compiled(rules["public_api_patterns_compiled"], line):
+            # Determine if this line is a public API log
+            is_public_api = matches_any_compiled(rules["public_api_patterns_compiled"], line)
+
+            # Track public API context (if needed for multi-line grouping)
+            if is_public_api:
                 in_public_api = True
-                reason = "Public API start"
- 
-            # Noisy logs: internal logs during public API execution
-            if in_public_api and matches_any_compiled(rules["internal_log_patterns_compiled"], line):
+
+            # Noisy logs: any log during public API execution that does NOT match the public API pattern is internal
+            if in_public_api and not is_public_api:
                 if level in rules["noisy_log_levels"]:
-                    noisy["internal"].append((ln, line.strip(), "Internal log during public API"))
- 
+                    noisy.append({
+                        "line": ln,
+                        "log": line,
+                        "rule": "NOISY_INTERNAL_API_LOG",
+                        "reason": "Internal API log printed"
+                    })
+
             # Sensitive / PII detection
             for p in rules["sensitive_patterns_compiled"]:
                 if p.search(line):
