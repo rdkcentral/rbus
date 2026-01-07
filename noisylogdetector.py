@@ -44,57 +44,50 @@ def matches_any_compiled(compiled_patterns, text):
  
 # -------------------------------
 def analyze(log_file, rules):
-    noisy = defaultdict(list)
+    noisy = []
     sensitive = []
     severity_violations = []
- 
-    in_public_api = False
  
     with open(log_file, "r", errors="ignore") as f:
         for ln, line in enumerate(f, 1):
             line = line.rstrip()
             if not line or not starts_with_timestamp(line):
-                continue
- 
-            # Only process lines that start with timestamp
-            if not re.match(r"^\d{2}:\d{2}:\d{2}|^\d{4}-\d{2}-\d{2}", line):
-                continue
- 
+                continue  # skip lines without timestamp at start
+
             level = detect_level(line)
-            # Determine if this line is a public API log
+
+            # Determine if this line is a public API log (rbus_*)
             is_public_api = matches_any_compiled(rules["public_api_patterns_compiled"], line)
 
-            # Track public API context (if needed for multi-line grouping)
-            if is_public_api:
-                in_public_api = True
-
-            # Noisy logs: any log during public API execution that does NOT match the public API pattern is internal
-            if in_public_api and not is_public_api:
-                if level in rules["noisy_log_levels"]:
-                    noisy.append({
-                        "line": ln,
-                        "log": line,
-                        "rule": "NOISY_INTERNAL_API_LOG",
-                        "reason": "Internal API log printed"
-                    })
+            # Noisy logs: any log not matching rbus_* and with a noisy level
+            if not is_public_api and level in rules["noisy_log_levels"]:
+                noisy.append({
+                    "line": ln,
+                    "log": line,
+                    "rule": "NOISY_INTERNAL_API_LOG",
+                    "reason": "Non-rbus_* log printed at noisy level"
+                })
 
             # Sensitive / PII detection
-            for p in rules["sensitive_patterns_compiled"]:
-                if p.search(line):
-                    sensitive.append((ln, line.strip(), "Sensitive / PII detected"))
-                    break  # only one reason is enough
- 
+            if matches_any_compiled(rules["sensitive_patterns_compiled"], line):
+                sensitive.append({
+                    "line": ln,
+                    "log": line,
+                    "rule": "SENSITIVE_PII_LOG",
+                    "reason": "Potential sensitive information detected"
+                })
+
             # Failure severity enforcement
             if matches_any_compiled(rules["failure_keywords_compiled"], line):
                 if level not in rules["required_severity_on_failure"]:
-                    severity_violations.append((ln, line.strip(), f"Failure not logged as {rules['required_severity_on_failure']}"))
- 
-            # End of request heuristic
-            if "request completed" in line.lower():
-                in_public_api = False
- 
+                    severity_violations.append({
+                        "line": ln,
+                        "log": line,
+                        "rule": "SEVERITY_VIOLATION",
+                        "reason": f"Expected severity {rules['required_severity_on_failure']}, got {level}"
+                    })
+
     return noisy, sensitive, severity_violations
- 
 # -------------------------------
 def generate_html(noisy, sensitive, severity, out="/tmp/noisy_log_report.html"):
     with open(out, "w", encoding="utf-8") as f:
