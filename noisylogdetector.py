@@ -90,7 +90,7 @@ def analyze(log_file, rules):
     return noisy, sensitive, severity_violations
  
 # -------------------------------
-def generate_html(noisy, sensitive, severity, out="/tmp/noisy_log__report.html"):
+def generate_html(noisy, sensitive, severity, out="/tmp/noisy_log_report.html"):
     with open(out, "w", encoding="utf-8") as f:
         f.write("""
 <html><head><title>Log Quality Report</title>
