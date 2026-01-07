@@ -44,7 +44,7 @@ def matches_any_compiled(compiled_patterns, text):
  
 # -------------------------------
 def analyze(log_file, rules):
-    noisy = defaultdict(list)
+    noisy = []
     sensitive = []
     severity_violations = []
  
@@ -104,26 +104,39 @@ th{background:#f0f0f0;}
 <table>
 <tr><th>Type</th><th>Count</th><th>Reason</th><th>Samples</th></tr>
 """)
-        for k, logs in noisy.items():
-            sample = "<br>".join(escape(l[1]) for l in logs[:5])
-            reasons = "<br>".join(escape(l[2]) for l in logs[:5])
-            f.write(f"<tr><td>{k}</td><td>{len(logs)}</td><td>{reasons}</td><td>{sample}</td></tr>")
+        # Group noisy logs by rule
+        from collections import defaultdict
+        rule_map = defaultdict(list)
+        for item in noisy:
+            rule_map[item["rule"]].append(item)
+
+        for rule, items in rule_map.items():
+            # show up to 3 full lines per rule
+            for sample_item in items[:3]:
+                f.write(
+                    f"<tr>"
+                    f"<td>{sample_item['rule']}</td>"
+                    f"<td>1</td>"
+                    f"<td>{escape(sample_item['reason'])}</td>"
+                    f"<td>{escape(sample_item['log'])}</td>"
+                    f"</tr>"
+                )
  
         f.write("""
 </table>
 <h2>Sensitive / PII Logs</h2>
 <table><tr><th>Line</th><th>Reason</th><th>Log</th></tr>
 """)
-        for ln, l, reason in sensitive:
-            f.write(f"<tr><td>{ln}</td><td>{escape(reason)}</td><td>{escape(l)}</td></tr>")
+        for item in sensitive:
+            f.write(f"<tr><td>{item['line']}</td><td>{escape(item['reason'])}</td><td>{escape(item['log'])}</td></tr>")
  
         f.write("""
 </table>
 <h2>Severity Violations</h2>
 <table><tr><th>Line</th><th>Reason</th><th>Log</th></tr>
 """)
-        for ln, l, reason in severity:
-            f.write(f"<tr><td>{ln}</td><td>{escape(reason)}</td><td>{escape(l)}</td></tr>")
+        for item in severity:
+            f.write(f"<tr><td>{item['line']}</td><td>{escape(item['reason'])}</td><td>{escape(item['log'])}</td></tr>")
  
         f.write("</table></body></html>")
  
