@@ -49,16 +49,6 @@ def detect_level(line):
 def matches_any_compiled(compiled_patterns, text):
     return any(p.search(text) for p in compiled_patterns)
 
-def matches_any(patterns, text):
-    for p in patterns:
-        if isinstance(p, str):
-            if re.search(p, text, re.IGNORECASE):
-                return True
-        elif isinstance(p, dict):
-            for v in p.values():
-                if re.search(str(v), text, re.IGNORECASE):
-                    return True
-    return False
 # -----------------------------------
 def analyze(log_file, rules):
     noisy = []
@@ -74,27 +64,13 @@ def analyze(log_file, rules):
                 continue  # skip lines without timestamp at start
  
             level = detect_level(line)
-            # Sensitive / PII detection
-if matches_any_compiled(rules["sensitive_patterns_compiled"], line):
-    sensitive.append({
-        "line": ln,
-        "log": line,
-        "rule": "SENSITIVE_PII_LOG",
-        "reason": "Potential sensitive information detected"
-    })
- 
-# Internal API noisy logs
-if in_public_api and matches_any_compiled(rules["internal_log_patterns_compiled"], line):
-# Public API detection
-    if matches_any_compiled(rules["public_api_patterns_compiled"], line):
-        in_public_api = True
  
             # Detect public API context
-            if matches_any(rules["public_api_patterns"], line):
+            if matches_any_compiled(rules["public_api_patterns"], line):
                 in_public_api = True
  
             # Noisy logs: internal logs during public API execution
-            if in_public_api and matches_any(rules["internal_log_patterns"], line):
+            if in_public_api and matches_any_compiled(rules["internal_log_patterns"], line):
                 if level in rules["noisy_log_levels"]:
                     noisy.append({
                         "line": ln,
@@ -104,7 +80,7 @@ if in_public_api and matches_any_compiled(rules["internal_log_patterns_compiled"
                     })
  
             # Sensitive / PII detection
-            if matches_any(rules["sensitive_patterns"], line):
+            if matches_any_compiled(rules["sensitive_patterns"], line):
                 sensitive.append({
                     "line": ln,
                     "log": line,
@@ -113,7 +89,7 @@ if in_public_api and matches_any_compiled(rules["internal_log_patterns_compiled"
                 })
  
             # Failure severity enforcement
-            if matches_any(rules["failure_keywords"], line):
+            if matches_any_compiled(rules["failure_keywords"], line):
                 if level not in rules["required_severity_on_failure"]:
                     severity_violations.append({
                         "line": ln,
