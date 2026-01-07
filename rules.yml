@@ -33,7 +33,7 @@ sensitive_patterns:
  
 # Patterns that identify start of public API execution
 public_api_patterns:
-  - rbus.c
+  - 'rbus\.c'
  
 # Patterns for internal logs that are considered noisy during public API
 #internal_log_patterns:
