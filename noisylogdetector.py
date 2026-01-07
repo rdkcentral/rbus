@@ -50,7 +50,7 @@ def analyze(log_file, rules):
  
     with open(log_file, "r", errors="ignore") as f:
         for ln, line in enumerate(f, 1):
-            line = line.rstrip()
+#line = line.rstrip()
             if not starts_with_timestamp(line):
                 continue  # skip lines without timestamp at start
 
