@@ -44,7 +44,7 @@ def matches_any_compiled(compiled_patterns, text):
  
 # -------------------------------
 def analyze(log_file, rules):
-    noisy = []
+    noisy = defaultdict(list)
     sensitive = []
     severity_violations = []
  
