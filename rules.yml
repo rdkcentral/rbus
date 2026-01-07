@@ -35,14 +35,46 @@ failure_keywords:
 required_severity_on_failure:
   - ERROR
   - WARN
- 
-# Sensitive / PII detection
+
 sensitive_patterns:
-  - password
-  - passwd
-  - token
-  - secret
-  - serial
-  - mac
-  - bearer\s+[a-z0-9\-_\.]+
-  - ip\s*=\s*\d+\.\d+\.\d+\.\d+
+  # -------------------------------
+  # Credentials / Secrets
+  # -------------------------------
+ 
+  # JWT tokens (only when value is printed)
+  - '(?i)token\s*[:=]\s*[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+'
+ 
+  # API keys
+  - '(?i)(api[_-]?key|apikey)\s*[:=]\s*[A-Za-z0-9]{20,}'
+ 
+  # Password assignments
+  - '(?i)(password|passwd|pwd)\s*[:=]\s*\S{6,}'
+ 
+  # Authorization headers
+  - '(?i)authorization\s*[:=]\s*(bearer|basic)\s+[A-Za-z0-9+/=._-]+'
+ 
+  # AWS access key
+  - 'AKIA[0-9A-Z]{16}'
+ 
+  # Private key blocks
+  - '-----BEGIN .*PRIVATE KEY-----'
+ 
+  # -------------------------------
+  # URLs (only when full URL is logged)
+  # -------------------------------
+  - '(?i)\bhttps?://[^\s<>"]+'
+ 
+  # -------------------------------
+  # IP Addresses
+  # -------------------------------
+ 
+  # IPv4
+  - '\b(?:\d{1,3}\.){3}\d{1,3}\b'
+ 
+  # IPv6 (basic)
+  - '\b(?:[A-Fa-f0-9]{1,4}:){2,7}[A-Fa-f0-9]{1,4}\b'
+ 
+  # -------------------------------
+  # MAC Addresses
+  # -------------------------------
+  - '\b(?:[0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}\b'

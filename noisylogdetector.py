@@ -11,22 +11,31 @@ def load_rules(path="rules.yml"):
         return yaml.safe_load(f)
  
 # -----------------------------------
+TIMESTAMP_AT_START = re.compile(
+    r"""
+    ^\s*(
+        \[\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(?:\.\d+)?\]? |
+        \d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(?:\.\d+)? |
+        \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z? |
+        [A-Z][a-z]{2}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2}
+    )
+    """,
+    re.VERBOSE
+)
+ 
+def has_timestamp_at_start(line):
+    return bool(TIMESTAMP_AT_START.match(line))
+ 
+# -----------------------------------
 def detect_level(line):
     for lvl in ["ERROR", "WARN", "INFO", "DEBUG", "TRACE"]:
         if re.search(rf"\b{lvl}\b", line):
             return lvl
     return "UNKNOWN"
-
+ 
 def matches_any(patterns, text):
-    for p in patterns:
-        if isinstance(p, str):
-            if re.search(p, text, re.IGNORECASE):
-                return True
-        elif isinstance(p, dict):
-            for v in p.values():
-                if re.search(str(v), text, re.IGNORECASE):
-                    return True
-    return False
+    return any(re.search(p, text, re.IGNORECASE) for p in patterns)
+ 
 # -----------------------------------
 def analyze(log_file, rules):
     noisy = defaultdict(list)
@@ -37,6 +46,11 @@ def analyze(log_file, rules):
  
     with open(log_file, "r", errors="ignore") as f:
         for ln, line in enumerate(f, 1):
+ 
+            #  PROCESS ONLY TIMESTAMPED LOGS
+            if not has_timestamp_at_start(line):
+                continue
+ 
             level = detect_level(line)
  
             # Detect public API context
