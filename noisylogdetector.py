@@ -8,8 +8,21 @@ from html import escape
 # -----------------------------------
 def load_rules(path="rules.yml"):
     with open(path, "r") as f:
-        return yaml.safe_load(f)
+        rules = yaml.safe_load(f)
  
+    # Compile sensitive patterns
+    rules["sensitive_patterns_compiled"] = []
+    for p in rules.get("sensitive_patterns", []):
+        try:
+            rules["sensitive_patterns_compiled"].append(re.compile(p, re.IGNORECASE))
+        except re.error as e:
+            print(f"Failed to compile pattern {p}: {e}")
+ 
+    # Compile internal and public API patterns too (optional)
+    rules["internal_log_patterns_compiled"] = [re.compile(p, re.IGNORECASE) for p in rules.get("internal_log_patterns", [])]
+    rules["public_api_patterns_compiled"] = [re.compile(p, re.IGNORECASE) for p in rules.get("public_api_patterns", [])]
+ 
+    return rules
 # -----------------------------------
 TIMESTAMP_AT_START = re.compile(
     r"""
@@ -32,7 +45,10 @@ def detect_level(line):
         if re.search(rf"\b{lvl}\b", line):
             return lvl
     return "UNKNOWN"
- 
+
+def matches_any_compiled(compiled_patterns, text):
+    return any(p.search(text) for p in compiled_patterns)
+
 def matches_any(patterns, text):
     for p in patterns:
         if isinstance(p, str):
@@ -58,6 +74,20 @@ def analyze(log_file, rules):
                 continue  # skip lines without timestamp at start
  
             level = detect_level(line)
+            # Sensitive / PII detection
+if matches_any_compiled(rules["sensitive_patterns_compiled"], line):
+    sensitive.append({
+        "line": ln,
+        "log": line,
+        "rule": "SENSITIVE_PII_LOG",
+        "reason": "Potential sensitive information detected"
+    })
+ 
+# Internal API noisy logs
+if in_public_api and matches_any_compiled(rules["internal_log_patterns_compiled"], line):
+# Public API detection
+    if matches_any_compiled(rules["public_api_patterns_compiled"], line):
+        in_public_api = True
  
             # Detect public API context
             if matches_any(rules["public_api_patterns"], line):
