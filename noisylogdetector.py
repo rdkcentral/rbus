@@ -104,8 +104,8 @@ def main():
         sys.exit(1)
  
     rules = load_rules()
- 
-    noisy, sensitive, severity = analyze(sys.argv[1], rules)
+    log_file = sys.argv[1]; 
+    noisy, sensitive, severity = analyze(log_file, rules)
     generate_html(noisy, sensitive, severity)
  
     print(f"Report generated: noisy_log_report.html")
