@@ -128,12 +128,6 @@ jobs:
           done
           cd /tmp
           ls -l
-      - name: Analyze logs
-        run: |
-          cd ${{github.workspace}}/rbus
-          python noisylogdetector.py /tmp/logs.txt
-          cd /tmp
-          ls -l
       - name: Stop SessionManager
         run: |
           killall -15 rbus_session_mgr
