@@ -100,7 +100,7 @@ def analyze(log_file, rules):
  
 # -----------------------------
 def generate_html(noisy, sensitive, severity, output):
-    with open(out, "w", encoding="utf-8") as f:
+    with open(output, "w", encoding="utf-8") as f:
         f.write("""
 <html>
 <head>
@@ -134,7 +134,7 @@ th { background: #f0f0f0; }
  
         f.write("</body></html>")
  
-    print(f"✅ Report generated: {out}")
+    print(f"Report generated: {output}")
  
 # -----------------------------
 if __name__ == "__main__":
