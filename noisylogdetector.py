@@ -151,6 +151,6 @@ if __name__ == "__main__":
         sys.exit(1)
  
     rules = load_rules()
-    noisy, sensitive, severity = analyze(log_file, rules, output)
-    generate_html(noisy, sensitive, severity)
+    noisy, sensitive, severity = analyze(log_file, rules)
+    generate_html(noisy, sensitive, severity, output)
  
