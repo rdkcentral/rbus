@@ -99,8 +99,7 @@ def analyze(log_file, rules):
     return noisy_logs, sensitive_logs, severity_violations
  
 # -----------------------------
-out = sys.argv[2]
-def generate_html(noisy, sensitive, severity, out):
+def generate_html(noisy, sensitive, severity, output):
     with open(out, "w", encoding="utf-8") as f:
         f.write("""
 <html>
@@ -145,12 +144,13 @@ if __name__ == "__main__":
         sys.exit(1)
  
     log_file = sys.argv[1]
+    output = sys.argv[2]
  
     if not Path(log_file).exists():
         print(f"Log file not found: {log_file}")
         sys.exit(1)
  
     rules = load_rules()
-    noisy, sensitive, severity = analyze(log_file, rules)
+    noisy, sensitive, severity = analyze(log_file, rules, output)
     generate_html(noisy, sensitive, severity)
  
