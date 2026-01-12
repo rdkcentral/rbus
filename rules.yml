@@ -52,6 +52,8 @@ failure_keywords:
   - 'failed'
   - 'error'
   - 'exception'
+  - 'invalid'
+  - 'timeout'
  
 # Required log levels for failure messages
 required_severity_on_failure:
