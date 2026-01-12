@@ -20,7 +20,7 @@ def starts_with_timestamp(line):
     Nov 11 04:31:14
     """
     return bool(re.match(
-        r'^\s*(\d{2}:\d{2}:\d{2}\.\d+|\d{4}-\d{2}-\d{2}|\w{3}\s+\d+\s+\d{2}:\d{2}:\d{2})'
+        r'^\s*(\d{2}:\d{2}:\d{2}\.\d+|\d{4}-\d{2}-\d{2}|\w{3}\s+\d+\s+\d{2}:\d{2}:\d{2})',
         line
     ))
  
