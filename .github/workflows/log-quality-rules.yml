@@ -1,0 +1,144 @@
+name: log-quality-rules
+on:
+  push:
+     branches: [ main, develop, release, support/*, hotfix/*, topic/* ]
+  pull_request:
+     branches: [ main, develop, release, support/*, hotfix/*, topic/* ]
+jobs:
+  all:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Set up cache
+        id: cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            build
+            install
+          key: ${{ runner.os }}-${{ github.sha }}
+
+      - name: Set up CMake
+        # 3.16.x To support flow control commands to be overridden.
+        # Installs in: find /opt -ipath *bin/cmake
+        uses: jwlawson/actions-setup-cmake@v1.12
+        with:
+          cmake-version: '3.16.x'
+      - name: Install packages
+        run: >
+          sudo apt update && sudo apt install -y libcurl4-openssl-dev libgtest-dev lcov gcovr libmsgpack* libcjson-dev  build-essential
+      - name: Checkout rbus
+        if: steps.cache.outputs.cache-hit != 'true'
+        uses: actions/checkout@v3
+        with:
+          path: rbus
+      - name: Install dependencies
+        run: pip install pyyaml
+      - name: Configure Rbus
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: >
+          cmake 
+          -S "${{github.workspace}}/rbus"
+          -B build/rbus 
+          -DCMAKE_INSTALL_PREFIX="${{github.workspace}}/install/usr" 
+          -DBUILD_FOR_DESKTOP=ON
+          -DENABLE_UNIT_TESTING=ON
+          -DENABLE_CODE_COVERAGE=ON          
+          -DCMAKE_BUILD_TYPE=Debug
+      - name: Build Rbus
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: >
+          make -C build/rbus 
+      - name: Install rbus
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: >
+          make -C build/rbus install
+      - name: Start rtrouted
+        # nohup to keep it running.
+        run: |
+          cd install/usr
+          export PREFIX=$PWD
+          export LD_LIBRARY_PATH=$PREFIX/lib
+          nohup ./bin/rtrouted -f -l DEBUG > /tmp/rtrouted_log.txt &
+      - name: Run drop test with inactive provider
+        continue-on-error: true
+        run: |
+          cd install/usr
+          export PREFIX=$PWD
+          export LD_LIBRARY_PATH=$PREFIX/lib
+          nohup ./bin/rbusSampleProvider > log_sampleProvider.log 2>&1 &
+          sleep 1
+          nohup stdbuf -oL -eL ./bin/rbusBlockingProvider > log_blockingProvider.log 2>&1 &
+          sleep 1
+          ./bin/rbusDmlBlockingConsumer > log_dmlBlockingConsumer.log 2>&1
+          cat sampleProvider.log || true
+          cat blockingProvider.log || true
+          cat dmlBlockingConsumer.log || true
+      - name: Run RbusTestTimeoutValues Unit test
+        run: |
+          cd install/usr
+          export PREFIX=$PWD
+          export LD_LIBRARY_PATH=$PREFIX/lib
+          nohup ./bin/rbusTestTimeoutValuesProvider > log_testTimeoutValuesProvider.txt &
+          ./bin/rbusTestTimeoutValuesConsumer > log_testTimeoutValuesConsumer.txt &
+      - name: Run Unit test
+        run: |
+          cd install/usr
+          export PREFIX=$PWD
+          export LD_LIBRARY_PATH=$PREFIX/lib
+          nohup ./bin/rbusTestProvider >/tmp/log_TestAppProvider.txt &
+          ./bin/rbusTestConsumer -a > /tmp/log_TestConsumer.txt &
+      - name: Run multiRbusOpenMethod Unit Test
+        run: |
+          cd install/usr
+          export PREFIX=$PWD
+          export LD_LIBRARY_PATH=$PREFIX/lib
+          ./bin/multiRbusOpenMethodProvider > /tmp/log_MultiRbusOpenMethodProvider.txt &
+          ./bin/multiRbusOpenMethodConsumer > /tmp/log_MultiRbusOpenMethodConsumer.txt&
+      - name: Run multiRbusOpenSubscribe Unit test
+        run: |
+          cd install/usr
+          export PREFIX=$PWD
+          export LD_LIBRARY_PATH=$PREFIX/lib
+          nohup ./bin/multiRbusOpenProvider >/tmp/log_multiRbusOpenProvider.txt &
+          ./bin/multiRbusOpenConsumer >/tmp/log_multiRbusOpenConsumer.txt &
+      - name: Run multiRbusOpenGet Unit test
+        run: |
+          cd install/usr
+          export PREFIX=$PWD
+          export LD_LIBRARY_PATH=$PREFIX/lib
+          nohup ./bin/multiRbusOpenRbusGetProvider >/tmp/log_multiRbusOpenRbusGetProvider.txt &
+          ./bin/multiRbusOpenRbusGetConsumer >/tmp/log_multiRbusOpenRbusGetConsumer.txt &
+      - name: Run multiRbusOpenSet Unit test
+        run: |
+          cd install/usr
+          export PREFIX=$PWD
+          export LD_LIBRARY_PATH=$PREFIX/lib
+          nohup ./bin/multiRbusOpenRbusGetProvider >/tmp/log_multiRbusOpenRbusSetProvider.txt &
+          ./bin/multiRbusOpenRbusSetConsumer >/tmp/log_multiRbusOpenRbusSetConsumer.txt &
+      - name: Run Gtest Cases
+        run: |
+          cd build/rbus
+          nohup ./src/session_manager/rbus_session_mgr &
+          ./unittests/rbus_gtest.bin > /tmp/logs.txt &
+      - name: Analyze logs
+        run: |
+          cd ${{github.workspace}}/rbus
+          for f in /tmp/logs*.txt; do
+              python noisylogdetector.py "$f" "/tmp/noisy_log_report_$(basename "$f" .txt).html"
+          done
+          cd /tmp
+          ls -l
+      - name: Stop SessionManager
+        run: |
+          killall -15 rbus_session_mgr
+      - name: Stop rtrouted
+        run: |
+          cd install/usr
+          export PREFIX=$PWD
+          export LD_LIBRARY_PATH=$PREFIX/lib
+          nohup ./bin/rtrouted_diag shutdown
+      - name: Upload the noisy log report to Pull request using actions
+        uses: actions/upload-artifact@v4
+        with:
+          name: noisy-log-report
+          path: /tmp/noisy_log_report_*.html
