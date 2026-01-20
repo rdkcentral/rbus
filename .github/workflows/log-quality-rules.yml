@@ -70,9 +70,9 @@ jobs:
           nohup stdbuf -oL -eL ./bin/rbusBlockingProvider > log_blockingProvider.log 2>&1 &
           sleep 1
           ./bin/rbusDmlBlockingConsumer > log_dmlBlockingConsumer.log 2>&1
-          cat sampleProvider.log || true
-          cat blockingProvider.log || true
-          cat dmlBlockingConsumer.log || true
+          cat log_sampleProvider.log || true
+          cat log_blockingProvider.log || true
+          cat log_dmlBlockingConsumer.log || true
       - name: Run RbusTestTimeoutValues Unit test
         run: |
           cd install/usr
@@ -113,7 +113,7 @@ jobs:
           cd install/usr
           export PREFIX=$PWD
           export LD_LIBRARY_PATH=$PREFIX/lib
-          nohup ./bin/multiRbusOpenRbusGetProvider >/tmp/log_multiRbusOpenRbusSetProvider.txt &
+          nohup ./bin/multiRbusOpenRbusSetProvider >/tmp/log_multiRbusOpenRbusSetProvider.txt &
           ./bin/multiRbusOpenRbusSetConsumer >/tmp/log_multiRbusOpenRbusSetConsumer.txt &
       - name: Run Gtest Cases
         run: |
@@ -124,7 +124,7 @@ jobs:
         run: |
           cd ${{github.workspace}}/rbus
           for f in /tmp/logs*.txt; do
-              python noisylogdetector.py "$f" "/tmp/noisy_log_report_$(basename "$f" .txt).html"
+              python3 noisylogdetector.py "$f" "/tmp/noisy_log_report_$(basename "$f" .txt).html"
           done
           cd /tmp
           ls -l
@@ -136,7 +136,7 @@ jobs:
           cd install/usr
           export PREFIX=$PWD
           export LD_LIBRARY_PATH=$PREFIX/lib
-          nohup ./bin/rtrouted_diag shutdown
+          ./bin/rtrouted_diag shutdown
       - name: Upload the noisy log report to Pull request using actions
         uses: actions/upload-artifact@v4
         with:

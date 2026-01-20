@@ -23,13 +23,13 @@ sensitive_patterns:
   - '-----BEGIN .*PRIVATE KEY-----'
 
   # URLs
-  - r'\bhttps?://[^\s]+'
+  - '\bhttps?://[^\s]+'
 
   # IP addresses
-  - r'\b(?:\d{1,3}\.){3}\d{1,3}\b'
+  - '\b(?:\d{1,3}\.){3}\d{1,3}\b'
 
   # MAC addresses
-  - r'\b([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})\b'
+  - '\b([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})\b'
 
 # Patterns that identify start of public API execution
 public_api_patterns:

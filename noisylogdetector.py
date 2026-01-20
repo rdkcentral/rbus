@@ -2,14 +2,26 @@
 import re
 import sys
 import yaml
-from collections import defaultdict
 from html import escape
 from pathlib import Path
 
 # -----------------------------
 def load_rules(path="rules.yml"):
-    with open(path, "r") as f:
-        return yaml.safe_load(f)
+    try:
+        with open(path, "r") as f:
+            return yaml.safe_load(f)
+    except FileNotFoundError:
+        print(f"Rules file not found: {path}", file=sys.stderr)
+        sys.exit(1)
+    except PermissionError:
+        print(f"Permission denied while reading rules file: {path}", file=sys.stderr)
+        sys.exit(1)
+    except yaml.YAMLError as e:
+        print(f"Failed to parse YAML rules file '{path}': {e}", file=sys.stderr)
+        sys.exit(1)
+    except Exception as e:
+        print(f"Unexpected error while loading rules from '{path}': {e}", file=sys.stderr)
+        sys.exit(1)
 
 # -----------------------------
 def starts_with_timestamp(line):
@@ -43,7 +55,6 @@ def analyze(log_file, rules):
     public_api_res = compile_patterns(rules["public_api_patterns"])
     sensitive_res = compile_patterns(rules["sensitive_patterns"])
     failure_keywords = rules["failure_keywords"]
-
     in_public_api = False
     active_public_api = None
 
@@ -139,8 +150,8 @@ th { background: #f0f0f0; }
 # -----------------------------
 if __name__ == "__main__":
 
-    if len(sys.argv) < 2:
-        print("Usage: python3 noisy_log_detector.py <log_file>")
+    if len(sys.argv) < 3:
+        print("Usage: python3 noisylogdetector.py <log_file> <output.html>")
         sys.exit(1)
 
     log_file = sys.argv[1]
