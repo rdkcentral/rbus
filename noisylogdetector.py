@@ -37,7 +37,7 @@ def validate_rules(rules):
         if key not in rules or not isinstance(rules[key], list):
             print(f"Rules file missing or invalid key: '{key}'", file=sys.stderr)
             sys.exit(1)
-    # Do not check for public_api_end_patterns
+    # End patterns intentionally not checked: API context continues until next API call.
 
 # -----------------------------
 def starts_with_date_and_timestamp(line):
@@ -65,34 +65,36 @@ def compile_patterns(patterns):
 # -----------------------------
 def detect_public_api_context(lines, rules):
     public_api_res = compile_patterns(rules["public_api_patterns"])
-    # Do not use public_api_end_patterns
     context = []
     in_public_api = False
     active_public_api = None
     for ln, line in lines:
-        # Detect API start
+        found_api = None
         for r in public_api_res:
             m = r.search(line)
             if m:
-                in_public_api = True
-                active_public_api = m.group(0)
+                found_api = m.group(0)
                 break
-        # End API context if another API start is detected (reset context)
-        if in_public_api:
-            for r in public_api_res:
-                m = r.search(line)
-                if m and active_public_api not in line:
-                    in_public_api = True
-                    active_public_api = m.group(0)
-                    break
+        if found_api:
+            in_public_api = True
+            active_public_api = found_api
+        elif not found_api and in_public_api:
+            # Remain in API context until next API call
+            pass
+        else:
+            in_public_api = False
+            active_public_api = None
         context.append((ln, line, in_public_api, active_public_api))
     return context
 
 def find_noisy_logs(context, rules):
     noisy_logs = []
+    public_api_res = compile_patterns(rules["public_api_patterns"])
     for ln, line, in_public_api, active_public_api in context:
         level = detect_level(line)
-        if in_public_api and active_public_api and active_public_api not in line:
+        # A log is noisy if we're in a public API context and the line does NOT start a new API call
+        is_api_start = any(r.search(line) for r in public_api_res)
+        if in_public_api and not is_api_start:
             if level in rules["noisy_log_levels"]:
                 noisy_logs.append({
                     "line": ln,

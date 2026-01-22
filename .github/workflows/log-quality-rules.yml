@@ -10,7 +10,7 @@ jobs:
     steps:
       - name: Set up cache
         id: cache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             build
@@ -113,7 +113,7 @@ jobs:
           cd install/usr
           export PREFIX=$PWD
           export LD_LIBRARY_PATH=$PREFIX/lib
-          nohup ./bin/multiRbusOpenRbusSetProvider >/tmp/log_multiRbusOpenRbusSetProvider.txt &
+          nohup ./bin/multiRbusOpenRbusGetProvider >/tmp/log_multiRbusOpenRbusGetProvider_1.txt &
           ./bin/multiRbusOpenRbusSetConsumer >/tmp/log_multiRbusOpenRbusSetConsumer.txt
       - name: Run Gtest Cases
         run: |
