@@ -78,7 +78,6 @@ def analyze(log_file, rules):
         - noisy_logs: entries for internal/noisy logs emitted while a public
           API is considered active. Each dict contains:
             - "line": line number (1-based) in the log file.
-            - "level": detected log level.
             - "log": the full log line.
             - "reason": human-readable explanation.
         - sensitive_logs: entries where sensitive or PII data was detected,
