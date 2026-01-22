@@ -49,7 +49,7 @@ def compile_patterns(patterns):
 
 # -----------------------------
 def analyze(log_file, rules):
-        """
+    """
     Analyze a log file for noisy logging, sensitive data exposure, and
     incorrect severity usage based on the provided rules.
     Parameters
@@ -186,13 +186,11 @@ th { background: #f0f0f0; }
 
 # -----------------------------
 if __name__ == "__main__":
-
     if len(sys.argv) < 3:
         print(
             "Usage: python3 noisylogdetector.py <log_file> <output.html>\n"
             "Note: requires rules.yml in the current working directory."
         )
-
         sys.exit(1)
 
     log_file = sys.argv[1]
