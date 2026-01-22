@@ -65,6 +65,7 @@ jobs:
           cd install/usr
           export PREFIX=$PWD
           export LD_LIBRARY_PATH=$PREFIX/lib
+          export RT_LOG_LEVEL=debug
           nohup ./bin/rbusSampleProvider > /tmp/log_sampleProvider.log 2>&1 &
           sleep 1
           nohup stdbuf -oL -eL ./bin/rbusBlockingProvider > /tmp/log_blockingProvider.log 2>&1 &
@@ -78,6 +79,7 @@ jobs:
           cd install/usr
           export PREFIX=$PWD
           export LD_LIBRARY_PATH=$PREFIX/lib
+          export RT_LOG_LEVEL=debug
           nohup ./bin/rbusTestTimeoutValuesProvider > /tmp/log_testTimeoutValuesProvider.txt &
           ./bin/rbusTestTimeoutValuesConsumer > /tmp/log_testTimeoutValuesConsumer.txt
       - name: Run Unit test
@@ -85,6 +87,7 @@ jobs:
           cd install/usr
           export PREFIX=$PWD
           export LD_LIBRARY_PATH=$PREFIX/lib
+          export RT_LOG_LEVEL=debug
           nohup ./bin/rbusTestProvider >/tmp/log_TestAppProvider.txt &
           ./bin/rbusTestConsumer -a > /tmp/log_TestConsumer.txt
       - name: Run multiRbusOpenMethod Unit Test
@@ -92,6 +95,7 @@ jobs:
           cd install/usr
           export PREFIX=$PWD
           export LD_LIBRARY_PATH=$PREFIX/lib
+          export RT_LOG_LEVEL=debug
           ./bin/multiRbusOpenMethodProvider > /tmp/log_MultiRbusOpenMethodProvider.txt &
           ./bin/multiRbusOpenMethodConsumer > /tmp/log_MultiRbusOpenMethodConsumer.txt &
       - name: Run multiRbusOpenSubscribe Unit test
@@ -99,6 +103,7 @@ jobs:
           cd install/usr
           export PREFIX=$PWD
           export LD_LIBRARY_PATH=$PREFIX/lib
+          export RT_LOG_LEVEL=debug
           nohup ./bin/multiRbusOpenProvider >/tmp/log_multiRbusOpenProvider.txt &
           ./bin/multiRbusOpenConsumer >/tmp/log_multiRbusOpenConsumer.txt
       - name: Run multiRbusOpenGet Unit test
@@ -106,6 +111,7 @@ jobs:
           cd install/usr
           export PREFIX=$PWD
           export LD_LIBRARY_PATH=$PREFIX/lib
+          export RT_LOG_LEVEL=debug
           nohup ./bin/multiRbusOpenRbusGetProvider >/tmp/log_multiRbusOpenRbusGetProvider.txt &
           ./bin/multiRbusOpenRbusGetConsumer >/tmp/log_multiRbusOpenRbusGetConsumer.txt
       - name: Run multiRbusOpenSet Unit test
@@ -113,11 +119,13 @@ jobs:
           cd install/usr
           export PREFIX=$PWD
           export LD_LIBRARY_PATH=$PREFIX/lib
+          export RT_LOG_LEVEL=debug
           nohup ./bin/multiRbusOpenRbusGetProvider >/tmp/log_multiRbusOpenRbusSetProvider.txt &
           ./bin/multiRbusOpenRbusSetConsumer >/tmp/log_multiRbusOpenRbusSetConsumer.txt
       - name: Run Gtest Cases
         run: |
           cd build/rbus
+          export RT_LOG_LEVEL=debug
           nohup ./src/session_manager/rbus_session_mgr &
           ./unittests/rbus_gtest.bin > /tmp/log_gtestlogs.txt
       - name: Analyze logs
