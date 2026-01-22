@@ -27,13 +27,15 @@ def load_rules(path="rules.yml"):
 # -----------------------------
 def starts_with_date_and_timestamp(line):
     """
-    Matches:
-    04:31:14.109764
-    2024-11-11 04:31:14.109
-    Nov 11 04:31:14
+    Matches log lines starting with any of the following timestamp patterns:
+      - HH:MM:SS or HH:MM:SS.ssssss (e.g. 04:31:14 or 04:31:14.109764)
+      - YYYY-MM-DD HH:MM:SS or YYYY-MM-DD HH:MM:SS.sss (e.g. 2024-11-11 04:31:14 or 2024-11-11 04:31:14.109)
+      - Mon DD HH:MM:SS (e.g. Nov 11 04:31:14)
+    Lines not matching these patterns at the start will be ignored.
     """
     return bool(re.match(
-        r'^\s*(\d{2}:\d{2}:\d{2}\.\d+|\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d+|(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2}\s+\d{2}:\d{2}:\d{2})',
+        r'^\s*(\d{2}:\d{2}:\d{2}(?:\.\d+)?|\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}(?:\.\d+)?|'
+        r'(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2}\s+\d{2}:\d{2}:\d{2})',
         line
     ))
 
