@@ -33,7 +33,7 @@ def starts_with_date_and_timestamp(line):
     Nov 11 04:31:14
     """
     return bool(re.match(
-        r'^\s*(\d{2}:\d{2}:\d{2}\.\d+|\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d+|\w{3}\s+\d+\s+\d{2}:\d{2}:\d{2})',
+        r'^\s*(\d{2}:\d{2}:\d{2}\.\d+|\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d+|(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2}\s+\d{2}:\d{2}:\d{2})',
         line
     ))
 
@@ -49,6 +49,43 @@ def compile_patterns(patterns):
 
 # -----------------------------
 def analyze(log_file, rules):
+        """
+    Analyze a log file for noisy logging, sensitive data exposure, and
+    incorrect severity usage based on the provided rules.
+    Parameters
+    ----------
+    log_file : str or pathlib.Path
+        Path to the log file to analyze. The file is opened in text mode
+        with errors ignored to allow processing partially invalid encodings.
+    rules : dict
+        Configuration dictionary containing analysis rules. Expected keys:
+        - "public_api_patterns": list of regex patterns that identify when
+          a public API call starts.
+        - "sensitive_patterns": list of regex patterns that match sensitive
+          or PII data that must not appear in logs.
+        - "failure_keywords": list of lowercase keywords that indicate a
+          failure or error condition in a log line.
+        - "noisy_log_levels": iterable of log levels (e.g. "INFO", "DEBUG")
+          that are considered noisy when emitted during a public API call.
+        - "required_severity_on_failure": iterable of log levels (e.g.
+          "ERROR", "WARN") that must be used when a failure keyword is
+          present.
+    Returns
+    -------
+    tuple
+        A 3-tuple `(noisy_logs, sensitive_logs, severity_violations)` where
+        each element is a list of dictionaries describing matching log lines.
+        - noisy_logs: entries for internal/noisy logs emitted while a public
+          API is considered active. Each dict contains:
+            - "line": line number (1-based) in the log file.
+            - "level": detected log level.
+            - "log": the full log line.
+            - "reason": human-readable explanation.
+        - sensitive_logs: entries where sensitive or PII data was detected,
+          with similar structure ("line", "log", "reason").
+        - severity_violations: entries where a failure keyword was found but
+          the log level did not meet the required severity.
+    """
     noisy_logs = []
     sensitive_logs = []
     severity_violations = []
@@ -63,7 +100,7 @@ def analyze(log_file, rules):
         for ln, line in enumerate(f, 1):
             line = line.rstrip()
 
-            if not starts_with_timestamp(line):
+            if not starts_with_date_and_timestamp(line):
                 continue
 
             level = detect_level(line)
@@ -82,7 +119,6 @@ def analyze(log_file, rules):
                     if level in rules["noisy_log_levels"]:
                         noisy_logs.append({
                             "line": ln,
-                            "level": level,
                             "log": line,
                             "reason": f"Internal log during public API execution ({active_public_api})"
                         })
@@ -102,7 +138,6 @@ def analyze(log_file, rules):
                 if level not in rules["required_severity_on_failure"]:
                     severity_violations.append({
                         "line": ln,
-                        "level": level,
                         "log": line,
                         "reason": "Failure logged without ERROR/WARN"
                     })
@@ -131,12 +166,15 @@ th { background: #f0f0f0; }
             f.write(f"<h2>{title}</h2>")
             f.write("<table>")
             f.write("<tr><th>Line</th><th>Reason</th><th>Log</th></tr>")
-            for r in rows:
-                f.write(
-                    f"<tr><td>{r['line']}</td>"
-                    f"<td>{escape(r['reason'])}</td>"
-                    f"<td>{escape(r['log'])}</td></tr>"
-                )
+            if not rows:
+                f.write('<tr><td colspan="3">No issues found in this section.</td></tr>')
+            else:
+                for r in rows:
+                    f.write(
+                        f"<tr><td>{r['line']}</td>"
+                        f"<td>{escape(r['reason'])}</td>"
+                        f"<td>{escape(r['log'])}</td></tr>"
+                    )
             f.write("</table>")
 
         write_section("Noisy Logs", noisy)
