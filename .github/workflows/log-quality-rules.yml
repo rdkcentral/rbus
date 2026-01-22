@@ -28,7 +28,7 @@ jobs:
           sudo apt update && sudo apt install -y libcurl4-openssl-dev libgtest-dev lcov gcovr libmsgpack* libcjson-dev  build-essential
       - name: Checkout rbus
         if: steps.cache.outputs.cache-hit != 'true'
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           path: rbus
       - name: Install dependencies
@@ -113,7 +113,7 @@ jobs:
           cd install/usr
           export PREFIX=$PWD
           export LD_LIBRARY_PATH=$PREFIX/lib
-          nohup ./bin/multiRbusOpenRbusGetProvider >/tmp/log_multiRbusOpenRbusGetProvider_1.txt &
+          nohup ./bin/multiRbusOpenRbusGetProvider >/tmp/log_multiRbusOpenRbusSetProvider.txt &
           ./bin/multiRbusOpenRbusSetConsumer >/tmp/log_multiRbusOpenRbusSetConsumer.txt
       - name: Run Gtest Cases
         run: |
@@ -126,6 +126,7 @@ jobs:
           set -- /tmp/log_*.txt
           if [ ! -e "$1" ]; then
             echo "No log files found matching /tmp/log_*.txt, skipping log analysis."
+            exit 1
           else
             for f in "$@"; do
               python3 noisylogdetector.py "$f" "/tmp/noisy_log_report_$(basename "$f" .txt).html"

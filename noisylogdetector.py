@@ -64,6 +64,18 @@ def compile_patterns(patterns):
 
 # -----------------------------
 def detect_public_api_context(lines, rules):
+    """
+    Determines the public API context for each log line.
+
+    Args:
+        lines: List of (line_number, line_text) tuples.
+        rules: Rules dictionary containing 'public_api_patterns'.
+
+    Returns:
+        List of tuples: (line_number, line_text, in_public_api, active_public_api)
+        - in_public_api: True if the line is within a public API context, else False.
+        - active_public_api: The matched API pattern string if in context, else None.
+    """
     public_api_res = compile_patterns(rules["public_api_patterns"])
     context = []
     in_public_api = False
@@ -92,16 +104,16 @@ def find_noisy_logs(context, rules):
     public_api_res = compile_patterns(rules["public_api_patterns"])
     for ln, line, in_public_api, active_public_api in context:
         level = detect_level(line)
-        # A log is noisy if we're in a public API context and the line does NOT start a new API call
         is_api_start = any(r.search(line) for r in public_api_res)
         if in_public_api and not is_api_start:
             if level in rules["noisy_log_levels"]:
-                noisy_logs.append({
-                    "line": ln,
-                    "level": level,
-                    "log": line,
-                    "reason": f"Internal log during public API execution ({active_public_api})"
-                })
+                if active_public_api and active_public_api != "rbus.c":
+                    noisy_logs.append({
+                        "line": ln,
+                        "level": level,
+                        "log": line,
+                        "reason": f"Internal log during public API execution ({active_public_api})"
+                    })
     return noisy_logs
 
 def find_sensitive_logs(lines, rules):
@@ -205,7 +217,10 @@ th { background: #f0f0f0; }
 # -----------------------------
 if __name__ == "__main__":
     if len(sys.argv) < 3:
-        print("Usage: python3 noisylogdetector.py <log_file> <output.html> (requires rules.yml in the current directory)")
+        print(
+            "Usage: python3 noisylogdetector.py <log_file> <output.html>\n"
+            "Note: requires rules.yml in the current directory."
+        )
         sys.exit(1)
     log_file = sys.argv[1]
     output = sys.argv[2]
