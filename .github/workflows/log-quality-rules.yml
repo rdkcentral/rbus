@@ -65,72 +65,75 @@ jobs:
           cd install/usr
           export PREFIX=$PWD
           export LD_LIBRARY_PATH=$PREFIX/lib
-          nohup ./bin/rbusSampleProvider > log_sampleProvider.log 2>&1 &
+          nohup ./bin/rbusSampleProvider > /tmp/log_sampleProvider.log 2>&1 &
           sleep 1
-          nohup stdbuf -oL -eL ./bin/rbusBlockingProvider > log_blockingProvider.log 2>&1 &
+          nohup stdbuf -oL -eL ./bin/rbusBlockingProvider > /tmp/log_blockingProvider.log 2>&1 &
           sleep 1
-          ./bin/rbusDmlBlockingConsumer > log_dmlBlockingConsumer.log 2>&1
-          cat log_sampleProvider.log || true
-          cat log_blockingProvider.log || true
-          cat log_dmlBlockingConsumer.log || true
+          ./bin/rbusDmlBlockingConsumer > /tmp/log_dmlBlockingConsumer.log 2>&1
+          cat /tmp/log_sampleProvider.log || true
+          cat /tmp/log_blockingProvider.log || true
+          cat /tmp/log_dmlBlockingConsumer.log || true
       - name: Run RbusTestTimeoutValues Unit test
         run: |
           cd install/usr
           export PREFIX=$PWD
           export LD_LIBRARY_PATH=$PREFIX/lib
-          nohup ./bin/rbusTestTimeoutValuesProvider > log_testTimeoutValuesProvider.txt &
-          ./bin/rbusTestTimeoutValuesConsumer > log_testTimeoutValuesConsumer.txt &
+          nohup ./bin/rbusTestTimeoutValuesProvider > /tmp/log_testTimeoutValuesProvider.txt &
+          ./bin/rbusTestTimeoutValuesConsumer > /tmp/log_testTimeoutValuesConsumer.txt
       - name: Run Unit test
         run: |
           cd install/usr
           export PREFIX=$PWD
           export LD_LIBRARY_PATH=$PREFIX/lib
           nohup ./bin/rbusTestProvider >/tmp/log_TestAppProvider.txt &
-          ./bin/rbusTestConsumer -a > /tmp/log_TestConsumer.txt &
+          ./bin/rbusTestConsumer -a > /tmp/log_TestConsumer.txt
       - name: Run multiRbusOpenMethod Unit Test
         run: |
           cd install/usr
           export PREFIX=$PWD
           export LD_LIBRARY_PATH=$PREFIX/lib
           ./bin/multiRbusOpenMethodProvider > /tmp/log_MultiRbusOpenMethodProvider.txt &
-          ./bin/multiRbusOpenMethodConsumer > /tmp/log_MultiRbusOpenMethodConsumer.txt&
+          ./bin/multiRbusOpenMethodConsumer > /tmp/log_MultiRbusOpenMethodConsumer.txt
       - name: Run multiRbusOpenSubscribe Unit test
         run: |
           cd install/usr
           export PREFIX=$PWD
           export LD_LIBRARY_PATH=$PREFIX/lib
           nohup ./bin/multiRbusOpenProvider >/tmp/log_multiRbusOpenProvider.txt &
-          ./bin/multiRbusOpenConsumer >/tmp/log_multiRbusOpenConsumer.txt &
+          ./bin/multiRbusOpenConsumer >/tmp/log_multiRbusOpenConsumer.txt
       - name: Run multiRbusOpenGet Unit test
         run: |
           cd install/usr
           export PREFIX=$PWD
           export LD_LIBRARY_PATH=$PREFIX/lib
           nohup ./bin/multiRbusOpenRbusGetProvider >/tmp/log_multiRbusOpenRbusGetProvider.txt &
-          ./bin/multiRbusOpenRbusGetConsumer >/tmp/log_multiRbusOpenRbusGetConsumer.txt &
+          ./bin/multiRbusOpenRbusGetConsumer >/tmp/log_multiRbusOpenRbusGetConsumer.txt
       - name: Run multiRbusOpenSet Unit test
         run: |
           cd install/usr
           export PREFIX=$PWD
           export LD_LIBRARY_PATH=$PREFIX/lib
           nohup ./bin/multiRbusOpenRbusSetProvider >/tmp/log_multiRbusOpenRbusSetProvider.txt &
-          ./bin/multiRbusOpenRbusSetConsumer >/tmp/log_multiRbusOpenRbusSetConsumer.txt &
+          ./bin/multiRbusOpenRbusSetConsumer >/tmp/log_multiRbusOpenRbusSetConsumer.txt
       - name: Run Gtest Cases
         run: |
           cd build/rbus
           nohup ./src/session_manager/rbus_session_mgr &
-          ./unittests/rbus_gtest.bin > /tmp/logs.txt &
+          ./unittests/rbus_gtest.bin > /tmp/log_gtestlogs.txt
       - name: Analyze logs
         run: |
           cd ${{github.workspace}}/rbus
-          for f in /tmp/logs*.txt; do
+          set -- /tmp/log_*.txt
+          if [ ! -e "$1" ]; then
+            echo "No log files found matching /tmp/log_*.txt, skipping log analysis."
+          else
+            for f in "$@"; do
               python3 noisylogdetector.py "$f" "/tmp/noisy_log_report_$(basename "$f" .txt).html"
-          done
-          cd /tmp
-          ls -l
+            done
+          fi
       - name: Stop SessionManager
         run: |
-          killall -15 rbus_session_mgr
+          killall -15 rbus_session_mgr || true
       - name: Stop rtrouted
         run: |
           cd install/usr

@@ -59,7 +59,7 @@ static const char* rtLogLevelStrings[] =
 };
 
 static rtLogHandler sLogHandler = NULL;
-static rtLogLevel sLevel = RT_LOG_INFO;
+static rtLogLevel sLevel = RT_LOG_WARN;
 static rtLoggerSelection sOption =
 #ifdef ENABLE_RDKLOGGER
   RT_USE_RDKLOGGER;

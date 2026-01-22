@@ -26,7 +26,7 @@ sensitive_patterns:
   - '\bhttps?://[^\s]+'
 
   # IP addresses
-  - '\b(?:\d{1,3}\.){3}\d{1,3}\b'
+  - '\b(?:(?:25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(?:25[0-5]|2[0-4]\d|1?\d?\d)\b'
 
   # MAC addresses
   - '\b([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})\b'
@@ -34,12 +34,6 @@ sensitive_patterns:
 # Patterns that identify start of public API execution
 public_api_patterns:
   - 'rbus\.c'
-
-# Patterns for internal logs that are considered noisy during public API
-#internal_log_patterns:
-#  - r'\binternal_api\b'
-#  - r'\bdebug_internal\b'
-#  - r'\bhelper_function\b'
 
 # Log levels considered noisy
 noisy_log_levels:
