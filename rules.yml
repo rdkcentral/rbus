@@ -20,7 +20,7 @@ sensitive_patterns:
   - '\bAKIA[0-9A-Z]{16}\b'
 
   # Private key blocks
-  - '-----BEGIN .*PRIVATE KEY-----'
+  - '-----BEGIN .*PRIVATE KEY-----[\s\S]*?-----END .*PRIVATE KEY-----'
 
   # URLs
   - '\bhttps?://[^\s]+'

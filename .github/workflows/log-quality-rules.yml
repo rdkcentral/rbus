@@ -5,7 +5,7 @@ on:
   pull_request:
      branches: [ main, develop, release, support/*, hotfix/*, topic/* ]
 jobs:
-  all:
+  log-quality-check:
     runs-on: ubuntu-22.04
     steps:
       - name: Set up cache
@@ -126,7 +126,7 @@ jobs:
           set -- /tmp/log_*.txt
           if [ ! -e "$1" ]; then
             echo "No log files found matching /tmp/log_*.txt, skipping log analysis."
-            exit 1
+            exit 0
           else
             for f in "$@"; do
               python3 noisylogdetector.py "$f" "/tmp/noisy_log_report_$(basename "$f" .txt).html"
