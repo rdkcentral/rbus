@@ -1,0 +1,51 @@
+# ------------------------------
+# Rules for log analyzer
+# ------------------------------
+
+# Patterns to detect sensitive information
+sensitive_patterns:
+  # JWT tokens
+  - '(?i)\btoken\s*[:=]\s*[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}\b'
+
+  # API keys
+  - '(?i)\b(api[_-]?key|apikey)\s*[:=]\s*[A-Za-z0-9]{20,}\b'
+
+  # Password assignments
+  - '(?i)\b(password|passwd|pwd)\s*[:=]\s*\S{6,}\b'
+
+  # Authorization headers
+  - '(?i)\bauthorization\s*[:=]\s*(bearer|basic)\s+[A-Za-z0-9+/=._-]+\b'
+
+  # AWS keys
+  - '\bAKIA[0-9A-Z]{16}\b'
+
+  # Private key blocks
+  - '-----BEGIN .*PRIVATE KEY-----'
+
+  # URLs
+  - '\bhttps?://[^\s]+'
+
+  # IP addresses
+  - '\b(?:(?:25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(?:25[0-5]|2[0-4]\d|1?\d?\d)\b'
+
+  # MAC addresses
+  - '\b([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})\b'
+
+# Log levels considered noisy
+noisy_log_levels:
+  - DEBUG
+  - TRACE
+  - INFO
+
+# Keywords indicating failure
+failure_keywords:
+  - 'failed'
+  - 'error'
+  - 'exception'
+  - 'invalid'
+  - 'timeout'
+
+# Required log levels for failure messages
+required_severity_on_failure:
+  - ERROR
+  - WARN
