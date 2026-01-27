@@ -23,6 +23,10 @@ def load_rules(path="rules.yml"):
     except Exception as e:
         print(f"Unexpected error while loading rules from '{path}': {e}", file=sys.stderr)
         sys.exit(1)
+    # --- Validate rules is a dict ---
+    if not isinstance(rules, dict):
+        print(f"Error: rules.yml is empty or not a valid YAML mapping.", file=sys.stderr)
+        sys.exit(1)
     # --- Validate required keys ---
     required_keys = [
         "sensitive_patterns",
@@ -59,14 +63,14 @@ def starts_with_date_and_timestamp(line):
     ))
 
 def detect_level(line):
-    for lvl in ("ERROR", "WARN", "INFO", "DEBUG", "TRACE"):
+    for lvl in ("FATAL","ERROR", "WARN", "INFO", "DEBUG", "TRACE"):
         if re.search(rf"\b{lvl}\b", line):
             return lvl
     return "UNKNOWN"
 
 # -----------------------------
 def compile_patterns(patterns):
-    return [re.compile(p, re.IGNORECASE) for p in patterns]
+    return [re.compile(p) for p in patterns]
 
 # -----------------------------
 def analyze(log_file, rules):
@@ -124,7 +128,7 @@ def analyze(log_file, rules):
             if level in rules["noisy_log_levels"]:
                 noisy_logs.append({
                     "line": ln,
-                    "log": line,
+                    "log": redact_sensitive(line),
                     "reason": f"Noisy log level: {level}"
                 })
             # Sensitive logs
@@ -141,7 +145,7 @@ def analyze(log_file, rules):
                 if level not in rules["required_severity_on_failure"]:
                     severity_violations.append({
                         "line": ln,
-                        "log": line,
+                        "log": redact_sensitive(line),
                         "reason": (
                             "Failure logged without required severity: "
                             + ", ".join(rules["required_severity_on_failure"])
