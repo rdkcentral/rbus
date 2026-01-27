@@ -89,6 +89,7 @@ jobs:
           export LD_LIBRARY_PATH=$PREFIX/lib
           export RT_LOG_LEVEL=info
           nohup ./bin/rbusTestProvider >/tmp/log_TestAppProvider.txt &
+          sleep 2
           ./bin/rbusTestConsumer -a > /tmp/log_TestConsumer.txt
       - name: Run multiRbusOpenMethod Unit Test
         run: |
