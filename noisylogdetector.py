@@ -10,7 +10,7 @@ from pathlib import Path
 def load_rules(path="rules.yml"):
     try:
         with open(path, "r") as f:
-            return yaml.safe_load(f)
+            rules= yaml.safe_load(f)
     except FileNotFoundError:
         print(f"Rules file not found: {path}", file=sys.stderr)
         sys.exit(1)
@@ -23,6 +23,19 @@ def load_rules(path="rules.yml"):
     except Exception as e:
         print(f"Unexpected error while loading rules from '{path}': {e}", file=sys.stderr)
         sys.exit(1)
+    # --- Validate required keys ---
+    required_keys = [
+        "sensitive_patterns",
+        "failure_keywords",
+        "noisy_log_levels",
+        "required_severity_on_failure"
+    ]
+    missing = [k for k in required_keys if k not in rules or rules[k] is None]
+    if missing:
+        print(f"Error: rules.yml is missing required keys: {', '.join(missing)}", file=sys.stderr)
+        sys.exit(1)
+
+    return rules
 
 # -----------------------------
 def starts_with_date_and_timestamp(line):
@@ -94,6 +107,12 @@ def analyze(log_file, rules):
     sensitive_res = compile_patterns(rules["sensitive_patterns"])
     failure_keywords = rules["failure_keywords"]
 
+    def redact_sensitive(line):
+        # Replace all sensitive matches with [REDACTED]
+        for r in sensitive_res:
+            line = r.sub("[REDACTED]", line)
+        return line
+
     # - Scan line-by-line
     with open(log_file, "r", errors="ignore") as f:
         for ln, line in enumerate(f, 1):
@@ -113,7 +132,7 @@ def analyze(log_file, rules):
                 if r.search(line):
                     sensitive_logs.append({
                         "line": ln,
-                        "log": line,
+                        "log": redact_sensitive(line),
                         "reason": "Sensitive / PII data detected"
                     })
                     break
@@ -123,7 +142,10 @@ def analyze(log_file, rules):
                     severity_violations.append({
                         "line": ln,
                         "log": line,
-                        "reason": "Failure logged without ERROR/WARN"
+                        "reason": (
+                            "Failure logged without required severity: "
+                            + ", ".join(rules["required_severity_on_failure"])
+                        )
                     })
 
     return noisy_logs, sensitive_logs, severity_violations
