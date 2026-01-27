@@ -146,7 +146,7 @@ jobs:
       - name: Generate the html report
         run: |
             genhtml filtered-coverage.info --output-directory /tmp/coverage_report
-       - name: Upload the coverage report to Pull request using actions
+      - name: Upload the coverage report to Pull request using actions
         uses: actions/upload-artifact@v4
         with:
           name: coverage-report
