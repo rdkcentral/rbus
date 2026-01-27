@@ -34,7 +34,7 @@ def starts_with_date_and_timestamp(line):
     Lines not matching these patterns at the start will be ignored.
 
     NOTE: If your log lines are not being reported, check:
-      - The timestamp is at the very start of the line (no leading spaces/tabs).
+      - The timestamp is at the very start of the line.
       - The timestamp matches one of the above formats.
       - If there are leading spaces, adjust the regex to allow them.
     """
@@ -94,41 +94,81 @@ def analyze(log_file, rules):
     sensitive_res = compile_patterns(rules["sensitive_patterns"])
     failure_keywords = rules["failure_keywords"]
 
+    # Read the full log file once so we can both:
+    # - Scan line-by-line (existing behavior), and
+    # - Apply sensitive patterns across multiple lines.
     with open(log_file, "r", errors="ignore") as f:
-        for ln, line in enumerate(f, 1):
-            line = line.rstrip()
-
-            if not starts_with_date_and_timestamp(line):
+        full_text = f.read()
+    # Build a mapping from character offsets to line numbers.
+    line_starts = []
+    current_line = 1
+    line_starts.append((0, current_line))
+    for idx, ch in enumerate(full_text):
+        if ch == "\n":
+            current_line += 1
+            line_starts.append((idx + 1, current_line))
+    def _offset_to_line(pos):
+        """
+        Map a character offset in full_text to a 1-based line number using
+        the precomputed line_starts list.
+        """
+        line_no = 1
+        for start, ln in line_starts:
+            if start > pos:
+                break
+            line_no = ln
+        return line_no
+    # Split into lines for existing per-line analysis.
+    lines = full_text.splitlines()
+    # First, detect multi-line sensitive matches that would not be visible
+    # when scanning individual lines.
+    for r in sensitive_res:
+        for match in r.finditer(full_text):
+            matched_text = match.group(0)
+            # Only treat as multi-line if the match actually spans lines.
+            if "\n" not in matched_text and "\r" not in matched_text:
                 continue
-
-            level = detect_level(line)
-
-            # Report all noisy log levels (DEBUG, TRACE, INFO) as noisy logs
-            if level in rules["noisy_log_levels"]:
-                noisy_logs.append({
+            start_pos = match.start()
+            ln = _offset_to_line(start_pos)
+            if 1 <= ln <= len(lines):
+                line_text = lines[ln - 1]
+            else:
+                line_text = ""
+            sensitive_logs.append({
+                "line": ln,
+                "log": line_text,
+                "reason": "Sensitive / PII data detected (multi-line match)"
+            })
+    # Existing per-line analysis.
+    for ln, line in enumerate(lines, 1):
+        line = line.rstrip()
+        if not starts_with_date_and_timestamp(line):
+            continue
+        level = detect_level(line)
+        # Report all noisy log levels (DEBUG, TRACE, INFO) as noisy logs
+        if level in rules["noisy_log_levels"]:
+            noisy_logs.append({
+                "line": ln,
+                "log": line,
+                "reason": f"Noisy log level: {level}"
+            })
+        # Sensitive logs (single-line or line-contained matches)
+        for r in sensitive_res:
+            if r.search(line):
+                sensitive_logs.append({
                     "line": ln,
                     "log": line,
-                    "reason": f"Noisy log level: {level}"
+                    "reason": "Sensitive / PII data detected"
                 })
-
-            # Sensitive logs
-            for r in sensitive_res:
-                if r.search(line):
-                    sensitive_logs.append({
-                        "line": ln,
-                        "log": line,
-                        "reason": "Sensitive / PII data detected"
-                    })
-                    break
-
-            # Severity enforcement
-            if any(k in line.lower() for k in failure_keywords):
-                if level not in rules["required_severity_on_failure"]:
-                    severity_violations.append({
-                        "line": ln,
-                        "log": line,
-                        "reason": "Failure logged without ERROR/WARN"
-                    })
+                break
+        # Severity enforcement
+        if any(k in line.lower() for k in failure_keywords):
+            if level not in rules["required_severity_on_failure"]:
+                severity_violations.append({
+                    "line": ln,
+                    "log": line,
+                    "reason": "Failure logged without ERROR/WARN"
+                })
 
     return noisy_logs, sensitive_logs, severity_violations
 
