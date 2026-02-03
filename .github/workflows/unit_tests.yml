@@ -158,7 +158,7 @@ jobs:
           path: log-analyzer
       - name: Analyze logs
         run: |
-          cd ${{github.workspace}}/rbus
+          cd ${{github.workspace}}
           set -- /tmp/log_*.txt
           if [ ! -e "$1" ]; then
             echo "No log files found matching /tmp/log_*.txt, skipping log analysis."
