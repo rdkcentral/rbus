@@ -158,14 +158,14 @@ jobs:
           path: log-analyzer
       - name: Analyze logs
         run: |
-          cd ${{github.workspace}}
+          cd ${{github.workspace}}/log-analyzer
           set -- /tmp/log_*.txt
           if [ ! -e "$1" ]; then
             echo "No log files found matching /tmp/log_*.txt, skipping log analysis."
             exit 0
           else
             for f in "$@"; do
-              python3 log-analyzer/noisylogdetector.py "$f" "/tmp/noisy_log_report_$(basename "$f" .txt).html"
+              python3 noisylogdetector.py "$f" "/tmp/noisy_log_report_$(basename "$f" .txt).html"
             done
           fi
       - name: Upload the noisy log report to Pull request using actions
