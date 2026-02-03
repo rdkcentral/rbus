@@ -31,6 +31,8 @@ jobs:
         uses: actions/checkout@v3
         with:
           path: rbus
+      - name: Install dependencies
+        run: pip install pyyaml
       - name: Configure Rbus
         if: steps.cache.outputs.cache-hit != 'true'
         run: >
@@ -63,70 +65,79 @@ jobs:
           cd install/usr
           export PREFIX=$PWD
           export LD_LIBRARY_PATH=$PREFIX/lib
-          nohup ./bin/rbusSampleProvider > sampleProvider.log 2>&1 &
+          export RT_LOG_LEVEL=info
+          nohup ./bin/rbusSampleProvider > /tmp/log_sampleProvider.txt 2>&1 &
           sleep 1
-          nohup stdbuf -oL -eL ./bin/rbusBlockingProvider > blockingProvider.log 2>&1 &
+          nohup stdbuf -oL -eL ./bin/rbusBlockingProvider > /tmp/log_blockingProvider.txt 2>&1 &
           sleep 1
-          ./bin/rbusDmlBlockingConsumer > dmlBlockingConsumer.log 2>&1
-          cat sampleProvider.log || true
-          cat blockingProvider.log || true
-          cat dmlBlockingConsumer.log || true
+          ./bin/rbusDmlBlockingConsumer > /tmp/log_dmlBlockingConsumer.txt 2>&1
+          cat /tmp/log_sampleProvider.txt || true
+          cat /tmp/log_blockingProvider.txt || true
+          cat /tmp/log_dmlBlockingConsumer.txt || true
       - name: Run RbusTestTimeoutValues Unit test
         run: |
           cd install/usr
           export PREFIX=$PWD
           export LD_LIBRARY_PATH=$PREFIX/lib
-          nohup ./bin/rbusTestTimeoutValuesProvider &
-          ./bin/rbusTestTimeoutValuesConsumer
+          export RT_LOG_LEVEL=info
+          nohup ./bin/rbusTestTimeoutValuesProvider > /tmp/log_testTimeoutValuesProvider.txt &
+          ./bin/rbusTestTimeoutValuesConsumer > /tmp/log_testTimeoutValuesConsumer.txt
       - name: Run Unit test
         run: |
           cd install/usr
           export PREFIX=$PWD
           export LD_LIBRARY_PATH=$PREFIX/lib
-          nohup ./bin/rbusTestProvider >/tmp/plog.txt &
-          ./bin/rbusTestConsumer -a
+          export RT_LOG_LEVEL=info
+          nohup ./bin/rbusTestProvider >/tmp/log_TestAppProvider.txt &
+          sleep 2
+          ./bin/rbusTestConsumer -a > /tmp/log_TestConsumer.txt
       - name: Run multiRbusOpenMethod Unit Test
         run: |
           cd install/usr
           export PREFIX=$PWD
           export LD_LIBRARY_PATH=$PREFIX/lib
-          ./bin/multiRbusOpenMethodProvider &
-          ./bin/multiRbusOpenMethodConsumer &
+          export RT_LOG_LEVEL=info
+          ./bin/multiRbusOpenMethodProvider > /tmp/log_MultiRbusOpenMethodProvider.txt &
+          ./bin/multiRbusOpenMethodConsumer > /tmp/log_MultiRbusOpenMethodConsumer.txt &
       - name: Run multiRbusOpenSubscribe Unit test
         run: |
           cd install/usr
           export PREFIX=$PWD
           export LD_LIBRARY_PATH=$PREFIX/lib
+          export RT_LOG_LEVEL=info
           nohup ./bin/multiRbusOpenProvider >/tmp/log_multiRbusOpenProvider.txt &
-          ./bin/multiRbusOpenConsumer
+          ./bin/multiRbusOpenConsumer >/tmp/log_multiRbusOpenConsumer.txt
       - name: Run multiRbusOpenGet Unit test
         run: |
           cd install/usr
           export PREFIX=$PWD
           export LD_LIBRARY_PATH=$PREFIX/lib
+          export RT_LOG_LEVEL=info
           nohup ./bin/multiRbusOpenRbusGetProvider >/tmp/log_multiRbusOpenRbusGetProvider.txt &
-          ./bin/multiRbusOpenRbusGetConsumer
+          ./bin/multiRbusOpenRbusGetConsumer >/tmp/log_multiRbusOpenRbusGetConsumer.txt
       - name: Run multiRbusOpenSet Unit test
         run: |
           cd install/usr
           export PREFIX=$PWD
           export LD_LIBRARY_PATH=$PREFIX/lib
+          export RT_LOG_LEVEL=info
           nohup ./bin/multiRbusOpenRbusGetProvider >/tmp/log_multiRbusOpenRbusSetProvider.txt &
-          ./bin/multiRbusOpenRbusSetConsumer
+          ./bin/multiRbusOpenRbusSetConsumer >/tmp/log_multiRbusOpenRbusSetConsumer.txt
       - name: Run Gtest Cases
         run: |
           cd build/rbus
+          export RT_LOG_LEVEL=info
           nohup ./src/session_manager/rbus_session_mgr &
-          ./unittests/rbus_gtest.bin
+          ./unittests/rbus_gtest.bin > /tmp/log_gtestlogs.txt
       - name: Stop SessionManager
         run: |
-          killall -15 rbus_session_mgr
+          killall -15 rbus_session_mgr || true
       - name: Stop rtrouted
         run: |
           cd install/usr
           export PREFIX=$PWD
           export LD_LIBRARY_PATH=$PREFIX/lib
-          nohup ./bin/rtrouted_diag shutdown
+          ./bin/rtrouted_diag shutdown
       - name:  Run CodeCoverage
         run: |
             rm -rf /tmp/rtrouted*
@@ -135,10 +146,30 @@ jobs:
       - name: Generate the html report
         run: |
             genhtml filtered-coverage.info --output-directory /tmp/coverage_report
-
       - name: Upload the coverage report to Pull request using actions
         uses: actions/upload-artifact@v4
         with:
           name: coverage-report
           path: /tmp/coverage_report
-            
+      - name: Checkout log analyzer
+        uses: actions/checkout@v3
+        with:
+          repository: dshett549/NoisyLogAnalyzer
+          path: log-analyzer
+      - name: Analyze logs
+        run: |
+          cd ${{github.workspace}}/rbus
+          set -- /tmp/log_*.txt
+          if [ ! -e "$1" ]; then
+            echo "No log files found matching /tmp/log_*.txt, skipping log analysis."
+            exit 0
+          else
+            for f in "$@"; do
+              python3 LogAnalyzer/noisylogdetector.py "$f" "/tmp/noisy_log_report_$(basename "$f" .txt).html"
+            done
+          fi
+      - name: Upload the noisy log report to Pull request using actions
+        uses: actions/upload-artifact@v4
+        with:
+          name: noisy-log-report
+          path: /tmp/noisy_log_report_*.html
