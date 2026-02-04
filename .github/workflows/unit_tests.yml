@@ -165,7 +165,7 @@ jobs:
             exit 0
           else
             for f in "$@"; do
-              python3 noisylogdetector.py "$f" "/tmp/noisy_log_report_$(basename "$f" .txt).html"
+              python3 noisylogdetector.py "$f" "/tmp/noisy_log_report_$(basename "$f" .txt).html" || echo "Failed to analyze $f"
             done
           fi
       - name: Upload the noisy log report to Pull request using actions
