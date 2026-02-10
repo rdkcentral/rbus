@@ -1776,14 +1776,17 @@ static void * rtConnection_CallbackThread(void *data)
     }
 
     rtList_GetSize(con->callback_message_list, &size);
-
-    if (size == 0)
+    while (size == 0)
     {
-      //rtLog_Error("Callback thread before wait");
-      pthread_cond_wait(&con->callback_message_cond, &con->callback_message_mutex);
-      //rtLog_Error("Callback thread after wait");
+        pthread_cond_wait(&con->callback_message_cond, &con->callback_message_mutex);
+        if (GetRunThreadsSync(con) == 0)
+        {
+            pthread_mutex_unlock(&con->callback_message_mutex);
+            rtLog_Debug("Callback thread exiting");
+            return NULL;
+        }
+        rtList_GetSize(con->callback_message_list, &size);
     }
-
     /*get first item to handle*/
     rtList_GetFront(con->callback_message_list, &listItem);
 
