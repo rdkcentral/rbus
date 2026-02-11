@@ -238,12 +238,12 @@ rtMessage_SetInt32(rtMessage message, char const* name, int32_t value)
   return RT_OK;
 }
 
-rtError rtMessage_SetInt64(rtMessage message, const char* name, int64_t value)
+rtError rtMessage_SetUInt64(rtMessage message, const char* name, uint64_t value)
 {
     if (!message || !name)
         return RT_ERROR_INVALID_ARG;
     char buf[32];
-    snprintf(buf, sizeof(buf), "%" PRId64, value);
+    snprintf(buf, sizeof(buf), "%" PRIu64, value);
     cJSON_AddItemToObject(message->json, name, cJSON_CreateString(buf));
     return RT_OK;
 }
@@ -389,7 +389,7 @@ rtMessage_GetInt32(rtMessage const message,const char* name, int32_t* value)
   return RT_FAIL;
 }
 
-rtError rtMessage_GetInt64(rtMessage const message, const char* name, int64_t* value)
+rtError rtMessage_GetUInt64(rtMessage const message, const char* name, uint64_t* value)
 {
     if (!message || !name || !value)
         return RT_ERROR_INVALID_ARG;

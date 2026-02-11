@@ -1629,11 +1629,11 @@ rtConnection_Read(rtConnection con, int32_t timeout)
       {
         rtMessage m;
         rtMessage_Create(&m);
-        rtMessage_SetInt64(m, "T1", msginfo->header.T1);
-        rtMessage_SetInt64(m, "T2", msginfo->header.T2);
-        rtMessage_SetInt64(m, "T3", msginfo->header.T3);
-        rtMessage_SetInt64(m, "T4", msginfo->header.T4);
-        rtMessage_SetInt64(m, "T5", msginfo->header.T5);
+        rtMessage_SetUInt64(m, "T1", msginfo->header.T1);
+        rtMessage_SetUInt64(m, "T2", msginfo->header.T2);
+        rtMessage_SetUInt64(m, "T3", msginfo->header.T3);
+        rtMessage_SetUInt64(m, "T4", msginfo->header.T4);
+        rtMessage_SetUInt64(m, "T5", msginfo->header.T5);
         rtMessage_SetString(m, "topic", msginfo->header.topic);
         rtMessage_SetString(m, "reply_topic", msginfo->header.reply_topic);
         rtConnection_SendMessage(con, m, RTROUTED_TRANSACTION_TIME_INFO);

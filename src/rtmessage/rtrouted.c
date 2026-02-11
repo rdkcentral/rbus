@@ -876,11 +876,11 @@ rtRouted_OnMessageTimeOut(rtConnectedClient* sender, rtMessageHeader* hdr, uint8
     return;
   }
   rtMessageHeader_Init(&header);
-  rtMessage_GetInt32(m, "T1", (int32_t *)&header.T1);
-  rtMessage_GetInt32(m, "T2", (int32_t *)&header.T2);
-  rtMessage_GetInt32(m, "T3", (int32_t *)&header.T3);
-  rtMessage_GetInt32(m, "T4", (int32_t *)&header.T4);
-  rtMessage_GetInt32(m, "T5", (int32_t *)&header.T5);
+  rtMessage_GetUInt64(m, "T1", &header.T1);
+  rtMessage_GetUInt64(m, "T2", &header.T2);
+  rtMessage_GetUInt64(m, "T3", &header.T3);
+  rtMessage_GetUInt64(m, "T4", &header.T4);
+  rtMessage_GetUInt64(m, "T5", &header.T5);
   rtMessage_GetString(m, "topic", &topic);
   rtMessage_GetString(m, "reply_topic", &reply_topic);
   snprintf(header.topic, sizeof(header.topic), "%s", topic);
