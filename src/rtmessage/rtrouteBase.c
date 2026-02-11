@@ -33,6 +33,7 @@
 #include <sys/file.h>
 #include <sys/stat.h>
 #include <time.h>
+#include <inttypes.h>
 
 #include <pthread.h>
 
@@ -339,7 +340,7 @@ static rtError
 rtConnectedClient_Read(rtConnectedClient* clnt, rtRouteEntry* myDirectRoute)
 {
   ssize_t bytes_read;
-  int bytes_to_read = (clnt->bytes_to_read - clnt->bytes_read);
+  size_t bytes_to_read = (clnt->bytes_to_read - clnt->bytes_read);
 
 #ifdef MSG_ROUNDTRIP_TIME
   rtTime_t daemon_request = {0};
@@ -412,7 +413,7 @@ rtConnectedClient_Read(rtConnectedClient* clnt, rtRouteEntry* myDirectRoute)
 #endif
         clnt->bytes_to_read += clnt->header.payload_length;
         clnt->state = rtConnectionState_ReadPayload;
-        int incoming_data_size = clnt->bytes_to_read + clnt->bytes_read;
+        uint64_t incoming_data_size = clnt->bytes_to_read + clnt->bytes_read;
         if(clnt->read_buffer_capacity < incoming_data_size)
         {
           uint8_t * ptr = (uint8_t *)rt_try_realloc(clnt->read_buffer, incoming_data_size);
@@ -420,11 +421,11 @@ rtConnectedClient_Read(rtConnectedClient* clnt, rtRouteEntry* myDirectRoute)
           {
             clnt->read_buffer = ptr;
             clnt->read_buffer_capacity = incoming_data_size;
-            rtLog_Info("Reallocated read buffer to %d bytes to accommodate traffic.", incoming_data_size);
+            rtLog_Info("Reallocated read buffer to %" PRIu64 "bytes to accommodate traffic.", incoming_data_size);
           }
           else
           {
-            rtLog_Info("Couldn't not reallocate read buffer to accommodate %d bytes. Message will be dropped.", incoming_data_size);
+            rtLog_Info("Couldn't not reallocate read buffer to accommodate %" PRIu64 "bytes. Message will be dropped.", incoming_data_size);
             _rtConnection_ReadAndDropBytes(clnt->fd, clnt->header.payload_length);
             rtConnectedClient_Reset(clnt);
             break;
