@@ -287,6 +287,11 @@ rtMessage_SetBool(rtMessage const m, char const* name, bool b);
 rtError
 rtMessage_GetBool(rtMessage const m, char const* name, bool* b);
 
+rtError
+rtMessage_SetInt64(rtMessage message, const char* name, int64_t value);
+
+rtError
+rtMessage_GetInt64(rtMessage const message, const char* name, int64_t* value);
 /**
  * Increase reference count of message by 1
  * @param message

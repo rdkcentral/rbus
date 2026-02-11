@@ -229,9 +229,9 @@ static rtError rtConnection_SendInternal(
   char const* reply_topic,
   int flags,
   uint32_t sequence_number,
-  uint32_t T1,
-  uint32_t T2,
-  uint32_t T3);
+  uint64_t T1,
+  uint64_t T2,
+  uint64_t T3);
 
 rtError
 rtConnection_SendRequestInternal(
@@ -1109,7 +1109,7 @@ dequeue_and_continue:
 
 rtError
 rtConnection_SendInternal(rtConnection con, uint8_t const* buff, uint32_t n, char const* topic,
-  char const* reply_topic, int flags, uint32_t sequence_number, uint32_t T1, uint32_t T2, uint32_t T3)
+  char const* reply_topic, int flags, uint32_t sequence_number, uint64_t T1, uint64_t T2, uint64_t T3)
 {
   rtError err;
   int num_attempts;
@@ -1629,11 +1629,11 @@ rtConnection_Read(rtConnection con, int32_t timeout)
       {
         rtMessage m;
         rtMessage_Create(&m);
-        rtMessage_SetInt32(m, "T1", msginfo->header.T1);
-        rtMessage_SetInt32(m, "T2", msginfo->header.T2);
-        rtMessage_SetInt32(m, "T3", msginfo->header.T3);
-        rtMessage_SetInt32(m, "T4", msginfo->header.T4);
-        rtMessage_SetInt32(m, "T5", msginfo->header.T5);
+        rtMessage_SetInt64(m, "T1", msginfo->header.T1);
+        rtMessage_SetInt64(m, "T2", msginfo->header.T2);
+        rtMessage_SetInt64(m, "T3", msginfo->header.T3);
+        rtMessage_SetInt64(m, "T4", msginfo->header.T4);
+        rtMessage_SetInt64(m, "T5", msginfo->header.T5);
         rtMessage_SetString(m, "topic", msginfo->header.topic);
         rtMessage_SetString(m, "reply_topic", msginfo->header.reply_topic);
         rtConnection_SendMessage(con, m, RTROUTED_TRANSACTION_TIME_INFO);

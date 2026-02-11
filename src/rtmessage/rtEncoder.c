@@ -95,3 +95,35 @@ rtEncoder_DecodeUInt32(uint8_t const** itr, uint32_t* n)
   *itr += 4;
   return RT_OK;
 }
+
+rtError rtEncoder_EncodeUInt64(uint8_t** ptr, uint64_t value)
+{
+    if (!ptr || !*ptr)
+        return RT_ERROR_INVALID_ARG;
+    (*ptr)[0] = (uint8_t)((value >> 56) & 0xFF);
+    (*ptr)[1] = (uint8_t)((value >> 48) & 0xFF);
+    (*ptr)[2] = (uint8_t)((value >> 40) & 0xFF);
+    (*ptr)[3] = (uint8_t)((value >> 32) & 0xFF);
+    (*ptr)[4] = (uint8_t)((value >> 24) & 0xFF);
+    (*ptr)[5] = (uint8_t)((value >> 16) & 0xFF);
+    (*ptr)[6] = (uint8_t)((value >> 8) & 0xFF);
+    (*ptr)[7] = (uint8_t)(value & 0xFF);
+    *ptr += 8;
+    return RT_OK;
+}
+
+rtError rtEncoder_DecodeUInt64(uint8_t const** ptr, uint64_t* value)
+{
+    if (!ptr || !*ptr || !value)
+        return RT_ERROR_INVALID_ARG;
+    *value = ((uint64_t)(*ptr)[0] << 56) |
+             ((uint64_t)(*ptr)[1] << 48) |
+             ((uint64_t)(*ptr)[2] << 40) |
+             ((uint64_t)(*ptr)[3] << 32) |
+             ((uint64_t)(*ptr)[4] << 24) |
+             ((uint64_t)(*ptr)[5] << 16) |
+             ((uint64_t)(*ptr)[6] << 8)  |
+             ((uint64_t)(*ptr)[7]);
+    *ptr += 8;
+    return RT_OK;
+}
