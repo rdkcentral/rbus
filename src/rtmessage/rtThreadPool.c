@@ -26,6 +26,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include <errno.h>
+#include <string.h>
 
 #define RT_THREAD_POOL_DEFAULT_EXPIRE_TIME 10
 
@@ -254,7 +255,7 @@ rtError rtThreadPool_StopAllThread(rtThreadPool pool, int waitTimeMS)
       clock_gettime(CLOCK_REALTIME, &startTime);
       timeAddMS(&startTime, waitRemainingMS, &endTime);
       int waitResult = pthread_cond_timedwait(&pool->idleCond, &pool->poolLock, &endTime);
-      if (waitResult != 0)
+      if (waitResult != 0 && waitResult != ETIMEDOUT))
       {
           rtLog_Warn("rtThreadPool_StopAllThread: pthread_cond_timedwait failed (%d)", waitResult);
           break;
