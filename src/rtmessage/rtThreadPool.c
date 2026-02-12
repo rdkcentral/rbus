@@ -257,7 +257,7 @@ rtError rtThreadPool_StopAllThread(rtThreadPool pool, int waitTimeMS)
       int waitResult = pthread_cond_timedwait(&pool->idleCond, &pool->poolLock, &endTime);
       if (waitResult != 0 && waitResult != ETIMEDOUT))
       {
-          rtLog_Warn("rtThreadPool_StopAllThread: pthread_cond_timedwait failed (%d)", waitResult);
+          rtLog_Warn("rtThreadPool_StopAllThread: pthread_cond_timedwait failed (errorCode:%d, errorMsg:%s)", waitResult, strerror(waitResult));
           break;
       }
       waitRemainingMS -= timeGetElapsed(&startTime);
