@@ -1173,14 +1173,14 @@ rtConnection_SendInternal(rtConnection con, uint8_t const* buff, uint32_t n, cha
 #ifdef MSG_ROUNDTRIP_TIME
   if(header.flags & rtMessageFlags_Request)
   {
-       header.T1 = send_time.tv_sec;
+       header.T1 = (uint64_t)send_time.tv_sec;
   }
   if(header.flags & rtMessageFlags_Response)
   {
        header.T1 = T1;
        header.T2 = T2;
        header.T3 = T3;
-       header.T4 = send_time.tv_sec;
+       header.T4 = (uint64_t)send_time.tv_sec;
   }
 #else
   (void)T1;

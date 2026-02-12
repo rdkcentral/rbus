@@ -289,7 +289,7 @@ _rtdirect_dispatch_message_from_client(rtConnectedClient* clnt, rtRouteEntry* pD
     if((clnt->header.flags & rtMessageFlags_Request))
     {
       rtTime_Now(&ts);
-      clnt->header.T3 = ts.tv_sec;
+      clnt->header.T3 = (uint64_t)ts.tv_sec;
     }
 #endif
     rtLog_Debug("DispatchMessage topic=%s expression=%s", clnt->header.topic, route->expression);
@@ -347,12 +347,12 @@ rtConnectedClient_Read(rtConnectedClient* clnt, rtRouteEntry* myDirectRoute)
   if(clnt->header.flags & rtMessageFlags_Request)
   {
      rtTime_Now(&daemon_request);
-     clnt->header.T2 = daemon_request.tv_sec;
+     clnt->header.T2 = (uint64_t)daemon_request.tv_sec;
   }
   if(clnt->header.flags & rtMessageFlags_Response)
   {
      rtTime_Now(&daemon_response);
-     clnt->header.T5 = daemon_response.tv_sec;
+     clnt->header.T5 = (uint64_t)daemon_response.tv_sec;
   }
 #endif
 

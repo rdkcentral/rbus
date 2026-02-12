@@ -108,25 +108,25 @@ rtRouted_TransactionTimingDetails(const rtMessageHeader* header_details)
                                             time(NULL) - Time since Epoch time(1st Jan 1970)
                                             uptime.tv_sec - Time since boot of device */
   rtLog_Info("=======================================================================");
-  timestamp.tv_sec = header_details->T1 + boottime;
+  timestamp.tv_sec = (time_t)header_details->T1 + boottime;
   rtTime_ToString(&timestamp, time_buff);
   rtLog_Info("Consumer : %s", header_details->topic);
   rtLog_Info("Provider : %s", header_details->reply_topic);
   rtLog_Info("Time at which consumer sends the request to daemon     : %s", time_buff);
   memset(time_buff, 0, sizeof(time_buff));
-  timestamp.tv_sec = header_details->T2 + boottime;
+  timestamp.tv_sec = (time_t)header_details->T2 + boottime;
   rtTime_ToString(&timestamp, time_buff);
   rtLog_Info("Time at which daemon receives the message from consumer: %s", time_buff);
   memset(time_buff, 0, sizeof(time_buff));
-  timestamp.tv_sec = header_details->T3 + boottime;
+  timestamp.tv_sec = (time_t)header_details->T3 + boottime;
   rtTime_ToString(&timestamp, time_buff);
   rtLog_Info("Time at which daemon writes to provider socket         : %s", time_buff);
   memset(time_buff, 0, sizeof(time_buff));
-  timestamp.tv_sec = header_details->T4 + boottime;
+  timestamp.tv_sec = (time_t)header_details->T4 + boottime;
   rtTime_ToString(&timestamp, time_buff);
   rtLog_Info("Time at which provider sends back the response         : %s", time_buff);
   memset(time_buff, 0, sizeof(time_buff));
-  timestamp.tv_sec = header_details->T5 + boottime;
+  timestamp.tv_sec = (time_t)header_details->T5 + boottime;
   rtTime_ToString(&timestamp, time_buff);
   rtLog_Info("Time at which daemon received the response             : %s", time_buff);
   rtLog_Info("Total duration                                         : %lld seconds", (long long int)(header_details->T5 - header_details->T1));
