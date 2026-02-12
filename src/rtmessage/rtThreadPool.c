@@ -253,7 +253,12 @@ rtError rtThreadPool_StopAllThread(rtThreadPool pool, int waitTimeMS)
       struct timespec startTime, endTime;
       clock_gettime(CLOCK_REALTIME, &startTime);
       timeAddMS(&startTime, waitRemainingMS, &endTime);
-      pthread_cond_timedwait(&pool->idleCond, &pool->poolLock, &endTime);
+      int waitResult = pthread_cond_timedwait(&pool->idleCond, &pool->poolLock, &endTime);
+      if (waitResult != 0)
+      {
+          rtLog_Warn("rtThreadPool_StopAllThread: pthread_cond_timedwait failed (%d)", waitResult);
+          break;
+      }
       waitRemainingMS -= timeGetElapsed(&startTime);
       rtLog_Debug("%s waitRemainingMS=%d", __FUNCTION__, waitRemainingMS);
     }
