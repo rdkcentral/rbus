@@ -515,7 +515,7 @@ rtConnection_ReadUntil(rtConnection con, uint8_t* buff, int count, int32_t timeo
 }
 
 static void
-rtConnection_DestroyOnFailure(rtConnection c, int mutex_init, int callback_mutex_init, int reconnect_mutex_init, int cond_init, int mutex_attr_init, pthread_mutexattr_t* mutex_attribute)
+rtConnection_DestroyOnFailure(rtConnection c, int mutex_init, int callback_mutex_init, int reconnect_mutex_init, int cond_init, int mutex_attr_init, pthread_mutexattr_t* mutex_attr_ptr)
 {
     if (c)
     {
@@ -549,8 +549,8 @@ rtConnection_DestroyOnFailure(rtConnection c, int mutex_init, int callback_mutex
         pthread_cond_destroy(&c->callback_message_cond);
       free(c);
     }
-    if (mutex_attr_init && mutex_attribute)
-      pthread_mutexattr_destroy(mutex_attribute);
+    if (mutex_attr_init && mutex_attr_ptr)
+      pthread_mutexattr_destroy(mutex_attr_ptr);
 }
 
 static rtError
@@ -587,7 +587,7 @@ rtConnection_CreateInternal(rtConnection* con, char const* application_name, cha
   if (0 == pthread_cond_init(&c->callback_message_cond, NULL))
     cond_init = 1;
 
-  if (!(mutex_attr_init && mutex_init && callback_mutex_init && reconnect_mutex_init))
+  if (!(mutex_attr_init && mutex_init && callback_mutex_init && reconnect_mutex_init && cond_init))
   {
     rtLog_Error("Could not initialize mutex or mutex attribute. Cannot create connection.");
     rtConnection_DestroyOnFailure(c, mutex_init, callback_mutex_init, reconnect_mutex_init, cond_init, mutex_attr_init, &mutex_attribute);
