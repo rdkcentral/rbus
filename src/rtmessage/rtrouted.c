@@ -1525,8 +1525,14 @@ static rtError
 rtConnectedClient_Read(rtConnectedClient* clnt)
 {
   ssize_t bytes_read;
-  size_t bytes_to_read = (clnt->bytes_to_read - clnt->bytes_read);
-
+  size_t bytes_to_read;
+  if (clnt->bytes_read > clnt->bytes_to_read)
+  {
+    rtLog_Error("rtConnectedClient_Read: invalid read state: bytes_read=%" PRIu64 " bytes_to_read=%" PRIu64,
+                (uint64_t)clnt->bytes_read, (uint64_t)clnt->bytes_to_read);
+    return RT_FAIL;
+  }
+  bytes_to_read = (size_t)(clnt->bytes_to_read - clnt->bytes_read);
 #ifdef MSG_ROUNDTRIP_TIME
   rtTime_t daemon_request = {0};
   rtTime_t daemon_response = {0};
@@ -1602,16 +1608,23 @@ rtConnectedClient_Read(rtConnectedClient* clnt)
         uint64_t incoming_data_size = clnt->bytes_to_read + clnt->bytes_read;
         if(clnt->read_buffer_capacity < incoming_data_size)
         {
+          if (incoming_data_size > SIZE_MAX)
+          {
+            rtLog_Info("Requested read buffer size (%" PRIu64 ") exceeds system maximum. Message will be dropped.", incoming_data_size);
+            _rtConnection_ReadAndDropBytes(clnt->fd, clnt->header.payload_length);
+            rtConnectedClient_Reset(clnt);
+            break;
+          }
           uint8_t * ptr = (uint8_t *)rt_try_realloc(clnt->read_buffer, incoming_data_size);
           if(NULL != ptr)
           {
             clnt->read_buffer = ptr;
             clnt->read_buffer_capacity = incoming_data_size;
-            rtLog_Info("Reallocated read buffer to %" PRIu64 "bytes to accommodate traffic.", incoming_data_size);
+            rtLog_Info("Reallocated read buffer to %" PRIu64 " bytes to accommodate traffic.", incoming_data_size);
           }
           else
           {
-            rtLog_Info("Couldn't not reallocate read buffer to accommodate %" PRIu64 "bytes. Message will be dropped.", incoming_data_size);
+            rtLog_Info("Couldn't reallocate read buffer to accommodate %" PRIu64 " bytes. Message will be dropped.", incoming_data_size);
             _rtConnection_ReadAndDropBytes(clnt->fd, clnt->header.payload_length);
             rtConnectedClient_Reset(clnt);
             break;
