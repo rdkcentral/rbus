@@ -525,13 +525,13 @@ rtConnection_ReadUntil(rtConnection con, uint8_t* buff, int count, int32_t timeo
  *   c                   - Pointer to the rtConnection object to clean up
  *   mutex_init          - true if main mutex was initialized
  *   callback_mutex_init - true if callback mutex was initialized
- *   reconnect_mutex_init- true if reconnect mutex was initialized
+ *   reconnect_mutex_init - true if reconnect mutex was initialized
  *   cond_init           - true if condition variable was initialized
- *   mutex_attr_init     -true if mutex_attribute was initialized
+ *   mutex_attr_init     - true if mutex_attribute was initialized
  *   mutex_attr_ptr      - pointer to mutex attribute to destroy (if not NULL)
  */
 static void
-rtConnection_DestroyOnCleanup(rtConnection c, bool mutex_init, bool callback_mutex_init, bool reconnect_mutex_init, bool cond_init, bool mutex_attr_init, bool mutex_attr_init, pthread_mutexattr_t* mutex_attr_ptr)
+rtConnection_DestroyOnCleanup(rtConnection c, bool mutex_init, bool callback_mutex_init, bool reconnect_mutex_init, bool cond_init, bool mutex_attr_init, pthread_mutexattr_t* mutex_attr_ptr)
 {
     if (c)
     {
@@ -564,7 +564,7 @@ rtConnection_DestroyOnCleanup(rtConnection c, bool mutex_init, bool callback_mut
       if (cond_init)
         pthread_cond_destroy(&c->callback_message_cond);
       if (mutex_attr_init && mutex_attr_ptr)
-      pthread_mutexattr_destroy(mutex_attr_ptr);
+        pthread_mutexattr_destroy(mutex_attr_ptr);
       free(c);
     }
 }
@@ -671,6 +671,7 @@ rtConnection_CreateInternal(rtConnection* con, char const* application_name, cha
   {
     rtLog_Warn("rtConnection_ConnectAndRegister(1):%d", err);
     rtConnection_DestroyOnCleanup(c, mutex_init, callback_mutex_init, reconnect_mutex_init, cond_init, mutex_attr_init, &mutex_attribute);
+    return err;
   }
 
   if (err == RT_OK)
