@@ -112,7 +112,7 @@ rtError rtSemaphore_TimedWait(rtSemaphore sem, struct timespec* t)
     {
       if(t && err == ETIMEDOUT)
         rc = RT_ERROR_TIMEOUT;
-      else if(err != 0)
+      else
       {
         rtLog_Error("Error %d:%s running command pthread_cond_timedwait", err, strerror(err));
         rc = RT_ERROR;
