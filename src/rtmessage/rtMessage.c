@@ -31,6 +31,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <pthread.h>
+#include <inttypes.h>
 
 struct _rtMessage
 {
@@ -237,6 +238,16 @@ rtMessage_SetInt32(rtMessage message, char const* name, int32_t value)
   return RT_OK;
 }
 
+rtError rtMessage_SetUInt64(rtMessage message, const char* name, uint64_t value)
+{
+    if (!message || !name)
+        return RT_ERROR_INVALID_ARG;
+    char buf[32];
+    snprintf(buf, sizeof(buf), "%" PRIu64, value);
+    cJSON_AddItemToObject(message->json, name, cJSON_CreateString(buf));
+    return RT_OK;
+}
+
 rtError
 rtMessage_SetBool(rtMessage m, char const* name, bool b)
 {
@@ -376,6 +387,19 @@ rtMessage_GetInt32(rtMessage const message,const char* name, int32_t* value)
     return RT_OK;
   }
   return RT_FAIL;
+}
+
+rtError rtMessage_GetUInt64(rtMessage const message, const char* name, uint64_t* value)
+{
+    if (!message || !name || !value)
+        return RT_ERROR_INVALID_ARG;
+    cJSON* p = cJSON_GetObjectItem(message->json, name);
+    if (p && p->valuestring)
+    {
+        *value = strtoull(p->valuestring, NULL, 10);
+        return RT_OK;
+    }
+    return RT_FAIL;
 }
 
 /**

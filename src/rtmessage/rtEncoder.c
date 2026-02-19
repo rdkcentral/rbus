@@ -95,3 +95,20 @@ rtEncoder_DecodeUInt32(uint8_t const** itr, uint32_t* n)
   *itr += 4;
   return RT_OK;
 }
+
+rtError rtEncoder_EncodeUInt64(uint8_t** itr, uint64_t n)
+{
+  uint64_t net = htobe64(n);
+  memcpy(*itr, &net, 8);
+  *itr += 8;
+  return RT_OK;
+}
+
+rtError rtEncoder_DecodeUInt64(uint8_t const** itr, uint64_t* n)
+{
+  uint64_t net = 0;
+  memcpy(&net, *itr, 8);
+  *n = be64toh(net);
+  *itr += 8;
+  return RT_OK;
+}
