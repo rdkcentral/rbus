@@ -342,9 +342,9 @@ rtConnectedClient_Read(rtConnectedClient* clnt, rtRouteEntry* myDirectRoute)
   ssize_t bytes_read;
   if (clnt->bytes_read > clnt->bytes_to_read)
   {
-    rtLog_Error("rtConnectedClient_Read: bytes_read (%" PRIu64 ") > bytes_to_read (%" PRIu64 "), clamping.",
+    rtLog_Error("rtConnectedClient_Read: bytes_read (%" PRIu64 ") > bytes_to_read (%" PRIu64 "),aborting.",
                 (uint64_t)clnt->bytes_read, (uint64_t)clnt->bytes_to_read);
-    clnt->bytes_read = clnt->bytes_to_read;
+    return RT_FAIL;
   }
   size_t bytes_to_read = (size_t)(clnt->bytes_to_read - clnt->bytes_read);
 
