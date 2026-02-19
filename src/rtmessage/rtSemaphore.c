@@ -114,7 +114,10 @@ rtError rtSemaphore_TimedWait(rtSemaphore sem, struct timespec* t)
         rc = RT_ERROR_TIMEOUT;
       else
       {
-        rtLog_Error("Error %d:%s running command pthread_cond_timedwait", err, strerror(err));
+        if (t)
+          rtLog_Error("Error %d:%s running command pthread_cond_timedwait", err, strerror(err));
+        else
+          rtLog_Error("Error %d:%s running command pthread_cond_wait", err, strerror(err));
         rc = RT_ERROR;
       }
       ERROR_CHECK(pthread_mutex_unlock(&sem->m));
@@ -123,5 +126,5 @@ rtError rtSemaphore_TimedWait(rtSemaphore sem, struct timespec* t)
   }
   sem->v--;
   ERROR_CHECK(pthread_mutex_unlock(&sem->m));
-  return RT_OK;
+  return rc;
 }
