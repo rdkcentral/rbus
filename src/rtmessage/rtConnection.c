@@ -1603,7 +1603,7 @@ rtConnection_Read(rtConnection con, int32_t timeout)
       {
         rtLog_Error("Payload length too large: %u", msginfo->header.payload_length);
         rtMessageInfo_Release(msginfo);
-        return RT_FAIL;
+        return RT_NO_CONNECTION;
       }
       if(msginfo->dataCapacity < msginfo->header.payload_length + 1)
       {

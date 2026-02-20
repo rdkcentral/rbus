@@ -1543,14 +1543,21 @@ static rtError
 rtConnectedClient_Read(rtConnectedClient* clnt)
 {
   ssize_t bytes_read;
-  size_t bytes_to_read;
   if (clnt->bytes_read > clnt->bytes_to_read)
   {
     rtLog_Error("rtConnectedClient_Read: invalid read state: bytes_read=%" PRIu64 " bytes_to_read=%" PRIu64,
                 (uint64_t)clnt->bytes_read, (uint64_t)clnt->bytes_to_read);
     return RT_FAIL;
   }
-  bytes_to_read = (size_t)(clnt->bytes_to_read - clnt->bytes_read);
+  uint64_t remaining = clnt->bytes_to_read - clnt->bytes_read;
+  if (remaining > (uint64_t)SIZE_MAX)
+  {
+    rtLog_Error("rtConnectedClient_Read: remaining bytes to read (%" PRIu64 ") exceed SIZE_MAX, resetting client.",
+                  remaining);
+    rtConnectedClient_Reset(clnt);
+    return RT_FAIL;
+  }
+  size_t bytes_to_read = (size_t)remaining;
 #ifdef MSG_ROUNDTRIP_TIME
   rtTime_t daemon_request = {0};
   rtTime_t daemon_response = {0};

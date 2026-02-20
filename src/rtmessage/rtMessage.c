@@ -405,18 +405,24 @@ rtMessage_GetInt32(rtMessage const message,const char* name, int32_t* value)
  * @param pointer to 64 bit unsigned integer value obtained.
  * @return rtError
  **/
-rtError rtMessage_GetUInt64(rtMessage const message, const char* name, uint64_t* value)
+rtError
+rtMessage_GetUInt64(rtMessage const message, const char* name, uint64_t* value)
 {
-    if (!message || !name || !value)
-        return RT_ERROR_INVALID_ARG;
-    cJSON* p = cJSON_GetObjectItem(message->json, name);
-    if (p && p->valuestring)
+  if (!message || !name || !value)
+    return RT_ERROR_INVALID_ARG;
+
+  cJSON* p = cJSON_GetObjectItem(message->json, name);
+  if (p)
+  {
+    if (p->valuestring)
     {
       char* endptr = NULL;
       const char* s = p->valuestring;
+
       /* Reject negative values explicitly to avoid wrapping into a large unsigned value. */
       if (s[0] == '-')
         return RT_FAIL;
+
       errno = 0;
       unsigned long long tmp = strtoull(s, &endptr, 10);
       if (endptr == s)
@@ -425,12 +431,27 @@ rtError rtMessage_GetUInt64(rtMessage const message, const char* name, uint64_t*
         return RT_FAIL; /* leftover characters */
       if (errno == ERANGE)
         return RT_FAIL; /* out of range */
-      if (tmp > (unsigned long long)UINT64_MAX)
+      if ((unsigned long long)(uint64_t)tmp != tmp)
         return RT_FAIL; /* doesn't fit in uint64_t */
+
       *value = (uint64_t)tmp;
       return RT_OK;
     }
-    return RT_FAIL;
+    else if (p->type == cJSON_Number)
+    {
+      double d = p->valuedouble;
+      if (d < 0.0)
+        return RT_FAIL;
+      if (d > (double)UINT64_MAX)
+        return RT_FAIL;
+      uint64_t v = (uint64_t)d;
+      if ((double)v != d)
+        return RT_FAIL; /* fractional or precision loss */
+      *value = v;
+      return RT_OK;
+    }
+  }
+  return RT_FAIL;
 }
 
 /**

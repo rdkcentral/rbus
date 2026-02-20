@@ -64,11 +64,11 @@ typedef struct
   uint32_t reply_topic_length;
   char     reply_topic[RTMSG_HEADER_MAX_TOPIC_LENGTH];
 #ifdef MSG_ROUNDTRIP_TIME
-  uint64_t   T1; /* Time at which consumer sends the request to daemon */
-  uint64_t  T2; /* Time at which daemon receives the message from consumer */
-  uint64_t  T3; /* Time at which daemon writes to provider socket */
-  uint64_t T4; /* Time at which provider sends back the response */
-  uint64_t  T5; /* Time at which daemon received the response */
+  uint64_t   T1; /* Timestamp in nanoseconds since boot (CLOCK_MONOTONIC): time at which consumer sends the request to daemon */
+  uint64_t  T2; /* Timestamp in nanoseconds since boot (CLOCK_MONOTONIC): time at which daemon receives the message from consumer */
+  uint64_t  T3; /* Timestamp in nanoseconds since boot (CLOCK_MONOTONIC): time at which daemon writes to provider socket */
+  uint64_t  T4; /* Timestamp in nanoseconds since boot (CLOCK_MONOTONIC): time at which provider sends back the response */
+  uint64_t  T5; /* Timestamp in nanoseconds since boot (CLOCK_MONOTONIC): time at which daemon received the response */
 #endif
 } rtMessageHeader;
 
