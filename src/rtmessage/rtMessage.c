@@ -32,6 +32,8 @@
 #include <string.h>
 #include <pthread.h>
 #include <inttypes.h>
+#include <errno.h>
+#include <limits.h>
 
 struct _rtMessage
 {
@@ -411,11 +413,20 @@ rtError rtMessage_GetUInt64(rtMessage const message, const char* name, uint64_t*
     if (p && p->valuestring)
     {
       char* endptr = NULL;
-      unsigned long long tmp = strtoull(p->valuestring, &endptr, 10);
-      if (endptr == p->valuestring)
+      const char* s = p->valuestring;
+      /* Reject negative values explicitly to avoid wrapping into a large unsigned value. */
+      if (s[0] == '-')
+        return RT_FAIL;
+      errno = 0;
+      unsigned long long tmp = strtoull(s, &endptr, 10);
+      if (endptr == s)
         return RT_FAIL; /* no conversion */
       if (*endptr != '\0')
         return RT_FAIL; /* leftover characters */
+      if (errno == ERANGE)
+        return RT_FAIL; /* out of range */
+      if (tmp > (unsigned long long)UINT64_MAX)
+        return RT_FAIL; /* doesn't fit in uint64_t */
       *value = (uint64_t)tmp;
       return RT_OK;
     }

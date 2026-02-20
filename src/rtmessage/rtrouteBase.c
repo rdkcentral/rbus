@@ -290,7 +290,7 @@ _rtdirect_dispatch_message_from_client(rtConnectedClient* clnt, rtRouteEntry* pD
     if((clnt->header.flags & rtMessageFlags_Request))
     {
       rtTime_Now(&ts);
-      clnt->header.T3 = (uint64_t)ts.tv_sec;
+      clnt->header.T3 = (uint64_t)ts.tv_sec * 1000000000LL + ts.tv_nsec;
     }
 #endif
     rtLog_Debug("DispatchMessage topic=%s expression=%s", clnt->header.topic, route->expression);
@@ -351,16 +351,16 @@ rtConnectedClient_Read(rtConnectedClient* clnt, rtRouteEntry* myDirectRoute)
 #ifdef MSG_ROUNDTRIP_TIME
   rtTime_t daemon_request = {0};
   rtTime_t daemon_response = {0};
-  if(clnt->header.flags & rtMessageFlags_Request)
-  {
-     rtTime_Now(&daemon_request);
-     clnt->header.T2 = (uint64_t)daemon_request.tv_sec;
-  }
-  if(clnt->header.flags & rtMessageFlags_Response)
-  {
-     rtTime_Now(&daemon_response);
-     clnt->header.T5 = (uint64_t)daemon_response.tv_sec;
-  }
+    if(clnt->header.flags & rtMessageFlags_Request)
+    {
+      rtTime_Now(&daemon_request);
+      clnt->header.T2 = (uint64_t)daemon_request.tv_sec * 1000000000LL + daemon_request.tv_nsec;
+    }
+    if(clnt->header.flags & rtMessageFlags_Response)
+    {
+      rtTime_Now(&daemon_response);
+      clnt->header.T5 = (uint64_t)daemon_response.tv_sec * 1000000000LL + daemon_response.tv_nsec;
+    }
 #endif
 
   bytes_read = recv(clnt->fd, &clnt->read_buffer[clnt->bytes_read], bytes_to_read, MSG_NOSIGNAL);

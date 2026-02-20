@@ -109,28 +109,46 @@ rtRouted_TransactionTimingDetails(const rtMessageHeader* header_details)
                                             time(NULL) - Time since Epoch time(1st Jan 1970)
                                             uptime.tv_sec - Time since boot of device */
   rtLog_Info("=======================================================================");
-  timestamp.tv_sec = (time_t)header_details->T1 + boottime;
+
+  /* T* fields are stored as nanoseconds since boot. Convert to wall-clock time. */
+  timestamp.tv_sec = (time_t)(header_details->T1 / 1000000000LL) + boottime;
+  timestamp.tv_nsec = (long)(header_details->T1 % 1000000000LL);
   rtTime_ToString(&timestamp, time_buff);
   rtLog_Info("Consumer : %s", header_details->topic);
   rtLog_Info("Provider : %s", header_details->reply_topic);
   rtLog_Info("Time at which consumer sends the request to daemon     : %s", time_buff);
   memset(time_buff, 0, sizeof(time_buff));
-  timestamp.tv_sec = (time_t)header_details->T2 + boottime;
+
+  timestamp.tv_sec = (time_t)(header_details->T2 / 1000000000LL) + boottime;
+  timestamp.tv_nsec = (long)(header_details->T2 % 1000000000LL);
   rtTime_ToString(&timestamp, time_buff);
   rtLog_Info("Time at which daemon receives the message from consumer: %s", time_buff);
   memset(time_buff, 0, sizeof(time_buff));
-  timestamp.tv_sec = (time_t)header_details->T3 + boottime;
+
+  timestamp.tv_sec = (time_t)(header_details->T3 / 1000000000LL) + boottime;
+  timestamp.tv_nsec = (long)(header_details->T3 % 1000000000LL);
   rtTime_ToString(&timestamp, time_buff);
   rtLog_Info("Time at which daemon writes to provider socket         : %s", time_buff);
   memset(time_buff, 0, sizeof(time_buff));
-  timestamp.tv_sec = (time_t)header_details->T4 + boottime;
+
+  timestamp.tv_sec = (time_t)(header_details->T4 / 1000000000LL) + boottime;
+  timestamp.tv_nsec = (long)(header_details->T4 % 1000000000LL);
   rtTime_ToString(&timestamp, time_buff);
   rtLog_Info("Time at which provider sends back the response         : %s", time_buff);
   memset(time_buff, 0, sizeof(time_buff));
-  timestamp.tv_sec = (time_t)header_details->T5 + boottime;
+
+  timestamp.tv_sec = (time_t)(header_details->T5 / 1000000000LL) + boottime;
+  timestamp.tv_nsec = (long)(header_details->T5 % 1000000000LL);
   rtTime_ToString(&timestamp, time_buff);
   rtLog_Info("Time at which daemon received the response             : %s", time_buff);
-  rtLog_Info("Total duration                                         : %lld seconds", (long long int)(header_details->T5 - header_details->T1));
+
+  /* Print total duration in seconds with nanosecond precision. */
+  {
+    uint64_t delta_ns = header_details->T5 - header_details->T1;
+    long long sec = (long long)(delta_ns / 1000000000LL);
+    long long nsec = (long long)(delta_ns % 1000000000LL);
+    rtLog_Info("Total duration                                         : %lld.%09lld seconds", sec, nsec);
+  }
   rtLog_Info("=======================================================================");
 }
 #endif
@@ -1447,7 +1465,7 @@ dispatch:
           if((clnt->header.flags & rtMessageFlags_Request))
           {
             rtTime_Now(&ts);
-            clnt->header.T3 = ts.tv_sec;
+            clnt->header.T3 = (uint64_t)ts.tv_sec * 1000000000LL + ts.tv_nsec;
           }
 #endif
           rtLog_Debug("DispatchMessage topic=%s expression=%s", clnt->header.topic, route->expression);
@@ -1536,16 +1554,16 @@ rtConnectedClient_Read(rtConnectedClient* clnt)
 #ifdef MSG_ROUNDTRIP_TIME
   rtTime_t daemon_request = {0};
   rtTime_t daemon_response = {0};
-  if(clnt->header.flags & rtMessageFlags_Request)
-  {
-     rtTime_Now(&daemon_request);
-     clnt->header.T2 = (uint64_t)daemon_request.tv_sec;
-  }
-  if(clnt->header.flags & rtMessageFlags_Response)
-  {
-     rtTime_Now(&daemon_response);
-     clnt->header.T5 = (uint64_t)daemon_response.tv_sec;
-  }
+    if(clnt->header.flags & rtMessageFlags_Request)
+    {
+      rtTime_Now(&daemon_request);
+      clnt->header.T2 = (uint64_t)daemon_request.tv_sec * 1000000000LL + daemon_request.tv_nsec;
+    }
+    if(clnt->header.flags & rtMessageFlags_Response)
+    {
+      rtTime_Now(&daemon_response);
+      clnt->header.T5 = (uint64_t)daemon_response.tv_sec * 1000000000LL + daemon_response.tv_nsec;
+    }
 #endif
 
   bytes_read = recv(clnt->fd, &clnt->read_buffer[clnt->bytes_read], bytes_to_read, MSG_NOSIGNAL);

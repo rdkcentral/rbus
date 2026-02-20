@@ -1598,18 +1598,25 @@ rtConnection_Read(rtConnection con, int32_t timeout)
 
     if (err == RT_OK)
     {
+      if (msginfo->header.payload_length > (uint32_t)INT_MAX)
+      {
+        rtLog_Error("Payload length too large: %u", msginfo->header.payload_length);
+        rtMessageInfo_Release(msginfo);
+        return RT_FAIL;
+      }
       if(msginfo->dataCapacity < msginfo->header.payload_length + 1)
       {
-        msginfo->data = (uint8_t *)rt_try_malloc(msginfo->header.payload_length + 1);
+        size_t alloc_size = (size_t)msginfo->header.payload_length + 1;
+        msginfo->data = (uint8_t *)rt_try_malloc(alloc_size);
         if(!msginfo->data){
           rtLog_Error("Failed to allocate memory for msginfo->data");
           rtMessageInfo_Release(msginfo);
           return rtErrorFromErrno(ENOMEM);
         }
-        msginfo->dataCapacity = msginfo->header.payload_length + 1;
+        msginfo->dataCapacity = (uint32_t)alloc_size;
       }
 
-      err = rtConnection_ReadUntil(con, msginfo->data, msginfo->header.payload_length, timeout);
+      err = rtConnection_ReadUntil(con, msginfo->data, (int)msginfo->header.payload_length, timeout);
 
       if (err == RT_OK)
       {

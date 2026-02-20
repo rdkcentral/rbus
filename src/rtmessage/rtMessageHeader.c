@@ -113,11 +113,29 @@ rtMessageHeader_Decode(rtMessageHeader* hdr, uint8_t const* buff)
   }
   rtEncoder_DecodeStr(&ptr, hdr->reply_topic, hdr->reply_topic_length);
 #ifdef MSG_ROUNDTRIP_TIME
-  rtEncoder_DecodeUInt64(&ptr, &hdr->T1);
-  rtEncoder_DecodeUInt64(&ptr, &hdr->T2);
-  rtEncoder_DecodeUInt64(&ptr, &hdr->T3);
-  rtEncoder_DecodeUInt64(&ptr, &hdr->T4);
-  rtEncoder_DecodeUInt64(&ptr, &hdr->T5);
+  /* The timestamp block is optional on older header formats. Use header_length
+     to detect whether the 5x uint64 timestamp fields are present to avoid
+     reading past the received header when talking with older peers. */
+  {
+    size_t bytes_read_so_far = (size_t)(ptr - buff);
+    size_t remaining_in_header = 0;
+    if (hdr->header_length > bytes_read_so_far)
+      remaining_in_header = (size_t)hdr->header_length - bytes_read_so_far;
+
+    if (remaining_in_header >= (5 * sizeof(uint64_t)))
+    {
+      rtEncoder_DecodeUInt64(&ptr, &hdr->T1);
+      rtEncoder_DecodeUInt64(&ptr, &hdr->T2);
+      rtEncoder_DecodeUInt64(&ptr, &hdr->T3);
+      rtEncoder_DecodeUInt64(&ptr, &hdr->T4);
+      rtEncoder_DecodeUInt64(&ptr, &hdr->T5);
+    }
+    else
+    {
+      /* Timestamps not present in this header version; zero them for safety. */
+      hdr->T1 = hdr->T2 = hdr->T3 = hdr->T4 = hdr->T5 = 0;
+    }
+  }
 #endif
 
   rtEncoder_DecodeUInt16(&ptr, &marker);
