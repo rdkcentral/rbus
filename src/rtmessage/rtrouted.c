@@ -1548,15 +1548,7 @@ rtConnectedClient_Read(rtConnectedClient* clnt)
                 clnt->bytes_read, clnt->bytes_to_read);
     return RT_FAIL;
   }
-  uint64_t remaining = clnt->bytes_to_read - clnt->bytes_read;
-  if (remaining > (uint64_t)SIZE_MAX)
-  {
-    rtLog_Error("rtConnectedClient_Read: remaining bytes to read %zu exceed SIZE_MAX, resetting client.",
-                  remaining);
-    rtConnectedClient_Reset(clnt);
-    return RT_FAIL;
-  }
-  size_t bytes_to_read = remaining;
+  size_t bytes_to_read = clnt->bytes_to_read - clnt->bytes_read;;
 #ifdef MSG_ROUNDTRIP_TIME
   rtTime_t daemon_request = {0};
   rtTime_t daemon_response = {0};
@@ -1627,7 +1619,15 @@ rtConnectedClient_Read(rtConnectedClient* clnt)
         if(clnt->header.flags & rtMessageFlags_Tainted)
           clock_gettime(CLOCK_MONOTONIC, &g_entry_exit_timestamps[g_timestamp_index][0]);
 #endif
-        clnt->bytes_to_read += clnt->header.payload_length;
+        size_t payload = (size_t)clnt->header.payload_length;
+        if (clnt->bytes_to_read > SIZE_MAX - payload)
+        {
+          rtLog_Info("Requested payload_length (%u) would overflow size_t. Message will be dropped.", clnt->header.payload_length);
+          _rtConnection_ReadAndDropBytes(clnt->fd, clnt->header.payload_length);
+          rtConnectedClient_Reset(clnt);
+          break;
+        }
+        clnt->bytes_to_read += payload;
         clnt->state = rtConnectionState_ReadPayload;
         size_t incoming_data_size = clnt->bytes_to_read + clnt->bytes_read;
         if(clnt->read_buffer_capacity < incoming_data_size)
