@@ -33,7 +33,6 @@
 #include <sys/file.h>
 #include <sys/stat.h>
 #include <time.h>
-#include <inttypes.h>
 
 #include <pthread.h>
 
@@ -342,19 +341,11 @@ rtConnectedClient_Read(rtConnectedClient* clnt, rtRouteEntry* myDirectRoute)
   ssize_t bytes_read;
   if (clnt->bytes_read > clnt->bytes_to_read)
   {
-    rtLog_Error("rtConnectedClient_Read: bytes_read (%" PRIu64 ") > bytes_to_read (%" PRIu64 "),aborting.",
-                (uint64_t)clnt->bytes_read, (uint64_t)clnt->bytes_to_read);
+    rtLog_Error("rtConnectedClient_Read: bytes_read (%zu) > bytes_to_read (%zu),aborting.",
+                clnt->bytes_read, clnt->bytes_to_read);
     return RT_FAIL;
   }
-  uint64_t remaining = clnt->bytes_to_read - clnt->bytes_read;
-  if (remaining > (uint64_t)SIZE_MAX)
-  {
-    rtLog_Error("rtConnectedClient_Read: remaining bytes to read (%" PRIu64 ") exceed SIZE_MAX, resetting client.",
-                  remaining);
-    rtConnectedClient_Reset(clnt);
-    return RT_FAIL;
-  }
-  size_t bytes_to_read = (size_t)remaining;
+  size_t bytes_to_read = clnt->bytes_to_read - clnt->bytes_read;;
 
 #ifdef MSG_ROUNDTRIP_TIME
   rtTime_t daemon_request = {0};
@@ -430,23 +421,16 @@ rtConnectedClient_Read(rtConnectedClient* clnt, rtRouteEntry* myDirectRoute)
         uint64_t incoming_data_size = clnt->bytes_to_read + clnt->bytes_read;
         if(clnt->read_buffer_capacity < incoming_data_size)
         {
-          if (incoming_data_size > SIZE_MAX)
-          {
-            rtLog_Info("Requested read buffer size (%" PRIu64 ") exceeds system maximum. Message will be dropped.", incoming_data_size);
-            _rtConnection_ReadAndDropBytes(clnt->fd, clnt->header.payload_length);
-            rtConnectedClient_Reset(clnt);
-            break;
-          }
           uint8_t * ptr = (uint8_t *)rt_try_realloc(clnt->read_buffer, incoming_data_size);
           if(NULL != ptr)
           {
             clnt->read_buffer = ptr;
             clnt->read_buffer_capacity = incoming_data_size;
-            rtLog_Info("Reallocated read buffer to %" PRIu64 " bytes to accommodate traffic.", incoming_data_size);
+            rtLog_Info("Reallocated read buffer to %zu bytes to accommodate traffic.", incoming_data_size);
           }
           else
           {
-            rtLog_Info("Couldn't reallocate read buffer to accommodate %" PRIu64 " bytes. Message will be dropped.", incoming_data_size);
+            rtLog_Info("Couldn't reallocate read buffer to accommodate %zu bytes. Message will be dropped.", incoming_data_size);
             _rtConnection_ReadAndDropBytes(clnt->fd, clnt->header.payload_length);
             rtConnectedClient_Reset(clnt);
             break;

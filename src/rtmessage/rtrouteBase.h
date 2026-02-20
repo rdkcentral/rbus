@@ -31,9 +31,9 @@ typedef struct
   uint8_t*                  read_buffer;
   uint8_t*                  send_buffer;
   rtConnectionState         state;
-  uint64_t                       bytes_read;
-  uint64_t                       bytes_to_read;
-  uint64_t                       read_buffer_capacity;
+  size_t                    bytes_read;
+  size_t                    bytes_to_read;
+  size_t                    read_buffer_capacity;
   rtMessageHeader           header;
 #ifdef WITH_SPAKE2
   rtCipher*                 cipher;
