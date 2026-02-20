@@ -31,6 +31,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <pthread.h>
+#include <inttypes.h>
 
 struct _rtMessage
 {
@@ -237,6 +238,23 @@ rtMessage_SetInt32(rtMessage message, char const* name, int32_t value)
   return RT_OK;
 }
 
+/**
+ * Add 64 bit unsigned integer field to the message
+ * @param message to be modified
+ * @param name of the field to be added
+ * @param 64 bit unsigned integer value of the field to be added
+ * @return rtError
+ **/
+rtError rtMessage_SetUInt64(rtMessage message, const char* name, uint64_t value)
+{
+    if (!message || !name)
+        return RT_ERROR_INVALID_ARG;
+    char buf[32];
+    snprintf(buf, sizeof(buf), "%" PRIu64, value);
+    cJSON_AddItemToObject(message->json, name, cJSON_CreateString(buf));
+    return RT_OK;
+}
+
 rtError
 rtMessage_SetBool(rtMessage m, char const* name, bool b)
 {
@@ -376,6 +394,32 @@ rtMessage_GetInt32(rtMessage const message,const char* name, int32_t* value)
     return RT_OK;
   }
   return RT_FAIL;
+}
+
+/**
+ * Get field value of type unsigned integer of 64 bit using field name.
+ * @param message to get field
+ * @param name of the field
+ * @param pointer to 64 bit unsigned integer value obtained.
+ * @return rtError
+ **/
+rtError rtMessage_GetUInt64(rtMessage const message, const char* name, uint64_t* value)
+{
+    if (!message || !name || !value)
+        return RT_ERROR_INVALID_ARG;
+    cJSON* p = cJSON_GetObjectItem(message->json, name);
+    if (p && p->valuestring)
+    {
+      char* endptr = NULL;
+      unsigned long long tmp = strtoull(p->valuestring, &endptr, 10);
+      if (endptr == p->valuestring)
+        return RT_FAIL; /* no conversion */
+      if (*endptr != '\0')
+        return RT_FAIL; /* leftover characters */
+      *value = (uint64_t)tmp;
+      return RT_OK;
+    }
+    return RT_FAIL;
 }
 
 /**

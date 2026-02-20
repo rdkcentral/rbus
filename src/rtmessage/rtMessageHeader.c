@@ -21,9 +21,8 @@
 #include "rtMessageHeader.h"
 #include "rtEncoder.h"
 #include "rtLog.h"
-
 #include <string.h>
-
+#include <inttypes.h>
 rtError
 rtMessageHeader_Init(rtMessageHeader* hdr)
 {
@@ -52,9 +51,9 @@ rtMessageHeader_Encode(rtMessageHeader* hdr, uint8_t* buff)
 {
   uint8_t* ptr = buff;
 #ifdef MSG_ROUNDTRIP_TIME
-  static uint16_t const kSizeWithoutStringsInBytes = 52; /* 28 bytes for basic data +
+  static uint16_t const kSizeWithoutStringsInBytes = 72; /* 28 bytes for basic data +
                                                              4 bytes for Marker +
-                                                            20 bytes for timestamp */
+                                                            40 bytes for timestamp */
 #else
   static uint16_t const kSizeWithoutStringsInBytes = 32; /* 28 bytes for basic data +
                                                              4 bytes for Marker */
@@ -73,11 +72,11 @@ rtMessageHeader_Encode(rtMessageHeader* hdr, uint8_t* buff)
   rtEncoder_EncodeString(&ptr, hdr->topic, NULL);
   rtEncoder_EncodeString(&ptr, hdr->reply_topic, NULL);
 #ifdef MSG_ROUNDTRIP_TIME
-  rtEncoder_EncodeUInt32(&ptr, hdr->T1);
-  rtEncoder_EncodeUInt32(&ptr, hdr->T2);
-  rtEncoder_EncodeUInt32(&ptr, hdr->T3);
-  rtEncoder_EncodeUInt32(&ptr, hdr->T4);
-  rtEncoder_EncodeUInt32(&ptr, hdr->T5);
+  rtEncoder_EncodeUInt64(&ptr, hdr->T1);
+  rtEncoder_EncodeUInt64(&ptr, hdr->T2);
+  rtEncoder_EncodeUInt64(&ptr, hdr->T3);
+  rtEncoder_EncodeUInt64(&ptr, hdr->T4);
+  rtEncoder_EncodeUInt64(&ptr, hdr->T5);
 #endif
   rtEncoder_EncodeUInt16(&ptr, RTMSG_HEADER_MARKER);
   return RT_OK;
@@ -114,11 +113,11 @@ rtMessageHeader_Decode(rtMessageHeader* hdr, uint8_t const* buff)
   }
   rtEncoder_DecodeStr(&ptr, hdr->reply_topic, hdr->reply_topic_length);
 #ifdef MSG_ROUNDTRIP_TIME
-  rtEncoder_DecodeUInt32(&ptr, (uint32_t*)&hdr->T1);
-  rtEncoder_DecodeUInt32(&ptr, (uint32_t*)&hdr->T2);
-  rtEncoder_DecodeUInt32(&ptr, (uint32_t*)&hdr->T3);
-  rtEncoder_DecodeUInt32(&ptr, (uint32_t*)&hdr->T4);
-  rtEncoder_DecodeUInt32(&ptr, (uint32_t*)&hdr->T5);
+  rtEncoder_DecodeUInt64(&ptr, &hdr->T1);
+  rtEncoder_DecodeUInt64(&ptr, &hdr->T2);
+  rtEncoder_DecodeUInt64(&ptr, &hdr->T3);
+  rtEncoder_DecodeUInt64(&ptr, &hdr->T4);
+  rtEncoder_DecodeUInt64(&ptr, &hdr->T5);
 #endif
 
   rtEncoder_DecodeUInt16(&ptr, &marker);

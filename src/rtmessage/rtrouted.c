@@ -54,6 +54,7 @@
 #include <sys/file.h>
 #include <sys/stat.h>
 #include <time.h>
+#include <inttypes.h>
 #include <cjson/cJSON.h>
 
 #ifdef ENABLE_RDKLOGGER
@@ -108,25 +109,25 @@ rtRouted_TransactionTimingDetails(const rtMessageHeader* header_details)
                                             time(NULL) - Time since Epoch time(1st Jan 1970)
                                             uptime.tv_sec - Time since boot of device */
   rtLog_Info("=======================================================================");
-  timestamp.tv_sec = header_details->T1 + boottime;
+  timestamp.tv_sec = (time_t)header_details->T1 + boottime;
   rtTime_ToString(&timestamp, time_buff);
   rtLog_Info("Consumer : %s", header_details->topic);
   rtLog_Info("Provider : %s", header_details->reply_topic);
   rtLog_Info("Time at which consumer sends the request to daemon     : %s", time_buff);
   memset(time_buff, 0, sizeof(time_buff));
-  timestamp.tv_sec = header_details->T2 + boottime;
+  timestamp.tv_sec = (time_t)header_details->T2 + boottime;
   rtTime_ToString(&timestamp, time_buff);
   rtLog_Info("Time at which daemon receives the message from consumer: %s", time_buff);
   memset(time_buff, 0, sizeof(time_buff));
-  timestamp.tv_sec = header_details->T3 + boottime;
+  timestamp.tv_sec = (time_t)header_details->T3 + boottime;
   rtTime_ToString(&timestamp, time_buff);
   rtLog_Info("Time at which daemon writes to provider socket         : %s", time_buff);
   memset(time_buff, 0, sizeof(time_buff));
-  timestamp.tv_sec = header_details->T4 + boottime;
+  timestamp.tv_sec = (time_t)header_details->T4 + boottime;
   rtTime_ToString(&timestamp, time_buff);
   rtLog_Info("Time at which provider sends back the response         : %s", time_buff);
   memset(time_buff, 0, sizeof(time_buff));
-  timestamp.tv_sec = header_details->T5 + boottime;
+  timestamp.tv_sec = (time_t)header_details->T5 + boottime;
   rtTime_ToString(&timestamp, time_buff);
   rtLog_Info("Time at which daemon received the response             : %s", time_buff);
   rtLog_Info("Total duration                                         : %lld seconds", (long long int)(header_details->T5 - header_details->T1));
@@ -876,11 +877,11 @@ rtRouted_OnMessageTimeOut(rtConnectedClient* sender, rtMessageHeader* hdr, uint8
     return;
   }
   rtMessageHeader_Init(&header);
-  rtMessage_GetInt32(m, "T1", (int32_t *)&header.T1);
-  rtMessage_GetInt32(m, "T2", (int32_t *)&header.T2);
-  rtMessage_GetInt32(m, "T3", (int32_t *)&header.T3);
-  rtMessage_GetInt32(m, "T4", (int32_t *)&header.T4);
-  rtMessage_GetInt32(m, "T5", (int32_t *)&header.T5);
+  rtMessage_GetUInt64(m, "T1", &header.T1);
+  rtMessage_GetUInt64(m, "T2", &header.T2);
+  rtMessage_GetUInt64(m, "T3", &header.T3);
+  rtMessage_GetUInt64(m, "T4", &header.T4);
+  rtMessage_GetUInt64(m, "T5", &header.T5);
   rtMessage_GetString(m, "topic", &topic);
   rtMessage_GetString(m, "reply_topic", &reply_topic);
   snprintf(header.topic, sizeof(header.topic), "%s", topic);
@@ -1524,20 +1525,26 @@ static rtError
 rtConnectedClient_Read(rtConnectedClient* clnt)
 {
   ssize_t bytes_read;
-  int bytes_to_read = (clnt->bytes_to_read - clnt->bytes_read);
-
+  size_t bytes_to_read;
+  if (clnt->bytes_read > clnt->bytes_to_read)
+  {
+    rtLog_Error("rtConnectedClient_Read: invalid read state: bytes_read=%" PRIu64 " bytes_to_read=%" PRIu64,
+                (uint64_t)clnt->bytes_read, (uint64_t)clnt->bytes_to_read);
+    return RT_FAIL;
+  }
+  bytes_to_read = (size_t)(clnt->bytes_to_read - clnt->bytes_read);
 #ifdef MSG_ROUNDTRIP_TIME
   rtTime_t daemon_request = {0};
   rtTime_t daemon_response = {0};
   if(clnt->header.flags & rtMessageFlags_Request)
   {
      rtTime_Now(&daemon_request);
-     clnt->header.T2 = daemon_request.tv_sec;
+     clnt->header.T2 = (uint64_t)daemon_request.tv_sec;
   }
   if(clnt->header.flags & rtMessageFlags_Response)
   {
      rtTime_Now(&daemon_response);
-     clnt->header.T5 = daemon_response.tv_sec;
+     clnt->header.T5 = (uint64_t)daemon_response.tv_sec;
   }
 #endif
 
@@ -1598,19 +1605,26 @@ rtConnectedClient_Read(rtConnectedClient* clnt)
 #endif
         clnt->bytes_to_read += clnt->header.payload_length;
         clnt->state = rtConnectionState_ReadPayload;
-        int incoming_data_size = clnt->bytes_to_read + clnt->bytes_read;
+        uint64_t incoming_data_size = clnt->bytes_to_read + clnt->bytes_read;
         if(clnt->read_buffer_capacity < incoming_data_size)
         {
+          if (incoming_data_size > SIZE_MAX)
+          {
+            rtLog_Info("Requested read buffer size (%" PRIu64 ") exceeds system maximum. Message will be dropped.", incoming_data_size);
+            _rtConnection_ReadAndDropBytes(clnt->fd, clnt->header.payload_length);
+            rtConnectedClient_Reset(clnt);
+            break;
+          }
           uint8_t * ptr = (uint8_t *)rt_try_realloc(clnt->read_buffer, incoming_data_size);
           if(NULL != ptr)
           {
             clnt->read_buffer = ptr;
             clnt->read_buffer_capacity = incoming_data_size;
-            rtLog_Info("Reallocated read buffer to %d bytes to accommodate traffic.", incoming_data_size);
+            rtLog_Info("Reallocated read buffer to %" PRIu64 " bytes to accommodate traffic.", incoming_data_size);
           }
           else
           {
-            rtLog_Info("Couldn't not reallocate read buffer to accommodate %d bytes. Message will be dropped.", incoming_data_size);
+            rtLog_Info("Couldn't reallocate read buffer to accommodate %" PRIu64 " bytes. Message will be dropped.", incoming_data_size);
             _rtConnection_ReadAndDropBytes(clnt->fd, clnt->header.payload_length);
             rtConnectedClient_Reset(clnt);
             break;
