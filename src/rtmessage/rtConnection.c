@@ -32,6 +32,7 @@
 #include "rtTime.h"
 #include "rtSemaphore.h"
 #include "rtMemory.h"
+#include <limits.h>
 #include <dlfcn.h>
 
 #if defined(__GNUC__)                                                          \
