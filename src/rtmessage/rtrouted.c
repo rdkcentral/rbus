@@ -108,7 +108,6 @@ rtRouted_TransactionTimingDetails(const rtMessageHeader* header_details)
                                             time(NULL) - Time since Epoch time(1st Jan 1970)
                                             uptime.tv_sec - Time since boot of device */
   rtLog_Info("=======================================================================");
-
   /* T* fields are stored as nanoseconds since boot. Convert to wall-clock time. */
   timestamp.tv_sec = (time_t)(header_details->T1 / 1000000000LL) + boottime;
   timestamp.tv_nsec = (long)(header_details->T1 % 1000000000LL);
@@ -140,19 +139,34 @@ rtRouted_TransactionTimingDetails(const rtMessageHeader* header_details)
   timestamp.tv_nsec = (long)(header_details->T5 % 1000000000LL);
   rtTime_ToString(&timestamp, time_buff);
   rtLog_Info("Time at which daemon received the response             : %s", time_buff);
+  if (header_details->T5 != 0 && header_details->T1 != 0)
+    {
+      uint64_t delta_ns;
+      int negative = 0;
 
-  if (header_details->T5 != 0 && header_details->T1 != 0 &&
-          header_details->T5 >= header_details->T1)
-  {
-      uint64_t delta_ns = header_details->T5 - header_details->T1;
-      long long sec = (long long)(delta_ns / 1000000000LL);
-      long long nsec = (long long)(delta_ns % 1000000000LL);
-      rtLog_Info("Total duration           : %lld.%09lld seconds", sec, nsec);
-  }
-  else
-  {
+      if (header_details->T5 >= header_details->T1)
+      {
+        delta_ns = header_details->T5 - header_details->T1;
+        negative = 0;
+      }
+      else
+      {
+        delta_ns = header_details->T1 - header_details->T5;
+        negative = 1;
+      }
+
+      long long sec = (long long)(delta_ns / 1000000000ULL);
+      long long nsec = (long long)(delta_ns % 1000000000ULL);
+
+      if (negative)
+        rtLog_Info("Total duration           : -%lld.%09lld seconds", sec, nsec);
+      else
+        rtLog_Info("Total duration           : %lld.%09lld seconds", sec, nsec);
+    }
+    else
+    {
       rtLog_Info("Total duration           : N/A (no response or invalid timestamps)");
-  }
+    }
   rtLog_Info("=======================================================================");
 }
 #endif
