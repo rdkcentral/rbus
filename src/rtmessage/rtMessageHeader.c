@@ -130,6 +130,20 @@ rtMessageHeader_Decode(rtMessageHeader* hdr, uint8_t const* buff)
       rtEncoder_DecodeUInt64(&ptr, &hdr->T4);
       rtEncoder_DecodeUInt64(&ptr, &hdr->T5);
     }
+    else if (remaining_in_header >= (5 * sizeof(uint32_t)))
+    {
+      uint32_t lt1 = 0, lt2 = 0, lt3 = 0, lt4 = 0, lt5 = 0;
+      rtEncoder_DecodeUInt32(&ptr, &lt1);
+      rtEncoder_DecodeUInt32(&ptr, &lt2);
+      rtEncoder_DecodeUInt32(&ptr, &lt3);
+      rtEncoder_DecodeUInt32(&ptr, &lt4);
+      rtEncoder_DecodeUInt32(&ptr, &lt5);
+      hdr->T1 = (uint64_t)lt1 * (uint64_t)1000000000ULL;
+      hdr->T2 = (uint64_t)lt2 * (uint64_t)1000000000ULL;
+      hdr->T3 = (uint64_t)lt3 * (uint64_t)1000000000ULL;
+      hdr->T4 = (uint64_t)lt4 * (uint64_t)1000000000ULL;
+      hdr->T5 = (uint64_t)lt5 * (uint64_t)1000000000ULL;
+    }
     else
     {
       /* Timestamps not present in this header version; zero them for safety. */

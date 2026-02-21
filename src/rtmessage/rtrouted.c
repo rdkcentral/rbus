@@ -141,12 +141,17 @@ rtRouted_TransactionTimingDetails(const rtMessageHeader* header_details)
   rtTime_ToString(&timestamp, time_buff);
   rtLog_Info("Time at which daemon received the response             : %s", time_buff);
 
-  /* Print total duration in seconds with nanosecond precision. */
+  if (header_details->T5 != 0 && header_details->T1 != 0 &&
+          header_details->T5 >= header_details->T1)
   {
-    uint64_t delta_ns = header_details->T5 - header_details->T1;
-    long long sec = (long long)(delta_ns / 1000000000LL);
-    long long nsec = (long long)(delta_ns % 1000000000LL);
-    rtLog_Info("Total duration                                         : %lld.%09lld seconds", sec, nsec);
+      uint64_t delta_ns = header_details->T5 - header_details->T1;
+      long long sec = (long long)(delta_ns / 1000000000LL);
+      long long nsec = (long long)(delta_ns % 1000000000LL);
+      rtLog_Info("Total duration           : %lld.%09lld seconds", sec, nsec);
+  }
+  else
+  {
+      rtLog_Info("Total duration           : N/A (no response or invalid timestamps)");
   }
   rtLog_Info("=======================================================================");
 }
@@ -1548,7 +1553,7 @@ rtConnectedClient_Read(rtConnectedClient* clnt)
                 clnt->bytes_read, clnt->bytes_to_read);
     return RT_FAIL;
   }
-  size_t bytes_to_read = clnt->bytes_to_read - clnt->bytes_read;;
+  size_t bytes_to_read = clnt->bytes_to_read - clnt->bytes_read;
 #ifdef MSG_ROUNDTRIP_TIME
   rtTime_t daemon_request = {0};
   rtTime_t daemon_response = {0};
