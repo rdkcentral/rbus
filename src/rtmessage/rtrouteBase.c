@@ -341,7 +341,7 @@ rtConnectedClient_Read(rtConnectedClient* clnt, rtRouteEntry* myDirectRoute)
   ssize_t bytes_read;
   if (clnt->bytes_read > clnt->bytes_to_read)
   {
-    rtLog_Error("rtConnectedClient_Read: bytes_read (%zu) > bytes_to_read (%zu),aborting.",
+    rtLog_Error("rtConnectedClient_Read: bytes_read (%zu) > bytes_to_read (%zu), aborting.",
                 clnt->bytes_read, clnt->bytes_to_read);
     return RT_FAIL;
   }

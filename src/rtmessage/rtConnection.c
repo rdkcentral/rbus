@@ -1614,6 +1614,15 @@ rtConnection_Read(rtConnection con, int32_t timeout)
           rtMessageInfo_Release(msginfo);
           return rtErrorFromErrno(ENOMEM);
         }
+         /* Protect against truncation when casting size_t to uint32_t. */
+        if (alloc_size > (size_t)UINT32_MAX)
+        {
+          rtLog_Error("Requested allocation is too large: %zu", alloc_size);
+          free(msginfo->data);
+          msginfo->data = NULL;
+          rtMessageInfo_Release(msginfo);
+          return RT_NO_CONNECTION;
+        }
         msginfo->dataCapacity = (uint32_t)alloc_size;
       }
 

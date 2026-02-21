@@ -1648,6 +1648,13 @@ rtConnectedClient_Read(rtConnectedClient* clnt)
         }
         clnt->bytes_to_read += payload;
         clnt->state = rtConnectionState_ReadPayload;
+        if (clnt->bytes_to_read > SIZE_MAX - clnt->bytes_read)
+        {
+          rtLog_Info("Requested incoming data size would overflow size_t. Message will be dropped.");
+          _rtConnection_ReadAndDropBytes(clnt->fd, clnt->header.payload_length);
+          rtConnectedClient_Reset(clnt);
+          break;
+        }
         size_t incoming_data_size = clnt->bytes_to_read + clnt->bytes_read;
         if(clnt->read_buffer_capacity < incoming_data_size)
         {
