@@ -908,7 +908,11 @@ rtConnection_SendResponse(rtConnection con, rtMessageHeader const* request_hdr, 
     rtMessage_ToByteArrayWithSize(res, &p, DEFAULT_SEND_BUFFER_SIZE, &n);
     pthread_mutex_lock(&con->mutex);
   //TODO: should we send response on reconnect ?
+    #ifdef MSG_ROUNDTRIP_TIME
+    err = rtConnection_SendInternal(con, p, n, request_hdr->reply_topic, request_hdr->topic, rtMessageFlags_Response, request_hdr->sequence_number, request_hdr->T1, request_hdr->T2, request_hdr->T3);
+    #else
     err = rtConnection_SendInternal(con, p, n, request_hdr->reply_topic, request_hdr->topic, rtMessageFlags_Response, request_hdr->sequence_number, 0, 0, 0);
+    #endif
     pthread_mutex_unlock(&con->mutex);
     rtMessage_FreeByteArray(p);
 
