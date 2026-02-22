@@ -1558,7 +1558,8 @@ rtConnectedClient_Read(rtConnectedClient* clnt)
   {
     rtLog_Warn("rtConnectedClient_Read: bytes_read=%zu > bytes_to_read=%zu, clamping to expected size",
                clnt->bytes_read, clnt->bytes_to_read);
-    clnt->bytes_read = clnt->bytes_to_read;
+    rtConnectedClient_Reset(clnt);
+    return RT_OK; 
   }
   size_t bytes_to_read = clnt->bytes_to_read - clnt->bytes_read;
 #ifdef MSG_ROUNDTRIP_TIME
