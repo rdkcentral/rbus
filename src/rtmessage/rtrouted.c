@@ -1562,6 +1562,12 @@ rtConnectedClient_Read(rtConnectedClient* clnt)
     return RT_OK; 
   }
   size_t bytes_to_read = clnt->bytes_to_read - clnt->bytes_read;
+  if (bytes_to_read == 0)
+  {
+    /* Nothing left to read; avoid issuing a 0-length recv that would be
+     * misinterpreted as EOF by the caller. */
+    return RT_OK;
+  }
 #ifdef MSG_ROUNDTRIP_TIME
   rtTime_t daemon_request = {0};
   rtTime_t daemon_response = {0};
