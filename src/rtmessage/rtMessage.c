@@ -447,6 +447,9 @@ rtMessage_GetUInt64(rtMessage const message, const char* name, uint64_t* value)
       uint64_t v = (uint64_t)d;
       if ((double)v != d)
         return RT_FAIL; /* fractional or precision loss */
+      /* Reject values above 2^53 to avoid precision loss when converting from double. */
+      if (d > (double)(1ULL << 53))
+        return RT_FAIL;
       *value = v;
       return RT_OK;
     }

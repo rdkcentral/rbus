@@ -1605,9 +1605,23 @@ rtConnection_Read(rtConnection con, int32_t timeout)
     {
       if (msginfo->header.payload_length > (uint32_t)INT_MAX)
       {
+        /* Payload is absurdly large. Attempt to drop the bytes from the
+           socket so future reads don't desync, then fail the read. */
         rtLog_Error("Payload length too large: %u", msginfo->header.payload_length);
+        /* Cap the number of bytes to drop to UINT_MAX to match the
+           _rtConnection_ReadAndDropBytes signature. */
+        unsigned int to_drop = (msginfo->header.payload_length > (uint32_t)UINT_MAX) ? UINT_MAX : (unsigned int)msginfo->header.payload_length;
+        rtError drop_err = _rtConnection_ReadAndDropBytes(con->fd, to_drop);
+        if (drop_err != RT_OK)
+        {
+          rtLog_Error("Failed to drop oversized payload bytes: 0x%x", drop_err);
+        }
+        else
+        {
+          rtLog_Info("Dropped %u bytes of oversized payload", to_drop);
+        }
         rtMessageInfo_Release(msginfo);
-        return RT_NO_CONNECTION;
+        return RT_FAIL;
       }
       if(msginfo->dataCapacity < msginfo->header.payload_length + 1)
       {
@@ -1618,14 +1632,36 @@ rtConnection_Read(rtConnection con, int32_t timeout)
           rtMessageInfo_Release(msginfo);
           return rtErrorFromErrno(ENOMEM);
         }
-         /* Protect against truncation when casting size_t to uint32_t. */
+
+        /* Protect against truncation when casting size_t to uint32_t. */
         if (alloc_size > (size_t)UINT32_MAX)
         {
           rtLog_Error("Requested allocation is too large: %zu", alloc_size);
           free(msginfo->data);
           msginfo->data = NULL;
+
+          /* Attempt to drain the advertised payload bytes from the socket
+             in chunks so subsequent reads do not desync. This may block
+             for a long time for extremely large values, but avoids leaving
+             unread bytes on the wire. */
+          size_t remaining = (size_t)msginfo->header.payload_length;
+          size_t dropped = 0;
+          while (remaining > 0)
+          {
+            unsigned int chunk = (remaining > (size_t)UINT_MAX) ? UINT_MAX : (unsigned int)remaining;
+            rtError drop_err = _rtConnection_ReadAndDropBytes(con->fd, chunk);
+            if (drop_err != RT_OK)
+            {
+              rtLog_Error("Failed while dropping oversized allocation bytes: 0x%x", drop_err);
+              break;
+            }
+            remaining -= chunk;
+            dropped += chunk;
+          }
+          rtLog_Info("Dropped %zu bytes of oversized allocation (requested %zu)", dropped, alloc_size);
+
           rtMessageInfo_Release(msginfo);
-          return RT_NO_CONNECTION;
+          return RT_FAIL;
         }
         msginfo->dataCapacity = (uint32_t)alloc_size;
       }

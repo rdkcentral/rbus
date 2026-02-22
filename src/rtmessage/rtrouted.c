@@ -139,34 +139,27 @@ rtRouted_TransactionTimingDetails(const rtMessageHeader* header_details)
   timestamp.tv_nsec = (long)(header_details->T5 % 1000000000LL);
   rtTime_ToString(&timestamp, time_buff);
   rtLog_Info("Time at which daemon received the response             : %s", time_buff);
-  if (header_details->T5 != 0 && header_details->T1 != 0)
-    {
-      uint64_t delta_ns;
-      int negative = 0;
+  uint64_t delta_ns;
+  int negative = 0;
 
-      if (header_details->T5 >= header_details->T1)
-      {
-        delta_ns = header_details->T5 - header_details->T1;
-        negative = 0;
-      }
-      else
-      {
-        delta_ns = header_details->T1 - header_details->T5;
-        negative = 1;
-      }
+  if (header_details->T5 >= header_details->T1)
+  {
+      delta_ns = header_details->T5 - header_details->T1;
+      negative = 0;
+  }
+  else
+  {
+      delta_ns = header_details->T1 - header_details->T5;
+      negative = 1;
+  }
 
-      long long sec = (long long)(delta_ns / 1000000000ULL);
-      long long nsec = (long long)(delta_ns % 1000000000ULL);
+  long long sec = (long long)(delta_ns / 1000000000ULL);
+  long long nsec = (long long)(delta_ns % 1000000000ULL);
 
-      if (negative)
-        rtLog_Info("Total duration           : -%lld.%09lld seconds", sec, nsec);
-      else
-        rtLog_Info("Total duration           : %lld.%09lld seconds", sec, nsec);
-    }
-    else
-    {
-      rtLog_Info("Total duration           : N/A (no response or invalid timestamps)");
-    }
+  if (negative)
+      rtLog_Info("Total duration           : -%lld.%09lld seconds", sec, nsec);
+  else
+      rtLog_Info("Total duration           : %lld.%09lld seconds", sec, nsec);
   rtLog_Info("=======================================================================");
 }
 #endif
@@ -1563,9 +1556,9 @@ rtConnectedClient_Read(rtConnectedClient* clnt)
   ssize_t bytes_read;
   if (clnt->bytes_read > clnt->bytes_to_read)
   {
-    rtLog_Error("rtConnectedClient_Read: invalid read state: bytes_read=%zu, bytes_to_read=%zu",
-                clnt->bytes_read, clnt->bytes_to_read);
-    return RT_FAIL;
+    rtLog_Warn("rtConnectedClient_Read: bytes_read=%zu > bytes_to_read=%zu, clamping to expected size",
+               clnt->bytes_read, clnt->bytes_to_read);
+    clnt->bytes_read = clnt->bytes_to_read;
   }
   size_t bytes_to_read = clnt->bytes_to_read - clnt->bytes_read;
 #ifdef MSG_ROUNDTRIP_TIME
