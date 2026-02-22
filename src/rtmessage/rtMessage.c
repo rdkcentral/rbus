@@ -31,6 +31,9 @@
 #include <stdint.h>
 #include <string.h>
 #include <pthread.h>
+#include <inttypes.h>
+#include <errno.h>
+#include <limits.h>
 
 struct _rtMessage
 {
@@ -237,6 +240,23 @@ rtMessage_SetInt32(rtMessage message, char const* name, int32_t value)
   return RT_OK;
 }
 
+/**
+ * Add 64 bit unsigned integer field to the message
+ * @param message to be modified
+ * @param name of the field to be added
+ * @param 64 bit unsigned integer value of the field to be added
+ * @return rtError
+ **/
+rtError rtMessage_SetUInt64(rtMessage message, const char* name, uint64_t value)
+{
+    if (!message || !name)
+        return RT_ERROR_INVALID_ARG;
+    char buf[32];
+    snprintf(buf, sizeof(buf), "%" PRIu64, value);
+    cJSON_AddItemToObject(message->json, name, cJSON_CreateString(buf));
+    return RT_OK;
+}
+
 rtError
 rtMessage_SetBool(rtMessage m, char const* name, bool b)
 {
@@ -374,6 +394,65 @@ rtMessage_GetInt32(rtMessage const message,const char* name, int32_t* value)
   {
     *value = p->valueint;
     return RT_OK;
+  }
+  return RT_FAIL;
+}
+
+/**
+ * Get field value of type unsigned integer of 64 bit using field name.
+ * @param message to get field
+ * @param name of the field
+ * @param pointer to 64 bit unsigned integer value obtained.
+ * @return rtError
+ **/
+rtError
+rtMessage_GetUInt64(rtMessage const message, const char* name, uint64_t* value)
+{
+  if (!message || !name || !value)
+    return RT_ERROR_INVALID_ARG;
+
+  cJSON* p = cJSON_GetObjectItem(message->json, name);
+  if (p)
+  {
+    if (p->valuestring)
+    {
+      char* endptr = NULL;
+      const char* s = p->valuestring;
+
+      /* Reject negative values explicitly to avoid wrapping into a large unsigned value. */
+      if (s[0] == '-')
+        return RT_FAIL;
+
+      errno = 0;
+      unsigned long long tmp = strtoull(s, &endptr, 10);
+      if (endptr == s)
+        return RT_FAIL; /* no conversion */
+      if (*endptr != '\0')
+        return RT_FAIL; /* leftover characters */
+      if (errno == ERANGE)
+        return RT_FAIL; /* out of range */
+      if ((unsigned long long)(uint64_t)tmp != tmp)
+        return RT_FAIL; /* doesn't fit in uint64_t */
+
+      *value = (uint64_t)tmp;
+      return RT_OK;
+    }
+    else if (p->type == cJSON_Number)
+    {
+      double d = p->valuedouble;
+      if (d < 0.0)
+        return RT_FAIL;
+      if (d > (double)UINT64_MAX)
+        return RT_FAIL;
+      uint64_t v = (uint64_t)d;
+      if ((double)v != d)
+        return RT_FAIL; /* fractional or precision loss */
+      /* Reject values above 2^53 to avoid precision loss when converting from double. */
+      if (d > (double)(1ULL << 53))
+        return RT_FAIL;
+      *value = v;
+      return RT_OK;
+    }
   }
   return RT_FAIL;
 }

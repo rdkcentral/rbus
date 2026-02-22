@@ -21,9 +21,8 @@
 #include "rtMessageHeader.h"
 #include "rtEncoder.h"
 #include "rtLog.h"
-
 #include <string.h>
-
+#include <inttypes.h>
 rtError
 rtMessageHeader_Init(rtMessageHeader* hdr)
 {
@@ -52,9 +51,9 @@ rtMessageHeader_Encode(rtMessageHeader* hdr, uint8_t* buff)
 {
   uint8_t* ptr = buff;
 #ifdef MSG_ROUNDTRIP_TIME
-  static uint16_t const kSizeWithoutStringsInBytes = 52; /* 28 bytes for basic data +
+  static uint16_t const kSizeWithoutStringsInBytes = 72; /* 28 bytes for basic data +
                                                              4 bytes for Marker +
-                                                            20 bytes for timestamp */
+                                                            40 bytes for timestamp */
 #else
   static uint16_t const kSizeWithoutStringsInBytes = 32; /* 28 bytes for basic data +
                                                              4 bytes for Marker */
@@ -73,11 +72,11 @@ rtMessageHeader_Encode(rtMessageHeader* hdr, uint8_t* buff)
   rtEncoder_EncodeString(&ptr, hdr->topic, NULL);
   rtEncoder_EncodeString(&ptr, hdr->reply_topic, NULL);
 #ifdef MSG_ROUNDTRIP_TIME
-  rtEncoder_EncodeUInt32(&ptr, hdr->T1);
-  rtEncoder_EncodeUInt32(&ptr, hdr->T2);
-  rtEncoder_EncodeUInt32(&ptr, hdr->T3);
-  rtEncoder_EncodeUInt32(&ptr, hdr->T4);
-  rtEncoder_EncodeUInt32(&ptr, hdr->T5);
+  rtEncoder_EncodeUInt64(&ptr, hdr->T1);
+  rtEncoder_EncodeUInt64(&ptr, hdr->T2);
+  rtEncoder_EncodeUInt64(&ptr, hdr->T3);
+  rtEncoder_EncodeUInt64(&ptr, hdr->T4);
+  rtEncoder_EncodeUInt64(&ptr, hdr->T5);
 #endif
   rtEncoder_EncodeUInt16(&ptr, RTMSG_HEADER_MARKER);
   return RT_OK;
@@ -114,11 +113,43 @@ rtMessageHeader_Decode(rtMessageHeader* hdr, uint8_t const* buff)
   }
   rtEncoder_DecodeStr(&ptr, hdr->reply_topic, hdr->reply_topic_length);
 #ifdef MSG_ROUNDTRIP_TIME
-  rtEncoder_DecodeUInt32(&ptr, (uint32_t*)&hdr->T1);
-  rtEncoder_DecodeUInt32(&ptr, (uint32_t*)&hdr->T2);
-  rtEncoder_DecodeUInt32(&ptr, (uint32_t*)&hdr->T3);
-  rtEncoder_DecodeUInt32(&ptr, (uint32_t*)&hdr->T4);
-  rtEncoder_DecodeUInt32(&ptr, (uint32_t*)&hdr->T5);
+  /* The timestamp block is optional on older header formats. Use header_length
+     to detect whether the 5x uint64 timestamp fields are present to avoid
+     reading past the received header when talking with older peers. */
+  {
+    size_t bytes_read_so_far = (size_t)(ptr - buff);
+    size_t remaining_in_header = 0;
+    if (hdr->header_length > bytes_read_so_far)
+      remaining_in_header = (size_t)hdr->header_length - bytes_read_so_far;
+
+    if (remaining_in_header >= (5 * sizeof(uint64_t)))
+    {
+      rtEncoder_DecodeUInt64(&ptr, &hdr->T1);
+      rtEncoder_DecodeUInt64(&ptr, &hdr->T2);
+      rtEncoder_DecodeUInt64(&ptr, &hdr->T3);
+      rtEncoder_DecodeUInt64(&ptr, &hdr->T4);
+      rtEncoder_DecodeUInt64(&ptr, &hdr->T5);
+    }
+    else if (remaining_in_header >= (5 * sizeof(uint32_t)))
+    {
+      uint32_t lt1 = 0, lt2 = 0, lt3 = 0, lt4 = 0, lt5 = 0;
+      rtEncoder_DecodeUInt32(&ptr, &lt1);
+      rtEncoder_DecodeUInt32(&ptr, &lt2);
+      rtEncoder_DecodeUInt32(&ptr, &lt3);
+      rtEncoder_DecodeUInt32(&ptr, &lt4);
+      rtEncoder_DecodeUInt32(&ptr, &lt5);
+      hdr->T1 = (uint64_t)lt1 * (uint64_t)1000000000ULL;
+      hdr->T2 = (uint64_t)lt2 * (uint64_t)1000000000ULL;
+      hdr->T3 = (uint64_t)lt3 * (uint64_t)1000000000ULL;
+      hdr->T4 = (uint64_t)lt4 * (uint64_t)1000000000ULL;
+      hdr->T5 = (uint64_t)lt5 * (uint64_t)1000000000ULL;
+    }
+    else
+    {
+      /* Timestamps not present in this header version; zero them for safety. */
+      hdr->T1 = hdr->T2 = hdr->T3 = hdr->T4 = hdr->T5 = 0;
+    }
+  }
 #endif
 
   rtEncoder_DecodeUInt16(&ptr, &marker);

@@ -1186,6 +1186,91 @@ TEST_F(TestServer, rtmsg_rtMessage_SetDouble_test1)
   rtMessage_Release(config);
 }
 
+
+TEST_F(TestServer, rtmsg_rtMessage_UInt64_roundtrip)
+{
+    rtError err;
+    rtMessage msg;
+    uint64_t out = 0;
+
+    rtMessage_Create(&msg);
+    err = rtMessage_SetUInt64(msg, "u64", 123456789012345ULL);
+    EXPECT_EQ(err, RT_OK) << "rtMessage_SetUInt64 failed";
+    err = rtMessage_GetUInt64(msg, "u64", &out);
+    EXPECT_EQ(err, RT_OK) << "rtMessage_GetUInt64 failed";
+    EXPECT_EQ(out, (uint64_t)123456789012345ULL);
+    rtMessage_Release(msg);
+}
+
+TEST_F(TestServer, rtmsg_rtMessage_UInt64_string_input)
+{
+    rtError err;
+    rtMessage msg;
+    uint64_t out = 0;
+
+    rtMessage_Create(&msg);
+    rtMessage_SetString(msg, "u64", "42");
+    err = rtMessage_GetUInt64(msg, "u64", &out);
+    EXPECT_EQ(err, RT_OK);
+    EXPECT_EQ(out, (uint64_t)42);
+    rtMessage_Release(msg);
+}
+
+TEST_F(TestServer, rtmsg_rtMessage_UInt64_numeric_input)
+{
+    rtError err;
+    rtMessage msg;
+    uint64_t out = 0;
+
+    rtMessage_Create(&msg);
+    err = rtMessage_SetDouble(msg, "u64", 1000.0);
+    EXPECT_EQ(err, RT_OK) << "rtMessage_SetDouble failed";
+    err = rtMessage_GetUInt64(msg, "u64", &out);
+    EXPECT_EQ(err, RT_OK) << "rtMessage_GetUInt64 failed for numeric input";
+    EXPECT_EQ(out, (uint64_t)1000);
+    rtMessage_Release(msg);
+}
+
+TEST_F(TestServer, rtmsg_rtMessage_UInt64_negative_string_reject)
+{
+    rtError err;
+    rtMessage msg;
+    uint64_t out = 0;
+
+    rtMessage_Create(&msg);
+    rtMessage_SetString(msg, "u64", "-1");
+    err = rtMessage_GetUInt64(msg, "u64", &out);
+    EXPECT_EQ(err, RT_FAIL);
+    rtMessage_Release(msg);
+}
+
+TEST_F(TestServer, rtmsg_rtMessage_UInt64_out_of_range_reject)
+{
+    rtError err;
+    rtMessage msg;
+    uint64_t out = 0;
+
+    rtMessage_Create(&msg);
+    /* UINT64_MAX + 1 */
+    rtMessage_SetString(msg, "u64", "18446744073709551616");
+    err = rtMessage_GetUInt64(msg, "u64", &out);
+    EXPECT_EQ(err, RT_FAIL);
+    rtMessage_Release(msg);
+}
+
+TEST_F(TestServer, rtmsg_rtMessage_UInt64_non_numeric_reject)
+{
+    rtError err;
+    rtMessage msg;
+    uint64_t out = 0;
+
+    rtMessage_Create(&msg);
+    rtMessage_SetString(msg, "u64", "notanumber");
+    err = rtMessage_GetUInt64(msg, "u64", &out);
+    EXPECT_EQ(err, RT_FAIL);
+    rtMessage_Release(msg);
+}
+
 TEST_F(TestServer, rtmsg_rtMessage_SetMessage_test1)
 {
     rtMessage req = NULL, msg = NULL;

@@ -32,6 +32,7 @@
 #include "rtTime.h"
 #include "rtSemaphore.h"
 #include "rtMemory.h"
+#include <limits.h>
 #include <dlfcn.h>
 
 #if defined(__GNUC__)                                                          \
@@ -229,9 +230,9 @@ static rtError rtConnection_SendInternal(
   char const* reply_topic,
   int flags,
   uint32_t sequence_number,
-  uint32_t T1,
-  uint32_t T2,
-  uint32_t T3);
+  uint64_t T1,
+  uint64_t T2,
+  uint64_t T3);
 
 rtError
 rtConnection_SendRequestInternal(
@@ -907,7 +908,11 @@ rtConnection_SendResponse(rtConnection con, rtMessageHeader const* request_hdr, 
     rtMessage_ToByteArrayWithSize(res, &p, DEFAULT_SEND_BUFFER_SIZE, &n);
     pthread_mutex_lock(&con->mutex);
   //TODO: should we send response on reconnect ?
+    #ifdef MSG_ROUNDTRIP_TIME
+    err = rtConnection_SendInternal(con, p, n, request_hdr->reply_topic, request_hdr->topic, rtMessageFlags_Response, request_hdr->sequence_number, request_hdr->T1, request_hdr->T2, request_hdr->T3);
+    #else
     err = rtConnection_SendInternal(con, p, n, request_hdr->reply_topic, request_hdr->topic, rtMessageFlags_Response, request_hdr->sequence_number, 0, 0, 0);
+    #endif
     pthread_mutex_unlock(&con->mutex);
     rtMessage_FreeByteArray(p);
 
@@ -1168,7 +1173,7 @@ dequeue_and_continue:
 
 rtError
 rtConnection_SendInternal(rtConnection con, uint8_t const* buff, uint32_t n, char const* topic,
-  char const* reply_topic, int flags, uint32_t sequence_number, uint32_t T1, uint32_t T2, uint32_t T3)
+  char const* reply_topic, int flags, uint32_t sequence_number, uint64_t T1, uint64_t T2, uint64_t T3)
 {
   rtError err;
   int num_attempts;
@@ -1232,14 +1237,14 @@ rtConnection_SendInternal(rtConnection con, uint8_t const* buff, uint32_t n, cha
 #ifdef MSG_ROUNDTRIP_TIME
   if(header.flags & rtMessageFlags_Request)
   {
-       header.T1 = send_time.tv_sec;
+       header.T1 = (uint64_t)send_time.tv_sec * 1000000000LL + send_time.tv_nsec;
   }
   if(header.flags & rtMessageFlags_Response)
   {
        header.T1 = T1;
        header.T2 = T2;
        header.T3 = T3;
-       header.T4 = send_time.tv_sec;
+       header.T4 = (uint64_t)send_time.tv_sec * 1000000000LL + send_time.tv_nsec;
   }
 #else
   (void)T1;
@@ -1598,18 +1603,36 @@ rtConnection_Read(rtConnection con, int32_t timeout)
 
     if (err == RT_OK)
     {
+      if (msginfo->header.payload_length > (uint32_t)INT_MAX)
+      {
+        rtLog_Error("Payload length too large: %u", msginfo->header.payload_length);
+        rtMessageInfo_Release(msginfo);
+        return RT_NO_CONNECTION;
+      }
       if(msginfo->dataCapacity < msginfo->header.payload_length + 1)
       {
-        msginfo->data = (uint8_t *)rt_try_malloc(msginfo->header.payload_length + 1);
+        size_t alloc_size = (size_t)msginfo->header.payload_length + 1;
+        msginfo->data = (uint8_t *)rt_try_malloc(alloc_size);
         if(!msginfo->data){
           rtLog_Error("Failed to allocate memory for msginfo->data");
           rtMessageInfo_Release(msginfo);
           return rtErrorFromErrno(ENOMEM);
         }
-        msginfo->dataCapacity = msginfo->header.payload_length + 1;
+
+        /* Protect against truncation when casting size_t to uint32_t. */
+        if (alloc_size > (size_t)UINT32_MAX)
+        {
+          rtLog_Error("Requested allocation is too large: %zu", alloc_size);
+          free(msginfo->data);
+          msginfo->data = NULL;
+
+          rtMessageInfo_Release(msginfo);
+          return RT_NO_CONNECTION;
+        }
+        msginfo->dataCapacity = (uint32_t)alloc_size;
       }
 
-      err = rtConnection_ReadUntil(con, msginfo->data, msginfo->header.payload_length, timeout);
+      err = rtConnection_ReadUntil(con, msginfo->data, (int)msginfo->header.payload_length, timeout);
 
       if (err == RT_OK)
       {
@@ -1688,11 +1711,11 @@ rtConnection_Read(rtConnection con, int32_t timeout)
       {
         rtMessage m;
         rtMessage_Create(&m);
-        rtMessage_SetInt32(m, "T1", msginfo->header.T1);
-        rtMessage_SetInt32(m, "T2", msginfo->header.T2);
-        rtMessage_SetInt32(m, "T3", msginfo->header.T3);
-        rtMessage_SetInt32(m, "T4", msginfo->header.T4);
-        rtMessage_SetInt32(m, "T5", msginfo->header.T5);
+        rtMessage_SetUInt64(m, "T1", msginfo->header.T1);
+        rtMessage_SetUInt64(m, "T2", msginfo->header.T2);
+        rtMessage_SetUInt64(m, "T3", msginfo->header.T3);
+        rtMessage_SetUInt64(m, "T4", msginfo->header.T4);
+        rtMessage_SetUInt64(m, "T5", msginfo->header.T5);
         rtMessage_SetString(m, "topic", msginfo->header.topic);
         rtMessage_SetString(m, "reply_topic", msginfo->header.reply_topic);
         rtConnection_SendMessage(con, m, RTROUTED_TRANSACTION_TIME_INFO);
