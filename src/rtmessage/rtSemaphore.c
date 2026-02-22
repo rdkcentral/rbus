@@ -102,33 +102,26 @@ rtError rtSemaphore_TimedWait(rtSemaphore sem, struct timespec* t)
   int rc = RT_OK;
   int err;
   ERROR_CHECK(pthread_mutex_lock(&sem->m));
-  if(sem->v > 0)
+  while (sem->v == 0)
   {
-    sem->v--;
-    ERROR_CHECK(pthread_mutex_unlock(&sem->m));
-    return RT_OK;
-  }
-  if(t)
-    err = pthread_cond_timedwait(&sem->c, &sem->m, t);
-  else
-    err = pthread_cond_wait(&sem->c, &sem->m);
-  if(err == 0)
-  {
-    if(sem->v > 0)
-      sem->v--;
-  }
-  else
-  {
-    if(t && err == ETIMEDOUT)
+    if(t)
+      err = pthread_cond_timedwait(&sem->c, &sem->m, t);
+    else
+      err = pthread_cond_wait(&sem->c, &sem->m);
+    if(err != 0)
     {
-      rc = RT_ERROR_TIMEOUT;
-    }
-    else if(err != 0)
-    {
-      rtLog_Error("Error %d:%s running command pthread_cond_timedwait", err, strerror(err));
-      rc = RT_ERROR;
+      if(t && err == ETIMEDOUT)
+        rc = RT_ERROR_TIMEOUT;
+      else
+      {
+        rtLog_Error("rtSemaphore wait failed with Error %d:%s", err, strerror(err));
+        rc = RT_ERROR;
+      }
+      ERROR_CHECK(pthread_mutex_unlock(&sem->m));
+      return rc;
     }
   }
+  sem->v--;
   ERROR_CHECK(pthread_mutex_unlock(&sem->m));
   return rc;
 }
