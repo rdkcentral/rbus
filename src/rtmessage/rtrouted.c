@@ -1639,7 +1639,7 @@ rtConnectedClient_Read(rtConnectedClient* clnt)
           clock_gettime(CLOCK_MONOTONIC, &g_entry_exit_timestamps[g_timestamp_index][0]);
 #endif
         size_t payload = (size_t)clnt->header.payload_length;
-        if (clnt->bytes_to_read > SIZE_MAX - payload)
+        if (clnt->bytes_to_read > (SIZE_MAX - payload))
         {
           rtLog_Info("Requested payload_length (%u) would overflow size_t. Message will be dropped.", clnt->header.payload_length);
           _rtConnection_ReadAndDropBytes(clnt->fd, clnt->header.payload_length);
@@ -1648,7 +1648,7 @@ rtConnectedClient_Read(rtConnectedClient* clnt)
         }
         clnt->bytes_to_read += payload;
         clnt->state = rtConnectionState_ReadPayload;
-        if (clnt->bytes_to_read > SIZE_MAX - clnt->bytes_read)
+        if (clnt->bytes_to_read > (SIZE_MAX - clnt->bytes_read))
         {
           rtLog_Info("Requested incoming data size would overflow size_t. Message will be dropped.");
           _rtConnection_ReadAndDropBytes(clnt->fd, clnt->header.payload_length);
