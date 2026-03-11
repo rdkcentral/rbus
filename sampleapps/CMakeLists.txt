@@ -125,6 +125,18 @@ add_executable(rbusRawDataProvider provider/rbusRawDataProvider.c)
 add_dependencies(rbusRawDataProvider rbus)
 target_link_libraries(rbusRawDataProvider rbus)
 
+add_executable(rbusDataModelNotificationProvider provider/rbusDataModelNotificationProvider.c)
+add_dependencies(rbusDataModelNotificationProvider rbus)
+target_link_libraries(rbusDataModelNotificationProvider rbus)
+
+add_executable(rbusDataModelNotificationConsumer consumer/rbusDataModelNotificationConsumer.c)
+add_dependencies(rbusDataModelNotificationConsumer rbus)
+target_link_libraries(rbusDataModelNotificationConsumer rbus)
+
+add_executable(rbusDemoDynamicProvider provider/rbusDemoDynamicProvider.c)
+add_dependencies(rbusDemoDynamicProvider rbus)
+target_link_libraries(rbusDemoDynamicProvider rbus)
+
 install (TARGETS
     rbusSampleProvider
     rbusSampleConsumer
@@ -147,6 +159,9 @@ install (TARGETS
     rbusDirectConsumer
     rbusRawDataConsumer
     rbusRawDataProvider
+    rbusDataModelNotificationProvider
+    rbusDataModelNotificationConsumer
+    rbusDemoDynamicProvider
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 endif (BUILD_RBUS_SAMPLE_APPS)

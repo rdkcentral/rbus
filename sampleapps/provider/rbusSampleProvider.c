@@ -36,7 +36,7 @@
 #define UNUSED5(a,b,c,d,e)      UNUSED1(a),UNUSED4(b,c,d,e)
 #define UNUSED6(a,b,c,d,e,f)    UNUSED1(a),UNUSED5(b,c,d,e,f)
 
-#define TotalParams   13
+#define TotalParams   14
 
 rbusHandle_t        rbusHandle;
 rbusHandle_t        rbusHandle2;
@@ -64,7 +64,8 @@ rbusDataElement_t dataElements[TotalParams] = {
     {"Device.SampleProvider.NestedObject2.AnotherTestParam", RBUS_ELEMENT_TYPE_PROPERTY, {SampleProvider_NestedObjectsGetHandler, NULL, NULL, NULL, NULL, NULL}},
     {"Device.SampleProvider.TestData.IntData", RBUS_ELEMENT_TYPE_PROPERTY, {SampleProvider_BuildResponseDataGetHandler, NULL, NULL, NULL, NULL, NULL}},
     {"Device.SampleProvider.TestData.BoolData", RBUS_ELEMENT_TYPE_PROPERTY, {SampleProvider_BuildResponseDataGetHandler, NULL, NULL, NULL, NULL, NULL}},
-    {"Device.SampleProvider.TestData.UIntData", RBUS_ELEMENT_TYPE_PROPERTY, {SampleProvider_BuildResponseDataGetHandler, NULL, NULL, NULL, NULL, NULL}}
+    {"Device.SampleProvider.TestData.UIntData", RBUS_ELEMENT_TYPE_PROPERTY, {SampleProvider_BuildResponseDataGetHandler, NULL, NULL, NULL, NULL, NULL}},
+    {"Device.DeviceInfo.X_RDKCENTRAL-COM_LastRebootReason", RBUS_ELEMENT_TYPE_PROPERTY, {SampleProvider_DeviceGetHandler, NULL, NULL, NULL, NULL, NULL}}
 };
 
 rbusDataElement_t allTypeDataElements[14] = {
@@ -118,6 +119,11 @@ rbusError_t SampleProvider_DeviceGetHandler(rbusHandle_t handle, rbusProperty_t 
     {
         printf("Called get handler for [%s]\n", name);
         rbusValue_SetSingle(value, 2.14f);
+    }
+    else if(strcmp(name, "Device.DeviceInfo.X_RDKCENTRAL-COM_LastRebootReason") == 0)
+    {
+        printf("Called get handler for [%s]\n", name);
+        rbusValue_SetString(value, "PowerOn");
     }
     else
     {

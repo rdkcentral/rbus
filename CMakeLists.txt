@@ -182,7 +182,7 @@ if (BUILD_FOR_DESKTOP)
 
   include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}
-    ${CMAKE_CURRENT_BINARY_DIR}/msgpack/src/msgpack/include)
+    ${CMAKE_CURRENT_BINARY_DIR}/deps/src/msgpack/include)
   link_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_BINARY_DIR}/deps/src/msgpack

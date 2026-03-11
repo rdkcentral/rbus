@@ -118,6 +118,9 @@ struct _rbusHandle
   pthread_mutex_t       handle_eventSubsMutex;
   pthread_mutex_t       handle_subsMutex;
   rtConnection          m_connectionParent;
+
+  /* consumer-side dynamic datamodel notifications (NotifyDML) */
+  struct _rbusDataModelNotificationManager* dmlNotifyMgr;
 };
 
 bool rbusHandleList_IsValidHandle(struct _rbusHandle* handle);

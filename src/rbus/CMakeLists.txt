@@ -19,7 +19,7 @@
 #############################################################################
 
 
-include_directories(${PROJECT_SOURCE_DIR}/include)
+include_directories(BEFORE ${PROJECT_SOURCE_DIR}/include)
 include_directories(${PROJECT_SOURCE_DIR}/src/rtmessage)
 include_directories(${PROJECT_SOURCE_DIR}/src/core)
 include_directories(${PROJECT_SOURCE_DIR}/src/session_manager)
@@ -39,6 +39,7 @@ add_library(
     rbus_valuechange.c
     rbus_subscriptions.c
     rbus_tokenchain.c
+    rbus_datamodel_notification.c
     rbus_asyncsubscribe.c
     rbus_intervalsubscription.c
     rbus_config.c)

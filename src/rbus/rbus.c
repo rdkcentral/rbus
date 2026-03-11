@@ -23,11 +23,17 @@
 #include <assert.h>
 #include <pthread.h>
 #include <unistd.h>
+#include <stdbool.h>
 #include <rtVector.h>
 #include <rtMemory.h>
+#include <rtLog.h>
+#include <rtMessageHeader.h>
 #include <rbuscore.h>
 #include <rbus_session_mgr.h>
 #include <rbus.h>
+#include "rbus_handle.h"
+#include "rbus_message.h"
+#include "rbus_datamodel_notification.h"
 #include "rbus_buffer.h"
 #include "rbus_element.h"
 #include "rbus_valuechange.h"
@@ -36,8 +42,13 @@
 #include "rbus_intervalsubscription.h"
 #include "rbus_config.h"
 #include "rbus_log.h"
-#include "rbus_handle.h"
-#include "rbus_message.h"
+#include "../core/rbuscore_message.h"
+
+#define RBUS_DMLNOTIFY_PROVIDER_EVENT_SUFFIX "._RBUS.DML!"
+
+/* Prototypes for NotifyDML internal functions */
+static void _rbusDmlNotify_EnsureProviderEventRegistered(struct _rbusHandle* handleInfo);
+static void _rbusDmlNotify_Publish(rbusHandle_t handle, struct _rbusHandle* handleInfo, char const* kind, char const* path);
 
 //******************************* MACROS *****************************************//
 #define UNUSED1(a)              (void)(a)
@@ -1191,6 +1202,8 @@ static void registerTableRow (rbusHandle_t handle, elementNode* tableInstElem, c
         RBUSLOG_INFO("publishing ObjectCreated table=%s rowName=%s", tableName, rowElem->fullName);
         respub = rbusEvent_Publish(handle, &event);
 
+        _rbusDmlNotify_Publish(handle, handleInfo, "RowRegistered", rowElem->fullName);
+
         if(respub != RBUS_ERROR_SUCCESS && respub != RBUS_ERROR_NOSUBSCRIBERS)
         {
             RBUSLOG_WARN("failed to publish ObjectCreated event err:%d", respub);
@@ -1249,6 +1262,8 @@ static void unregisterTableRow (rbusHandle_t handle, elementNode* rowInstElem)
         event.type = RBUS_EVENT_OBJECT_DELETED;
         RBUSLOG_INFO("publishing ObjectDeleted table=%s rowName=%s", tableInstElem->fullName, rowInstName);
         respub = rbusEvent_Publish(handle, &event);
+
+        _rbusDmlNotify_Publish(handle, handleInfo, "RowUnregistered", rowInstName);
 
         rbusValue_Release(rowNameVal);
         rbusObject_Release(data);
@@ -2834,7 +2849,22 @@ rbusError_t rbus_open(rbusHandle_t* handle, char const* componentName)
 
     rbusHandleList_Add(tmpHandle);
 
+    /* Ensure provider publishes internal datamodel change notifications.
+       Do this BEFORE manager create so the namespace exists for wildcard sub. */
+    _rbusDmlNotify_EnsureProviderEventRegistered(tmpHandle);
+
     UnlockMutex();
+
+    /* Initialize per-handle dynamic datamodel notification manager (NotifyDML) 
+       Only for the main USP PA component to avoid noise from rbuscli/providers. 
+       Do this AFTER UnlockMutex to avoid deadlock during rbusEvent_Subscribe. */
+    tmpHandle->dmlNotifyMgr = NULL;
+    fprintf(stderr, "rbus_open: componentName=%s\n", componentName);
+    if(strcmp(componentName, "eRT.com.bbf.ccsp.usppa") == 0)
+    {
+        fprintf(stderr, "rbus_open: starting NotifyDML for %s\n", componentName);
+        (void)rbusDataModelNotificationManager_Create(tmpHandle, (rbusDataModelNotificationManager_t*)&tmpHandle->dmlNotifyMgr);
+    }
 
     snprintf(filename, RTMSG_HEADER_MAX_TOPIC_LENGTH-1, "%s%d_%d", "/tmp/.rbus/", getpid(), tmpHandle->componentId);
     FILE *fd  =  fopen(filename, "w");
@@ -3025,6 +3055,12 @@ rbusError_t rbus_close(rbusHandle_t handle)
         handleInfo->subscriptions = NULL;
     }
 
+    if(handleInfo->dmlNotifyMgr)
+    {
+        rbusDataModelNotificationManager_Destroy((rbusDataModelNotificationManager_t)handleInfo->dmlNotifyMgr);
+        handleInfo->dmlNotifyMgr = NULL;
+    }
+
     rbusValueChange_CloseHandle(handle);//called before freeElementNode below
 
     rbusAsyncSubscribe_CloseHandle(handle);
@@ -3149,6 +3185,7 @@ rbusError_t rbus_regDataElements(
                 rbusSubscriptions_resubscribeElementCache(handle, handleInfo->subscriptions, name, node);
                 HANDLE_SUBS_MUTEX_UNLOCK(handle);
                 RBUSLOG_DEBUG("%s inserted successfully!", name);
+                _rbusDmlNotify_Publish(handle, handleInfo, "ElementRegistered", name);
             }
         }
     }
@@ -3204,6 +3241,8 @@ rbusError_t rbus_unregDataElements(
 */
         if(rbus_removeElement(handleInfo->componentName, name) != RBUSCORE_SUCCESS)
             RBUSLOG_WARN("failed to remove element from core [%s]!!", name);
+
+        _rbusDmlNotify_Publish(handle, handleInfo, "ElementUnregistered", name);
 
 /*      TODO: we need to remove all instance elements that this registration element instantiated
         rbusValueChange_RemoveParameter(handle, NULL, name);
@@ -3265,6 +3304,68 @@ rbusError_t rbus_discoverComponentDataElements (rbusHandle_t handle,
     */
 
     return ret == RBUSCORE_SUCCESS ? RBUS_ERROR_SUCCESS : RBUS_ERROR_BUS_ERROR;
+}
+
+/* =========================================================================
+ * Dynamic Data-Model Subscription API (NotifyDML)
+ * ========================================================================= */
+
+rbusError_t rbusDataModelNotification_Subscribe(
+    rbusHandle_t handle,
+    rbusDataModelNotificationRequest_t const* req,
+    rbusDataModelNotificationHandle_t* outHandle)
+{
+    VERIFY_HANDLE(handle);
+    struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
+    VERIFY_NULL(handleInfo);
+    VERIFY_NULL(req);
+    VERIFY_NULL(outHandle);
+    if(!handleInfo->dmlNotifyMgr)
+        return RBUS_ERROR_NOT_INITIALIZED;
+    return rbusDataModelNotificationManager_Subscribe((rbusDataModelNotificationManager_t)handleInfo->dmlNotifyMgr, req, outHandle);
+}
+
+rbusError_t rbusDataModelNotification_Unsubscribe(
+    rbusHandle_t handle,
+    rbusDataModelNotificationHandle_t subscriptionHandle)
+{
+    VERIFY_HANDLE(handle);
+    struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
+    VERIFY_NULL(handleInfo);
+    if(!handleInfo->dmlNotifyMgr)
+        return RBUS_ERROR_NOT_INITIALIZED;
+    return rbusDataModelNotificationManager_Unsubscribe((rbusDataModelNotificationManager_t)handleInfo->dmlNotifyMgr, subscriptionHandle);
+}
+
+rbusError_t rbusDataModelNotification_List(
+    rbusHandle_t handle,
+    rbusDataModelNotificationList_t* outList)
+{
+    VERIFY_HANDLE(handle);
+    struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
+    VERIFY_NULL(handleInfo);
+    VERIFY_NULL(outList);
+    if(!handleInfo->dmlNotifyMgr)
+        return RBUS_ERROR_NOT_INITIALIZED;
+    return rbusDataModelNotificationManager_List((rbusDataModelNotificationManager_t)handleInfo->dmlNotifyMgr, outList);
+}
+
+void rbusDataModelNotification_FreeList(rbusDataModelNotificationList_t* list)
+{
+    rbusDataModelNotificationManager_FreeList(list);
+}
+
+rbusError_t rbusDataModelNotification_GetStats(
+    rbusHandle_t handle,
+    rbusDataModelNotificationStats_t* outStats)
+{
+    VERIFY_HANDLE(handle);
+    struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
+    VERIFY_NULL(handleInfo);
+    VERIFY_NULL(outStats);
+    if(!handleInfo->dmlNotifyMgr)
+        return RBUS_ERROR_NOT_INITIALIZED;
+    return rbusDataModelNotificationManager_GetStats((rbusDataModelNotificationManager_t)handleInfo->dmlNotifyMgr, outStats);
 }
 
 //************************* Parameters related Operations *******************//
@@ -6113,6 +6214,78 @@ rbusError_t rbusHandle_GetTraceContextAsString(
     }
 
     return RBUS_ERROR_SUCCESS;
+}
+
+
+static void _rbusDmlNotify_EnsureProviderEventRegistered(struct _rbusHandle* handleInfo)
+{
+    if(!handleInfo || !handleInfo->componentName) return;
+
+    char signalName[RBUS_MAX_NAME_LENGTH];
+    char flattenedName[RBUS_MAX_NAME_LENGTH];
+    strncpy(flattenedName, handleInfo->componentName, sizeof(flattenedName)-1);
+    flattenedName[sizeof(flattenedName)-1] = '\0';
+    
+    /* Replace all dots with underscores so the signal is exactly one level below the root. */
+    char* p = flattenedName;
+    while(*p) {
+        if(*p == '.') *p = '_';
+        p++;
+    }
+
+    snprintf(signalName, sizeof(signalName), "%s.%s", RBUS_DML_DISCOVERY_SIGNAL, flattenedName);
+
+    /* We don't call rbus_addElement for the parent 'rbus.dml.discovery' 
+       because it's handled as a prefix. We just register the unique signal. */
+
+    rbusDataElement_t elem = {
+        signalName,
+        RBUS_ELEMENT_TYPE_EVENT,
+        {NULL, NULL, NULL, NULL, NULL, NULL}
+    };
+
+    fprintf(stderr, "dmlnotify: registering unique discovery signal %s for component %s\n", signalName, handleInfo->componentName);
+    rbusError_t rc = rbus_regDataElements((rbusHandle_t)handleInfo, 1, &elem);
+    if(rc != RBUS_ERROR_SUCCESS)
+    {
+        fprintf(stderr, "dmlnotify: FAILED to register unique discovery signal %s, rc=%d\n", signalName, rc);
+    }
+}
+
+static void _rbusDmlNotify_Publish(rbusHandle_t handle, struct _rbusHandle* handleInfo, char const* kind, char const* path)
+{
+    if(!handle || !handleInfo || !handleInfo->componentName || !kind || !path)
+        return;
+
+    char signalName[RBUS_MAX_NAME_LENGTH];
+    char flattenedName[RBUS_MAX_NAME_LENGTH];
+    strncpy(flattenedName, handleInfo->componentName, sizeof(flattenedName)-1);
+    flattenedName[sizeof(flattenedName)-1] = '\0';
+    
+    char* p = flattenedName;
+    while(*p) {
+        if(*p == '.') *p = '_';
+        p++;
+    }
+
+    snprintf(signalName, sizeof(signalName), "%s.%s", RBUS_DML_DISCOVERY_SIGNAL, flattenedName);
+
+    rbusEvent_t ev = {0};
+    ev.name = signalName;
+    ev.type = RBUS_EVENT_GENERAL;
+    rbusObject_Init(&ev.data, NULL);
+    rbusObject_SetPropertyString(ev.data, "kind", kind);
+    rbusObject_SetPropertyString(ev.data, "path", path);
+    rbusObject_SetPropertyString(ev.data, "provider", handleInfo->componentName);
+
+    RBUSLOG_INFO("dmlnotify: publishing discovery signal %s for %s", signalName, path);
+    rbusError_t rc = rbusEvent_Publish(handle, &ev);
+    if(rc != RBUS_ERROR_SUCCESS && rc != RBUS_ERROR_NOSUBSCRIBERS)
+    {
+        RBUSLOG_WARN("dmlnotify: failed to publish signal rc=%d", rc);
+    }
+
+    rbusObject_Release(ev.data);
 }
 
 /* End of File */

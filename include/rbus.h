@@ -75,6 +75,7 @@
 #define RBUS_H
 
 #include <stddef.h>
+#include <stdint.h>
 #include "rbus_value.h"
 #include "rbus_property.h"
 #include "rbus_object.h"
@@ -97,6 +98,11 @@ typedef struct _rbusHandle* rbusHandle_t;
 
 ///  @brief     The maximum hierarchical depth (e.g. the max token count) a name can be for any element.
 #define RBUS_MAX_NAME_DEPTH 16
+
+/**
+ * @brief Global RBUS event topic for dynamic data model discovery signals.
+ */
+#define RBUS_DML_DISCOVERY_SIGNAL "rbus.notify.discovery"
 
 ///  @brief     All possible error codes this API can generate.
 typedef enum _rbusError
@@ -302,6 +308,177 @@ typedef struct _rbusEventSubscription
     rbusSubscribeAsyncRespHandler_t asyncHandler;/** Private use only: The async handler being used for any background subscription retries */
     bool                publishOnSubscribe;
 } rbusEventSubscription_t;
+
+/** @} */
+
+/** @addtogroup Discovery
+ *  @{
+ */
+
+/**
+ * @enum rbusDataModelNotificationEventType_t
+ * @brief Event types emitted by rbusDataModelNotification subscriptions.
+ */
+typedef enum
+{
+    RBUS_DMLNOTIFY_OBJECT_CREATION = 0,
+    RBUS_DMLNOTIFY_OBJECT_DELETION,
+    RBUS_DMLNOTIFY_VALUE_CHANGE,
+    RBUS_DMLNOTIFY_STRUCTURAL_UPDATE
+} rbusDataModelNotificationEventType_t;
+
+/**
+ * @enum rbusDataModelNotificationScope_t
+ * @brief Subscription scope for rbusDataModelNotification.
+ */
+typedef enum
+{
+    RBUS_DMLNOTIFY_SCOPE_EXACT = 0,    /**< Match only the exact path (after wildcard expansion). */
+    RBUS_DMLNOTIFY_SCOPE_SUBTREE,      /**< Match the whole subtree rooted at the pattern. */
+    RBUS_DMLNOTIFY_SCOPE_PARAMETER_ONLY, /**< Match only parameters (leaf properties). */
+    RBUS_DMLNOTIFY_SCOPE_OBJECT_ONLY     /**< Match only objects/tables (creation/deletion). */
+} rbusDataModelNotificationScope_t;
+
+/**
+ * @brief Bitmask selecting which event types to receive.
+ */
+typedef uint32_t rbusDataModelNotificationEventMask_t;
+#define RBUS_DMLNOTIFY_MASK_OBJECT_CREATION     (1u << 0)
+#define RBUS_DMLNOTIFY_MASK_OBJECT_DELETION     (1u << 1)
+#define RBUS_DMLNOTIFY_MASK_VALUE_CHANGE        (1u << 2)
+#define RBUS_DMLNOTIFY_MASK_STRUCTURAL_UPDATE   (1u << 3)
+#define RBUS_DMLNOTIFY_MASK_ALL                 (0xFFFFu)
+
+/**
+ * @brief Opaque subscription handle returned by rbusDataModelNotification_Subscribe.
+ */
+typedef uint64_t rbusDataModelNotificationHandle_t;
+
+/**
+ * @struct rbusDataModelNotificationEvent_t
+ * @brief Normalized notification delivered to subscribers.
+ *
+ * - For ValueChange: oldValue/newValue may be populated (if available), and metadata includes source component and timestamp.
+ * - For ObjectCreation/ObjectDeletion: path is the created/deleted object instance path.
+ * - For StructuralUpdate: details may include lists of added/removed elements under the subscribed scope.
+ */
+typedef struct
+{
+    rbusDataModelNotificationEventType_t type;
+    char const*                          path;         /**< Concrete affected path. */
+    char const*                          sourceComponent; /**< Component believed to have caused the change (may be NULL). */
+    uint64_t                             timestampMs;  /**< Best-effort timestamp in milliseconds. */
+    rbusValue_t                          oldValue;     /**< Optional; retain/release rules same as normal rbusValue_t usage. */
+    rbusValue_t                          newValue;     /**< Optional; retain/release rules same as normal rbusValue_t usage. */
+    rbusObject_t                         details;      /**< Optional object for metadata (may be NULL). */
+} rbusDataModelNotificationEvent_t;
+
+typedef struct
+{
+    rbusDataModelNotificationEvent_t const* events;
+    size_t                                  count;
+} rbusDataModelNotificationEventBatch_t;
+
+/**
+ * @brief Callback for single notification delivery.
+ */
+typedef void (*rbusDataModelNotificationHandler_t)(
+    rbusHandle_t handle,
+    rbusDataModelNotificationEvent_t const* event,
+    void* userData);
+
+/**
+ * @brief Callback for batched/bulk delivery.
+ */
+typedef void (*rbusDataModelNotificationBatchHandler_t)(
+    rbusHandle_t handle,
+    rbusDataModelNotificationEventBatch_t const* batch,
+    void* userData);
+
+/**
+ * @struct rbusDataModelNotificationBatching_t
+ * @brief Controls optional batching/rate-limiting to handle high frequency changes.
+ */
+typedef struct
+{
+    uint32_t batchWindowMs;     /**< 0 disables batching (deliver immediately). */
+    uint32_t maxBatchSize;      /**< 0 means unlimited within batch window. */
+    uint32_t rateLimitPerSec;   /**< 0 disables rate limiting. */
+    uint32_t coalesceThreshold; /**< If a path changes more than this within a batch window, coalesce ValueChange events for that path. 0 disables coalescing. */
+} rbusDataModelNotificationBatching_t;
+
+/**
+ * @struct rbusDataModelNotificationRequest_t
+ * @brief Subscription request for rbusDataModelNotification.
+ */
+typedef struct
+{
+    char const*                          pattern;      /**< Subscription pattern (supports '*' matching any single token). */
+    rbusDataModelNotificationScope_t     scope;
+    rbusDataModelNotificationEventMask_t eventMask;
+    rbusFilter_t                         filter;       /**< Optional client-side filter. */
+    bool                                 initialState; /**< If true, immediately emit current matching state as INITIAL notifications (best-effort). */
+    uint32_t                             expirationSeconds; /**< 0 means no expiration. */
+    rbusDataModelNotificationBatching_t  batching;
+    rbusDataModelNotificationHandler_t   handler;       /**< Required unless batchHandler is provided. */
+    rbusDataModelNotificationBatchHandler_t batchHandler; /**< Optional bulk delivery handler. */
+    void*                                userData;
+} rbusDataModelNotificationRequest_t;
+
+typedef struct
+{
+    rbusDataModelNotificationHandle_t handle;
+    char const*                       pattern;
+    rbusDataModelNotificationEventMask_t eventMask;
+    rbusDataModelNotificationScope_t  scope;
+} rbusDataModelNotificationListEntry_t;
+
+typedef struct
+{
+    rbusDataModelNotificationListEntry_t* entries;
+    size_t                                count;
+} rbusDataModelNotificationList_t;
+
+typedef struct
+{
+    uint32_t activeSubscriptions;
+    uint64_t notificationsDelivered;
+    uint64_t notificationsBatched;
+    uint64_t notificationsDropped;
+} rbusDataModelNotificationStats_t;
+
+/**
+ * @brief Subscribe to dynamic data-model notifications (wildcards + future paths).
+ */
+rbusError_t rbusDataModelNotification_Subscribe(
+    rbusHandle_t handle,
+    rbusDataModelNotificationRequest_t const* req,
+    rbusDataModelNotificationHandle_t* outHandle);
+
+/**
+ * @brief Unsubscribe using the handle returned by rbusDataModelNotification_Subscribe.
+ */
+rbusError_t rbusDataModelNotification_Unsubscribe(
+    rbusHandle_t handle,
+    rbusDataModelNotificationHandle_t subscriptionHandle);
+
+/**
+ * @brief List active subscriptions for this handle.
+ *
+ * Caller owns returned memory and must free via rbusDataModelNotification_FreeList.
+ */
+rbusError_t rbusDataModelNotification_List(
+    rbusHandle_t handle,
+    rbusDataModelNotificationList_t* outList);
+
+void rbusDataModelNotification_FreeList(rbusDataModelNotificationList_t* list);
+
+/**
+ * @brief Retrieve counters/statistics for this handle.
+ */
+rbusError_t rbusDataModelNotification_GetStats(
+    rbusHandle_t handle,
+    rbusDataModelNotificationStats_t* outStats);
 
 /** @} */
 
@@ -1899,6 +2076,8 @@ rbusError_t rbus_openDirect(rbusHandle_t handle, rbusHandle_t* myDirectHandle, c
  */
 rbusError_t rbus_closeDirect(rbusHandle_t handle);
 /** @} */
+
+#include "rbus_datamodel_notification.h"
 
 #ifdef __cplusplus
 }
