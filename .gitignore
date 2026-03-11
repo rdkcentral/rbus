@@ -1,3 +1,6 @@
-test_vendor_notify
-stress_provider
-test_notify
+*.gcno
+*.gcda
+*.gcov
+.DS_Store
+build/
+test/unit_notify/test_notify
