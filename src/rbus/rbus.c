@@ -2794,7 +2794,7 @@ static void _create_direct_connection_callback_handler (rbusHandle_t handle, rbu
                 // PID is something unique  but the same client can have direct connection to two different providers and that could lead to failure.
 
                 // ex: if the consumer pid is 12345;
-                //          Provider1 may open a private session on 127.0.0.1:12345
+                //          Provider1 may open   a private session on 127.0.0.1:12345
                 //          Provider2 should not (could not) open private session on same address as 127.0.0.1:12345.
                 // Provider 2 have to come up with some other logic
 
