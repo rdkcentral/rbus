@@ -1861,7 +1861,7 @@ static void _get_recursive_partialpath_handler(elementNode* node, char const* qu
     }
 }
 
-rbusError_t get_recursive_wildcard_handler (rbusHandle_t handle, char const *parameterName, const char* pRequestingComp, rbusProperty_t properties, int *pCount)
+static rbusError_t _get_recursive_wildcard_handler_internal (rbusHandle_t handle, char const *parameterName, const char* pRequestingComp, rbusProperty_t properties, int *pCount, bool syncParents)
 {
     struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
     rbusError_t result = RBUS_ERROR_SUCCESS;
@@ -1893,7 +1893,7 @@ rbusError_t get_recursive_wildcard_handler (rbusHandle_t handle, char const *par
         tmpPtr[0] = '\0';
         tmpPtr++;
 
-        el = retrieveInstanceElementEx(handle, handleInfo->elementRoot, instanceName, true);
+        el = retrieveInstanceElementEx(handle, handleInfo->elementRoot, instanceName, syncParents);
         if (!el)
             return RBUS_ERROR_ELEMENT_DOES_NOT_EXIST;
 
@@ -1913,7 +1913,7 @@ rbusError_t get_recursive_wildcard_handler (rbusHandle_t handle, char const *par
             if(strcmp(child->name, "{i}") != 0)
             {
                 snprintf (wildcardName, RBUS_MAX_NAME_LENGTH, "%s%s%s", instanceName, child->name, tmpPtr);
-                result = get_recursive_wildcard_handler(handle, wildcardName, pRequestingComp, properties, pCount);
+                result = _get_recursive_wildcard_handler_internal(handle, wildcardName, pRequestingComp, properties, pCount, false);
                 if (result != RBUS_ERROR_SUCCESS)
                 {
                     RBUSLOG_WARN("Something went wrong while retriving the datamodel value...");
@@ -1926,7 +1926,7 @@ rbusError_t get_recursive_wildcard_handler (rbusHandle_t handle, char const *par
     else if (instanceName[length] == '.')
     {
         int hasInstance = 1;
-        el = retrieveInstanceElementEx(handle, handleInfo->elementRoot, instanceName, true);
+        el = retrieveInstanceElementEx(handle, handleInfo->elementRoot, instanceName, syncParents);
         if(el)
         {
             if(strstr(el->fullName, "{i}"))
@@ -1938,7 +1938,7 @@ rbusError_t get_recursive_wildcard_handler (rbusHandle_t handle, char const *par
     }
     else
     {
-        child = retrieveInstanceElementEx(handle, handleInfo->elementRoot, instanceName, true);
+        child = retrieveInstanceElementEx(handle, handleInfo->elementRoot, instanceName, false);
         if (!child)
             return RBUS_ERROR_ELEMENT_DOES_NOT_EXIST;
 
@@ -1962,6 +1962,10 @@ rbusError_t get_recursive_wildcard_handler (rbusHandle_t handle, char const *par
     return result;
 }
 
+rbusError_t get_recursive_wildcard_handler (rbusHandle_t handle, char const *parameterName, const char* pRequestingComp, rbusProperty_t properties, int *pCount)
+{
+    return _get_recursive_wildcard_handler_internal(handle, parameterName, pRequestingComp, properties, pCount, true);
+}
 
 static rbusError_t _get_single_dml_handler (rbusHandle_t handle, char const *parameterName, char const *pRequestingComp, rbusProperty_t properties)
 {
