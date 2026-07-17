@@ -13,7 +13,7 @@ The framework is applicable across RDK middleware deployments covering both broa
 - **Event System**: Implements a publish-subscribe mechanism for value-change detection, table row creation/deletion, interval-based notifications, and provider-defined general events. Subscriptions support optional filters and duration limits.
 - **Hierarchical Data Model**: Manages a named tree of elements (properties, objects, tables, methods, events) that providers register and consumers traverse or query, including wildcard discovery.
 - **Central Message Routing**: The `rtrouted` daemon routes all messages between registered components, enabling loose coupling. Clients connect to the daemon rather than to each other directly.
-- **Session Management**: The `rbus_session_mgr` service serialises multi-step set operations by assigning session identifiers, ensuring that a group of parameter changes is committed atomically.
+- **Session Management**: The `rbus_session_mgr` service allocates session identifiers that can be used to serialise multi-step set operations (commit/rollback behavior depends on provider implementation).
 - **Optional Transport Security**: Supports the SPAKE2+ key-exchange cipher for encrypting messages between the router and clients when built with the corresponding compile-time option.
 - **Subscription Persistence**: Caches active subscriptions to a temporary directory so that they can be restored automatically after a provider restarts, avoiding the need for consumers to re-subscribe.
 
@@ -25,7 +25,7 @@ RBus is structured as a layered C library with a clear separation between the pu
 
 Northbound, the API layer presents a unified C interface covering property get/set and table management operations used in data model-driven middleware as well as event-driven patterns used by application and media middleware. Southbound, the RT Message transport layer provides the connection management, socket lifecycle, and message framing needed to communicate with `rtrouted`. Hardware-specific values are accessed by the provider component through its own HAL before being exposed via the data model.
 
-Data persistence is handled externally. RBus itself writes subscription state to a configurable temporary directory (default `/tmp`) so that subscriptions survive provider restarts. Persistent parameter values are the responsibility of each provider component, which may use the platform's persistent storage facilities independently of RBus.
+Data persistence is handled externally. RBus itself writes subscription state to a temporary directory (`RBUS_TMP_DIRECTORY`, default `/tmp`) so that subscriptions survive provider restarts. Persistent parameter values are the responsibility of each provider component, which may use the platform's persistent storage facilities independently of RBus.
 
 ```mermaid
 flowchart TD
@@ -119,7 +119,7 @@ The northbound interface is the C API defined in `rbus.h`, which components incl
 - **Build Dependencies**: cJSON library (required for all builds); MessagePack (`msgpack-c`) and `linenoise` required unless `BUILD_ONLY_RTMESSAGE=ON`.
 - **Systemd Services**: `rbus.service` (launches `rtrouted`) must be active before any RBus-connected component starts. A session manager service (`rbus_session_mgr.service` or `rbus_sessmgr_rdkv.service`, depending on the platform) must also be running for session-based set operations.
 - **Configuration Files**: Platform-specific router configuration (e.g., `rbus_rdkv.conf`) may override systemd `ExecStart` arguments via `RTROUTER_OPTIONAL_ARGS`. Client configurations that need to reach `rtrouted` over TCP specify the address `tcp://127.0.0.1:10001` explicitly.
-- **Temporary Storage**: The subscription cache and runtime socket files are stored under `/tmp`. The `rbus.service` ExecStopPost cleans `/tmp/rtrouted*` on daemon exit.
+- **Temporary Storage**: The subscription cache and runtime socket files are stored under `/tmp`. The `conf/rbus.service` `ExecStopPost` writes a stop marker to `/tmp/rbus_stopped` (it does not remove `/tmp/rtrouted*` artifacts).
 
 ---
 
@@ -363,7 +363,7 @@ sequenceDiagram
 | `/usr/lib/systemd/system/rbus_session_mgr.service`       | Launches `rbus_session_mgr` ordered `After=rbus.service`. Blocks internally until `rtrouted` is available.                                               | Systemd drop-in overrides                                    |
 | `/usr/lib/systemd/system/rbus_sessmgr_rdkv.service`      | Alternate session manager service unit ordered `Before=rbus.service`, used on platforms where the session manager must be present before daemon startup. | Systemd drop-in overrides                                    |
 | `/etc/rbus/rbus_rdkv.conf` (or equivalent platform conf) | Provides router startup arguments and service identity for `rtrouted`. Sets `SyslogIdentifier` and `Restart=always`. Ordered `After=nvram.service`.      | Platform image build                                         |
-| `/tmp/rtrouted*`                                         | Runtime socket and routing-state files created by `rtrouted` at startup. Removed on service stop via `ExecStopPost`.                                     | Managed by `rtrouted`                                        |
+| `/tmp/rtrouted*`                                         | Runtime socket and pid/log files created by `rtrouted` at startup (e.g., `/tmp/rtrouted`, `/tmp/rtrouted.pid`). Not removed by the `conf/rbus.service` `ExecStopPost` in this repo.                                                  | Managed by `rtrouted`                                        |
 
 ### Key Configuration Parameters
 
@@ -401,4 +401,4 @@ rbuscli -i
 
 ### Configuration Persistence
 
-Parameter value persistence is managed by each provider component independently. Subscription state is written to `/tmp` by `rbus_subscriptions.c` to support provider process restarts within a boot session. This cache is removed when `rtrouted` exits.
+Parameter value persistence is managed by each provider component independently. Subscription state is written to `/tmp` by `rbus_subscriptions.c` to support provider process restarts within a boot session. This cache lives under `/tmp` (typically cleared on reboot) and is removed by the provider when no subscriptions remain.
