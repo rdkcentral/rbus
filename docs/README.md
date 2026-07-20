@@ -110,13 +110,13 @@ The northbound interface is the C API defined in `rbus.h`, which components incl
 | `WITH_SPAKE2=ON`              | `WITH_SPAKE2=1`        | Enables SPAKE2+ key-exchange cipher between `rtrouted` and clients                                    | OFF                                  |
 | `ENABLE_ADDRESS_SANITIZER=ON` | `-fsanitize=address`   | Enables AddressSanitizer for memory-error detection during development                                | OFF                                  |
 | `ENABLE_RDKLOGGER=ON`         | `ENABLE_RDKLOGGER`     | Routes internal log output through the RDK Logger instead of the built-in `rtLog` handler             | OFF                                  |
-| `BUILD_RBUS_DAEMON=ON`        | —                      | Builds the `rtrouted` daemon and `rbus_session_mgr` service                                           | ON                                   |
+| `BUILD_RBUS_DAEMON=ON`        | —                      | Builds the `rtrouted` daemon; also builds `rbus_session_mgr` when `BUILD_ONLY_RTMESSAGE=OFF`                 | ON                                   |
 | `BUILD_ONLY_RTMESSAGE=ON`     | —                      | Builds only the RT Message transport layer, omitting the RBus API and core layers                     | OFF                                  |
 | `BUILD_FOR_DESKTOP=ON`        | —                      | Configures the build for a Linux desktop host, fetching and linking `linenoise` as an ExternalProject | OFF                                  |
 
 **Platform and Integration Requirements:**
 
-- **Build Dependencies**: cJSON library (required for all builds); MessagePack (`msgpack-c`) and `linenoise` required unless `BUILD_ONLY_RTMESSAGE=ON`.
+- **Build Dependencies**: cJSON library (required for all builds). On non-desktop builds, MessagePack (`msgpack-c`) and `linenoise` are required unless `BUILD_ONLY_RTMESSAGE=ON`; for `BUILD_FOR_DESKTOP=ON`, CMake always requires MessagePack and fetches/builds `linenoise`.
 - **Systemd Services**: `rbus.service` (launches `rtrouted`) must be active before any RBus-connected component starts. A session manager service (`rbus_session_mgr.service` or `rbus_sessmgr_rdkv.service`, depending on the platform) must also be running for session-based set operations.
 - **Configuration Files**: Platform-specific router configuration (e.g., `rbus_rdkv.conf`) may override systemd `ExecStart` arguments via `RTROUTER_OPTIONAL_ARGS`. Client configurations that need to reach `rtrouted` over TCP specify the address `tcp://127.0.0.1:10001` explicitly.
 - **Temporary Storage**: The subscription cache and runtime socket files are stored under `/tmp`. The `conf/rbus.service` `ExecStopPost` writes a stop marker to `/tmp/rbus_stopped` (it does not remove `/tmp/rtrouted*` artifacts).
@@ -359,7 +359,7 @@ sequenceDiagram
 
 | Configuration File                                       | Purpose                                                                                                                                                  | Override Mechanism                                           |
 | -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
-| `/usr/lib/systemd/system/rbus.service`                   | Launches `rtrouted` as a forking service. `ExecStopPost` clears `/tmp/rbus_stopped`.                                                                     | `RTROUTER_OPTIONAL_ARGS` environment variable in `ExecStart` |
+| `/usr/lib/systemd/system/rbus.service`                   | Launches `rtrouted` as a forking service. `ExecStopPost` writes `0` to `/tmp/rbus_stopped`.                                                                     | `RTROUTER_OPTIONAL_ARGS` environment variable in `ExecStart` |
 | `/usr/lib/systemd/system/rbus_session_mgr.service`       | Launches `rbus_session_mgr` ordered `After=rbus.service`. Blocks internally until `rtrouted` is available.                                               | Systemd drop-in overrides                                    |
 | `/usr/lib/systemd/system/rbus_sessmgr_rdkv.service`      | Alternate session manager service unit ordered `Before=rbus.service`, used on platforms where the session manager must be present before daemon startup. | Systemd drop-in overrides                                    |
 | `/etc/rbus/rbus_rdkv.conf` (or equivalent platform conf) | Provides router startup arguments and service identity for `rtrouted`. Sets `SyslogIdentifier` and `Restart=always`. Ordered `After=nvram.service`.      | Platform image build                                         |
@@ -381,7 +381,7 @@ sequenceDiagram
 
 ### Runtime Configuration
 
-The router address used by client processes can be overridden at runtime by supplying a configuration file path to `rtConnection_CreateWithConfig`. The `rbuscli` utility accepts the router address as a command-line argument, allowing it to target a non-default `rtrouted` instance:
+The router address used by client processes can be overridden at runtime by passing an `rtMessage` configuration object (e.g., with `uri`) to `rtConnection_CreateWithConfig`. The `rbuscli` utility connects using the router configuration used by `rbus_open`.
 
 ```bash
 # Start the interactive rbuscli tool
