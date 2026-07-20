@@ -14,7 +14,7 @@ The framework is applicable across RDK middleware deployments covering both broa
 - **Hierarchical Data Model**: Manages a named tree of elements (properties, objects, tables, methods, events) that providers register and consumers traverse or query, including wildcard discovery.
 - **Central Message Routing**: The `rtrouted` daemon routes all messages between registered components, enabling loose coupling. Clients connect to the daemon rather than to each other directly.
 - **Session Management**: The `rbus_session_mgr` service allocates session identifiers that can be used to serialise multi-step set operations (commit/rollback behavior depends on provider implementation).
-- **Optional Transport Security**: Supports the SPAKE2+ key-exchange cipher for encrypting messages between the router and clients when built with the corresponding compile-time option.
+- **Optional Transport Security**: Supports SPAKE2+ key exchange to derive a shared key that is then used to encrypt messages between the router and clients (AES) when built with the corresponding compile-time option.
 - **Subscription Persistence**: Caches active subscriptions to a temporary directory so that they can be restored automatically after a provider restarts, avoiding the need for consumers to re-subscribe.
 
 ---
