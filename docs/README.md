@@ -92,7 +92,7 @@ The northbound interface is the C API defined in `rbus.h`, which components incl
 ### Threading Model
 
 - **Threading Architecture**: Multi-threaded with per-handle and per-element synchronisation.
-- **Main Thread**: Handles API entry points for synchronous operations such as `rbus_open`, `rbus_get`, `rbus_set`, `rbus_regDataElements`, and `rbus_close`. Protected by a process-wide mutex (`gMutex`).
+- **Caller Threads**: Call synchronous APIs such as `rbus_open`, `rbus_get`, `rbus_set`, `rbus_regDataElements`, and `rbus_close`. Only global handle-list operations and related callbacks are serialised with a process-wide mutex (`gMutex`); most other concurrency control is handled via per-handle/per-element locks.
 - **Worker Threads**:
   - _Callback Thread_ (one per `rtConnection`): Reads inbound messages from the socket and dispatches them to registered handlers. Created and managed within `rtConnection.c`.
   - _Thread Pool Workers_ (`rtThreadPool`): Processes asynchronous tasks submitted by the callback thread, including async method responses and subscription deliveries.
