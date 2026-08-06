@@ -21,6 +21,7 @@
 #include "rbus_buffer.h"
 #include "rbus_handle.h"
 #include <rtMemory.h>
+#include <rtVector.h>
 #include <string.h>
 #include <assert.h>
 #include <sys/stat.h>
@@ -113,6 +114,44 @@ void rbusSubscriptions_destroy(rbusSubscriptions_t subscriptions)
     free(subscriptions->componentName);
     free(subscriptions->tmpDir);
     free(subscriptions);
+}
+
+bool rbusSubscriptions_cacheFileExists(char const* componentName, char const* tmpDir)
+{
+    char filePath[256];
+    struct stat st;
+
+    if(!componentName || !tmpDir)
+        return false;
+
+    snprintf(filePath, 256, CACHE_FILE_PATH_FORMAT, tmpDir, componentName);
+    return (stat(filePath, &st) == 0);
+}
+
+size_t rbusSubscriptions_getPendingCacheEvents(rbusSubscriptions_t subscriptions, rtVector eventNames)
+{
+    rtListItem item;
+    rbusSubscription_t* sub;
+    size_t count = 0;
+
+    if(!subscriptions || !eventNames)
+        return 0;
+
+    rtList_GetFront(subscriptions->subList, &item);
+    while(item)
+    {
+        sub = NULL;
+        rtListItem_GetData(item, (void**)&sub);
+        /* element == NULL && tokens == NULL identifies a subscription that was
+           loaded from the persisted cache but is not yet wired to a live element */
+        if(sub && sub->element == NULL && sub->tokens == NULL && sub->eventName)
+        {
+            rtVector_PushBack(eventNames, strdup(sub->eventName));
+            count++;
+        }
+        rtListItem_GetNext(item, &item);
+    }
+    return count;
 }
 
 static void rbusSubscriptions_onSubscriptionCreated(rbusSubscription_t* sub, elementNode* node);

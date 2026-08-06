@@ -22,6 +22,7 @@
 
 #include "rbus_element.h"
 #include "rbus_tokenchain.h"
+#include <rtVector.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -76,6 +77,18 @@ void rbusSubscriptions_resubscribeElementCache(rbusHandle_t handle, rbusSubscrip
 
 /*call when registering row of a table, to resubscribe any listeners that might have been loaded from cache */
 void rbusSubscriptions_resubscribeRowElementCache(rbusHandle_t handle, rbusSubscriptions_t subscriptions, elementNode* rowNode);
+
+/*returns true if a persisted subscription cache file exists for the component. Used by lazy
+  registration to detect a provider restart that must recover previously cached subscriptions
+  without having to first allocate the element tree.*/
+bool rbusSubscriptions_cacheFileExists(char const* componentName, char const* tmpDir);
+
+/*collects the event names of all cached subscriptions that have been loaded but are not yet
+  wired to an element (i.e. loaded from the persisted cache after a restart). Pushes a strdup'd
+  copy of each event name into 'eventNames' and returns the number added. Caller owns the strings
+  and the vector. Used by lazy registration to know which placeholder elements must be materialized
+  immediately so their subscriptions are restored.*/
+size_t rbusSubscriptions_getPendingCacheEvents(rbusSubscriptions_t subscriptions, rtVector eventNames);
 
 /*unsubscribe any client when they disconnect from broker. handles cases where clients don't unsubscribe properly (e.g. because they crashed)*/
 void rbusSubscriptions_handleClientDisconnect(rbusHandle_t handle, rbusSubscriptions_t subscriptions, char const* listener);
