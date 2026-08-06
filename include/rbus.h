@@ -888,6 +888,23 @@ rbusError_t rbus_regDataElements(
     int numDataElements,
     rbusDataElement_t *elements);
 
+/** @fn rbusError_t rbus_regDataElementsLazy(
+ *          rbusHandle_t handle,
+ *          int numDataElements,
+ *          rbusDataElement_t *elements)
+ *  @brief  Lazily registers data elements. Element names are registered with
+ *  the bus immediately, while callback materialization in the in-process tree
+ *  is deferred until first access.
+ *  @param      handle          Bus Handle
+ *  @param      numDataElements The number (count) of data elements to register
+ *  @param      elements        The list of data elements to register
+ *  @return RBus error code as defined by rbusError_t.
+ */
+rbusError_t rbus_regDataElementsLazy(
+    rbusHandle_t handle,
+    int numDataElements,
+    rbusDataElement_t *elements);
+
 /** @fn rbusError_t rbus_unregDataElements(
  *          rbusHandle_t handle,
  *          int numDataElements,
@@ -905,6 +922,22 @@ rbusError_t rbus_regDataElements(
  *  RBUS_ERROR_ELEMENT_NAME_MISSING: No data element names provided.
  */
 rbusError_t rbus_unregDataElements (
+    rbusHandle_t handle,
+    int numDataElements,
+    rbusDataElement_t *elements);
+
+/** @fn rbusError_t rbus_unregDataElementsLazy(
+ *          rbusHandle_t handle,
+ *          int numDataElements,
+ *          rbusDataElement_t *elements)
+ *  @brief  Unregisters data elements previously registered via
+ *  rbus_regDataElementsLazy.
+ *  @param      handle          Bus Handle
+ *  @param      numDataElements The number (count) of data elements to unregister
+ *  @param      elements        The list of data elements to unregister
+ *  @return RBus error code as defined by rbusError_t.
+ */
+rbusError_t rbus_unregDataElementsLazy (
     rbusHandle_t handle,
     int numDataElements,
     rbusDataElement_t *elements);

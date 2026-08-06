@@ -132,6 +132,73 @@ extern char* __progname;
 //******************************* GLOBALS *****************************************//
 static pthread_mutex_t gMutex = PTHREAD_MUTEX_INITIALIZER;
 
+static bool _rbus_is_pandm_component(char const* componentName)
+{
+    if(!componentName)
+        return false;
+
+    return (strstr(componentName, "CcspPandMSsp") != NULL) ||
+           (strstr(componentName, "ccsp.pam") != NULL) ||
+           (strstr(componentName, "PandM") != NULL);
+}
+
+static void _rbus_log_mem_usage(char const* stage, char const* componentName, char const* detail)
+{
+    FILE* fp;
+    char line[256];
+    char vmRss[64] = "unknown";
+    char vmSize[64] = "unknown";
+    char vmData[64] = "unknown";
+    char* value;
+
+    fp = fopen("/proc/self/status", "r");
+    if(!fp)
+    {
+        RBUSLOG_WARN("MEM[%s] component=%s detail=%s unable to read /proc/self/status", stage ? stage : "unknown", componentName ? componentName : "unknown", detail ? detail : "");
+        return;
+    }
+
+    while(fgets(line, sizeof(line), fp))
+    {
+        if(strncmp(line, "VmRSS:", 6) == 0)
+        {
+            value = line + 6;
+            while(*value == ' ' || *value == '\t')
+                value++;
+            strncpy(vmRss, value, sizeof(vmRss) - 1);
+            vmRss[sizeof(vmRss) - 1] = 0;
+            vmRss[strcspn(vmRss, "\r\n")] = 0;
+        }
+        else if(strncmp(line, "VmSize:", 7) == 0)
+        {
+            value = line + 7;
+            while(*value == ' ' || *value == '\t')
+                value++;
+            strncpy(vmSize, value, sizeof(vmSize) - 1);
+            vmSize[sizeof(vmSize) - 1] = 0;
+            vmSize[strcspn(vmSize, "\r\n")] = 0;
+        }
+        else if(strncmp(line, "VmData:", 7) == 0)
+        {
+            value = line + 7;
+            while(*value == ' ' || *value == '\t')
+                value++;
+            strncpy(vmData, value, sizeof(vmData) - 1);
+            vmData[sizeof(vmData) - 1] = 0;
+            vmData[strcspn(vmData, "\r\n")] = 0;
+        }
+    }
+
+    fclose(fp);
+    RBUSLOG_INFO("MEM[%s] component=%s detail=%s VmRSS=%s VmSize=%s VmData=%s",
+        stage ? stage : "unknown",
+        componentName ? componentName : "unknown",
+        detail ? detail : "",
+        vmRss,
+        vmSize,
+        vmData);
+}
+
 //********************************************************************************//
 
 static int _callback_handler(char const* destination, char const* method, rbusMessage request, void* userData, rbusMessage* response, const rtMessageHeader* hdr);
@@ -441,6 +508,7 @@ static rbusError_t _rbus_lazy_activate_matching(rbusHandle_t handle, struct _rbu
 {
     size_t i;
     rbusError_t rc;
+    bool materialized = false;
 
     if(!handleInfo || !handleInfo->lazyElements || !query)
         return RBUS_ERROR_SUCCESS;
@@ -486,16 +554,25 @@ static rbusError_t _rbus_lazy_activate_matching(rbusHandle_t handle, struct _rbu
                 return RBUS_ERROR_OUT_OF_RESOURCES;
             }
 
+            _rbus_log_mem_usage("lazy_materialization_before", handleInfo->componentName, e->name);
+
             HANDLE_SUBS_MUTEX_LOCK(handle);
             rbusSubscriptions_resubscribeElementCache(handle, handleInfo->subscriptions, e->name, node);
             HANDLE_SUBS_MUTEX_UNLOCK(handle);
 
             RBUSLOG_INFO("Activated lazy element [%s] on access [%s]", e->name, query);
+            _rbus_log_mem_usage("lazy_materialization_after", handleInfo->componentName, e->name);
+            materialized = true;
         }
 
         /* remove the placeholder now that it is live; the vector shifts down,
            so re-check the same index */
         rtVector_RemoveItem(handleInfo->lazyElements, e, _rbus_lazy_element_free);
+    }
+
+    if(!materialized)
+    {
+        RBUSLOG_DEBUG("No lazy materialization match for query [%s]", query);
     }
 
     return RBUS_ERROR_SUCCESS;
@@ -3609,10 +3686,11 @@ rbusError_t rbus_close(rbusHandle_t handle)
     return ret;
 }
 
-rbusError_t rbus_regDataElements(
+static rbusError_t _rbus_regDataElements_internal(
     rbusHandle_t handle,
     int numDataElements,
-    rbusDataElement_t *elements)
+    rbusDataElement_t *elements,
+    bool lazyMode)
 {
     int i;
     int regCount = 0;
@@ -3628,6 +3706,11 @@ rbusError_t rbus_regDataElements(
 
     if (handleInfo->m_handleType != RBUS_HWDL_TYPE_REGULAR)
         return RBUS_ERROR_INVALID_HANDLE;
+
+    if(lazyMode && _rbus_is_pandm_component(handleInfo->componentName))
+    {
+        _rbus_log_mem_usage("pandm_lazy_registration_before", handleInfo->componentName, "rbus_regDataElementsLazy");
+    }
 
     for(i=0; i<numDataElements; ++i)
     {
@@ -3656,15 +3739,66 @@ rbusError_t rbus_regDataElements(
 
         regCount++;
 
-        /* Register a lightweight placeholder only. The callbacks are kept in
-           the lazy list and inserted into the element tree on demand, the first
-           time a consumer actually accesses this element. Elements that are
-           never accessed stay as placeholders and consume no tree/heap space. */
-        rc = _rbus_lazy_store_element(handleInfo, &elements[i]);
-        if(rc != RBUS_ERROR_SUCCESS)
+        if(lazyMode)
         {
-            RBUSLOG_ERROR("failed to cache lazy element [%s]", name);
-            break;
+            /* Store a lightweight placeholder only. Materialize callback nodes
+               on first access. */
+            rc = _rbus_lazy_store_element(handleInfo, &elements[i]);
+            if(rc != RBUS_ERROR_SUCCESS)
+            {
+                RBUSLOG_ERROR("failed to cache lazy element [%s]", name);
+                break;
+            }
+
+            RBUSLOG_DEBUG("%s lazy-registered successfully!", name);
+        }
+        else
+        {
+            elementNode* node;
+            rbusDataElement_t tmp;
+
+            rc = _rbus_prepare_provider_tree(handle, handleInfo);
+            if(rc != RBUS_ERROR_SUCCESS)
+                break;
+
+            tmp.name = elements[i].name;
+            tmp.type = elements[i].type;
+            tmp.cbTable = elements[i].cbTable;
+            node = insertElement(handleInfo->elementRoot, &tmp);
+            if(!node)
+            {
+                rc = RBUS_ERROR_OUT_OF_RESOURCES;
+                RBUSLOG_ERROR("failed to register element in provider tree [%s]", name);
+                break;
+            }
+
+            HANDLE_SUBS_MUTEX_LOCK(handle);
+            rbusSubscriptions_resubscribeElementCache(handle, handleInfo->subscriptions, name, node);
+            HANDLE_SUBS_MUTEX_UNLOCK(handle);
+
+            RBUSLOG_DEBUG("%s registered successfully!", name);
+        }
+    }
+
+    if(rc == RBUS_ERROR_SUCCESS)
+    {
+        if(lazyMode)
+        {
+            RBUSLOG_INFO("Registered %d elements in lazy mode. Callbacks will activate on first consumer access.", numDataElements);
+
+            /* If this provider is restarting after a crash, restore any subscriptions
+               that were persisted in the cache by eagerly materializing just the
+               elements that have pending cached subscribers. */
+            _rbus_lazy_recover_subscriptions(handle, handleInfo);
+        }
+        else
+        {
+            RBUSLOG_INFO("Registered %d elements in eager mode.", numDataElements);
+        }
+
+        if(lazyMode && _rbus_is_pandm_component(handleInfo->componentName))
+        {
+            _rbus_log_mem_usage("pandm_lazy_registration_after", handleInfo->componentName, "rbus_regDataElementsLazy");
         }
 
         RBUSLOG_DEBUG("%s lazy-registered successfully!", name);
@@ -3689,7 +3823,12 @@ rbusError_t rbus_regDataElements(
       successfully registered elements that happened during this call, before we failed.
       Thus we unregisters elements 0 to i (i was when we broke from loop above).*/
     if(rc != RBUS_ERROR_SUCCESS && regCount > 0)
-        rbus_unregDataElements(handle, regCount, elements);
+    {
+        if(lazyMode)
+            rbus_unregDataElementsLazy(handle, regCount, elements);
+        else
+            rbus_unregDataElements(handle, regCount, elements);
+    }
 
 #if 0
     if((rc == RBUS_ERROR_SUCCESS) && (!sDisConnHandler))
@@ -3704,6 +3843,24 @@ rbusError_t rbus_regDataElements(
     }
 #endif
     return rc;
+}
+
+rbusError_t rbus_regDataElements(
+    rbusHandle_t handle,
+    int numDataElements,
+    rbusDataElement_t *elements)
+{
+    VERIFY_HANDLE(handle);
+    return _rbus_regDataElements_internal(handle, numDataElements, elements, false);
+}
+
+rbusError_t rbus_regDataElementsLazy(
+    rbusHandle_t handle,
+    int numDataElements,
+    rbusDataElement_t *elements)
+{
+    VERIFY_HANDLE(handle);
+    return _rbus_regDataElements_internal(handle, numDataElements, elements, true);
 }
 
 rbusError_t rbus_unregDataElements(
@@ -3734,12 +3891,25 @@ rbusError_t rbus_unregDataElements(
 
         _rbus_lazy_remove_element(handleInfo, name);
 
+        if(handleInfo->elementRoot)
+        {
+            removeElement(&(handleInfo->elementRoot), name);
+        }
+
 /*      TODO: we need to remove all instance elements that this registration element instantiated
         rbusValueChange_RemoveParameter(handle, NULL, name);
         removeElement(&(handleInfo->elementRoot), name);
 */
     }
     return RBUS_ERROR_SUCCESS;
+}
+
+rbusError_t rbus_unregDataElementsLazy(
+    rbusHandle_t handle,
+    int numDataElements,
+    rbusDataElement_t *elements)
+{
+    return rbus_unregDataElements(handle, numDataElements, elements);
 }
 
 //************************* Discovery related Operations *******************//
