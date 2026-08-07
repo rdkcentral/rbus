@@ -181,33 +181,6 @@ sequenceDiagram
 
 ### Call Flows
 
-#### Initialization Call Flow
-
-```mermaid
-sequenceDiagram
-    participant App as Component Process
-    participant RBusAPI as RBus API (rbus.c)
-    participant RBusCore as RBus Core (rbuscore.c)
-    participant RTConn as RT Connection (rtConnection.c)
-    participant RTD as rtrouted
-
-    App->>RBusAPI: rbus_open(componentName)
-    RBusAPI->>RBusCore: rbus_openBrokerConnection(componentName)
-    RBusCore->>RTConn: rtConnection_Create(componentName, router_config)
-    RTConn->>RTD: Connect socket, send registration
-    RTD-->>RTConn: Connection accepted
-    RTConn-->>RBusCore: rtConnection handle
-    RBusCore-->>RBusAPI: Connection established
-    RBusAPI->>RBusAPI: Allocate rbusHandle, init element root, subscription registry
-    RBusAPI-->>App: rbusHandle_t
-
-    App->>RBusAPI: rbus_regDataElements(handle, count, elements[])
-    RBusAPI->>RBusCore: rbus_addElement / rbus_registerMethod per element
-    RBusCore->>RTD: Advertise element names
-    RTD-->>RBusCore: Elements registered in routing tree
-    RBusAPI-->>App: RBUS_ERROR_SUCCESS
-```
-
 #### Request Processing Call Flow
 
 Property get and set operations follow a synchronous request-response pattern. The RBus API serialises the request using MessagePack, routes it through `rtrouted` to the provider process, and blocks until the provider returns a value or an error.
