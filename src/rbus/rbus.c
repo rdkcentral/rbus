@@ -2505,7 +2505,6 @@ static int _method_callback_handler(rbusHandle_t handle, rbusMessage request, rb
     {
         if(methRegElem->cbTable.methodHandler)
         {
-            RBUSLOG_DEBUG("calling methodHandler method [%s]", methodName);
 
             rbusMethodAsyncHandle_t asyncHandle = rt_malloc(sizeof(struct _rbusMethodAsyncHandle));
             asyncHandle->hdr = *hdr;
