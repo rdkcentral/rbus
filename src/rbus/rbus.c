@@ -547,14 +547,14 @@ static rbusError_t _rbus_lazy_activate_matching(rbusHandle_t handle, struct _rbu
             tmp.cbTable.eventSubHandler = e->cbTable.eventSubHandler;
             tmp.cbTable.methodHandler = e->cbTable.methodHandler;
 
+            _rbus_log_mem_usage("lazy_materialization_before", handleInfo->componentName, e->name);
+
             node = insertElement(handleInfo->elementRoot, &tmp);
             if(!node)
             {
                 RBUSLOG_ERROR("failed to activate lazy element [%s]", e->name);
                 return RBUS_ERROR_OUT_OF_RESOURCES;
             }
-
-            _rbus_log_mem_usage("lazy_materialization_before", handleInfo->componentName, e->name);
 
             HANDLE_SUBS_MUTEX_LOCK(handle);
             rbusSubscriptions_resubscribeElementCache(handle, handleInfo->subscriptions, e->name, node);
@@ -3800,18 +3800,6 @@ static rbusError_t _rbus_regDataElements_internal(
         {
             _rbus_log_mem_usage("pandm_lazy_registration_after", handleInfo->componentName, "rbus_regDataElementsLazy");
         }
-
-        RBUSLOG_DEBUG("%s lazy-registered successfully!", name);
-    }
-
-    if(rc == RBUS_ERROR_SUCCESS)
-    {
-        RBUSLOG_INFO("Registered %d elements in lazy mode. Callbacks will activate on first consumer access.", numDataElements);
-
-        /* If this provider is restarting after a crash, restore any subscriptions
-           that were persisted in the cache by eagerly materializing just the
-           elements that have pending cached subscribers. */
-        _rbus_lazy_recover_subscriptions(handle, handleInfo);
     }
 
     /*TODO: need to review if this is how we should handle any failed register.
@@ -3895,7 +3883,6 @@ rbusError_t rbus_unregDataElements(
         {
             removeElement(&(handleInfo->elementRoot), name);
         }
-
 /*      TODO: we need to remove all instance elements that this registration element instantiated
         rbusValueChange_RemoveParameter(handle, NULL, name);
         removeElement(&(handleInfo->elementRoot), name);
