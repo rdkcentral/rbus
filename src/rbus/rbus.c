@@ -3881,7 +3881,9 @@ rbusError_t rbus_unregDataElements(
 
         if(handleInfo->elementRoot)
         {
-            removeElement(&(handleInfo->elementRoot), name);
+            elementNode* node = retrieveElement(handleInfo->elementRoot, name);
+            if(node)
+                removeElement(node);
         }
 /*      TODO: we need to remove all instance elements that this registration element instantiated
         rbusValueChange_RemoveParameter(handle, NULL, name);
