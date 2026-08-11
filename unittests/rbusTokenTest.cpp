@@ -42,7 +42,7 @@ TEST(rbusTokenTest, negtestToken2)
   EXPECT_EQ(tokens,nullptr);
 
   free(registryElem);
-  free(tokens);
+  TokenChain_destroy(tokens);
 }
 
 TEST(rbusTokenTest, negtestToken3)
@@ -55,7 +55,7 @@ TEST(rbusTokenTest, negtestToken3)
   EXPECT_EQ(tokens,nullptr);
 
   free(registryElem);
-  free(tokens);
+  TokenChain_destroy(tokens);
 }
 
 TEST(rbusTokenTest, negtestToken4)
@@ -72,7 +72,7 @@ TEST(rbusTokenTest, negtestToken4)
 
   free(registryElem->parent);
   free(registryElem);
-  free(tokens);
+  TokenChain_destroy(tokens);
 }
 
 TEST(rbusTokenTest, negtestToken5)
@@ -88,5 +88,5 @@ TEST(rbusTokenTest, negtestToken5)
 
   free(registryElem->parent);
   free(registryElem);
-  free(tokens);
+  TokenChain_destroy(tokens);
 }
