@@ -21,6 +21,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stdarg.h>
+#include <time.h>
 #include <assert.h>
 #include <pthread.h>
 #include <unistd.h>
@@ -151,6 +153,30 @@ static bool _rbus_is_pandm_component(char const* componentName)
     return (strstr(componentName, "CcspPandMSsp") != NULL) ||
            (strstr(componentName, "ccsp.pam") != NULL) ||
            (strstr(componentName, "PandM") != NULL);
+}
+
+#define RBUS_FILE_LOG_PATH "/tmp/rbus_logs.txt"
+
+static void _rbus_file_log(char const* format, ...)
+{
+    FILE* fp;
+    va_list args;
+
+    if(!format)
+        return;
+
+    fp = fopen(RBUS_FILE_LOG_PATH, "a");
+    if(fp)
+    {
+        fprintf(fp, "[pid=%d tid=%lu] ", getpid(), (unsigned long)pthread_self());
+
+        va_start(args, format);
+        vfprintf(fp, format, args);
+        va_end(args);
+
+        fputc('\n', fp);
+        fclose(fp);
+    }
 }
 
 /*
@@ -3726,7 +3752,7 @@ rbusError_t rbus_regDataElements(
 
         if((err = rbus_addElement(handleInfo->componentName, name)) != RBUSCORE_SUCCESS)
         {
-            RBUSLOG_ERROR("failed to add element with core [%s] err=%d!!", name, err);
+            _rbus_file_log("failed to add element with core [%s] err=%d!!", name, err);
             if(err == RBUSCORE_ERROR_UNSUPPORTED_ENTRY)
             {
                 rc = RBUS_ERROR_INVALID_NAMESPACE;
@@ -3747,11 +3773,11 @@ rbusError_t rbus_regDataElements(
             rc = _rbus_lazy_store_element(handleInfo, &elements[i]);
             if(rc != RBUS_ERROR_SUCCESS)
             {
-                RBUSLOG_ERROR("failed to cache lazy element [%s]", name);
+                _rbus_file_log("failed to cache lazy element [%s]", name);
                 break;
             }
 
-            RBUSLOG_DEBUG("%s lazy-registered successfully!", name);
+            _rbus_file_log("%s lazy-registered successfully!", name);
         }
         else
         {
@@ -3768,7 +3794,7 @@ rbusError_t rbus_regDataElements(
 
             if((node = insertElement(handleInfo->elementRoot, &tmp)) == NULL)
             {
-                RBUSLOG_ERROR("failed to insert element [%s]!!", name);
+                _rbus_file_log("failed to insert element [%s]!!", name);
                 rc = RBUS_ERROR_OUT_OF_RESOURCES;
                 break;
             }
