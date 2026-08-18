@@ -108,6 +108,7 @@ struct _rbusHandle
   char*                 componentName;
   int32_t               componentId;
   elementNode*          elementRoot;
+  rtVector              lazyElements;
 
   /* consumer side subscriptions FIXME - 
     this needs to be an associative map instead of list/vector*/

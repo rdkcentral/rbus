@@ -119,6 +119,13 @@ typedef struct _rbusEventSubscriptionInternal
     uint32_t                    subscriptionId;
  } rbusEventSubscriptionInternal_t;
 
+typedef struct _rbusLazyElement
+{
+    char*                   name;
+    rbusElementType_t       type;
+    rbusElementCallbackTable_t cbTable;
+} rbusLazyElement_t;
+
 //********************************************************************************//
 
 extern char* __progname;
@@ -132,8 +139,77 @@ static int _callback_handler(char const* destination, char const* method, rbusMe
 static rbusError_t _rbus_event_unsubscribe(rbusHandle_t handle, rbusEventSubscriptionInternal_t* subscription);
 static rbusError_t _rbus_AsyncSubscribe_remove_subscription(rbusHandle_t handle, rbusEventSubscription_t* subscription);
 static void _subscribe_rawdata_handler(rbusHandle_t handle, rbusMessage_t* msg, void * userData);
+static rbusError_t _rbus_lazy_activate_matching(rbusHandle_t handle, struct _rbusHandle* handleInfo, char const* query);
+static void _rbus_lazy_recover_subscriptions(rbusHandle_t handle, struct _rbusHandle* handleInfo);
 
 //******************************* INTERNAL FUNCTIONS *****************************//
+static bool _rbus_is_pandm_component(char const* componentName)
+{
+    if(!componentName)
+        return false;
+
+    return (strstr(componentName, "CcspPandMSsp") != NULL) ||
+           (strstr(componentName, "ccsp.pam") != NULL) ||
+           (strstr(componentName, "PandM") != NULL);
+}
+
+static void _rbus_log_mem_usage(char const* stage, char const* componentName, char const* detail)
+{
+    FILE* fp;
+    char line[256];
+    char vmRss[64] = "unknown";
+    char vmSize[64] = "unknown";
+    char vmData[64] = "unknown";
+    char* value;
+
+    fp = fopen("/proc/self/status", "r");
+    if(!fp)
+    {
+        RBUSLOG_WARN("MEM[%s] component=%s detail=%s unable to read /proc/self/status", stage ? stage : "unknown", componentName ? componentName : "unknown", detail ? detail : "");
+        return;
+    }
+
+    while(fgets(line, sizeof(line), fp))
+    {
+        if(strncmp(line, "VmRSS:", 6) == 0)
+        {
+            value = line + 6;
+            while(*value == ' ' || *value == '\t')
+                value++;
+            strncpy(vmRss, value, sizeof(vmRss) - 1);
+            vmRss[sizeof(vmRss) - 1] = 0;
+            vmRss[strcspn(vmRss, "\r\n")] = 0;
+        }
+        else if(strncmp(line, "VmSize:", 7) == 0)
+        {
+            value = line + 7;
+            while(*value == ' ' || *value == '\t')
+                value++;
+            strncpy(vmSize, value, sizeof(vmSize) - 1);
+            vmSize[sizeof(vmSize) - 1] = 0;
+            vmSize[strcspn(vmSize, "\r\n")] = 0;
+        }
+        else if(strncmp(line, "VmData:", 7) == 0)
+        {
+            value = line + 7;
+            while(*value == ' ' || *value == '\t')
+                value++;
+            strncpy(vmData, value, sizeof(vmData) - 1);
+            vmData[sizeof(vmData) - 1] = 0;
+            vmData[strcspn(vmData, "\r\n")] = 0;
+        }
+    }
+
+    fclose(fp);
+    RBUSLOG_INFO("MEM[%s] component=%s detail=%s VmRSS=%s VmSize=%s VmData=%s",
+        stage ? stage : "unknown",
+        componentName ? componentName : "unknown",
+        detail ? detail : "",
+        vmRss,
+        vmSize,
+        vmData);
+}
+
 static rbusError_t rbusCoreError_to_rbusError(rtError e)
 {
   rbusError_t err;
@@ -285,6 +361,278 @@ const char* rbusCoreErrorToString(rbusCoreError_t error) {
         default:
             return "Unknown error";
     }
+}
+
+static void _rbus_lazy_element_free(void* p)
+{
+    rbusLazyElement_t* e = (rbusLazyElement_t*)p;
+    if(e)
+    {
+        free(e->name);
+        free(e);
+    }
+}
+
+static void _rbus_lazy_remove_element(struct _rbusHandle* handleInfo, char const* name)
+{
+    size_t i;
+    if(!handleInfo || !handleInfo->lazyElements || !name)
+        return;
+
+    for(i = 0; i < rtVector_Size(handleInfo->lazyElements); ++i)
+    {
+        rbusLazyElement_t* e = (rbusLazyElement_t*)rtVector_At(handleInfo->lazyElements, i);
+        if(e && e->name && strcmp(e->name, name) == 0)
+        {
+            rtVector_RemoveItem(handleInfo->lazyElements, e, _rbus_lazy_element_free);
+            return;
+        }
+    }
+}
+
+static rbusError_t _rbus_prepare_provider_tree(rbusHandle_t handle, struct _rbusHandle* handleInfo)
+{
+    if(!handleInfo)
+        return RBUS_ERROR_INVALID_HANDLE;
+
+    if(handleInfo->elementRoot == NULL)
+    {
+        handleInfo->elementRoot = getEmptyElementNode();
+        if(!handleInfo->elementRoot)
+            return RBUS_ERROR_OUT_OF_RESOURCES;
+
+        handleInfo->elementRoot->name = strdup(handleInfo->componentName);
+        if(!handleInfo->elementRoot->name)
+        {
+            freeElementNode(handleInfo->elementRoot);
+            handleInfo->elementRoot = NULL;
+            return RBUS_ERROR_OUT_OF_RESOURCES;
+        }
+    }
+
+    if(handleInfo->subscriptions == NULL)
+    {
+        rbusSubscriptions_create(&handleInfo->subscriptions, handle, handleInfo->componentName, handleInfo->elementRoot, RBUS_TMP_DIRECTORY);
+    }
+
+    return RBUS_ERROR_SUCCESS;
+}
+
+static rbusError_t _rbus_lazy_store_element(struct _rbusHandle* handleInfo, rbusDataElement_t const* element)
+{
+    rbusLazyElement_t* e;
+
+    if(!handleInfo || !element || !element->name)
+        return RBUS_ERROR_INVALID_INPUT;
+
+    e = (rbusLazyElement_t*)rt_calloc(1, sizeof(rbusLazyElement_t));
+    if(!e)
+        return RBUS_ERROR_OUT_OF_RESOURCES;
+
+    e->name = strdup(element->name);
+    if(!e->name)
+    {
+        free(e);
+        return RBUS_ERROR_OUT_OF_RESOURCES;
+    }
+
+    e->type = element->type;
+    e->cbTable.getHandler = element->cbTable.getHandler;
+    e->cbTable.setHandler = element->cbTable.setHandler;
+    e->cbTable.tableAddRowHandler = element->cbTable.tableAddRowHandler;
+    e->cbTable.tableRemoveRowHandler = element->cbTable.tableRemoveRowHandler;
+    e->cbTable.eventSubHandler = element->cbTable.eventSubHandler;
+    e->cbTable.methodHandler = (rbusMethodHandler_t)element->cbTable.methodHandler;
+
+    if(rtVector_PushBack(handleInfo->lazyElements, e) != RT_OK)
+    {
+        _rbus_lazy_element_free(e);
+        return RBUS_ERROR_OUT_OF_RESOURCES;
+    }
+
+    return RBUS_ERROR_SUCCESS;
+}
+
+/* Returns true if the registered placeholder name 'elemName' is related to the
+   accessed 'query' name, so its callbacks must be materialized now. A registered
+   name matches when it is the same element, an ancestor of the query, or a
+   descendant covered by a partial/wildcard query. Table row tags "{i}" match a
+   numeric instance and "*" in the query matches any single path token. */
+static bool _rbus_lazy_name_matches(char const* elemName, char const* query)
+{
+    char const* e = elemName;
+    char const* q = query;
+
+    if(!e || !q)
+        return false;
+
+    while(*e && *q)
+    {
+        if(*e == *q)
+        {
+            e++;
+            q++;
+        }
+        else if(strncmp(e, "{i}", 3) == 0 && (*q >= '0' && *q <= '9'))
+        {
+            e += 3;
+            while(*q >= '0' && *q <= '9')
+                q++;
+        }
+        else if(*q == '*')
+        {
+            /* wildcard token in the query - element is covered */
+            return true;
+        }
+        else
+        {
+            return false;
+        }
+    }
+
+    if(*e == 0 && *q == 0)
+        return true;
+
+    /* elem fully matched and is an ancestor of the query (query goes deeper) */
+    if(*e == 0 && (*q == '.' || (q > query && *(q - 1) == '.')))
+        return true;
+
+    /* query fully matched and is a partial-path prefix of the element */
+    if(*q == 0 && (*e == '.' || (e > elemName && *(e - 1) == '.')))
+        return true;
+
+    return false;
+}
+
+static rbusError_t _rbus_lazy_activate_matching(rbusHandle_t handle, struct _rbusHandle* handleInfo, char const* query)
+{
+    size_t i;
+    rbusError_t rc;
+    bool materialized = false;
+
+    if(!handleInfo || !handleInfo->lazyElements || !query)
+        return RBUS_ERROR_SUCCESS;
+
+    if(rtVector_Size(handleInfo->lazyElements) == 0)
+        return RBUS_ERROR_SUCCESS;
+
+    /* Materialize only those placeholder elements whose registered name is
+       related to the accessed query name. Any element that no consumer has
+       touched yet is left untouched in the lazy list. */
+    i = 0;
+    while(i < rtVector_Size(handleInfo->lazyElements))
+    {
+        rbusLazyElement_t* e = (rbusLazyElement_t*)rtVector_At(handleInfo->lazyElements, i);
+
+        if(!e || !e->name || !_rbus_lazy_name_matches(e->name, query))
+        {
+            i++;
+            continue;
+        }
+
+        rc = _rbus_prepare_provider_tree(handle, handleInfo);
+        if(rc != RBUS_ERROR_SUCCESS)
+            return rc;
+
+        {
+            rbusDataElement_t tmp;
+            elementNode* node;
+
+            tmp.name = e->name;
+            tmp.type = e->type;
+            tmp.cbTable.getHandler = e->cbTable.getHandler;
+            tmp.cbTable.setHandler = e->cbTable.setHandler;
+            tmp.cbTable.tableAddRowHandler = e->cbTable.tableAddRowHandler;
+            tmp.cbTable.tableRemoveRowHandler = e->cbTable.tableRemoveRowHandler;
+            tmp.cbTable.eventSubHandler = e->cbTable.eventSubHandler;
+            tmp.cbTable.methodHandler = e->cbTable.methodHandler;
+
+            //_rbus_log_mem_usage("lazy_materialization_before", handleInfo->componentName, e->name);
+
+            node = insertElement(handleInfo->elementRoot, &tmp);
+            if(!node)
+            {
+                RBUSLOG_ERROR("failed to activate lazy element [%s]", e->name);
+                return RBUS_ERROR_OUT_OF_RESOURCES;
+            }
+
+            HANDLE_SUBS_MUTEX_LOCK(handle);
+            rbusSubscriptions_resubscribeElementCache(handle, handleInfo->subscriptions, e->name, node);
+            HANDLE_SUBS_MUTEX_UNLOCK(handle);
+
+            RBUSLOG_INFO("Activated lazy element [%s] on access [%s]", e->name, query);
+            //_rbus_log_mem_usage("lazy_materialization_after", handleInfo->componentName, e->name);
+            materialized = true;
+        }
+
+        /* remove the placeholder now that it is live; the vector shifts down,
+           so re-check the same index */
+        rtVector_RemoveItem(handleInfo->lazyElements, e, _rbus_lazy_element_free);
+    }
+
+    if(!materialized)
+    {
+        RBUSLOG_DEBUG("No lazy materialization match for query [%s]", query);
+    }
+
+    return RBUS_ERROR_SUCCESS;
+}
+
+/* Provider crash recovery. A provider that exited with active subscribers keeps
+   its subscriptions in a persisted cache file. On restart the subscriber may be
+   passively waiting for events and will not access the element, so those cached
+   subscriptions would never be restored under lazy registration. This routine
+   detects such a restart (the cache file is present), loads the cache, and
+   materializes only the placeholder elements that have a pending cached
+   subscription so their event flow resumes. Elements with no prior subscriber
+   stay lazy. */
+static void _rbus_lazy_recover_subscriptions(rbusHandle_t handle, struct _rbusHandle* handleInfo)
+{
+    rtVector eventNames = NULL;
+    size_t count;
+    size_t i;
+    rbusError_t rc;
+
+    if(!handleInfo || !handleInfo->lazyElements)
+        return;
+
+    if(rtVector_Size(handleInfo->lazyElements) == 0)
+        return;
+
+    /* Fast path: no persisted cache means there is nothing to recover, so keep
+       the handle fully lazy without allocating the element tree. */
+    if(!rbusSubscriptions_cacheFileExists(handleInfo->componentName, RBUS_TMP_DIRECTORY))
+        return;
+
+    /* Preparing the tree loads the persisted subscription cache into subList. */
+    if(_rbus_prepare_provider_tree(handle, handleInfo) != RBUS_ERROR_SUCCESS)
+        return;
+
+    rtVector_Create(&eventNames);
+    if(!eventNames)
+        return;
+
+    HANDLE_SUBS_MUTEX_LOCK(handle);
+    count = rbusSubscriptions_getPendingCacheEvents(handleInfo->subscriptions, eventNames);
+    HANDLE_SUBS_MUTEX_UNLOCK(handle);
+
+    /* Snapshot is taken above so subList can be safely modified while activating
+       (activation re-wires and removes matching cached subs). */
+    for(i = 0; i < count; ++i)
+    {
+        char const* name = (char const*)rtVector_At(eventNames, i);
+        if(name)
+        {
+            RBUSLOG_INFO("recovering cached subscription for [%s]", name);
+            rc = _rbus_lazy_activate_matching(handle, handleInfo, name);
+            if(rc != RBUS_ERROR_SUCCESS)
+            {
+                RBUSLOG_ERROR("failed to recover cached subscription for [%s], rc=%d", name, rc);
+            }
+        }
+    }
+
+    rtVector_Destroy(eventNames, free);
 }
 
 void rbusEventSubscription_free(void* p)
@@ -1560,6 +1908,11 @@ static void _set_callback_handler (rbusHandle_t handle, rbusMessage request, rbu
                 /* Retrive the element node */
                 char const* paramName = rbusProperty_GetName(pProperties[loopCnt]);
                 el = retrieveInstanceElementEx(handle, handleInfo->elementRoot, paramName, true);
+                if(el == NULL)
+                {
+                    _rbus_lazy_activate_matching(handle, handleInfo, paramName);
+                    el = retrieveInstanceElementEx(handle, handleInfo->elementRoot, paramName, true);
+                }
                 if(el != NULL)
                 {
                     rbusProperty_t currentData = NULL;
@@ -1876,6 +2229,8 @@ static rbusError_t _get_recursive_wildcard_handler_internal (rbusHandle_t handle
     rbusGetHandlerOptions_t options;
     options.requestingComponent = pRequestingComp;
 
+    _rbus_lazy_activate_matching(handle, handleInfo, parameterName);
+
     /* Have the backup of given name */
     snprintf(instanceName, RBUS_MAX_NAME_LENGTH, "%s", parameterName);
     int length = strlen(instanceName) - 1;
@@ -1979,6 +2334,12 @@ static rbusError_t _get_single_dml_handler (rbusHandle_t handle, char const *par
     RBUSLOG_DEBUG("calling get single for [%s]", parameterName);
 
     el = retrieveInstanceElementEx(handle, handleInfo->elementRoot, parameterName, true);
+    if(el == NULL)
+    {
+        /* not materialized yet - activate the matching placeholder on first touch */
+        _rbus_lazy_activate_matching(handle, handleInfo, parameterName);
+        el = retrieveInstanceElementEx(handle, handleInfo->elementRoot, parameterName, true);
+    }
     if(el != NULL)
     {
         RBUSLOG_DEBUG("Retrieved [%s]", parameterName);
@@ -2222,6 +2583,8 @@ static void _get_parameter_names_handler (rbusHandle_t handle, rbusMessage reque
 
     RBUSLOG_DEBUG("object=%s depth=%d, rbusFlag=%d", objName, requestedDepth, getRowNamesOnly);
 
+    _rbus_lazy_activate_matching(handle, handleInfo, objName);
+
     rbusMessage_Init(response);
 
     el = retrieveInstanceElementEx(handle, handleInfo->elementRoot, objName, true);
@@ -2367,6 +2730,11 @@ static void _table_add_row_callback_handler (rbusHandle_t handle, rbusMessage re
     RBUSLOG_DEBUG("table [%s] alias [%s] name [%s]", tableName, aliasName, handleInfo->componentName);
 
     elementNode* tableRegElem = retrieveElement(handleInfo->elementRoot, tableName);
+    if(!tableRegElem)
+    {
+        _rbus_lazy_activate_matching(handle, handleInfo, tableName);
+        tableRegElem = retrieveElement(handleInfo->elementRoot, tableName);
+    }
     elementNode* tableInstElem = retrieveInstanceElementEx(handle, handleInfo->elementRoot, tableName, true);
 
     if(tableRegElem && tableInstElem)
@@ -2419,6 +2787,11 @@ static void _table_remove_row_callback_handler (rbusHandle_t handle, rbusMessage
 
     /*get the element for the row */
     elementNode* rowRegElem = retrieveElement(handleInfo->elementRoot, rowName);
+    if(!rowRegElem)
+    {
+        _rbus_lazy_activate_matching(handle, handleInfo, rowName);
+        rowRegElem = retrieveElement(handleInfo->elementRoot, rowName);
+    }
     elementNode* rowInstElem = retrieveInstanceElementEx(handle, handleInfo->elementRoot, rowName, true);
 
     if(rowRegElem && rowInstElem)
@@ -2499,6 +2872,11 @@ static int _method_callback_handler(rbusHandle_t handle, rbusMessage request, rb
     rbusObject_Init(&outParams, NULL);
     /*get the element for the row */
     elementNode* methRegElem = retrieveElement(handleInfo->elementRoot, methodName);
+    if(!methRegElem)
+    {
+        _rbus_lazy_activate_matching(handle, handleInfo, methodName);
+        methRegElem = retrieveElement(handleInfo->elementRoot, methodName);
+    }
     elementNode* methInstElem = retrieveInstanceElementEx(handle, handleInfo->elementRoot, methodName, true);
 
     if(methRegElem && methInstElem)
@@ -2627,6 +3005,12 @@ static void _subscribe_callback_handler (rbusHandle_t handle, rbusMessage reques
             }
 
             el = retrieveInstanceElementEx(handle, handleInfo->elementRoot, event_name, true);
+
+            if (!el)
+            {
+                _rbus_lazy_activate_matching(handle, handleInfo, event_name);
+                el = retrieveInstanceElementEx(handle, handleInfo->elementRoot, event_name, true);
+            }
 
             if (!el)
             {
@@ -3031,6 +3415,7 @@ rbusError_t rbus_open(rbusHandle_t* handle, char const* componentName)
     tmpHandle->componentName = strdup(componentName);
     tmpHandle->componentId = ++sLastComponentId;
     tmpHandle->m_connection = rbus_getConnection();
+    rtVector_Create(&tmpHandle->lazyElements);
     rtVector_Create(&tmpHandle->eventSubs);
     rtVector_Create(&tmpHandle->messageCallbacks);
     ERROR_CHECK(pthread_mutexattr_init(&attrib));
@@ -3234,6 +3619,12 @@ rbusError_t rbus_close(rbusHandle_t handle)
         handleInfo->messageCallbacks = NULL;
     }
 
+    if(handleInfo->lazyElements)
+    {
+        rtVector_Destroy(handleInfo->lazyElements, _rbus_lazy_element_free);
+        handleInfo->lazyElements = NULL;
+    }
+
     if(handleInfo->subscriptions != NULL)
     {
         HANDLE_SUBS_MUTEX_LOCK(handle);
@@ -3301,6 +3692,8 @@ rbusError_t rbus_regDataElements(
     rbusDataElement_t *elements)
 {
     int i;
+    int regCount = 0;
+    bool lazyMode = false;
     VERIFY_HANDLE(handle);
     rbusError_t rc = RBUS_ERROR_SUCCESS;
     rbusCoreError_t err = RBUSCORE_SUCCESS;
@@ -3314,6 +3707,11 @@ rbusError_t rbus_regDataElements(
     if (handleInfo->m_handleType != RBUS_HWDL_TYPE_REGULAR)
         return RBUS_ERROR_INVALID_HANDLE;
 
+    if(_rbus_is_pandm_component(handleInfo->componentName))
+    {
+        lazyMode = true;
+    }
+
     for(i=0; i<numDataElements; ++i)
     {
         char* name = elements[i].name;
@@ -3324,19 +3722,6 @@ rbusError_t rbus_regDataElements(
         }
 
         RBUSLOG_DEBUG("%s: %s", __FUNCTION__, name);
-
-        if(handleInfo->elementRoot == NULL)
-        {
-            RBUSLOG_DEBUG("First Time, create the root node for [%s]!", handleInfo->componentName);
-            handleInfo->elementRoot = getEmptyElementNode();
-            handleInfo->elementRoot->name = strdup(handleInfo->componentName);
-            RBUSLOG_DEBUG("Root node created for [%s]", handleInfo->elementRoot->name);
-        }
-
-        if(handleInfo->subscriptions == NULL)
-        {
-            rbusSubscriptions_create(&handleInfo->subscriptions, handle, handleInfo->componentName, handleInfo->elementRoot, RBUS_TMP_DIRECTORY);
-        }
 
         if((err = rbus_addElement(handleInfo->componentName, name)) != RBUSCORE_SUCCESS)
         {
@@ -3351,10 +3736,36 @@ rbusError_t rbus_regDataElements(
             }
             break;
         }
+
+        regCount++;
+
+        if(lazyMode)
+        {
+            /* Store a lightweight placeholder only. Materialize callback nodes
+               on first access. */
+            rc = _rbus_lazy_store_element(handleInfo, &elements[i]);
+            if(rc != RBUS_ERROR_SUCCESS)
+            {
+                RBUSLOG_ERROR("failed to cache lazy element [%s]", name);
+                break;
+            }
+
+            RBUSLOG_DEBUG("%s lazy-registered successfully!", name);
+        }
         else
         {
             elementNode* node;
-            if((node = insertElement(handleInfo->elementRoot, &elements[i])) == NULL)
+            rbusDataElement_t tmp;
+
+            rc = _rbus_prepare_provider_tree(handle, handleInfo);
+            if(rc != RBUS_ERROR_SUCCESS)
+                break;
+
+            tmp.name = elements[i].name;
+            tmp.type = elements[i].type;
+            tmp.cbTable = elements[i].cbTable;
+
+            if((node = insertElement(handleInfo->elementRoot, &tmp)) == NULL)
             {
                 RBUSLOG_ERROR("failed to insert element [%s]!!", name);
                 rc = RBUS_ERROR_OUT_OF_RESOURCES;
@@ -3370,6 +3781,22 @@ rbusError_t rbus_regDataElements(
         }
     }
 
+    if(rc == RBUS_ERROR_SUCCESS)
+    {
+        if(lazyMode)
+        {
+            RBUSLOG_INFO("Registered %d elements in lazy mode. Callbacks will activate on first consumer access.", numDataElements);
+            /* If this provider is restarting after a crash, restore any subscriptions
+               that were persisted in the cache by eagerly materializing just the
+               elements that have pending cached subscribers. */
+            _rbus_lazy_recover_subscriptions(handle, handleInfo);
+        }
+        else
+        {
+            RBUSLOG_INFO("Registered %d elements in eager mode.", numDataElements);
+        }
+    }
+
     /*TODO: need to review if this is how we should handle any failed register.
       To avoid a provider having a half registered data model, and to avoid
       the complexity of returning a list of error codes for each element in the list,
@@ -3378,8 +3805,8 @@ rbusError_t rbus_regDataElements(
       as 1 fail occurs above, we break out of loop and we unregister all the
       successfully registered elements that happened during this call, before we failed.
       Thus we unregisters elements 0 to i (i was when we broke from loop above).*/
-    if(rc != RBUS_ERROR_SUCCESS && i > 0)
-        rbus_unregDataElements(handle, i, elements);
+    if(rc != RBUS_ERROR_SUCCESS && regCount > 0)
+        rbus_unregDataElements(handle, regCount, elements);
 
 #if 0
     if((rc == RBUS_ERROR_SUCCESS) && (!sDisConnHandler))
@@ -3421,6 +3848,15 @@ rbusError_t rbus_unregDataElements(
 */
         if(rbus_removeElement(handleInfo->componentName, name) != RBUSCORE_SUCCESS)
             RBUSLOG_WARN("failed to remove element from core [%s]!!", name);
+        
+        _rbus_lazy_remove_element(handleInfo, name);
+
+        if(handleInfo->elementRoot)
+        {
+            elementNode* node = retrieveElement(handleInfo->elementRoot, name);
+            if(node)
+                removeElement(node);
+        }
 
 /*      TODO: we need to remove all instance elements that this registration element instantiated
         rbusValueChange_RemoveParameter(handle, NULL, name);
@@ -4645,6 +5081,14 @@ rbusError_t rbusTable_registerRow(
     elementNode* rowInstElem = retrieveInstanceElement(handleInfo->elementRoot, rowName);
     elementNode* tableInstElem = retrieveInstanceElement(handleInfo->elementRoot, tableName);
 
+    if(!tableInstElem)
+    {
+        if(_rbus_lazy_activate_matching(handle, handleInfo, tableName) != RBUS_ERROR_SUCCESS)
+            return RBUS_ERROR_OUT_OF_RESOURCES;
+        rowInstElem = retrieveInstanceElement(handleInfo->elementRoot, rowName);
+        tableInstElem = retrieveInstanceElement(handleInfo->elementRoot, tableName);
+    }
+
     if(rowInstElem)
     {
         RBUSLOG_WARN("row already exists %s", rowName);
@@ -4675,6 +5119,13 @@ rbusError_t rbusTable_unregisterRow(
         return RBUS_ERROR_INVALID_HANDLE;
 
     elementNode* rowInstElem = retrieveInstanceElement(handleInfo->elementRoot, rowName);
+
+    if(!rowInstElem)
+    {
+        if(_rbus_lazy_activate_matching(handle, handleInfo, rowName) != RBUS_ERROR_SUCCESS)
+            return RBUS_ERROR_OUT_OF_RESOURCES;
+        rowInstElem = retrieveInstanceElement(handleInfo->elementRoot, rowName);
+    }
 
     if(!rowInstElem)
     {
@@ -5911,6 +6362,13 @@ rbusError_t  rbusEvent_PublishRawData(
 
     if(!el)
     {
+        if(_rbus_lazy_activate_matching(handle, handleInfo, eventData->name) != RBUS_ERROR_SUCCESS)
+            return RBUS_ERROR_OUT_OF_RESOURCES;
+        el = retrieveInstanceElement(handleInfo->elementRoot, eventData->name);
+    }
+
+    if(!el)
+    {
         RBUSLOG_WARN("Publish failed! retrieveElement return NULL for %s", eventData->name);
         return RBUS_ERROR_ELEMENT_DOES_NOT_EXIST;
     }
@@ -5972,6 +6430,13 @@ rbusError_t  rbusEvent_Publish(
     /*get the node and walk its subscriber list,
       publishing event to each subscriber*/
     elementNode* el = retrieveInstanceElement(handleInfo->elementRoot, eventData->name);
+
+    if(!el)
+    {
+        if(_rbus_lazy_activate_matching(handle, handleInfo, eventData->name) != RBUS_ERROR_SUCCESS)
+            return RBUS_ERROR_OUT_OF_RESOURCES;
+        el = retrieveInstanceElement(handleInfo->elementRoot, eventData->name);
+    }
 
     if(!el)
     {
