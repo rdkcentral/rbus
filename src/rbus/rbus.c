@@ -153,6 +153,7 @@ static bool _rbus_is_pandm_component(char const* componentName)
            (strstr(componentName, "PandM") != NULL);
 }
 
+/*
 static void _rbus_log_mem_usage(char const* stage, char const* componentName, char const* detail)
 {
     FILE* fp;
@@ -208,7 +209,7 @@ static void _rbus_log_mem_usage(char const* stage, char const* componentName, ch
         vmRss,
         vmSize,
         vmData);
-}
+}*/
 
 static rbusError_t rbusCoreError_to_rbusError(rtError e)
 {
