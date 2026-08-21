@@ -1,5 +1,5 @@
 ##########################################################################
-# If not stated otherwise in this file or this component's LICENSE
+# If not stated otherwise in this file or this component's Licenses.txt
 # file the following copyright and licenses apply:
 #
 # Copyright 2016 RDK Management
@@ -16,18 +16,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##########################################################################
-add_subdirectory(rtmessage)
 
-IF (NOT BUILD_ONLY_RTMESSAGE)
- add_subdirectory(core)
+set(RDK_OTEL_LIB_DIR "/usr/lib" CACHE PATH
+    "Directory containing rdk_otlp.so from the rbus install")
 
-if (BUILD_RBUS_DAEMON)
-    add_subdirectory(session_manager)
-endif (BUILD_RBUS_DAEMON)
+include_directories(${PROJECT_SOURCE_DIR}/include)
 
-if (BUILD_OTEL_BRIDGE)
-   add_subdirectory(otelbridge)
-endif (BUILD_OTEL_BRIDGE)
+add_library(rbus_otel_bridge SHARED rbus_otel_bridge.cpp)
+set_target_properties(rbus_otel_bridge PROPERTIES
+    SOVERSION 1
+    VERSION   1.0.0
+    OUTPUT_NAME rbus_otel_bridge
+)
+target_include_directories(rbus_otel_bridge PRIVATE ${CMAKE_SOURCE_DIR} ${RBUS_INCLUDE_DIR})
+target_link_libraries(rbus_otel_bridge PRIVATE ${RDK_OTEL_LIB_DIR})
 
-add_subdirectory(rbus)
-ENDIF ()
+install (TARGETS rbus_otel_bridge
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+
+install (DIRECTORY ${PROJECT_SOURCE_DIR}/include/ DESTINATION "include/rbus")

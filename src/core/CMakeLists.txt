@@ -17,6 +17,7 @@
 # limitations under the License.
 ##########################################################################
 include_directories(${PROJECT_SOURCE_DIR}/src/rtmessage)
+include_directories(${PROJECT_SOURCE_DIR}/include)
 add_library(
     rbuscore
     SHARED

@@ -6547,7 +6547,7 @@ rbusError_t rbusHandle_GetTraceContextAsString(
         if (s)
         {
             n = RBUS_MIN( (int) strlen(s), traceParentLength - 1 );
-            rtString_Copy(traceParent, s, n);
+            rtString_Copy(traceParent, s, n + 1);
             traceParent[n] ='\0';
         }
         else
@@ -6559,7 +6559,7 @@ rbusError_t rbusHandle_GetTraceContextAsString(
         if (t)
         {
             n = RBUS_MIN( (int) strlen(t), traceStateLength - 1);
-            rtString_Copy(traceState, t, n);
+            rtString_Copy(traceState, t, n + 1);
             traceState[n] = '\0';
         }
         else
