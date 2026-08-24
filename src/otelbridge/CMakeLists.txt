@@ -22,17 +22,41 @@ set(RDK_OTEL_LIB_DIR "/usr/lib" CACHE PATH
 
 include_directories(${PROJECT_SOURCE_DIR}/include)
 
-add_library(rbus_otel_bridge SHARED rbus_otel_bridge.cpp)
+add_library(rbus_otel_bridge SHARED
+    rbus_otel_bridge.cpp
+)
+
 set_target_properties(rbus_otel_bridge PROPERTIES
     SOVERSION 1
-    VERSION   1.0.0
+    VERSION 1.0.0
     OUTPUT_NAME rbus_otel_bridge
 )
-target_include_directories(rbus_otel_bridge PRIVATE ${CMAKE_SOURCE_DIR} ${RBUS_INCLUDE_DIR})
-target_link_libraries(rbus_otel_bridge PRIVATE ${RDK_OTEL_LIB_DIR})
 
-install (TARGETS rbus_otel_bridge
+target_include_directories(rbus_otel_bridge
+    PRIVATE
+        ${CMAKE_SOURCE_DIR}
+        ${RBUS_INCLUDE_DIR}
+)
+
+find_library(RDK_OTLP_LIBRARY
+    NAMES rdk_otlp
+    PATHS ${RDK_OTEL_LIB_DIR}
+    REQUIRED
+)
+
+message(STATUS "Found rdk_otlp: ${RDK_OTLP_LIBRARY}")
+
+target_link_libraries(rbus_otel_bridge
+    PRIVATE
+        ${RDK_OTLP_LIBRARY}
+)
+
+install(TARGETS rbus_otel_bridge
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+)
 
-install (DIRECTORY ${PROJECT_SOURCE_DIR}/include/ DESTINATION "include/rbus")
+install(DIRECTORY ${PROJECT_SOURCE_DIR}/include/
+    DESTINATION "include/rbus"
+)
+

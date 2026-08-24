@@ -127,6 +127,14 @@ add_executable(rbusDmlBlockingConsumer consumer/rbusDmlBlockingConsumer.c)
 add_dependencies(rbusDmlBlockingConsumer rbus)
 target_link_libraries(rbusDmlBlockingConsumer rbus)
 
+add_executable(rbusOtelTestPublisher provider/rbusOtelTestPublisher.c)
+add_dependencies(rbusOtelTestPublisher rbus)
+target_link_libraries(rbusOtelTestPublisher rbus rdk_otlp)
+
+add_executable(rbusOtelTestSubscriber consumer/rbusOtelTestSubscriber.c)
+add_dependencies(rbusOtelTestSubscriber rbus)
+target_link_libraries(rbusOtelTestSubscriber rbus)
+
 install (TARGETS
     rbusSampleProvider
     rbusSampleConsumer
@@ -152,6 +160,8 @@ install (TARGETS
     rbusRawDataProvider
     rbusBlockingConsumer
     rbusBlockingProvider
+    rbusOtelTestPublisher
+    rbusOtelTestSubscriber
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 endif (BUILD_RBUS_SAMPLE_APPS)
