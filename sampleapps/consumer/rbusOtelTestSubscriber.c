@@ -20,7 +20,10 @@
 
 #include <rbus.h>
 
+#include "rdk_otlp_instrumentation.h"
+
 #define EVENT_ELEMENT "Device.OtelTest.Event!"
+
 #define TRACE_MAX 512
 
 static volatile int g_running = 1;
@@ -43,6 +46,13 @@ static void event_handler(rbusHandle_t handle, rbusEvent_t const* event,
     printf("EVENT %s  counter=%d\n", event->name,
         counter ? rbusValue_GetInt32(counter) : -1);
     printf("  traceparent=%s\n", traceParent);
+
+    if (traceParent[0] != '\0')
+    {
+        rdk_otlp_start_child_from_traceparent(traceParent,"rbus.event.receive");
+
+        rdk_otlp_finish_child_span();
+    }
     fflush(stdout);
 }
 
@@ -51,7 +61,10 @@ int main(void)
     signal(SIGINT, on_signal);
     signal(SIGTERM, on_signal);
 
+    rdk_otlp_init("rbus-otel-test-subscriber", "1.0.0");
+
     rbusHandle_t rbus;
+
     if (rbus_open(&rbus, "OtelTestSubscriber") != RBUS_ERROR_SUCCESS)
     {
         printf("ERROR: rbus_open failed\n");
@@ -74,6 +87,7 @@ int main(void)
     printf("\nShutting down subscriber...\n");
     rbusEvent_Unsubscribe(rbus, EVENT_ELEMENT);
     rbus_close(rbus);
+    rdk_otlp_shutdown();
     return 0;
 }
 

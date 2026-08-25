@@ -75,28 +75,3 @@ extern "C" void rbus_otel_event_publish(const char* event_name,
     // existing TLS value so any explicitly-set context still propagates.
 }
 
-extern "C" void* rbus_otel_event_receive_begin(const char* event_name,
-                                               const char* trace_parent,
-                                               const char* trace_state)
-{
-    (void)trace_state;
-    ensure_tracer_initialised();
-
-    if (!trace_parent || !trace_parent[0])
-        return nullptr; // nothing propagated -> no consumer span to start
-
-    const char* span_name = (event_name && event_name[0]) ? event_name
-                                                          : "rbus.event.receive";
-    rdk_otlp_start_child_from_traceparent(trace_parent, span_name);
-
-    // Non-null marker signals receive_end that a span was started on this thread.
-    return reinterpret_cast<void*>(1);
-}
-
-extern "C" void rbus_otel_event_receive_end(void* receive_context)
-{
-    if (!receive_context)
-        return;
-    rdk_otlp_finish_child_span();
-}
-

@@ -1461,7 +1461,6 @@ static void master_event_callback(rtMessageHeader const* hdr, uint8_t const* dat
     const char * object_name = NULL;
     const char * trace_parent = NULL;
     const char * trace_state = NULL;
-    void * otel_receive_context = NULL;
     int32_t is_rbus_flag = 1;
     rtError err;
     size_t subs_len;
@@ -1492,8 +1491,6 @@ static void master_event_callback(rtMessageHeader const* hdr, uint8_t const* dat
     }
 
     rbus_setOpenTelemetryContext(trace_parent, trace_state);
-    if(rbus_otel_event_receive_begin)
-        otel_receive_context = rbus_otel_event_receive_begin(event_name, trace_parent, trace_state);
 
     if(is_rbus_flag)
     {
@@ -1502,8 +1499,6 @@ static void master_event_callback(rtMessageHeader const* hdr, uint8_t const* dat
             err = g_master_event_callback(sender, event_name, msg, g_master_event_user_data);
             if(err != RBUSCORE_ERROR_EVENT_NOT_HANDLED)
             {
-                if(rbus_otel_event_receive_end)
-                    rbus_otel_event_receive_end(otel_receive_context);
                 rbus_clearOpenTelemetryContext();
                 rbusMessage_Release(msg);
                 return;
@@ -1530,8 +1525,6 @@ static void master_event_callback(rtMessageHeader const* hdr, uint8_t const* dat
             {
                 unlock();
                 evt->callback(sender, event_name, msg, evt->data);
-                if(rbus_otel_event_receive_end)
-                    rbus_otel_event_receive_end(otel_receive_context);
                 rbus_clearOpenTelemetryContext();
                 rbusMessage_Release(msg);
                 return;
@@ -1542,8 +1535,6 @@ static void master_event_callback(rtMessageHeader const* hdr, uint8_t const* dat
     /* If no matching objects exist in records. Create a new entry.*/
     unlock();
     RBUSCORELOG_DEBUG("Received event %s::%s for which no subscription exists.", sender, event_name);
-    if(rbus_otel_event_receive_end)
-        rbus_otel_event_receive_end(otel_receive_context);
     rbus_clearOpenTelemetryContext();
     rbusMessage_Release(msg);
     return;

@@ -16,13 +16,6 @@ RBUS_OTEL_BRIDGE_OPTIONAL void rbus_otel_event_publish(
     const char** trace_parent,
     const char** trace_state);
 
-RBUS_OTEL_BRIDGE_OPTIONAL void* rbus_otel_event_receive_begin(
-    const char* event_name,
-    const char* trace_parent,
-    const char* trace_state);
-
-RBUS_OTEL_BRIDGE_OPTIONAL void rbus_otel_event_receive_end(void* receive_context);
-
 #undef RBUS_OTEL_BRIDGE_OPTIONAL
 
 #ifdef __cplusplus

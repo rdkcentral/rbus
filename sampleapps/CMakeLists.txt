@@ -133,7 +133,7 @@ target_link_libraries(rbusOtelTestPublisher rbus rdk_otlp)
 
 add_executable(rbusOtelTestSubscriber consumer/rbusOtelTestSubscriber.c)
 add_dependencies(rbusOtelTestSubscriber rbus)
-target_link_libraries(rbusOtelTestSubscriber rbus)
+target_link_libraries(rbusOtelTestSubscriber rbus rdk_otlp)
 
 install (TARGETS
     rbusSampleProvider

@@ -48,11 +48,6 @@ int main(void)
     signal(SIGINT, on_signal);
     signal(SIGTERM, on_signal);
 
-    /* librdk_otlp gates span creation on the RFC tracing flag; set it so this
-       self-contained test can create spans without the full RFC path. */
-    FILE* flag = fopen("/tmp/rdk_distributed_tracing_enabled", "w");
-    if (flag) fclose(flag);
-
     rdk_otlp_init("rbus-otel-test-publisher", "1.0.0");
 
     rbusHandle_t rbus;
