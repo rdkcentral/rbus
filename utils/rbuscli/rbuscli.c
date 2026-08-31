@@ -3033,7 +3033,6 @@ int main( int argc, char *argv[] )
 
         g_isInteractive = true;
         runSteps = __LINE__;
-	
         rbus_registerLogHandler(rbus_log_handler);
 
         linenoiseSetCompletionCallback(completion);
