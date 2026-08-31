@@ -3034,14 +3034,6 @@ int main( int argc, char *argv[] )
         g_isInteractive = true;
         runSteps = __LINE__;
 	
-	/* Some restricted/serial/telnet shells don't support linenoise's raw
-         * terminal mode (tcsetattr/cursor queries hang forever), even though
-         * a normal-looking TERM is set. Default to linenoise's plain,
-         * non-raw line reading (as if TERM=dumb) for reliability; opt into
-         * full arrow-key/history editing by setting RBUSCLI_FULL_EDIT=1. */
-        if (!getenv("RBUSCLI_FULL_EDIT"))
-            setenv("TERM", "dumb", 1);
-
         rbus_registerLogHandler(rbus_log_handler);
 
         linenoiseSetCompletionCallback(completion);
