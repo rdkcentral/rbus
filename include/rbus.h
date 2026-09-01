@@ -327,15 +327,17 @@ typedef struct _rbusRowName
 
 /** @fn typedef void (* rbusMethodAsyncRespHandler_t)(
  *          rbusHandle_t handle,
- *          char* methodName
- *          rbusObject_t params)
+ *          char* methodName,
+ *          rbusObject_t params,
+ *          void* userData)
  *  @brief A component will receive this API callback when the result of 
- *  and asynchronous method invoked with rbusMethod_InvokeAsync is ready.\n
+ *  an asynchronous method invoked with rbusMethod_InvokeAsync is ready.\n
  *  Used by: Any component that calls rbusMethod_InvokeAsync.
- *  @param rbusHandle Bus Handle
+ *  @param handle Bus Handle
  *  @param methodName The method name
  *  @param error      Any error that occured
  *  @param params     The returned params of the method
+ *  @param userData    User data to be passed back to the callback handler.
  *  @return void
  *  @ingroup Methods
  */
@@ -343,7 +345,8 @@ typedef void (*rbusMethodAsyncRespHandler_t)(
     rbusHandle_t handle, 
     char const* methodName, 
     rbusError_t error,
-    rbusObject_t params
+    rbusObject_t params,
+    void* userData
 );
 
 /** @addtogroup Providers
@@ -1833,6 +1836,9 @@ rbusError_t rbusMethod_Invoke(
  *  @param      inParams    Input params
  *  @param      callback    Callback handler for the method's return parameters.
  *  @param      timeout     Optional maximum time in seconds to receive a callback.
+ *  @param      userData    Pointer passed back to the callback handler 
+ *                          (must remain valid until the callback runs).
+ *
  *  @return RBus error code as defined by rbusError_t.
  *  Possible values are: RBUS_ERROR_INVALID_EVENT
  *  @ingroup Methods
@@ -1842,7 +1848,8 @@ rbusError_t rbusMethod_InvokeAsync(
     char const* methodName, 
     rbusObject_t inParams, 
     rbusMethodAsyncRespHandler_t callback, 
-    int timeout);
+    int timeout,
+    void* userData);
 
 /** @} */
 
