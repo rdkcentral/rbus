@@ -23,6 +23,7 @@
 #include <time.h>
 #include <sys/time.h>
 #include <sys/types.h>
+#include <sys/ioctl.h>
 #include <unistd.h>
 #include <inttypes.h>
 #include <rbus.h>
@@ -3039,6 +3040,20 @@ int main( int argc, char *argv[] )
         linenoiseSetCompletionCallback(completion);
         linenoiseSetHintsCallback(hints);
         linenoiseHistoryLoad("/tmp/rbuscli_history");
+
+        /* If possible, set LINENOISE_COLS from the terminal width so linenoise
+         * won't send the DSR (ESC[6n) query and block on terminals that don't
+         * respond. This is a minimal, non-vendoring fix. */
+		#if defined(TIOCGWINSZ)
+		struct winsize ws;
+		char cols_str[16];
+		if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) == 0 && ws.ws_col > 0)
+		{
+			snprintf(cols_str, sizeof(cols_str), "%u", (unsigned)ws.ws_col);
+			if (getenv("LINENOISE_COLS") == NULL)
+				setenv("LINENOISE_COLS", cols_str, 0);
+		}
+		#endif
 
         while(!isExit && (line = linenoise("rbuscli> ")) != NULL)
         {
