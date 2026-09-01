@@ -103,31 +103,22 @@ if (BUILD_FOR_DESKTOP)
   message("Building for desktop")
   include_directories(${CMAKE_INSTALL_PREFIX}/include)
 
-  include(ExternalProject)
-  ExternalProject_Add(
-    linenoise
-    GIT_REPOSITORY https://github.com/antirez/linenoise.git
-    PREFIX deps
-    UPDATE_DISCONNECTED 1
-    INSTALL_DIR ${CMAKE_CURRENT_BINARY_DIR}
-    INSTALL_COMMAND ""
-    CONFIGURE_COMMAND ""
-    BUILD_IN_SOURCE 1
-    CMAKE_ARGS "-DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX}"
-    PATCH_COMMAND patch -p1 < ${CMAKE_CURRENT_SOURCE_DIR}/utils/rbuscli/004-linenoise-terminal-query-timeout.patch
-    BUILD_COMMAND gcc -c -Wall -Werror -fpic linenoise.c COMMAND gcc --shared -o liblinenoise.so linenoise.o)
+  # Build vendored linenoise directly to apply minimal in-source fix.
+  add_library(linenoise SHARED
+    ${CMAKE_CURRENT_SOURCE_DIR}/utils/rbuscli/linenoise/linenoise.c)
+  target_include_directories(linenoise PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/utils/rbuscli/linenoise)
+  set_target_properties(linenoise PROPERTIES OUTPUT_NAME "linenoise")
+  install(TARGETS linenoise LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 
   include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}
-    ${CMAKE_CURRENT_BINARY_DIR}/deps/src/linenoise)
+    ${CMAKE_CURRENT_SOURCE_DIR}/utils/rbuscli/linenoise)
 
   link_directories(
+    ${CMAKE_CURRENT_BINARY_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}
-    ${CMAKE_CURRENT_BINARY_DIR}/deps/src/linenoise
     ${CMAKE_BINARY_DIR}
     ${LIBRARY_DIR})
-
-  install(FILES ${CMAKE_CURRENT_BINARY_DIR}/deps/src/linenoise/liblinenoise.so DESTINATION ${CMAKE_INSTALL_LIBDIR})
   find_package(cJSON REQUIRED)
   find_package(msgpack REQUIRED) 
   
