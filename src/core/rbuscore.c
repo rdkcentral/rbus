@@ -26,10 +26,6 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
-/* Import the OTel bridge hooks as weak symbols so rbus works with or without
-   librbus_otel_bridge.so preloaded; must be defined before the header. */
-#define RBUS_OTEL_BRIDGE_IMPORT_WEAK
-#include <rbus_otel_bridge.h>
 #include "rbuscore.h"
 #include "rbuscore_logger.h"
 #include "rtVector.h"
@@ -1855,9 +1851,10 @@ rbusCoreError_t rbus_publishSubscriberEvent(const char* object_name,  const char
         RBUSCORELOG_DEBUG("Object name is too long.");
         return RBUSCORE_ERROR_INVALID_PARAM;
     }
+    /* Trace context is read straight from TLS. The publishing application is
+       responsible for populating it (e.g. via rbusHandle_SetTraceContextFromString())
+       before calling rbusEvent_Publish() - no OTEL bridge/wrapper library involved. */
     rbus_getOpenTelemetryContext(&traceParent, &traceState);
-    if(rbus_otel_event_publish)
-        rbus_otel_event_publish(event_name, &traceParent, &traceState);
     rbusMessage_BeginMetaSectionWrite(out);
     rbusMessage_SetString(out, event_name);
     rbusMessage_SetString(out, object_name);

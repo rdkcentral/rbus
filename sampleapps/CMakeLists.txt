@@ -135,6 +135,14 @@ add_executable(rbusOtelTestSubscriber consumer/rbusOtelTestSubscriber.c)
 add_dependencies(rbusOtelTestSubscriber rbus)
 target_link_libraries(rbusOtelTestSubscriber rbus rdk_otlp)
 
+add_executable(rbusOtelBenchPublisher provider/rbusOtelBenchPublisher.c)
+add_dependencies(rbusOtelBenchPublisher rbus)
+target_link_libraries(rbusOtelBenchPublisher rbus rdk_otlp)
+
+add_executable(rbusOtelBenchSubscriber consumer/rbusOtelBenchSubscriber.c)
+add_dependencies(rbusOtelBenchSubscriber rbus)
+target_link_libraries(rbusOtelBenchSubscriber rbus rdk_otlp)
+
 install (TARGETS
     rbusSampleProvider
     rbusSampleConsumer
@@ -162,6 +170,8 @@ install (TARGETS
     rbusBlockingProvider
     rbusOtelTestPublisher
     rbusOtelTestSubscriber
+    rbusOtelBenchPublisher
+    rbusOtelBenchSubscriber
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 endif (BUILD_RBUS_SAMPLE_APPS)

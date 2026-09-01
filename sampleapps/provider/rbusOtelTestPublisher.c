@@ -1,15 +1,18 @@
 /*
  * rbus_otel_test_publisher.c
  *
- * Standalone test for the PRODUCTION rbus <-> OTel bridge (librbus_otel_bridge.so).
+ * Experiment: no-bridge design for the RBUS event-path OTel trace propagation.
  *
- * Unlike rbusOpenTelemetry.c (which is uninstrumented), this publisher creates a
- * real OTel span on the publishing thread via librdk_otlp. The preloaded bridge
- * then reads that span in rbus_otel_event_publish() and injects its W3C
- * traceparent into the event metadata. Run:
+ * This publisher creates a real OTel span on the publishing thread via
+ * librdk_otlp, then explicitly sets that span's W3C traceparent into rbus's
+ * per-thread trace context with rbusHandle_SetTraceContextFromString() before
+ * calling rbusEvent_Publish(). rbus_publishSubscriberEvent() just reads
+ * whatever is in that context and serializes it into the event metadata -
+ * there is no weak-hook/bridge indirection (librbus_otel_bridge.so) involved
+ * and librbuscore.so never links against an OTEL library. Run:
  *
- *   LD_PRELOAD=./librbus_otel_bridge.so ./rbus_otel_test_publisher
- *   LD_PRELOAD=./librbus_otel_bridge.so ./rbus_otel_test_subscriber
+ *   ./rbus_otel_test_publisher
+ *   ./rbus_otel_test_subscriber
  *
  * The traceparent printed here should match what the subscriber receives, and a
  * parent/child span pair should appear in Jaeger (if the collector is running).
@@ -76,12 +79,15 @@ int main(void)
         if (!g_subscribed)
             continue;
 
-        /* Create an active span on THIS thread; the bridge reads it at publish. */
+        /* Create an active span on THIS thread, then hand its traceparent to
+         * rbus directly - no bridge/wrapper involved. */
         rdk_otlp_start_distributed_trace(EVENT_ELEMENT, "publish");
 
         const char* tp = rdk_otlp_get_current_traceparent();
         printf("Publishing #%d  traceparent=%s\n", ++n, tp ? tp : "(none - is tracing enabled?)");
         fflush(stdout);
+
+        rbusHandle_SetTraceContextFromString(rbus, tp, NULL);
 
         rbusEvent_t event = {0};
         rbusObject_t data;
@@ -96,11 +102,12 @@ int main(void)
         event.data = data;
         event.type = RBUS_EVENT_GENERAL;
 
-        rbusEvent_Publish(rbus, &event);   /* bridge injects traceparent here */
+        rbusEvent_Publish(rbus, &event);   /* rbus reads traceparent straight from TLS */
 
         rbusValue_Release(value);
         rbusObject_Release(data);
 
+        rbusHandle_ClearTraceContext(rbus);
         rdk_otlp_finish_distributed_trace();
     }
 

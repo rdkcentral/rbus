@@ -1,13 +1,16 @@
 /*
  * rbus_otel_test_subscriber.c
  *
- * Consumer side of the production-bridge test. Subscribes to the publisher's
- * event and prints the trace context that arrived in the event metadata. rbus
- * core restores that context into TLS (rbus_setOpenTelemetryContext) before the
- * callback, so GetTraceContextAsString returns it regardless of the bridge; the
- * preloaded bridge additionally starts a child span from it.
+ * Consumer side of the no-bridge design experiment. Subscribes to the
+ * publisher's event and prints the trace context that arrived in the event
+ * metadata. master_event_callback() in rbuscore.c restores that context into
+ * TLS (rbus_setOpenTelemetryContext) before invoking this callback, so
+ * rbusHandle_GetTraceContextAsString() returns it directly - no bridge
+ * library, weak hooks, or OTEL linkage inside librbuscore.so are involved.
+ * This app then starts its own child span from the propagated traceparent
+ * using librdk_otlp directly.
  *
- *   LD_PRELOAD=./librbus_otel_bridge.so ./rbus_otel_test_subscriber
+ *   ./rbus_otel_test_subscriber
  *
  * The traceparent printed here should match the publisher's.
  */
