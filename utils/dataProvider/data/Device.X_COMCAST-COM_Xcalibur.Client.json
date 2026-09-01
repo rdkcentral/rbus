@@ -1,0 +1,10 @@
+{
+  "name": "Device.X_COMCAST-COM_Xcalibur.Client",
+  "provider" : "xCaliberClient",
+  "is_list" : false,
+  "properties":
+  [
+    {"name": "xconfCheckNow", "type": "bool", "optional": false, "writable": true, "version": "2.0"}
+  ]
+}
+

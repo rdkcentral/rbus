@@ -1,0 +1,444 @@
+# Rbus CCSP style code generator
+
+## Overview
+
+This generates ccsp style dml code with an rbus implementation from a data model represented by a ccsp tr-181 based data model xml.  
+
+## Folder/File breakdown:
+
+| Location | Description |
+| ------ | ------ |
+| scripts/rbus_code_generator_ccsp_style.py | the code generator which creates ccsp style dml handler skeleton code and fully functional rbus implementation code for the data model read from a ccsp data model xml |
+| scripts/rbus_code_generator_ccsp_style.sh | user friendly script to run the python script and run gcc to verify the generated code compiles |
+| src/rbus_context_helpers.h                | simple api to cache and retrieve context data required by the generated code to support ccsp style context passing in the dml |
+| src/rbus_context_helpers.c                | ditto |
+| sampleapp/Sample_dm.xml                   | ccsp data model xml demonstrating all supported parameter and table types |
+| sampleapp/codegen.sh                      | user specific script to launch the code generator script |
+| sampleapp/build.sh                        | user specific script to build the final application |
+| sampleapp/codegen/*                       | the set of files created by the code generator |
+| sampleapp/final/*                         | the set of files copied from codegen and then fully implemented into the final application |
+
+The code generator will create the following source files:
+
+| File | Description |
+| ------ | ------ |
+| Sample_rbus.c | Represents the data model layer and contains all the rbus code needed to open a connection with rbus, register all the data elements parsed from the xml and invoke the various dml callbacks at the right time, and with the propert parameters, include row context pointers. There will be placeholders where final implementation should be added.
+| Sample_rbus.h | Corresponding header file used by the main app to init and unload the dml.
+| Sample_app.c | This is very simple main which can be compiled with the dml and rbus code to create a simple stand alone applciation. Since there will be no implemention in the dml handlers, the app won't do much, but it will at least help verify that the generated code compiles and that the data model can be registered.|
+
+Its expected that the end user will generate code once and use that code as a starting point for developing out a full application.  All the dml callbacks will need to be implemented.  If at any point the data model xml is changed and new code must be generated, then a manual step of copying the dml changes from the newly generated code back to an existing application must take place.
+
+Only a subset of the various types declared in a ccsp data model xml will be used by the code generator.  
+
+The following ccsp callbacks are supported:
+
+- AddEntry
+- DelEntry
+- IsUpdated
+- Synchronize
+- GetParamBoolValue
+- GetParamIntValue
+- GetParamUlongValue
+- GetParamStringValue
+- SetParamBoolValue
+- SetParamIntValue
+- SetParamUlongValue
+- SetParamStringValue
+- Validate
+- Commit
+- Rollback
+- Init
+- Unload
+
+Note that GetEntry and GetEntryCount are not required because rows must be explicitely registered with rbus and thus rbus will not need to query the dml to find out what exists.
+
+Init and Unload (if provided) will be called by the generated app code to start and stop the dml and rbus layers.
+
+AddEntry, in the same style as ccsp, allows the implementation to return a pointer to the new row's 'context' which would be a pointer to the actual data managed by the dml for the row.  All other callbacks (except Init/Unload) will have access to the row specific context (if one exists).
+
+The full set of ccsp object(or table) types are supported:
+
+- object
+- staticTable
+- writableTable
+- dynamicTable
+- dynWritableTable
+
+Function callbacks do not apply to all object types.  The rules for which functions apply to which object types are as follows:
+
+Validate, Commit, and Rollback apply to all types.  Consumer can expect to be able to modify any parameters with writable flag set to true, irregardless of the type of table the parameter resides in.
+IsUpdate and Synchronize apply only to dynamicTable and dynWritableTable.  These functions will be called only for dynamic tables when a consumer tries to get or set parameters on a row.
+AddEntry and DelEntry apply only to writableTable and dynWritableTable.  Only writable tables allow consumers to add or delete rows. To add rows or delete rows from objects of type staticTable or dynamicTable, the dml must call the rbusTable_registerRow.  This makes the row known to rbus without the need to call through the AddEntry method.
+
+The following parameter types are supported:
+
+| Type | Syntax |
+| ------ | ------ |
+|boolean|bool|
+|int|int|
+|unsignedInt|uint32|
+|string|string|
+
+Notes on Validate, Commit, and Rollback.  These function are called once per row for any single set or at the end of a multi set.  A consumer lets the provider know when to commit by passing a commit flag set to true.  To do a bulk set, the consumer will set the commit flag to false for all but the last set.  The provider calls Validate\Commit\Rollback when it sees the commit flag set to true.  Just like ccsp, if the implementation returns true from Validate, then Commit will be called, otherwise, Rollback will be called.
+
+
+## Current limitations and known issues:
+
+- Only rbus 2.0 consumers can add or delete table rows.  Rbus expects an alias parameter in the payload sent over the bus from consumer to provider.  Ccsp components do not pass an alias, therefore, an rbus provider will not be able to parse the payload properly.  This may be fixed soon.
+- No string length constraints, as would be declared in the data model xml with a type like 'string(256)', are being enforced.  The code generator could be extended to support this.
+- No enum types are supported.
+- No bulk types are supported.
+- The commit flow is unreliable in multi-user case, as we don't currently 'lock' data during a bulk set transaction.  For example, dmcli set param1 to foo with commit false, followed by dmcli get param1, will return you foo, even though its not committed yet.  I think this issue occurs in ccsp components that don't explicitely keep data to be committed separate from current data.
+
+## Sample application tutorial
+
+The included sample app is provider to show the end user how to generate code from a data model xml, build a final application from it, and run and test that application.  Its required that local builds of rtMessage, rbuscore, and rbus exist, in order to complete this exercise.
+
+The contents of sampleapp/codegen will already contain pre-generated code.  You can make a copy of this if you like but please don't commit any changes back to git.  The sample includes 2 bash scripts to aid in generating code and building the final app.  
+
+- codegen.sh : app specific script to call the rbus_code_generator_ccsp_style.sh to generate the sample 
+- build.sh : app specific script to do the final build of the application
+
+The user should inspect these files and verify that all variables containing paths, match the paths on their system.  The paths should be absolute or relative to the sampleapp/codegen directory.
+
+The sample provides a ccsp style data model xml named Sample_dm.xml.  It declares a small data model which provides examples of all supported ccsp data types and table types.
+
+### Generate code
+To generate code, change directory to sampleapp/codegen and from there run codegen.sh:
+
+```sh
+cd sampleapp/codegen
+rm *
+../codegen.sh
+```
+
+Check for any errors in the output generated.  A python error could appear if the generator encounters something unexpected in the xml file.  A compile error code appear if the generated code is malformed due to the aforementioned unexpected xml content or if the CFLAGS or LD_FLAGS are incorrect.  
+
+The next step would be to copy the generated files to their final home directory and then to finalize implementation of the Sample_rbus.c file. 
+
+A fully implemented example is found in sampleapp/final.
+
+To reproduce this you would simple do the following
+```sh
+cp sampleapp/codegen/* sampleapp/final
+```
+
+Avoid this if you want to experiment with the fully implemented code already inside the final directory.
+
+To build the final binary, just go into the final directory and run build.sh.
+
+```sh
+cd sampleapp/final
+../build.sh
+```
+
+This will generate Sample_app.
+
+### Run and test the sample app
+
+On a desktop environment with all reprequisite rtMessage, rbuscore and rbus libraries built and installed somewhere, you need to first run rtrouted.  This command will clean up any existing rtrouted and start it anew.
+
+```sh
+killall -9 rtrouted; rm -fr /tmp/rtroute*; LD_LIBRARY_PATH=$PATH_TO_RTMESSAGE_LIBS $PATH_TO_RTMESSAGE_BINS/rtrouted -f -l DEBUG
+```
+
+In another console launch the sample app
+
+```sh
+LD_LIBRARY_PATH=$PATH_TO_RTMESSAGE_LIBS sampleapp/final/Sample_app
+```
+
+In yet another console launch rbuscli -i
+LD_LIBRARY_PATH=$PATH_TO_RTMESSAGE_LIBS $PATH_TO_RBUS_BINS/rbuscli -i
+
+From within rbuscli try the following commands and verify the output(note that the contents of Device.Sample.DynamicTable. will vary):
+
+Get all parameters from the Sample provider:
+```sh
+rbuscli> get Device.Sample.
+Parameter  1:
+              Name  : Device.Sample.BoolParam
+              Type  : boolean
+              Value : 1
+Parameter  2:
+              Name  : Device.Sample.IntParam
+              Type  : int32
+              Value : 24
+Parameter  3:
+              Name  : Device.Sample.UlongParam
+              Type  : uint32
+              Value : 35600
+Parameter  4:
+              Name  : Device.Sample.StringParam
+              Type  : string
+              Value : Try setting any StringParam to "TESTROLLBACK" to test rollback
+Parameter  5:
+              Name  : Device.Sample.ReadonlyStringParam
+              Type  : string
+              Value : My read-only string value
+Parameter  6:
+              Name  : Device.Sample.StaticTable.1.BoolParam
+              Type  : boolean
+              Value : 1
+Parameter  7:
+              Name  : Device.Sample.StaticTable.1.IntParam
+              Type  : int32
+              Value : -20
+Parameter  8:
+              Name  : Device.Sample.StaticTable.1.UlongParam
+              Type  : uint32
+              Value : 10
+Parameter  9:
+              Name  : Device.Sample.StaticTable.1.StringParam
+              Type  : string
+              Value : Static Record 1
+Parameter 10:
+              Name  : Device.Sample.StaticTable.2.BoolParam
+              Type  : boolean
+              Value : 0
+Parameter 11:
+              Name  : Device.Sample.StaticTable.2.IntParam
+              Type  : int32
+              Value : -400
+Parameter 12:
+              Name  : Device.Sample.StaticTable.2.UlongParam
+              Type  : uint32
+              Value : 200
+Parameter 13:
+              Name  : Device.Sample.StaticTable.2.StringParam
+              Type  : string
+              Value : Static Record 2
+Parameter 14:
+              Name  : Device.Sample.StaticTable.3.BoolParam
+              Type  : boolean
+              Value : 1
+Parameter 15:
+              Name  : Device.Sample.StaticTable.3.IntParam
+              Type  : int32
+              Value : -8000
+Parameter 16:
+              Name  : Device.Sample.StaticTable.3.UlongParam
+              Type  : uint32
+              Value : 4000
+Parameter 17:
+              Name  : Device.Sample.StaticTable.3.StringParam
+              Type  : string
+              Value : Static Record 3
+Parameter 18:
+              Name  : Device.Sample.DynamicTable.1.BoolParam
+              Type  : boolean
+              Value : 1
+Parameter 19:
+              Name  : Device.Sample.DynamicTable.1.IntParam
+              Type  : int32
+              Value : 5
+Parameter 20:
+              Name  : Device.Sample.DynamicTable.1.UlongParam
+              Type  : uint32
+              Value : 995
+Parameter 21:
+              Name  : Device.Sample.DynamicTable.1.StringParam
+              Type  : string
+              Value : five
+Parameter 22:
+              Name  : Device.Sample.DynamicTable.2.BoolParam
+              Type  : boolean
+              Value : 1
+Parameter 23:
+              Name  : Device.Sample.DynamicTable.2.IntParam
+              Type  : int32
+              Value : 5
+Parameter 24:
+              Name  : Device.Sample.DynamicTable.2.UlongParam
+              Type  : uint32
+              Value : 995
+Parameter 25:
+              Name  : Device.Sample.DynamicTable.2.StringParam
+              Type  : string
+              Value : five
+```
+Set and get a param on the root Sample object
+```sh
+rbuscli> set Device.Sample.StringParam string hello
+setvalues succeeded..
+rbuscli> get Device.Sample.StringParam 
+Parameter  1:
+              Name  : Device.Sample.StringParam
+              Type  : string
+              Value : hello
+```
+Set and get a param from the static table
+```sh
+rbuscli> set Device.Sample.StaticTable.3.IntParam int 123456
+setvalues succeeded..
+rbuscli> get Device.Sample.StaticTable.3.IntParam 
+Parameter  1:
+              Name  : Device.Sample.StaticTable.3.IntParam
+              Type  : int32
+              Value : 123456
+```
+Test that you cannot set the readonly parameter
+```sh
+rbuscli> set Device.Sample.ReadonlyStringParam string hello
+21:55:31.121  WARN rbus.c:2922 -- Thread-243613: Failed to Set the Value for Device.Sample.ReadonlyStringParam 
+setvalues failed with return value: 9
+rbuscli> get Device.Sample.ReadonlyStringParam
+Parameter  1:
+              Name  : Device.Sample.ReadonlyStringParam
+              Type  : string
+              Value : My read-only string value
+```
+
+Add some rows to the writable table
+```sh
+rbuscli> add Device.Sample.WritableTable.
+Device.Sample.WritableTable.1. added
+rbuscli> add Device.Sample.WritableTable.
+Device.Sample.WritableTable.2. added
+rbuscli> add Device.Sample.WritableTable.
+Device.Sample.WritableTable.3. added
+```
+
+See row 3's default data
+```sh
+rbuscli> get Device.Sample.WritableTable.3.
+Parameter  1:
+              Name  : Device.Sample.WritableTable.3.BoolParam
+              Type  : boolean
+              Value : 0
+Parameter  2:
+              Name  : Device.Sample.WritableTable.3.IntParam
+              Type  : int32
+              Value : 0
+Parameter  3:
+              Name  : Device.Sample.WritableTable.3.UlongParam
+              Type  : uint32
+              Value : 0
+Parameter  4:
+              Name  : Device.Sample.WritableTable.3.StringParam
+              Type  : string
+              Value : 
+```
+Do a bulk commit to row 3 (note the last arg is the commit flag set to true for the last set call)
+```sh
+rbuscli> set Device.Sample.WritableTable.3.BoolParam boolean true false
+setvalues succeeded..
+rbuscli> set Device.Sample.WritableTable.3.IntParam int 5 false
+setvalues succeeded..
+rbuscli> set Device.Sample.WritableTable.3.UlongParam  uint 81 false
+setvalues succeeded..
+rbuscli> set Device.Sample.WritableTable.3.StringParam string "abc123" true
+setvalues succeeded..
+```
+Verify row 3's data matches what you set
+```sh
+rbuscli> get Device.Sample.WritableTable.3.
+Parameter  1:
+              Name  : Device.Sample.WritableTable.3.BoolParam
+              Type  : boolean
+              Value : 1
+Parameter  2:
+              Name  : Device.Sample.WritableTable.3.IntParam
+              Type  : int32
+              Value : 5
+Parameter  3:
+              Name  : Device.Sample.WritableTable.3.UlongParam
+              Type  : uint32
+              Value : 81
+Parameter  4:
+              Name  : Device.Sample.WritableTable.3.StringParam
+              Type  : string
+              Value : abc123
+```
+
+Remove row 2
+```sh
+rbuscli> del Device.Sample.WritableTable.2
+Device.Sample.WritableTable.2 deleted successfully
+```
+
+Verify row 2 is gone
+```sh
+rbuscli> get Device.Sample.WritableTable.2.
+23:00:34.656  WARN rbus.c:2554 -- Thread-246422: Failed to Get the Value for METHOD_RESPONSE 
+23:00:34.656 ERROR rbus.c:2620 -- Thread-246422: rbus_getExt error parsing response 17 
+23:00:34.656  WARN rbus.c:2655 -- Thread-246422: Failed to get the data from Sample Component 
+Failed to get the data. Error : 17
+```
+
+Test that trying to add to either the StaticTable or DynamicTable fails (as they are both read-only tables)
+```sh
+rbuscli> add Device.Sample.StaticTable.
+21:53:26.172  WARN rbus.c:3318 -- Thread-243613: Response from remote method indicates the call failed!! 
+Add row to a table failed with error code:9..
+rbuscli> add Device.Sample.DynamicTable.
+21:53:36.426  WARN rbus.c:3318 -- Thread-243613: Response from remote method indicates the call failed!! 
+Add row to a table failed with error code:9..
+```
+Test rollback
+```sh
+rbuscli> set Device.Sample.StaticTable.1.IntParam int 9999 false
+setvalues succeeded..
+rbuscli> set Device.Sample.StaticTable.1.StringParam string TESTROLLBACK true
+22:31:07.255  WARN rbus.c:2922 -- Thread-244887: Failed to Set the Value for Device.Sample.StaticTable.1.StringParam 
+setvalues failed with return value: 1
+```
+
+Verify rollback data was same as before
+```sh
+rbuscli> get Device.Sample.StaticTable.1.
+Parameter  1:
+              Name  : Device.Sample.StaticTable.1.BoolParam
+              Type  : boolean
+              Value : 1
+Parameter  2:
+              Name  : Device.Sample.StaticTable.1.IntParam
+              Type  : int32
+              Value : -20
+Parameter  3:
+              Name  : Device.Sample.StaticTable.1.UlongParam
+              Type  : uint32
+              Value : 10
+Parameter  4:
+              Name  : Device.Sample.StaticTable.1.StringParam
+              Type  : string
+              Value : Static Record 1
+```
+
+Verify the dynamic table is changing every 10 seconds or so
+```sh
+rbuscli> get Device.Sample.DynamicTable.
+Parameter  1:
+              Name  : Device.Sample.DynamicTable.1.BoolParam
+              Type  : boolean
+              Value : 208
+Parameter  2:
+              Name  : Device.Sample.DynamicTable.1.IntParam
+              Type  : int32
+              Value : 32653
+Parameter  3:
+              Name  : Device.Sample.DynamicTable.1.UlongParam
+              Type  : uint32
+              Value : 675
+Parameter  4:
+              Name  : Device.Sample.DynamicTable.1.StringParam
+              Type  : string
+              Value : seven
+Parameter  5:
+              Name  : Device.Sample.DynamicTable.2.BoolParam
+              Type  : boolean
+              Value : 1
+Parameter  6:
+              Name  : Device.Sample.DynamicTable.2.IntParam
+              Type  : int32
+              Value : 7
+Parameter  7:
+              Name  : Device.Sample.DynamicTable.2.UlongParam
+              Type  : uint32
+              Value : 418
+Parameter  8:
+              Name  : Device.Sample.DynamicTable.2.StringParam
+              Type  : string
+              Value : seven
+...
+```

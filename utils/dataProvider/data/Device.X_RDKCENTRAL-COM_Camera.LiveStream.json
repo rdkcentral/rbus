@@ -1,0 +1,8 @@
+{
+  "name": "Device.X_RDKCENTRAL-COM_Camera.LiveStream",
+  "provider" : "camera",
+  "is_list" : false,
+  "properties":
+    [
+    ]
+}

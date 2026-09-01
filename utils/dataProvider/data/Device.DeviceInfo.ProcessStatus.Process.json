@@ -1,0 +1,14 @@
+{
+  "name": "Device.DeviceInfo.ProcessStatus.Process",
+  "provider" : "general",
+  "is_list" : true,
+  "properties":
+    [
+      {"name": "PID", "type": "string", "optional": false, "writable": false, "version": "2.0"},
+      {"name": "Command", "type": "string", "optional": false, "writable": false, "version": "2.0"},
+      {"name": "Size", "type": "string", "optional": false, "writable": false, "version": "2.0"},
+      {"name": "Priority", "type": "string", "optional": false, "writable": false, "version": "2.0"},
+      {"name": "State", "type": "string", "optional": false, "writable": false, "version": "2.0"},
+      {"name": "CPUTime", "type": "string", "optional": false, "writable": false, "version": "2.0"}
+    ]
+}

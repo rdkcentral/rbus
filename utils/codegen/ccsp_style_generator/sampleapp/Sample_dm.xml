@@ -1,0 +1,208 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+ If not stated otherwise in this file or this component's Licenses.txt file the
+ following copyright and licenses apply:
+
+ Copyright 2016 RDK Management
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+ http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+-->
+<dataModelInfo>
+  <version>1</version>
+  <moduleName>Sample</moduleName>
+  <library>
+    <func_Init>Sample_Init</func_Init>
+    <func_Unload>Sample_Unload</func_Unload>
+  </library>
+  <objects>
+    <object>
+        <name>Sample</name>
+        <objectType>object</objectType>
+        <functions>
+            <func_GetParamBoolValue>Sample_GetParamBoolValue</func_GetParamBoolValue>
+            <func_SetParamBoolValue>Sample_SetParamBoolValue</func_SetParamBoolValue>
+            <func_GetParamIntValue>Sample_GetParamIntValue</func_GetParamIntValue>
+            <func_SetParamIntValue>Sample_SetParamIntValue</func_SetParamIntValue>
+            <func_GetParamUlongValue>Sample_GetParamUlongValue</func_GetParamUlongValue>
+            <func_SetParamUlongValue>Sample_SetParamUlongValue</func_SetParamUlongValue>
+            <func_GetParamStringValue>Sample_GetParamStringValue</func_GetParamStringValue>
+            <func_SetParamStringValue>Sample_SetParamStringValue</func_SetParamStringValue>
+            <func_Validate>Sample_Validate</func_Validate>
+            <func_Commit>Sample_Commit</func_Commit>
+            <func_Rollback>Sample_Rollback</func_Rollback>
+        </functions>
+        <parameters>
+            <parameter>
+                <name>BoolParam</name>
+                <type>boolean</type>
+                <syntax>bool</syntax>
+                <writable>true</writable>
+            </parameter>        
+            <parameter>
+                <name>IntParam</name>
+                <type>int</type>
+                <syntax>int</syntax>
+                <writable>true</writable>
+            </parameter>
+            <parameter>
+                <name>UlongParam</name>
+                <type>unsignedInt</type>
+                <syntax>uint32</syntax>
+                <writable>true</writable>
+            </parameter>            
+            <parameter>
+                <name>StringParam</name>
+                <type>string(256)</type>
+                <syntax>string</syntax>
+                <writable>true</writable>
+            </parameter>
+            <parameter>
+                <name>ReadonlyStringParam</name>
+                <type>string(256)</type>
+                <syntax>string</syntax>
+                <writable>false</writable>
+            </parameter>
+        </parameters>
+        <objects>
+            <!-- Example writable table -->
+            <object>
+                <name>WritableTable</name>
+                <objectType>writableTable</objectType>
+                <maxInstance>10</maxInstance>
+                <functions>
+                    <func_AddEntry>WritableTable_AddEntry</func_AddEntry>
+                    <func_DelEntry>WritableTable_DelEntry</func_DelEntry>
+                    <func_GetParamBoolValue>WritableTable_GetParamBoolValue</func_GetParamBoolValue>
+                    <func_SetParamBoolValue>WritableTable_SetParamBoolValue</func_SetParamBoolValue>
+                    <func_GetParamIntValue>WritableTable_GetParamIntValue</func_GetParamIntValue>
+                    <func_SetParamIntValue>WritableTable_SetParamIntValue</func_SetParamIntValue>
+                    <func_GetParamUlongValue>WritableTable_GetParamUlongValue</func_GetParamUlongValue>
+                    <func_SetParamUlongValue>WritableTable_SetParamUlongValue</func_SetParamUlongValue>  
+                    <func_GetParamStringValue>WritableTable_GetParamStringValue</func_GetParamStringValue>
+                    <func_SetParamStringValue>WritableTable_SetParamStringValue</func_SetParamStringValue>
+                    <func_Validate>WritableTable_Validate</func_Validate>
+                    <func_Commit>WritableTable_Commit</func_Commit>
+                    <func_Rollback>WritableTable_Rollback</func_Rollback>
+                </functions>
+                <parameters>
+                    <parameter>
+                        <name>BoolParam</name>
+                        <type>boolean</type>
+                        <syntax>bool</syntax>
+                        <writable>true</writable>
+                    </parameter>        
+                    <parameter>
+                        <name>IntParam</name>
+                        <type>int</type>
+                        <syntax>int</syntax>
+                        <writable>true</writable>
+                    </parameter>
+                    <parameter>
+                        <name>UlongParam</name>
+                        <type>unsignedInt</type>
+                        <syntax>uint32</syntax>
+                        <writable>true</writable>
+                    </parameter>            
+                    <parameter>
+                        <name>StringParam</name>
+                        <type>string(256)</type>
+                        <syntax>string</syntax>
+                        <writable>true</writable>
+                    </parameter>
+                </parameters>
+            </object>
+            <!-- Example static table -->
+            <object>
+                <name>StaticTable</name>
+                <objectType>staticTable</objectType>
+                <maxInstance>10</maxInstance>
+                <functions>
+                    <func_GetParamBoolValue>StaticTable_GetParamBoolValue</func_GetParamBoolValue>
+                    <func_SetParamBoolValue>StaticTable_SetParamBoolValue</func_SetParamBoolValue>
+                    <func_GetParamIntValue>StaticTable_GetParamIntValue</func_GetParamIntValue>
+                    <func_SetParamIntValue>StaticTable_SetParamIntValue</func_SetParamIntValue>
+                    <func_GetParamUlongValue>StaticTable_GetParamUlongValue</func_GetParamUlongValue>
+                    <func_SetParamUlongValue>StaticTable_SetParamUlongValue</func_SetParamUlongValue>  
+                    <func_GetParamStringValue>StaticTable_GetParamStringValue</func_GetParamStringValue>
+                    <func_SetParamStringValue>StaticTable_SetParamStringValue</func_SetParamStringValue>
+                    <func_Validate>StaticTable_Validate</func_Validate>
+                    <func_Commit>StaticTable_Commit</func_Commit>
+                    <func_Rollback>StaticTable_Rollback</func_Rollback>
+                </functions>
+                <parameters>
+                    <parameter>
+                        <name>BoolParam</name>
+                        <type>boolean</type>
+                        <syntax>bool</syntax>
+                        <writable>true</writable>
+                    </parameter>        
+                    <parameter>
+                        <name>IntParam</name>
+                        <type>int</type>
+                        <syntax>int</syntax>
+                        <writable>true</writable>
+                    </parameter>
+                    <parameter>
+                        <name>UlongParam</name>
+                        <type>unsignedInt</type>
+                        <syntax>uint32</syntax>
+                        <writable>true</writable>
+                    </parameter>            
+                    <parameter>
+                        <name>StringParam</name>
+                        <type>string(256)</type>
+                        <syntax>string</syntax>
+                        <writable>true</writable>
+                    </parameter>
+                </parameters>
+            </object>
+            <!-- Example dynamic table with read-only params -->
+            <object>
+                <name>DynamicTable</name>
+                <objectType>dynamicTable</objectType>
+                <maxInstance>10</maxInstance>
+                <functions>
+                    <func_IsUpdated>DynamicTable_IsUpdated</func_IsUpdated>
+                    <func_Synchronize>DynamicTable_Synchronize</func_Synchronize>
+                    <func_GetParamBoolValue>DynamicTable_GetParamBoolValue</func_GetParamBoolValue>
+                    <func_GetParamIntValue>DynamicTable_GetParamIntValue</func_GetParamIntValue>
+                    <func_GetParamUlongValue>DynamicTable_GetParamUlongValue</func_GetParamUlongValue>
+                    <func_GetParamStringValue>DynamicTable_GetParamStringValue</func_GetParamStringValue>
+                </functions>
+                <parameters>
+                    <parameter>
+                        <name>BoolParam</name>
+                        <type>boolean</type>
+                        <syntax>bool</syntax>
+                    </parameter>        
+                    <parameter>
+                        <name>IntParam</name>
+                        <type>int</type>
+                        <syntax>int</syntax>
+                    </parameter>
+                    <parameter>
+                        <name>UlongParam</name>
+                        <type>unsignedInt</type>
+                        <syntax>uint32</syntax>
+                    </parameter>            
+                    <parameter>
+                        <name>StringParam</name>
+                        <type>string(256)</type>
+                        <syntax>string</syntax>
+                    </parameter>
+                </parameters>
+            </object>
+        </objects>
+    </object>    
+ </objects>
+</dataModelInfo>

@@ -1,0 +1,12 @@
+{
+  "name" : "Device.Devicecontrol",
+  "provider" : "general",
+  "properties" :    
+    [
+      {"name": "X_RDKCENTRAL-COM_ResetDefaultEnable", "type": "string", "optional": false, "writable": true, "version": "2.0"},
+      {"name": "X_RDKCENTRAL-COM_TelnetEnable", "type": "string", "optional": false, "writable": false, "version": "2.0"},
+      {"name": "X_RDKCENTRAL-COM_RebootDevice", "type": "bool", "optional": false, "writable": true, "version": "2.0"},
+      {"name": "X_RDKCENTRAL-COM_FactoryReset", "type": "string", "optional": false, "writable": true, "version": "2.0"},
+      {"name": "X_COMCAST-COM_LFATTOKEN", "type": "string", "optional": false, "writable": true, "version": "2.0"}
+    ]
+}

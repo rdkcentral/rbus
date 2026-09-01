@@ -1,0 +1,22 @@
+{
+  "name" : "Device.DeviceInfo",
+  "provider" : "general",
+  "properties" :    
+    [
+      {"name": "Manufacturer", "type": "string", "optional": false, "writable": false, "version": "2.0"},
+      {"name": "ModelName", "type": "string", "optional": false, "writable": false, "version": "2.0"},
+      {"name": "Description", "type": "string", "optional": false, "writable": false, "version": "2.0"},
+      {"name": "SerialNumber", "type": "string", "optional": false, "writable": false, "version": "2.0"},
+      {"name": "SoftwareVersion", "type": "string", "optional": false, "writable": false, "version": "2.0"},      
+      {"name": "UpTime", "type": "unsignedInt", "optional": false, "writable": false, "version": "2.0"},
+      {"name": "X_RDKCENTRAL-COM_MAC", "type": "string", "optional": false, "writable": false, "version": "2.0"},
+      {"name": "X_RDKCENTRAL-COM_FWVersion", "type": "string", "optional": false, "writable": false, "version": "2.0"},
+      {"name": "X_RDKCENTRAL-COM_SSID", "type": "string", "optional": false, "writable": false, "version": "2.0"},
+      {"name": "X_RDKCENTRAL-COM_SystemTime", "type": "string", "optional": false, "writable": false, "version": "2.0"},
+      {"name": "X_RDKCENTRAL-COM_UpstreamBandwidth", "type": "string", "optional": false, "writable": false, "version": "2.0"},
+      {"name": "X_RDKCENTRAL-COM_LastRebootReason", "type": "string", "optional": false, "writable": true, "version": "2.0"},
+      {"name": "X_RDKCENTRAL-COM_IMAGENAME", "type": "string", "optional": false, "writable": false, "version": "2.0"},
+      {"name": "X_RDK_FirmwareName", "type": "string", "optional": false, "writable": false, "version": "2.0"},
+      {"name": "X_RDKCENTRAL-COM_RDKVersion", "type": "string", "optional": false, "writable": false, "version": "2.0"}
+    ]
+}

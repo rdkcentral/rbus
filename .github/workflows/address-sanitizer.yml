@@ -1,0 +1,196 @@
+
+name: unit_tests_adress_sanitizer
+on:
+  push:
+     branches: [ main, develop, release, support/*, hotfix/*, topic/* ]
+  pull_request:
+     branches: [ main, develop, release, support/*, hotfix/*, topic/* ]
+jobs:
+  all:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Set up cache
+        id: cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            build
+            install
+          key: ${{ runner.os }}-${{ github.sha }}
+
+      - name: Set up CMake
+        # 3.16.x To support flow control commands to be overridden.
+        # Installs in: find /opt -ipath *bin/cmake
+        uses: jwlawson/actions-setup-cmake@v1.12
+        with:
+          cmake-version: '3.16.x'
+      - name: Install packages
+        run: >
+          sudo apt update && sudo apt install -y libcurl4-openssl-dev libgtest-dev lcov gcovr libmsgpack* libcjson-dev  build-essential zip
+      - name: Checkout rbus
+        if: steps.cache.outputs.cache-hit != 'true'
+        uses: actions/checkout@v3
+        with:
+          path: rbus
+      - name: Configure Rbus
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: >
+          cmake 
+          -S "${{github.workspace}}/rbus"
+          -B build/rbus 
+          -DCMAKE_INSTALL_PREFIX="${{github.workspace}}/install/usr" 
+          -DBUILD_FOR_DESKTOP=ON
+          -DENABLE_ADDRESS_SANITIZER=ON
+          -DENABLE_UNIT_TESTING=ON
+          -DCMAKE_BUILD_TYPE=Debug
+      - name: Build Rbus
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: >
+          make -C build/rbus 
+      - name: Install rbus
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: >
+          make -C build/rbus install
+      - name: Verify script location
+        run: |
+         mkdir -p /tmp/provider_logs
+         cat << 'EOF' >address_sanitizer.sh
+         #!/bin/sh
+
+         LOGFILE=$1
+         echo "Inside the script $LOGFILE"
+         LEAKS_FOUND=false
+         if grep -q "ERROR" "$LOGFILE"; then
+          LEAKS_FOUND=true
+          cat "$LOGFILE" >> $GITHUB_STEP_SUMMARY
+          rm -rf $LOGFILE
+          exit 1
+         fi
+         EOF
+         cd ${{github.workspace}}
+         chmod a+x address_sanitizer.sh
+      - name: Start rtrouted
+        # nohup to keep it running.
+        run: |
+          cd install/usr
+          export PREFIX=$PWD
+          export LD_LIBRARY_PATH=$PREFIX/lib
+          export ASAN_OPTIONS=log_path=/tmp/asan_logs/asan_log_rtrouted
+          nohup ./bin/rtrouted -f -l DEBUG > /tmp/provider_logs/rtrouted_log.txt &
+      - name: Run RbusTestTimeoutValues Unit test
+        run: |
+          cd install/usr
+          export PREFIX=$PWD
+          export LD_LIBRARY_PATH=$PREFIX/lib
+          export ASAN_OPTIONS=log_path=/tmp/asan_logs/asan_log_rbusTestTimeoutValues
+          nohup ./bin/rbusTestTimeoutValuesProvider > /tmp/provider_logs/rbusTestTimeoutValuesProvider_log.txt &
+          ./bin/rbusTestTimeoutValuesConsumer || true
+          if ls /tmp/asan_logs/asan_log_rbusTestTimeoutValues.* 1> /dev/null 2>&1; then
+           cat /tmp/asan_logs/asan_log_rbusTestTimeoutValues.* >>/tmp/asan_logs/asan_rbusTestTimeoutValues_log.log
+           rm -rf /tmp/asan_logs/asan_log_rbusTestTimeoutValues.*
+           cd ${{github.workspace}} 
+           ./address-sanitizer.sh /tmp/asan_logs/asan_rbusTestTimeoutValues_log.log
+          fi
+      - name: Run Unit test
+        run: |
+          cd install/usr
+          export PREFIX=$PWD
+          export LD_LIBRARY_PATH=$PREFIX/lib
+          export ASAN_OPTIONS=log_path=/tmp/asan_logs/san_log_rbusTest
+          nohup ./bin/rbusTestProvider >/tmp/provider_logs/log_rbusTestProvider.txt &
+          ./bin/rbusTestConsumer -a || true
+          if ls /tmp/asan_logs/asan_log_rbusTest.* 1> /dev/null 2>&1; then
+           cat /tmp/asan_logs/asan_log_rbusTest.* >>/tmp/asan_logs/asan_rbusTest_log.log
+           rm -rf /tmp/asan_logs/asan_log_rbusTest.*
+           cd ${{github.workspace}}
+           ./address-sanitizer.sh /tmp/asan_logs/asan_rbusTest_log.log
+          fi 
+      - name: Run multiRbusOpenMethod Unit Test
+        run: |
+          cd install/usr
+          export PREFIX=$PWD
+          export LD_LIBRARY_PATH=$PREFIX/lib
+          export ASAN_OPTIONS=log_path=/tmp/asan_logs/asan_log_multiRbusOpenMethod
+          nohup ./bin/multiRbusOpenMethodProvider > /tmp/provider_logs/log_multiRbusOpenMethodPrpvider.txt &
+          ./bin/multiRbusOpenMethodConsumer || true
+          if ls /tmp/asan_logs/asan_log_multiRbusOpenMethod.* 1> /dev/null 2>&1; then
+           cat /tmp/asan_logs/asan_log_multiRbusOpenMethod.* >>/tmp/asan_logs/asan_multiRbusOpenMethod_log.log
+           rm -rf /tmp/asan_logs/san_log_multiRbusOpenMethod.*
+           cd ${{github.workspace}}
+           ./address-sanitizer.sh /tmp/asan_logs/asan_multiRbusOpenMethod_log.log
+          fi
+      - name: Run multiRbusOpenSubscribe Unit test
+        run: |
+          cd install/usr
+          export PREFIX=$PWD
+          export LD_LIBRARY_PATH=$PREFIX/lib
+          export ASAN_OPTIONS=log_path=/tmp/asan_logs/asan_log_multiRbusOpen
+          nohup ./bin/multiRbusOpenProvider >/tmp/provider_logs/log_multiRbusOpenProvider.txt &
+          ./bin/multiRbusOpenConsumer || true
+          if ls /tmp/asan_logs/asan_log_multiRbusOpen.* 1> /dev/null 2>&1; then
+           cat /tmp/asan_logs/asan_log_multiRbusOpen.* >>/tmp/asan_logs/asan_multiRbusOpen_log.log
+           rm -rf /tmp/asan_logs/asan_log_multiRbusOpen.*
+           cd ${{github.workspace}}
+           ./address-sanitizer.sh /tmp/asan_logs/asan_multiRbusOpen_log.log
+          fi 
+      - name: Run multiRbusOpenGet Unit test
+        run: |
+          cd install/usr
+          export PREFIX=$PWD
+          export LD_LIBRARY_PATH=$PREFIX/lib
+          export ASAN_OPTIONS=log_path=/tmp/asan_logs/asan_log_multiRbusOpenRbusGet
+          nohup ./bin/multiRbusOpenRbusGetProvider >/tmp/provider_logs/log_multiRbusOpenRbusGetProvider.txt &
+          ./bin/multiRbusOpenRbusGetConsumer || true
+          if ls /tmp/asan_logs/asan_log_multiRbusOpenRbusGet.* 1> /dev/null 2>&1; then
+           cat /tmp/asan_logs/asan_log_multiRbusOpenRbusGet.* >>tmp/asan_logs/asan_multiRbusOpenRbusGet_log.log
+           rm -rf /tmp/asan_logs/asan_log_multiRbusOpenRbusGet.*
+           cd ${{github.workspace}}
+           ./address-sanitizer.sh /tmp/asan_logs/asan_multiRbusOpenRbusGet_log.log
+          fi 
+      - name: Run Gtest Cases
+        run: |
+          cd build/rbus
+          export ASAN_OPTIONS=log_path=/tmp/asan_logs/san_log_gtest
+          nohup ./src/session_manager/rbus_session_mgr > /tmp/provider_logs/rbus_session_mgr.log 2>&1 &
+          sleep 2
+          nohup ./unittests/rbus_gtest.bin  > rbus_gtest.log 2>&1 || true
+          cat rbus_gtest.log
+          echo "END OF RBUS_GTEST LOG!!!!!!!!!!"
+          if ls /tmp/asan_logs/asan_log_gtest.* 1> /dev/null 2>&1; then
+           cat /tmp/asan_logs/asan_log_gtest.* >> /tmp/asan_logs/asan_gtest_log.log
+           rm -rf /tmp/asan_logs/asan_log_gtest.*
+           cd ${{github.workspace}}
+           ./address_sanitizer.sh /tmp/asan_logs/asan_gtest_log.log
+          fi 
+      - name: Stop SessionManager
+        run: |
+          killall -15 rbus_session_mgr
+      - name: Stop rtrouted
+        run: |
+          cd install/usr
+          export PREFIX=$PWD
+          export LD_LIBRARY_PATH=$PREFIX/lib
+          nohup ./bin/rtrouted_diag shutdown
+          rm -rf /tmp/rtrouted*
+          ls -lt
+          if ls /tmp/asan_logs/asan_log_rtrouted.* 1> /dev/null 2>&1; then
+           cat /tmp/asan_logs/asan_log_rtrouted.* >> /tmp/asan_logs/asan_rtrouted_log.log
+           rm -rf /tmp/asan_logs/asan_log_rtrouted.*
+           cd ${{github.workspace}}
+           ./address_sanitizer.sh /tmp/asan_logs/asan_rtrouted_log.log
+          else
+            echo "No adress sanitizer error !!!!" 
+          fi
+      - name: Prepare logs
+        run: |
+          mkdir -p /tmp/debug_logs
+          if [ -d "/tmp/asan_logs" ] && [ "$(ls -A /tmp/asan_logs)" ]; then
+           cp -r /tmp/provider_logs /tmp/asan_logs /tmp/debug_logs
+          else
+           cp -r /tmp/provider_logs /tmp/debug_logs
+          fi
+      - name: Upload the address sanitizer logs using actions
+        uses: actions/upload-artifact@v4
+        with:
+          name: address_sanitizer_logs
+          path: /tmp/debug_logs

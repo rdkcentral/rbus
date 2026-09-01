@@ -1,0 +1,9 @@
+[Unit]
+Description=rbus heart beat timer
+
+[Timer]
+OnBootSec=6min
+OnUnitActiveSec=2min
+
+[Install]
+WantedBy=timers.target

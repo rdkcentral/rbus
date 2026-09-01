@@ -1,0 +1,9 @@
+{
+  "name": "Device.WiFi.SSID",
+  "provider" : "netsrvmgr_wifiSSID",
+  "is_list" : true,
+  "properties":
+    [
+      {"name": "BSSID", "type": "string", "optional": false, "writable": false, "version": "2.0"}
+    ]
+}

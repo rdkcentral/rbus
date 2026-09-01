@@ -1,0 +1,9 @@
+[Unit]
+Description=RBus IPC Restart Occurred - Path
+
+[Path]
+PathExists=/tmp/rbus_stopped
+Unit=rbus_monitor.service
+
+[Install]
+WantedBy=multi-user.target

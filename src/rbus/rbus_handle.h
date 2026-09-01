@@ -1,0 +1,146 @@
+/*
+ * If not stated otherwise in this file or this component's Licenses.txt file
+ * the following copyright and licenses apply:
+ *
+ * Copyright 2016 RDK Management
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+#ifndef RBUS_HANDLE_H
+#define RBUS_HANDLE_H
+
+#include "rbus_element.h"
+#include "rbus_subscriptions.h"
+#include <rtConnection.h>
+#include <rtVector.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#define RBUS_TMP_DIRECTORY      "/tmp"  /* temp directory where persistent data can be stored*/
+#define RBUS_SUBSCRIBE_TIMEOUT   600000     /*subscribe retry timeout in miliseconds*/
+#define RBUS_SUBSCRIBE_MAXWAIT   60000      /*subscribe retry max wait between retries in miliseconds*/
+#define RBUS_VALUECHANGE_PERIOD  2000       /*polling period for valuechange detector*/
+
+/*
+  RBUS_MAX_HANDLES 16
+
+  rtConnection has 64 listener limit.
+  16 allows:
+    1 inbox (registered on first rbus_open)
+    1 advisory (also registered on the first rbus_open)
+    16 component names (registered on each rbus_open call)
+    46 additional listeners which can be used by the rbus_message api, other rtConnection clients or for rbus future requirements
+*/
+#define RBUS_MAX_HANDLES 16
+
+#define HANDLE_EVENTSUBS_MUTEX_LOCK(HANDLE)     \
+{                                                                         \
+  int err;                                                                \
+  rbusHandle_t pTmp = (rbusHandle_t) HANDLE;                              \
+  if((err = pthread_mutex_lock(&pTmp->handle_eventSubsMutex)) != 0)                 \
+  {                                                                       \
+    RBUSLOG_ERROR("Error @ mutex lock.. Err=%d:%s ", err, strerror(err)); \
+  }                                                                       \
+}
+
+#define HANDLE_EVENTSUBS_MUTEX_UNLOCK(HANDLE)   \
+{                                                                           \
+  int err;                                                                  \
+  rbusHandle_t pTmp = (rbusHandle_t) HANDLE;                                \
+  if((err = pthread_mutex_unlock(&pTmp->handle_eventSubsMutex)) != 0)                 \
+  {                                                                         \
+    RBUSLOG_ERROR("Error @ mutex unlock.. Err=%d:%s ", err, strerror(err)); \
+  }                                                                         \
+}
+
+#define HANDLE_SUBS_MUTEX_LOCK(HANDLE)     \
+{                                                                         \
+  int err;                                                                \
+  rbusHandle_t pTmp = (rbusHandle_t) HANDLE;                              \
+  if((err = pthread_mutex_lock(&pTmp->handle_subsMutex)) != 0)                 \
+  {                                                                       \
+    RBUSLOG_ERROR("Error @ mutex lock.. Err=%d:%s ", err, strerror(err)); \
+  }                                                                       \
+}
+
+#define HANDLE_SUBS_MUTEX_UNLOCK(HANDLE)   \
+{                                                                           \
+  int err;                                                                  \
+  rbusHandle_t pTmp = (rbusHandle_t) HANDLE;                                \
+  if((err = pthread_mutex_unlock(&pTmp->handle_subsMutex)) != 0)                 \
+  {                                                                         \
+    RBUSLOG_ERROR("Error @ mutex unlock.. Err=%d:%s ", err, strerror(err)); \
+  }                                                                         \
+}
+
+#define VERIFY_HANDLE(HANDLE)     \
+{                                                                           \
+    VERIFY_NULL(HANDLE);                                                    \
+    rbusHandle_t pTmp = (rbusHandle_t) HANDLE;                              \
+    if (!rbusHandleList_IsValidHandle(pTmp))                                \
+    {                                                                       \
+        RBUSLOG_ERROR("handle is invalid");                                 \
+        return RBUS_ERROR_INVALID_HANDLE;                                   \
+    }                                                                       \
+}
+
+typedef enum _rbusHandleType
+{
+    RBUS_HWDL_TYPE_REGULAR = 0xD0D0,
+    RBUS_HWDL_TYPE_DIRECT = 0xE0E0,
+    RBUS_HWDL_TYPE_UNKNOWN = 0xB0DE
+} rbusHandleType_t;
+
+struct _rbusHandle
+{
+  char*                 componentName;
+  int32_t               componentId;
+  elementNode*          elementRoot;
+
+  /* consumer side subscriptions FIXME - 
+    this needs to be an associative map instead of list/vector*/
+  rtVector              eventSubs; 
+
+  /* provider side subscriptions */
+  rbusSubscriptions_t   subscriptions; 
+
+  rtVector              messageCallbacks;
+  rtConnection          m_connection;
+  rbusHandleType_t      m_handleType;
+  pthread_mutex_t       handle_eventSubsMutex;
+  pthread_mutex_t       handle_subsMutex;
+  rtConnection          m_connectionParent;
+  rbusTimeoutValues_t   timeoutValues;
+};
+
+bool rbusHandleList_IsValidHandle(struct _rbusHandle* handle);
+void rbusHandleList_Add(struct _rbusHandle* handle);
+void rbusHandleList_Remove(struct _rbusHandle* handle);
+bool rbusHandleList_IsEmpty();
+bool rbusHandleList_IsFull();
+void rbusHandleList_ClientDisconnect(char const* clientListener);
+struct _rbusHandle* rbusHandleList_GetByComponentID(int32_t componentId);
+struct _rbusHandle* rbusHandleList_GetByName(char const* componentName);
+
+int rbusHandle_TimeoutValuesInit(rbusHandle_t handle);
+uint32_t rbusHandle_FetchGetTimeout(rbusHandle_t handle);
+uint32_t rbusHandle_FetchSetTimeout(rbusHandle_t handle);
+uint32_t rbusHandle_FetchGetMultiTimeout(rbusHandle_t handle);
+uint32_t rbusHandle_FetchSetMultiTimeout(rbusHandle_t handle);
+uint32_t rbusHandle_FetchSubscribeTimeout(rbusHandle_t handle);
+#ifdef __cplusplus
+}
+#endif
+#endif

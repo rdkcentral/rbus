@@ -1,0 +1,11 @@
+set(rtMessage_VERSION 1.1.1)
+
+@PACKAGE_INIT@
+
+
+include(CMakeFindDependencyMacro)
+
+find_library(RTMESSAGE_LIBRARIES NAMES rtMessage)
+find_path(RTMESSAGE_INCLUDE_DIRS NAMES rtMessage.h PATH_SUFFIXES rtmessage rtMessage)
+
+FIND_PACKAGE_HANDLE_STANDARD_ARGS(rtMessage RTMESSAGE_INCLUDE_DIRS RTMESSAGE_LIBRARIES)

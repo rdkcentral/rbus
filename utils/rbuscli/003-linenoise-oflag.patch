@@ -1,0 +1,22 @@
+From 97d2850af13c339369093b78abe5265845d78220 Fri Jun  4 13:19:20 2021 +0100
+From: mrollins <mark_rollins@cable.comcast.com>
+Date: Fri, 4 Jun 2021 13:19:20 -0500
+Subject: [PATCH] Don't remove OPOST
+Source: COMCAST
+License: BSD-2-Clause
+Upstream-Status: Pending
+Signed-off-by: mrollins <mark_rollins@cable.comcast.com>
+---
+Index: git/linenoise.c
+===================================================================
+--- git.orig/linenoise.c
++++ git/linenoise.c
+@@ -243,8 +243,6 @@ static int enableRawMode(int fd) {
+     /* input modes: no break, no CR to NL, no parity check, no strip char,
+      * no start/stop output control. */
+     raw.c_iflag &= ~(BRKINT | ICRNL | INPCK | ISTRIP | IXON);
+-    /* output modes - disable post processing */
+-    raw.c_oflag &= ~(OPOST);
+     /* control modes - set 8 bit chars */
+     raw.c_cflag |= (CS8);
+     /* local modes - choing off, canonical off, no extended functions,

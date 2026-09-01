@@ -1,0 +1,6 @@
+To generate doxygen docs, ensure you have doxygen installed, and then, from the root folder of the rbus source tree, run the following command: 
+
+doxygen docs/doxygen.cfg
+
+
+

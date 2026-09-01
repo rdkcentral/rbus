@@ -1,0 +1,5 @@
+This directory contains few sample apps that shows how to 
+make use of the RBus APIs for interprocess communications
+between components for various use cases. Contributors are 
+highly encouraged to add more use cases as they see fit.
+

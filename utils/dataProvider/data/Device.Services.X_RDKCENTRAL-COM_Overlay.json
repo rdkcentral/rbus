@@ -1,0 +1,12 @@
+{
+  "name": "Device.Services.X_RDKCENTRAL-COM_Overlay",
+  "provider" : "RFCFeature",
+  "is_list" : false,
+  "properties":
+    [
+        {"name": "Position", "type": "string", "optional": false, "writable": true, "version": "2.0"},
+        {"name": "OffsetX", "type": "string", "optional": false, "writable": true, "version": "2.0"},
+        {"name": "OffsetY", "type": "string", "optional": false, "writable": true, "version": "2.0"},
+        {"name": "URL", "type": "string", "optional": false, "writable": true, "version": "2.0"}
+    ]
+}

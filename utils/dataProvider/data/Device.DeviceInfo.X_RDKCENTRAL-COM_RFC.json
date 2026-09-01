@@ -1,0 +1,9 @@
+{
+  "name": "Device.DeviceInfo.X_RDKCENTRAL-COM_RFC",
+  "provider" : "RFCFeature",
+  "is_list" : false,
+  "properties":
+    [
+    ]
+}
+~

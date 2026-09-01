@@ -1,0 +1,14 @@
+{
+  "name": "Device.X_RDKCENTRAL-COM_Camera.Stream.Zoom",
+  "provider" : "camera",
+  "is_list" : false,
+  "properties":
+    [
+      {"name": "X", "type": "string", "optional": false, "writable": true, "version": "2.0"},
+      {"name": "Y", "type": "string", "optional": false, "writable": true, "version": "2.0"},
+      {"name": "Width", "type": "string", "optional": false, "writable": true, "version": "2.0"},
+      {"name": "Height", "type": "string", "optional": false, "writable": true, "version": "2.0"},
+      {"name": "MaxWidth", "type": "string", "optional": false, "writable": false, "version": "2.0"},
+      {"name": "MaxHeight", "type": "string", "optional": false, "writable": false, "version": "2.0"}
+    ]
+}

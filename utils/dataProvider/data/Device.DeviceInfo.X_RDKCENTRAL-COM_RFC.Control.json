@@ -1,0 +1,9 @@
+{
+  "name": "Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Control",
+  "provider" : "RFCControl",
+  "is_list" : false,
+  "properties":
+    [
+        {"name": "RetrieveNow", "type": "string", "optional": false, "writable": true, "version": "2.0"}
+    ]
+}
