@@ -1,0 +1,236 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index d9bc849..664da73 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -81,7 +81,6 @@ install(FILES "${CMAKE_CURRENT_BINARY_DIR}/rbusConfig.cmake"
+         DESTINATION "${CMAKE_INSTALL_CMAKEDIR}" )
+ 
+ 
+-option(BUILD_OTEL_BRIDGE "BUILD_OTEL_BRIDGE" ON)
+ option(BUILD_RBUS_DAEMON "BUILD_RBUS_DAEMON" ON)
+ option(BUILD_RBUS_SAMPLE_APPS "BUILD_RBUS_SAMPLE_APPS" ON)
+ option(BUILD_RBUS_TEST_APPS "BUILD_RBUS_TEST_APPS" ON)
+diff --git a/include/rbus_otel_bridge.h b/include/rbus_otel_bridge.h
+deleted file mode 100644
+index 436e4c7..0000000
+--- a/include/rbus_otel_bridge.h
++++ /dev/null
+@@ -1,26 +0,0 @@
+-#ifndef RBUS_OTEL_BRIDGE_H
+-#define RBUS_OTEL_BRIDGE_H
+-
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-
+-#if defined(RBUS_OTEL_BRIDGE_IMPORT_WEAK) && defined(__GNUC__)
+-#define RBUS_OTEL_BRIDGE_OPTIONAL __attribute__((weak))
+-#else
+-#define RBUS_OTEL_BRIDGE_OPTIONAL
+-#endif
+-
+-RBUS_OTEL_BRIDGE_OPTIONAL void rbus_otel_event_publish(
+-    const char* event_name,
+-    const char** trace_parent,
+-    const char** trace_state);
+-
+-#undef RBUS_OTEL_BRIDGE_OPTIONAL
+-
+-#ifdef __cplusplus
+-}
+-#endif
+-
+-#endif
+-
+diff --git a/src/CMakeLists.txt b/src/CMakeLists.txt
+index 0d1935c..fd85f34 100644
+--- a/src/CMakeLists.txt
++++ b/src/CMakeLists.txt
+@@ -25,9 +25,5 @@ if (BUILD_RBUS_DAEMON)
+     add_subdirectory(session_manager)
+ endif (BUILD_RBUS_DAEMON)
+ 
+-if (BUILD_OTEL_BRIDGE)
+-   add_subdirectory(otelbridge)
+-endif (BUILD_OTEL_BRIDGE)
+-
+ add_subdirectory(rbus)
+ ENDIF ()
+diff --git a/src/core/CMakeLists.txt b/src/core/CMakeLists.txt
+index cb5bca3..1baad3c 100644
+--- a/src/core/CMakeLists.txt
++++ b/src/core/CMakeLists.txt
+@@ -17,7 +17,6 @@
+ # limitations under the License.
+ ##########################################################################
+ include_directories(${PROJECT_SOURCE_DIR}/src/rtmessage)
+-include_directories(${PROJECT_SOURCE_DIR}/include)
+ add_library(
+     rbuscore
+     SHARED
+diff --git a/src/core/rbuscore.c b/src/core/rbuscore.c
+index ef13055..85c026e 100644
+--- a/src/core/rbuscore.c
++++ b/src/core/rbuscore.c
+@@ -1851,9 +1851,7 @@ rbusCoreError_t rbus_publishSubscriberEvent(const char* object_name,  const char
+         RBUSCORELOG_DEBUG("Object name is too long.");
+         return RBUSCORE_ERROR_INVALID_PARAM;
+     }
+-    /* Trace context is read straight from TLS. The publishing application is
+-       responsible for populating it (e.g. via rbusHandle_SetTraceContextFromString())
+-       before calling rbusEvent_Publish() - no OTEL bridge/wrapper library involved. */
++
+     rbus_getOpenTelemetryContext(&traceParent, &traceState);
+     rbusMessage_BeginMetaSectionWrite(out);
+     rbusMessage_SetString(out, event_name);
+diff --git a/src/otelbridge/CMakeLists.txt b/src/otelbridge/CMakeLists.txt
+deleted file mode 100644
+index c779d07..0000000
+--- a/src/otelbridge/CMakeLists.txt
++++ /dev/null
+@@ -1,62 +0,0 @@
+-##########################################################################
+-# If not stated otherwise in this file or this component's Licenses.txt
+-# file the following copyright and licenses apply:
+-#
+-# Copyright 2016 RDK Management
+-#
+-# Licensed under the Apache License, Version 2.0 (the "License");
+-# you may not use this file except in compliance with the License.
+-# You may obtain a copy of the License at
+-#
+-# http://www.apache.org/licenses/LICENSE-2.0
+-#
+-# Unless required by applicable law or agreed to in writing, software
+-# distributed under the License is distributed on an "AS IS" BASIS,
+-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+-# See the License for the specific language governing permissions and
+-# limitations under the License.
+-##########################################################################
+-
+-set(RDK_OTEL_LIB_DIR "/usr/lib" CACHE PATH
+-    "Directory containing rdk_otlp.so from the rbus install")
+-
+-include_directories(${PROJECT_SOURCE_DIR}/include)
+-
+-add_library(rbus_otel_bridge SHARED
+-    rbus_otel_bridge.cpp
+-)
+-
+-set_target_properties(rbus_otel_bridge PROPERTIES
+-    SOVERSION 1
+-    VERSION 1.0.0
+-    OUTPUT_NAME rbus_otel_bridge
+-)
+-
+-target_include_directories(rbus_otel_bridge
+-    PRIVATE
+-        ${CMAKE_SOURCE_DIR}
+-        ${RBUS_INCLUDE_DIR}
+-)
+-
+-find_library(RDK_OTLP_LIBRARY
+-    NAMES rdk_otlp
+-    PATHS ${RDK_OTEL_LIB_DIR}
+-    REQUIRED
+-)
+-
+-message(STATUS "Found rdk_otlp: ${RDK_OTLP_LIBRARY}")
+-
+-target_link_libraries(rbus_otel_bridge
+-    PRIVATE
+-        ${RDK_OTLP_LIBRARY}
+-)
+-
+-install(TARGETS rbus_otel_bridge
+-    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+-    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+-)
+-
+-install(DIRECTORY ${PROJECT_SOURCE_DIR}/include/
+-    DESTINATION "include/rbus"
+-)
+-
+diff --git a/src/otelbridge/rbus_otel_bridge.cpp b/src/otelbridge/rbus_otel_bridge.cpp
+deleted file mode 100644
+index 1c0d921..0000000
+--- a/src/otelbridge/rbus_otel_bridge.cpp
++++ /dev/null
+@@ -1,77 +0,0 @@
+-/**
+- * Production rbus <-> OpenTelemetry bridge  (librbus_otel_bridge.so)
+- *
+- * Implements the three hooks that rbus core (librbuscore.so) declares as weak
+- * symbols and calls on every event publish/receive. This library provides the
+- * STRONG definitions that override those weak stubs, so rbus core itself stays
+- * completely free of any OpenTelemetry dependency.
+- *
+- * All OTel work is delegated to librdk_otlp.so (the shared RDK tracer, the same
+- * one Thunder JSON-RPC propagation uses), so spans created here share the same
+- * tracer/exporter/collector configuration as the rest of the component.
+- *
+- *   publish : read the current thread's active span as a W3C traceparent and
+- *             hand it back to rbus, which serializes it into the event metadata.
+- *   receive : start a child span from the propagated traceparent, then end it
+- *             after the subscriber callback returns.
+- *
+- * Deploy by preloading into any rbus component:
+- *     LD_PRELOAD=/usr/lib/librbus_otel_bridge.so <component>
+- * or by linking the component against it.
+- */
+-
+-#include <cstdlib>
+-#include <mutex>
+-#include <string>
+-
+-#include "rdk_otlp_instrumentation.h"
+-
+-/*
+- * Canonical rbus hook contract (shipped by rbus). Included WITHOUT defining
+- * RBUS_OTEL_BRIDGE_IMPORT_WEAK, so the declarations are plain (strong) and the
+- * definitions below override rbuscore's weak stubs at load time.
+- */
+-#include "rbus_otel_bridge.h"
+-
+-namespace {
+-
+-// Initialise the shared tracer exactly once per process. If the host component
+-// already called rdk_otlp_init(), set RBUS_OTEL_BRIDGE_NO_AUTOINIT=1 to skip.
+-std::once_flag g_init_once;
+-
+-void ensure_tracer_initialised()
+-{
+-    std::call_once(g_init_once, [] {
+-        const char* skip = ::getenv("RBUS_OTEL_BRIDGE_NO_AUTOINIT");
+-        if (skip && skip[0] == '1')
+-            return;
+-        const char* name = ::getenv("OTEL_SERVICE_NAME");
+-        rdk_otlp_init((name && name[0]) ? name : "rbus", "1.0.0");
+-    });
+-}
+-
+-// rbus uses the returned char* immediately (rbusMessage_SetString), so a
+-// thread_local buffer keeps it valid across the hook return without heap churn.
+-thread_local std::string g_publish_traceparent;
+-
+-} // namespace
+-
+-extern "C" void rbus_otel_event_publish(const char* event_name,
+-                                        const char** trace_parent,
+-                                        const char** trace_state)
+-{
+-    (void)event_name;
+-    (void)trace_state; // librdk_otlp models context via traceparent only;
+-                       // leave whatever rbus already had in TLS untouched.
+-    ensure_tracer_initialised();
+-
+-    const char* tp = rdk_otlp_get_current_traceparent();
+-    if (tp && tp[0])
+-    {
+-        g_publish_traceparent.assign(tp);
+-        *trace_parent = g_publish_traceparent.c_str();
+-    }
+-    // else: no active span on this thread -> leave *trace_parent as the
+-    // existing TLS value so any explicitly-set context still propagates.
+-}
+-

@@ -25,9 +25,5 @@ if (BUILD_RBUS_DAEMON)
     add_subdirectory(session_manager)
 endif (BUILD_RBUS_DAEMON)
 
-if (BUILD_OTEL_BRIDGE)
-   add_subdirectory(otelbridge)
-endif (BUILD_OTEL_BRIDGE)
-
 add_subdirectory(rbus)
 ENDIF ()
