@@ -3041,42 +3041,68 @@ int main( int argc, char *argv[] )
         linenoiseSetHintsCallback(hints);
         linenoiseHistoryLoad("/tmp/rbuscli_history");
 
-        /* If possible, set LINENOISE_COLS from the terminal width so linenoise
-         * won't send the DSR (ESC[6n) query and block on terminals that don't
-         * respond. This is a minimal, non-vendoring fix. */
-		#if defined(TIOCGWINSZ)
-		struct winsize ws;
-		char cols_str[16];
-		if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) == 0 && ws.ws_col > 0)
-		{
-			snprintf(cols_str, sizeof(cols_str), "%u", (unsigned)ws.ws_col);
-			if (getenv("LINENOISE_COLS") == NULL)
-				setenv("LINENOISE_COLS", cols_str, 0);
-		}
-		#endif
+    	while(!isExit)
+	{
+    	printf("DEBUG: Before linenoise\n");
+    	fflush(stdout);
 
-        while(!isExit && (line = linenoise("rbuscli> ")) != NULL)
+    	line = linenoise("rbuscli> ");
+	printf("DEBUG line=[%s]\n", line);
+    	printf("DEBUG: After linenoise line=%s\n",
+        	   line ? line : "NULL");
+   	 fflush(stdout);
+
+    	if(line == NULL)
+   	 {
+       	 printf("DEBUG: line is NULL\n");
+       	 break;
+    	}
+
+    	if (line[0] != '\0')
+    	{
+        	printf("DEBUG: Processing command [%s]\n", line);
+        	fflush(stdout);
+
+        linenoiseHistoryAdd(line);
+
+        memset(interArgv, 0, sizeof(interArgv));
+
+        if(construct_input_into_cmds(line, &interArgc, interArgv) == 0)
         {
-            if (line[0] != '\0')
-            {
-                linenoiseHistoryAdd(line);
+            int i;
 
-                memset(interArgv, 0, sizeof(interArgv));
-                if(construct_input_into_cmds(line, &interArgc, interArgv) == 0)
-                {
-                    int i;
-                    isExit = handle_cmds (interArgc, interArgv);
-                    for(i = 1; i < interArgc; ++i)
-                        if(interArgv[i])
-                            free(interArgv[i]);
-                }
-                else
-                    printf("Command missing quotes\r\n");
+            printf("DEBUG: Before handle_cmds\n");
+            fflush(stdout);
+
+            isExit = handle_cmds(interArgc, interArgv);
+
+            printf("DEBUG: After handle_cmds\n");
+            fflush(stdout);
+
+            for(i = 1; i < interArgc; ++i)
+            {
+                if(interArgv[i])
+                    free(interArgv[i]);
             }
-            runSteps = __LINE__;
-            linenoiseFree(line);
         }
-        linenoiseHistorySave("/tmp/rbuscli_history");
+        else
+        {
+            printf("Command missing quotes\r\n");
+        }
+    }
+
+    runSteps = __LINE__;
+
+    printf("DEBUG: Before linenoiseFree\n");
+    fflush(stdout);
+
+    linenoiseFree(line);
+
+    printf("DEBUG: After linenoiseFree\n");
+    fflush(stdout);
+     }
+
+	linenoiseHistorySave("/tmp/rbuscli_history");
     }
     else
     {
