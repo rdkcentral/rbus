@@ -115,6 +115,31 @@ add_executable(rbusOpenTelemetry consumer/rbusOpenTelemetry.c)
 add_dependencies(rbusOpenTelemetry rbus)
 target_link_libraries(rbusOpenTelemetry rbus)
 
+find_path(RDK_OTLP_INCLUDE_DIR
+    NAMES rdk_otlp_instrumentation.h
+    PATH_SUFFIXES include)
+find_library(RDK_OTLP_LIBRARY
+    NAMES rdk_otlp librdk_otlp)
+
+if (RDK_OTLP_INCLUDE_DIR AND RDK_OTLP_LIBRARY)
+    add_library(rdk_otlp UNKNOWN IMPORTED)
+    set_target_properties(rdk_otlp PROPERTIES
+        IMPORTED_LOCATION "${RDK_OTLP_LIBRARY}"
+        INTERFACE_INCLUDE_DIRECTORIES "${RDK_OTLP_INCLUDE_DIR}")
+
+    add_executable(rbusOtelTestPublisher provider/rbusOtelTestPublisher.c)
+    add_dependencies(rbusOtelTestPublisher rbus)
+    target_link_libraries(rbusOtelTestPublisher rbus rdk_otlp)
+    target_include_directories(rbusOtelTestPublisher PRIVATE ${RDK_OTLP_INCLUDE_DIR})
+
+    add_executable(rbusOtelTestSubscriber consumer/rbusOtelTestSubscriber.c)
+    add_dependencies(rbusOtelTestSubscriber rbus)
+    target_link_libraries(rbusOtelTestSubscriber rbus rdk_otlp)
+    target_include_directories(rbusOtelTestSubscriber PRIVATE ${RDK_OTLP_INCLUDE_DIR})
+else ()
+    message(STATUS "Skipping rbus OTLP sample apps: rdk_otlp_instrumentation.h or librdk_otlp was not found")
+endif ()
+
 add_executable(rbusRawDataConsumer consumer/rbusRawDataConsumer.c)
 add_dependencies(rbusRawDataConsumer rbus)
 target_link_libraries(rbusRawDataConsumer rbus)
@@ -126,14 +151,6 @@ target_link_libraries(rbusRawDataProvider rbus)
 add_executable(rbusDmlBlockingConsumer consumer/rbusDmlBlockingConsumer.c)
 add_dependencies(rbusDmlBlockingConsumer rbus)
 target_link_libraries(rbusDmlBlockingConsumer rbus)
-
-add_executable(rbusOtelTestPublisher provider/rbusOtelTestPublisher.c)
-add_dependencies(rbusOtelTestPublisher rbus)
-target_link_libraries(rbusOtelTestPublisher rbus rdk_otlp)
-
-add_executable(rbusOtelTestSubscriber consumer/rbusOtelTestSubscriber.c)
-add_dependencies(rbusOtelTestSubscriber rbus)
-target_link_libraries(rbusOtelTestSubscriber rbus rdk_otlp)
 
 install (TARGETS
     rbusSampleProvider
@@ -160,9 +177,14 @@ install (TARGETS
     rbusRawDataProvider
     rbusBlockingConsumer
     rbusBlockingProvider
-    rbusOtelTestPublisher
-    rbusOtelTestSubscriber
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+
+if (TARGET rbusOtelTestPublisher AND TARGET rbusOtelTestSubscriber)
+    install(TARGETS
+        rbusOtelTestPublisher
+        rbusOtelTestSubscriber
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+endif ()
 
 endif (BUILD_RBUS_SAMPLE_APPS)
 
