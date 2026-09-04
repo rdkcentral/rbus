@@ -114,7 +114,7 @@ if (BUILD_FOR_DESKTOP)
     CONFIGURE_COMMAND ""
     BUILD_IN_SOURCE 1
     CMAKE_ARGS "-DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX}"
-    #PATCH_COMMAND patch -p1 < ${CMAKE_CURRENT_SOURCE_DIR}/003-linenoise-oflag.patch
+    PATCH_COMMAND patch -p1 -i ${CMAKE_CURRENT_SOURCE_DIR}/utils/rbuscli/linenoise-terminal.patch
     BUILD_COMMAND gcc -c -Wall -Werror -fpic linenoise.c COMMAND gcc --shared -o liblinenoise.so linenoise.o)
 
   include_directories(

@@ -1,0 +1,36 @@
+diff --git a/linenoise.c b/linenoise.c
+index 63f23dd..99c16cb 100644
+--- a/linenoise.c
++++ b/linenoise.c
+@@ -116,6 +116,7 @@
+ #include <sys/ioctl.h>
+ #include <unistd.h>
+ #include <stdint.h>
++#include <poll.h>
+ #include "linenoise.h"
+ 
+ #define LINENOISE_DEFAULT_HISTORY_MAX_LEN 100
+@@ -633,8 +634,14 @@ static int getCursorPosition(int ifd, int ofd) {
+     /* Report cursor location */
+     if (write(ofd, "\x1b[6n", 4) != 4) return -1;
+ 
+-    /* Read the response: ESC [ rows ; cols R */
++    /* Read the response: ESC [ rows ; cols R
++     * Some restricted/limited terminals (no controlling tty size, escape
++     * sequences filtered, etc.) never answer this query. Guard every byte
++     * read with poll() so we bail out instead of blocking forever. */
+     while (i < sizeof(buf)-1) {
++        struct pollfd pfd = { .fd = ifd, .events = POLLIN };
++        int pres = poll(&pfd, 1, 100 /* ms */);
++        if (pres <= 0) break; /* timeout or error: terminal did not answer */
+         if (read(ifd,buf+i,1) != 1) break;
+         if (buf[i] == 'R') break;
+         i++;
+@@ -656,7 +663,7 @@ static int getColumns(int ifd, int ofd) {
+     char *cols_env = getenv("LINENOISE_COLS");
+     if (cols_env) return atoi(cols_env);
+ 
+-    if (ioctl(1, TIOCGWINSZ, &ws) == -1 || ws.ws_col == 0) {
++    if (ioctl(ofd, TIOCGWINSZ, &ws) == -1 || ws.ws_col == 0) {
+         /* ioctl() failed. Try to query the terminal itself. */
+         int start, cols;
