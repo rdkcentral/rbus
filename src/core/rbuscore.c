@@ -1455,6 +1455,8 @@ static void master_event_callback(rtMessageHeader const* hdr, uint8_t const* dat
     const char * sender = hdr->reply_topic;
     const char * event_name = NULL;
     const char * object_name = NULL;
+    const char * trace_parent = NULL;
+    const char * trace_state = NULL;
     int32_t is_rbus_flag = 1;
     rtError err;
     size_t subs_len;
@@ -1472,8 +1474,16 @@ static void master_event_callback(rtMessageHeader const* hdr, uint8_t const* dat
 
     rbusMessage_BeginMetaSectionRead(msg);
     err = rbusMessage_GetString(msg, &event_name);
-    err = rbusMessage_GetString(msg, &object_name);
-    err = rbusMessage_GetInt32(msg, &is_rbus_flag);
+    if(RT_OK == err)
+        err = rbusMessage_GetString(msg, &object_name);
+    if(RT_OK == err)
+        err = rbusMessage_GetInt32(msg, &is_rbus_flag);
+    if((RT_OK == err) && is_rbus_flag)
+    {
+        err = rbusMessage_GetString(msg, &trace_parent);
+        if(RT_OK == err)
+            err = rbusMessage_GetString(msg, &trace_state);
+    }
     rbusMessage_EndMetaSectionRead(msg);
     if(RT_OK != err)
     {
@@ -1482,6 +1492,8 @@ static void master_event_callback(rtMessageHeader const* hdr, uint8_t const* dat
         return;
     }
 
+    rbus_setOpenTelemetryContext(trace_parent, trace_state);
+
     if(is_rbus_flag)
     {
         if(g_master_event_callback)
@@ -1489,6 +1501,7 @@ static void master_event_callback(rtMessageHeader const* hdr, uint8_t const* dat
             err = g_master_event_callback(sender, event_name, msg, g_master_event_user_data);
             if(err != RBUSCORE_ERROR_EVENT_NOT_HANDLED)
             {
+                rbus_clearOpenTelemetryContext();
                 rbusMessage_Release(msg);
                 return;
             }
@@ -1514,6 +1527,7 @@ static void master_event_callback(rtMessageHeader const* hdr, uint8_t const* dat
             {
                 unlock();
                 evt->callback(sender, event_name, msg, evt->data);
+                rbus_clearOpenTelemetryContext();
                 rbusMessage_Release(msg);
                 return;
             }
@@ -1523,6 +1537,7 @@ static void master_event_callback(rtMessageHeader const* hdr, uint8_t const* dat
     /* If no matching objects exist in records. Create a new entry.*/
     unlock();
     RBUSCORELOG_DEBUG("Received event %s::%s for which no subscription exists.", sender, event_name);
+    rbus_clearOpenTelemetryContext();
     rbusMessage_Release(msg);
     return;
 }
@@ -1832,6 +1847,8 @@ rbusCoreError_t rbus_publishSubscriberEvent(const char* object_name,  const char
 {
     /*using namespace rbus_server;*/
     rbusCoreError_t ret = RBUSCORE_SUCCESS;
+    const char* traceParent = NULL;
+    const char* traceState = NULL;
 
     if(NULL == event_name)
         event_name = DEFAULT_EVENT;
@@ -1840,10 +1857,14 @@ rbusCoreError_t rbus_publishSubscriberEvent(const char* object_name,  const char
         RBUSCORELOG_DEBUG("Object name is too long.");
         return RBUSCORE_ERROR_INVALID_PARAM;
     }
+
+    rbus_getOpenTelemetryContext(&traceParent, &traceState);
     rbusMessage_BeginMetaSectionWrite(out);
     rbusMessage_SetString(out, event_name);
     rbusMessage_SetString(out, object_name);
     rbusMessage_SetInt32(out, 1);/*is rbus 2.0*/
+    rbusMessage_SetString(out, traceParent);
+    rbusMessage_SetString(out, traceState);
     rbusMessage_EndMetaSectionWrite(out);
 
     directServerLock();
@@ -2458,8 +2479,8 @@ void rbus_setOpenTelemetryContext(const char *traceParent, const char *traceStat
         if ((tpLen > 0) && (tpLen < (RBUS_OPEN_TELEMETRY_DATA_MAX - 1)))
         {
             memset(ot_ctx->otTraceParent, '\0', sizeof(ot_ctx->otTraceParent));
-            rtString_Copy(ot_ctx->otTraceParent, traceParent, tpLen);
-            ot_ctx->otTraceParent[tpLen + 1] = '\0';
+            rtString_Copy(ot_ctx->otTraceParent, traceParent, tpLen + 1);
+            ot_ctx->otTraceParent[tpLen] = '\0';
         }
         else
             ot_ctx->otTraceParent[0] = '\0';
@@ -2473,8 +2494,8 @@ void rbus_setOpenTelemetryContext(const char *traceParent, const char *traceStat
         if ((tsLen > 0) && (tsLen < (RBUS_OPEN_TELEMETRY_DATA_MAX - 1)))
         {
             memset(ot_ctx->otTraceState, '\0', sizeof(ot_ctx->otTraceState));
-            rtString_Copy(ot_ctx->otTraceState, traceState, tsLen);
-            ot_ctx->otTraceState[tsLen + 1] = '\0';
+            rtString_Copy(ot_ctx->otTraceState, traceState, tsLen + 1);
+            ot_ctx->otTraceState[tsLen] = '\0';
         }
         else
             ot_ctx->otTraceState[0] = '\0';
