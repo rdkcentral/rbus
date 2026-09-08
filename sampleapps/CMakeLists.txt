@@ -138,7 +138,7 @@ if (ENABLE_RBUS_OTEL_TRACE_CONTEXT AND RDK_OTLP_INCLUDE_DIR AND RDK_OTLP_LIBRARY
     target_link_libraries(rbusOtelTestSubscriber rbus rdk_otlp)
     target_include_directories(rbusOtelTestSubscriber PRIVATE ${RDK_OTLP_INCLUDE_DIR})
 else ()
-    message(STATUS "Skipping rbus OTLP sample apps: rdk_otlp_instrumentation.h or librdk_otlp was not found")
+    message(STATUS "Skipping rbus OTLP sample apps: ENABLE_RBUS_OTEL_TRACE_CONTEXT is OFF or rdk_otlp_instrumentation.h / librdk_otlp was not found")
 endif ()
 
 add_executable(rbusRawDataConsumer consumer/rbusRawDataConsumer.c)

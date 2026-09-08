@@ -6536,9 +6536,8 @@ rbusError_t rbusHandle_GetTraceContextAsString(
     if (!rbus)
       return RBUS_ERROR_INVALID_HANDLE;
 
-        if ((traceParent && traceParentLength <= 0) ||
-                (traceState && traceStateLength <= 0))
-                return RBUS_ERROR_INVALID_INPUT;
+    if ((traceParent && traceParentLength <= 0) ||(traceState && traceStateLength <= 0))
+      return RBUS_ERROR_INVALID_INPUT;
 
     size_t n;
     char const *s = NULL;
