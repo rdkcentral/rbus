@@ -121,6 +121,7 @@ find_path(RDK_OTLP_INCLUDE_DIR
 find_library(RDK_OTLP_LIBRARY
     NAMES rdk_otlp librdk_otlp)
 
+
 if (ENABLE_RBUS_OTEL_TRACE_CONTEXT AND RDK_OTLP_INCLUDE_DIR AND RDK_OTLP_LIBRARY)
     add_library(rdk_otlp UNKNOWN IMPORTED)
     set_target_properties(rdk_otlp PROPERTIES

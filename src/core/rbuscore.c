@@ -1484,6 +1484,7 @@ static void master_event_callback(rtMessageHeader const* hdr, uint8_t const* dat
         err = rbusMessage_GetString(msg, &object_name);
     if(RT_OK == err)
         err = rbusMessage_GetInt32(msg, &is_rbus_flag);
+
 #ifdef ENABLE_RBUS_OTEL_TRACE_CONTEXT
     if((RT_OK == err) && (is_rbus_flag >= RBUS_EVENT_METADATA_VERSION_WITH_TRACE_CONTEXT))
     {
