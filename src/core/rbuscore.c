@@ -2475,7 +2475,6 @@ void rbus_setOpenTelemetryContext(const char *traceParent, const char *traceStat
         {
             memset(ot_ctx->otTraceParent, '\0', sizeof(ot_ctx->otTraceParent));
             rtString_Copy(ot_ctx->otTraceParent, traceParent, tpLen + 1);
-            ot_ctx->otTraceParent[tpLen] = '\0';
         }
         else
             ot_ctx->otTraceParent[0] = '\0';
@@ -2490,7 +2489,6 @@ void rbus_setOpenTelemetryContext(const char *traceParent, const char *traceStat
         {
             memset(ot_ctx->otTraceState, '\0', sizeof(ot_ctx->otTraceState));
             rtString_Copy(ot_ctx->otTraceState, traceState, tsLen + 1);
-            ot_ctx->otTraceState[tsLen] = '\0';
         }
         else
             ot_ctx->otTraceState[0] = '\0';
