@@ -41,9 +41,6 @@ void rbusMessage_EndMetaSectionRead(rbusMessage message);
 /* Begin constant definitions.*/
 static const unsigned int TIMEOUT_VALUE_FIRE_AND_FORGET = 1000;
 static const unsigned int MAX_SUBSCRIBER_NAME_LENGTH = MAX_OBJECT_NAME_LENGTH;
-#ifdef ENABLE_RBUS_OTEL_TRACE_CONTEXT
-static const int RBUS_EVENT_METADATA_VERSION_WITH_TRACE_CONTEXT = 2;
-#endif
 static const char * DEFAULT_EVENT = "";
 /* End constant definitions.*/
 
@@ -1462,9 +1459,6 @@ static void master_event_callback(rtMessageHeader const* hdr, uint8_t const* dat
     const char * trace_state = NULL;
     int32_t is_rbus_flag = 1;
     rtError err;
-#ifdef ENABLE_RBUS_OTEL_TRACE_CONTEXT
-    rtError trace_err;
-#endif
     size_t subs_len;
     size_t i;
     (void)closure;
@@ -1480,27 +1474,10 @@ static void master_event_callback(rtMessageHeader const* hdr, uint8_t const* dat
 
     rbusMessage_BeginMetaSectionRead(msg);
     err = rbusMessage_GetString(msg, &event_name);
-    if(RT_OK == err)
-        err = rbusMessage_GetString(msg, &object_name);
-    if(RT_OK == err)
-        err = rbusMessage_GetInt32(msg, &is_rbus_flag);
+    err = rbusMessage_GetString(msg, &object_name);
+    err = rbusMessage_GetInt32(msg, &is_rbus_flag);
+    err = rbusMessage_GetString(msg, &trace_state);
 
-#ifdef ENABLE_RBUS_OTEL_TRACE_CONTEXT
-    if((RT_OK == err) && (is_rbus_flag >= RBUS_EVENT_METADATA_VERSION_WITH_TRACE_CONTEXT))
-    {
-        trace_err = rbusMessage_GetString(msg, &trace_parent);
-        if(RT_OK == trace_err)
-        {
-            trace_err = rbusMessage_GetString(msg, &trace_state);
-            if(RT_OK != trace_err)
-                trace_state = NULL;
-        }
-        else
-        {
-            trace_parent = NULL;
-        }
-    }
-#endif
     rbusMessage_EndMetaSectionRead(msg);
     if(RT_OK != err)
     {
@@ -1864,10 +1841,8 @@ rbusCoreError_t rbus_publishSubscriberEvent(const char* object_name,  const char
 {
     /*using namespace rbus_server;*/
     rbusCoreError_t ret = RBUSCORE_SUCCESS;
-#ifdef ENABLE_RBUS_OTEL_TRACE_CONTEXT
     const char* traceParent = NULL;
     const char* traceState = NULL;
-#endif
 
     if(NULL == event_name)
         event_name = DEFAULT_EVENT;
@@ -1880,14 +1855,10 @@ rbusCoreError_t rbus_publishSubscriberEvent(const char* object_name,  const char
     rbusMessage_BeginMetaSectionWrite(out);
     rbusMessage_SetString(out, event_name);
     rbusMessage_SetString(out, object_name);
-#ifdef ENABLE_RBUS_OTEL_TRACE_CONTEXT
+    rbusMessage_SetInt32(out, 1);
     rbus_getOpenTelemetryContext(&traceParent, &traceState);
-    rbusMessage_SetInt32(out, RBUS_EVENT_METADATA_VERSION_WITH_TRACE_CONTEXT);
     rbusMessage_SetString(out, traceParent);
     rbusMessage_SetString(out, traceState);
-#else
-    rbusMessage_SetInt32(out, 1); /* legacy event metadata */
-#endif
     rbusMessage_EndMetaSectionWrite(out);
 
     directServerLock();
