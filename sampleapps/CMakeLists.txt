@@ -153,6 +153,7 @@ install (TARGETS
     rbusBlockingConsumer
     rbusBlockingProvider
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+
 endif (BUILD_RBUS_SAMPLE_APPS)
 
 if (BUILD_RTMESSAGE_SAMPLE_APP)

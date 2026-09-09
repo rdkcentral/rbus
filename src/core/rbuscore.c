@@ -1476,6 +1476,7 @@ static void master_event_callback(rtMessageHeader const* hdr, uint8_t const* dat
     err = rbusMessage_GetString(msg, &event_name);
     err = rbusMessage_GetString(msg, &object_name);
     err = rbusMessage_GetInt32(msg, &is_rbus_flag);
+    err = rbusMessage_GetString(msg, &trace_parent);
     err = rbusMessage_GetString(msg, &trace_state);
 
     rbusMessage_EndMetaSectionRead(msg);
@@ -1855,7 +1856,7 @@ rbusCoreError_t rbus_publishSubscriberEvent(const char* object_name,  const char
     rbusMessage_BeginMetaSectionWrite(out);
     rbusMessage_SetString(out, event_name);
     rbusMessage_SetString(out, object_name);
-    rbusMessage_SetInt32(out, 1);
+    rbusMessage_SetInt32(out, 1);/*is rbus 2.0*/
     rbus_getOpenTelemetryContext(&traceParent, &traceState);
     rbusMessage_SetString(out, traceParent);
     rbusMessage_SetString(out, traceState);

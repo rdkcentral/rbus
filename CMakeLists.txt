@@ -97,6 +97,7 @@ option(RDKC_BUILD "RDKC_BUILD" OFF)
 option(WITH_SPAKE2 "WITH_SPAKE2" OFF)
 option(MSG_ROUNDTRIP_TIME "MSG_ROUNDTRIP_TIME" OFF)
 
+
 if (BUILD_FOR_DESKTOP)
   set(MSG_ROUNDTRIP_TIME ON)
   message("Building for desktop")
