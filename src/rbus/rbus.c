@@ -6536,6 +6536,9 @@ rbusError_t rbusHandle_GetTraceContextAsString(
     if (!rbus)
       return RBUS_ERROR_INVALID_HANDLE;
 
+    if ((traceParent && traceParentLength <= 0) ||(traceState && traceStateLength <= 0))
+      return RBUS_ERROR_INVALID_INPUT;
+
     size_t n;
     char const *s = NULL;
     char const *t = NULL;
@@ -6544,11 +6547,10 @@ rbusError_t rbusHandle_GetTraceContextAsString(
 
     if (traceParent)
     {
-        if (s)
+        if (s && traceParentLength > 0)
         {
-            n = RBUS_MIN( (int) strlen(s), traceParentLength - 1 );
-            rtString_Copy(traceParent, s, n);
-            traceParent[n] ='\0';
+            n = RBUS_MIN(strlen(s), (size_t) (traceParentLength - 1));
+            rtString_Copy(traceParent, s, n + 1);
         }
         else
             traceParent[0] = '\0';
@@ -6556,11 +6558,10 @@ rbusError_t rbusHandle_GetTraceContextAsString(
 
     if (traceState)
     {
-        if (t)
+        if (t && traceStateLength > 0)
         {
-            n = RBUS_MIN( (int) strlen(t), traceStateLength - 1);
-            rtString_Copy(traceState, t, n);
-            traceState[n] = '\0';
+            n = RBUS_MIN(strlen(t), (size_t) (traceStateLength - 1));
+            rtString_Copy(traceState, t, n + 1);
         }
         else
             traceState[0] = '\0';
