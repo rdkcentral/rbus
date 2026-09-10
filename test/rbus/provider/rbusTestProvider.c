@@ -1333,7 +1333,14 @@ int getEventTableInstNum(char const* propName)
 {
     int instNum = 0;
     char buff[2] = {0};
-    char const* pinstNum = strstr(propName, "EventsTable.") + 12;
+    char const* pinstNum = strstr(propName, "EventsTable.");
+    
+    if(!pinstNum) {
+        printf("%s: EventsTable not found in %s\n", __FUNCTION__, propName);
+        return 0;  // Return default value
+    }
+    
+    pinstNum += 12;  // Move past "EventsTable."
     buff[0] = *pinstNum;
     instNum = atoi(buff);
     printf("%s %s instNum=%d\n", __FUNCTION__, propName, instNum);
