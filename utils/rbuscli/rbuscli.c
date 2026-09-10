@@ -1009,7 +1009,7 @@ void execute_discover_elements_cmd(int argc, char *argv[])
     int numOfInputParams = argc - 2;
     bool nextLevel = true;
     int numElements = 0;
-    char** pElementNames; // FIXME: every component will have more than RBUS_CLI_MAX_PARAM elements right?
+    char** pElementNames = NULL; // FIXME: every component will have more than RBUS_CLI_MAX_PARAM elements right?
 
     if (!verify_rbus_open())
         return;
@@ -1040,11 +1040,13 @@ void execute_discover_elements_cmd(int argc, char *argv[])
         else
         {
             printf("No elements discovered!\r\n");
+            free(pElementNames);
         }
     }
     else
     {
         printf ("Failed to discover elements. Error Code = %d\r\n", rc);
+        free(pElementNames);
     }
 }
 
