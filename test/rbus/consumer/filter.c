@@ -64,6 +64,9 @@ static void testSerialize(rbusFilter_t f1)
     if(!file)
     {
         TEST(file != NULL);
+        /* Free allocated buffers before returning to prevent resource leak */
+        rbusBuffer_Destroy(buffOut);
+        rbusBuffer_Destroy(buffIn);
         return;
     }
     fseek(file, 0, SEEK_END);
