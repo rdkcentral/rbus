@@ -36,9 +36,11 @@ static void asyncMethodHandler(
     rbusHandle_t handle, 
     char const* methodName, 
     rbusError_t error,
-    rbusObject_t params)
+    rbusObject_t params,
+    void* userData)
 {
     (void)handle;
+    (void)userData;
 
     printf("asyncMethodHandler called: %s\n  error=%d", methodName, error);
     if(error == RBUS_ERROR_SUCCESS)
@@ -121,7 +123,7 @@ int main(int argc, char *argv[])
     rbusObject_SetValue(inParams, "status", value);
     rbusValue_Release(value);
 
-    rc = rbusMethod_InvokeAsync(handle, "Device.Methods.AsyncMethod()", inParams, asyncMethodHandler, 0);
+    rc = rbusMethod_InvokeAsync(handle, "Device.Methods.AsyncMethod()", inParams, asyncMethodHandler, 0, NULL);
 
 
     rbusObject_Release(inParams);
