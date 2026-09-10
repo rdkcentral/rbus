@@ -1974,7 +1974,7 @@ void validate_and_execute_subscribe_cmd (int argc, char *argv[], bool add, bool 
     }
 
     if (!verify_rbus_open())
-        return;    
+        return;
 
     if(!g_subsribeUserData)
        rtList_Create(&g_subsribeUserData);
@@ -2071,6 +2071,14 @@ void validate_and_execute_subscribe_cmd (int argc, char *argv[], bool add, bool 
 exit_error:
         runSteps = __LINE__;
         printf ("Invalid arguments. Please see the help\r\n");
+        if(filterValue)
+        {
+            rbusValue_Release(filterValue);
+        }
+        if(filter)
+        {
+            rbusFilter_Release(filter);
+        }
         rt_free(userData);
         return;
     }
