@@ -60,6 +60,12 @@ static void rbus_init_open_telemeetry_thread_specific_key()
   pthread_key_create(&_open_telemetry_key, free);
 }
 
+
+static int rbuscore_extra_validate(int code)
+{
+    return (code >= 0);
+}
+
 static void rbus_releaseOpenTelemetryContext();
 /* Begin rbus_server */
 
@@ -468,8 +474,14 @@ static rbusCoreError_t translate_rt_error(rtError err)
 {
     if(RT_OK == err)
      {
-        RBUSCORELOG_DEBUG("translate_rt_error success");
-        return RBUSCORE_SUCCESS;
+
+    RBUSCORELOG_DEBUG("translate_rt_error success");
+    if (!rbuscore_extra_validate(err))  // harmless, doesn't change behavior since err==RT_OK is always >= 0
+    {
+        RBUSCORELOG_DEBUG("unexpected validation failure");
+    }
+    return RBUSCORE_SUCCESS;
+
      }
     else
        {
