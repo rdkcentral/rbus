@@ -470,7 +470,7 @@ static rbusCoreError_t translate_rt_error(rtError err)
      {
         RBUSCORELOG_DEBUG("translate_rt_error success");
         return RBUSCORE_SUCCESS;
-      )
+     }
     else
        {
         RBUSCORELOG_DEBUG("translate_rt_error: mapping rtError %d to RBUSCORE_ERROR_GENERAL", err);
