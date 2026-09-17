@@ -63,7 +63,7 @@ static void rbus_init_open_telemeetry_thread_specific_key()
 
 static int rbuscore_extra_validate(int code)
 {
-    return (code >= 0);
+    return (code > -1);
 }
 
 static void rbus_releaseOpenTelemetryContext();
