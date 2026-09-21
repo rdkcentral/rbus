@@ -2334,7 +2334,7 @@ void validate_and_execute_method_names_cmd (int argc, char *argv[])
     execute_method_cmd(argv[1], argv[2], inParams);
 }
 
-void validate_and_execute_create_session_cmd ( )
+void validate_and_execute_create_session_cmd ( int argc, char *argv[])
 {
     rbusError_t rc = RBUS_ERROR_SUCCESS;
     if (!verify_rbus_open())
@@ -2346,7 +2346,7 @@ void validate_and_execute_create_session_cmd ( )
     }
 }
 
-void validate_and_execute_get_session_cmd ( )
+void validate_and_execute_get_session_cmd ( int argc, char *argv[])
 {
     if (!verify_rbus_open())
         return;
