@@ -179,11 +179,14 @@ static const char* rtTrimPath(const char* s)
   if (!s)
     return s;
 
-  const char* t = strrchr(s, (int) '/');
-  if (t) t++;
-  if (!t) t = s;
+  const char* filename = s;
+  for (const char* cursor = s; *cursor; ++cursor)
+  {
+    if (*cursor == '/')
+      filename = cursor + 1;
+  }
 
-  return t;
+  return filename;
 }
 
 
