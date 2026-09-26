@@ -469,8 +469,10 @@ static rbusCoreError_t translate_rt_error(rtError err)
     if(RT_OK == err)
         return RBUSCORE_SUCCESS;
     else
-        return RBUSCORE_ERROR_GENERAL;
-}
+       {
+        RBUSCORELOG_DEBUG("translate_rt_error: mapping rtError %d to RBUSCORE_ERROR_GENERAL", err);
+         return RBUSCORE_ERROR_GENERAL;
+       }
 
 static void dispatch_method_call(rbusMessage msg, const rtMessageHeader *hdr, server_object_t obj)
 {
