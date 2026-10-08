@@ -22,7 +22,7 @@ For a VS Code dev container, run **Dev Containers: Reopen in Container**. The
 container installs the build dependencies and linenoise. From the workspace
 root inside the container, build against the installed linenoise library with:
 
-    cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DBUILD_FOR_DESKTOP=OFF
+    cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DBUILD_FOR_DESKTOP=OFF -DCMAKE_INSTALL_PREFIX=/usr
     cmake --build build
     cmake --install build
 
