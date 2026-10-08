@@ -16,7 +16,17 @@ objects with properties, events, and methods.
     mkdir -p $RBUS_INSTALL_DIR
     cd $RBUS_ROOT
 
-#### Build rbus and dependencies 
+### Dev Container
+
+For a VS Code dev container, run **Dev Containers: Reopen in Container**. The
+container installs the build dependencies and linenoise. From the workspace
+root inside the container, build against the installed linenoise library with:
+
+    cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DBUILD_FOR_DESKTOP=OFF -DCMAKE_INSTALL_PREFIX=/usr
+    cmake --build build
+    cmake --install build
+
+### Build rbus and dependencies 
 
     git clone https://github.com/rdkcentral/rbus
     cmake -Hrbus -Bbuild/rbus -DCMAKE_INSTALL_PREFIX=${RBUS_INSTALL_DIR}/usr -DBUILD_FOR_DESKTOP=ON -DCMAKE_BUILD_TYPE=Debug

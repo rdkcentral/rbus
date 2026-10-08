@@ -1,0 +1,8 @@
+{
+  "name": "rbus",
+  "build": {
+    "dockerfile": "Containerfile",
+    "context": ".."
+  },
+  "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}"
+}
