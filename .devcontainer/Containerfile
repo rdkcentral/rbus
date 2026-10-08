@@ -1,0 +1,27 @@
+FROM ubuntu:22.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    ca-certificates \
+    cmake \
+    gcovr \
+    git \
+    libcjson-dev \
+    libcurl4-openssl-dev \
+    libgmock-dev \
+    libgtest-dev \
+    libmsgpack-dev \
+    libssl-dev \
+    lcov \
+    pkg-config \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN git clone --depth 1 https://github.com/antirez/linenoise.git /tmp/linenoise \
+    && cd /tmp/linenoise \
+    && cc -fPIC -shared -rdynamic -o liblinenoise.so linenoise.c \
+    && install -m 755 liblinenoise.so /usr/lib/ \
+    && install -m 644 linenoise.h /usr/include/ \
+    && ldconfig \
+    && rm -rf /tmp/linenoise
