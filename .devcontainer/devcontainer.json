@@ -4,5 +4,5 @@
     "dockerfile": "Containerfile",
     "context": ".."
   },
-  "workspaceFolder": "/workspaces/rbus"
+  "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}"
 }
