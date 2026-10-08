@@ -26,7 +26,7 @@ root inside the container, build against the installed linenoise library with:
     cmake --build build
     cmake --install build
 
-#### Build rbus and dependencies 
+### Build rbus and dependencies 
 
     git clone https://github.com/rdkcentral/rbus
     cmake -Hrbus -Bbuild/rbus -DCMAKE_INSTALL_PREFIX=${RBUS_INSTALL_DIR}/usr -DBUILD_FOR_DESKTOP=ON -DCMAKE_BUILD_TYPE=Debug
