@@ -758,6 +758,23 @@ rbusError_t rbus_open(
  */
 rbusError_t rbus_close(
     rbusHandle_t handle);
+
+/**
+ * @brief Associates borrowed application data with a regular or direct handle.
+ * Set this before callbacks may run and keep the pointer stable while callbacks
+ * may access it. Synchronize access to mutable data referenced by the pointer.
+ * RBUS does not take ownership of the pointer or its contents.
+ */
+rbusError_t rbusHandle_SetUserData(
+    rbusHandle_t handle,
+    void* userData);
+
+/**
+ * @brief Returns application data associated with a regular or direct handle.
+ * Returns NULL for a NULL or invalid handle, or when no data has been set.
+ */
+void* rbusHandle_GetUserData(
+    rbusHandle_t handle);
 /** @} */
 
 /**
