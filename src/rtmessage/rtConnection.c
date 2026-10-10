@@ -207,6 +207,94 @@ static void rtMessageInfo_ListItemFree(void* p)
     rtMessageInfo_Release((rtMessageInfo*)p);
 }
 
+static void pending_request_FreeEntry(pending_request *entry)
+{
+  if (!entry)
+    return;
+  if (entry->response)
+  {
+    rtMessageInfo_Release(entry->response);
+    entry->response = NULL;
+  }
+  if (entry->sem)
+  {
+    rtSemaphore_Destroy(entry->sem);
+    entry->sem = NULL;
+  }
+  free(entry);
+}
+
+static void pending_request_FreeEntryCallback(void* p)
+{
+  pending_request_FreeEntry((pending_request *)p);
+}
+
+/* Mutex held on entry; relocked before return. Wake RPC waiters (Post only — do not
+   free entries or release responses). Unlock and poll until the list is empty or a
+   deadline passes, so waiters can dequeue and free their own entries. */
+static void pending_request_WakeWaitersAndDrain(rtConnection con)
+{
+  rtListItem listItem;
+
+  for (rtList_GetFront(con->pending_requests_list, &listItem);
+       listItem != NULL;
+       rtListItem_GetNext(listItem, &listItem))
+  {
+    pending_request *entry;
+
+    rtListItem_GetData(listItem, (void**)&entry);
+    rtSemaphore_Post(entry->sem);
+  }
+
+  {
+    size_t sz = 0;
+    rtTime_t deadline;
+
+    rtList_GetSize(con->pending_requests_list, &sz);
+    if (sz == 0)
+      return;
+
+    rtLog_Error("Warning! Found pending requests while destroying connection.");
+    rtTime_Later(NULL, 1000, &deadline);
+    pthread_mutex_unlock(&con->mutex);
+
+    while (rtTime_Compare(NULL, &deadline) < 0)
+    {
+      pthread_mutex_lock(&con->mutex);
+      rtList_GetSize(con->pending_requests_list, &sz);
+      pthread_mutex_unlock(&con->mutex);
+      if (sz == 0)
+        break;
+      usleep(10000);
+    }
+
+    pthread_mutex_lock(&con->mutex);
+    rtList_GetSize(con->pending_requests_list, &sz);
+    if (sz != 0)
+      rtLog_Error("Destroy: pending RPC drain timeout (%zu entries remain)", sz);
+  }
+}
+
+static int pending_request_is_on_list(rtConnection con, pending_request *entry)
+{
+  rtListItem item;
+
+  if (!con || !entry)
+    return 0;
+
+  for (rtList_GetFront(con->pending_requests_list, &item);
+       item != NULL;
+       rtListItem_GetNext(item, &item))
+  {
+    pending_request *list_entry;
+
+    rtListItem_GetData(item, (void**)&list_entry);
+    if (list_entry == entry)
+      return 1;
+  }
+  return 0;
+}
+
 static inline bool rtMessageInfo_IsEncrypted(rtMessageInfo* msginfo)
 {
   return msginfo->header.flags & rtMessageFlags_Encrypted;
@@ -793,30 +881,20 @@ rtConnection_Destroy(rtConnection con)
     }
     /*Unblock all threads waiting for RPC responses.*/
     pthread_mutex_lock(&con->mutex);
-    int found_pending_requests = 0;
-
-    rtListItem listItem;
-    for(rtList_GetFront(con->pending_requests_list, &listItem);
-          listItem != NULL;
-            rtListItem_GetNext(listItem, &listItem))
+    pending_request_WakeWaitersAndDrain(con);
+    while (1)
     {
-      pending_request *entry;
-      rtListItem_GetData(listItem, (void**)&entry);
+      rtListItem pendingItem;
 
-      found_pending_requests = 1;
-      rtSemaphore_Post(entry->sem);
+      if (rtList_GetFront(con->pending_requests_list, &pendingItem) != RT_OK || pendingItem == NULL)
+        break;
+      rtList_RemoveItem(con->pending_requests_list, pendingItem, pending_request_FreeEntryCallback);
     }
-    rtList_Destroy(con->pending_requests_list,NULL);
+    rtList_Destroy(con->pending_requests_list, NULL);
     con->pending_requests_list = NULL;
     rtList_Destroy(con->callback_message_list, rtMessageInfo_ListItemFree);
     con->callback_message_list = NULL;
     pthread_mutex_unlock(&con->mutex);
-    if(0 != found_pending_requests)
-    {
-      rtLog_Error("Warning! Found pending requests while destroying connection.");
-      sleep(1); /* ugly hack to allow all sendRequest() calls to return and stop using con->* data members. Hopefully, this will never be
-      executed in practice. Revisit if necessary. */
-    }
     rtConnection_DestroyOnCleanup(con, true, true, true, true, false, NULL);
   }
   return 0;
@@ -1048,22 +1126,45 @@ rtConnection_SendRequestInternal(rtConnection con, uint8_t const* pReq, uint32_t
     rtError err;
     uint32_t sequence_number;
     rtListItem listItem;
+    pending_request *queue_entry = NULL;
+    int mutex_held = 0;
 
     pid_t tid = syscall(__NR_gettid);
 
+    if (res)
+      *res = NULL;
+
     pthread_mutex_lock(&con->mutex);
+    mutex_held = 1;
 #ifdef C11_ATOMICS_SUPPORTED
     sequence_number = atomic_fetch_add_explicit(&con->sequence_number, 1, memory_order_relaxed);
 #else
     sequence_number = __sync_fetch_and_add(&con->sequence_number, 1);
 #endif
-    /*Populate the pending request and enqueue it.*/
-    pending_request queue_entry;
-    queue_entry.sequence_number = sequence_number;
-    rtSemaphore_Create(&queue_entry.sem);
-    queue_entry.response = NULL;
+    /* Heap-allocate pending entry: list outlives this stack frame; late responses must match valid memory. */
+    queue_entry = (pending_request *)rt_try_malloc(sizeof(pending_request));
+    if (!queue_entry)
+    {
+      pthread_mutex_unlock(&con->mutex);
+      return rtErrorFromErrno(ENOMEM);
+    }
+    queue_entry->sequence_number = sequence_number;
+    queue_entry->response = NULL;
+    queue_entry->sem = NULL;
+    err = rtSemaphore_Create(&queue_entry->sem);
+    if (err != RT_OK)
+    {
+      pending_request_FreeEntry(queue_entry);
+      pthread_mutex_unlock(&con->mutex);
+      return rtErrorFromErrno(ENOMEM);
+    }
 
-    rtList_PushFront(con->pending_requests_list, (void*)&queue_entry, &listItem);
+    if (rtList_PushFront(con->pending_requests_list, (void*)queue_entry, &listItem) != RT_OK)
+    {
+      pending_request_FreeEntry(queue_entry);
+      pthread_mutex_unlock(&con->mutex);
+      return rtErrorFromErrno(ENOMEM);
+    }
     err = rtConnection_SendInternal(con, p, n, topic, con->inbox_name, rtMessageFlags_Request | flags, sequence_number, 0, 0, 0);
     if (err != RT_OK)
     {
@@ -1071,12 +1172,13 @@ rtConnection_SendRequestInternal(rtConnection con, uint8_t const* pReq, uint32_t
       goto dequeue_and_continue;
     }
     pthread_mutex_unlock(&con->mutex);
+    mutex_held = 0;
 
     if(tid != con->read_tid)
     {
       rtTime_t timeout_time;
       rtTime_Later(NULL, timeout, &timeout_time);
-      ret = rtSemaphore_TimedWait(queue_entry.sem, &timeout_time); //TODO: handle wake triggered by signals
+      ret = rtSemaphore_TimedWait(queue_entry->sem, &timeout_time); //TODO: handle wake triggered by signals
     }
     else
     {
@@ -1088,7 +1190,7 @@ rtConnection_SendRequestInternal(rtConnection con, uint8_t const* pReq, uint32_t
         if((err = rtConnection_Read(con, timeout)) == RT_OK)
         {
           int sem_value = 0;
-          rtSemaphore_GetValue(queue_entry.sem, &sem_value);
+          rtSemaphore_GetValue(queue_entry->sem, &sem_value);
           if(0 < sem_value)
           {
             ret = RT_OK;
@@ -1127,20 +1229,29 @@ rtConnection_SendRequestInternal(rtConnection con, uint8_t const* pReq, uint32_t
     {
       /*Sem posted*/
       pthread_mutex_lock(&con->mutex);
+      mutex_held = 1;
 
-      if(queue_entry.response)
+      if(queue_entry->response)
       {
-        if(queue_entry.response->header.flags & rtMessageFlags_Undeliverable)
+        if(queue_entry->response->header.flags & rtMessageFlags_Undeliverable)
         {
-          rtMessageInfo_Release(queue_entry.response);
+          rtMessageInfo_Release(queue_entry->response);
+          queue_entry->response = NULL;
 
           ret = RT_OBJECT_NO_LONGER_AVAILABLE;
         }
-        else
+        else if (res)
         {
           /*caller must call rtMessageInfo_Release on the response*/
 
-          *res = queue_entry.response;
+          *res = queue_entry->response;
+          queue_entry->response = NULL;
+        }
+        else
+        {
+          rtMessageInfo_Release(queue_entry->response);
+          queue_entry->response = NULL;
+          ret = RT_ERROR;
         }
       }
       else
@@ -1151,9 +1262,36 @@ rtConnection_SendRequestInternal(rtConnection con, uint8_t const* pReq, uint32_t
     }
 
 dequeue_and_continue:
-    rtList_RemoveItem(con->pending_requests_list, listItem, NULL);
+    if (!mutex_held)
+      pthread_mutex_lock(&con->mutex);
+    /* Only free if still on the active list (rtConnection_Destroy may have removed it). */
+    if (queue_entry)
+    {
+      rtMessageInfo *orphan = NULL;
+
+      /* Capture any response still in the entry before remove. On success, *res (or
+         SendBinaryRequest's mi) owns the block; on error/timeout, we must Release here. */
+      if (pending_request_is_on_list(con, queue_entry) && queue_entry->response)
+      {
+        if (ret == RT_OK && res && *res == queue_entry->response)
+          queue_entry->response = NULL; /* caller will Release via *res */
+        else
+        {
+          orphan = queue_entry->response;
+          queue_entry->response = NULL;
+        }
+      }
+
+      (void)rtList_RemoveItemWithData(con->pending_requests_list, queue_entry,
+                                      pending_request_FreeEntryCallback);
+
+      if (orphan)
+        rtMessageInfo_Release(orphan);
+
+      queue_entry = NULL;
+    }
     pthread_mutex_unlock(&con->mutex);
-    rtSemaphore_Destroy(queue_entry.sem);
+    mutex_held = 0;
 
     if(ret == RT_NO_CONNECTION)
     {
@@ -1696,8 +1834,10 @@ rtConnection_Read(rtConnection con, int32_t timeout)
       {
         pending_request *entry;
         rtListItem_GetData(listItem, (void**)&entry);
-        if(entry->sequence_number == msginfo->header.sequence_number)
+        if(entry && entry->sequence_number == msginfo->header.sequence_number)
         {
+          if (entry->response)
+            rtMessageInfo_Release(entry->response);
           entry->response = msginfo;
           msginfo = NULL; /*rtConnection_SendRequest thread will release it*/
           rtSemaphore_Post(entry->sem);
@@ -1705,9 +1845,10 @@ rtConnection_Read(rtConnection con, int32_t timeout)
         }
       }
       pthread_mutex_unlock(&con->mutex);
+      /* Orphan response: pending entry removed (e.g. request timeout). msginfo released below. */
 #ifdef MSG_ROUNDTRIP_TIME
       /* The listItem is not present in the pending_requests_list, as it is been removed from the list because of request timeout */
-      if(listItem == NULL)
+      if(listItem == NULL && msginfo != NULL)
       {
         rtMessage m;
         rtMessage_Create(&m);
