@@ -56,6 +56,12 @@ void checkmd5(const char* name, elementNode* root, const char* correctmd5)
     char path[256];
     snprintf(path, 255, "/tmp/%s.txt", name);
     FILE* f = fopen(path, "w");
+    
+    if(!f) {
+        printf("%s: Failed to open file %s\n", __FUNCTION__, path);
+        return;
+    }
+    
     fprintRegisteredElements(f, root, 0);
     fclose(f);
     char md5[MD5_LEN+1];
