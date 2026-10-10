@@ -280,7 +280,6 @@ void rbusInterval_RemoveSubscriptionRecord(
     sRecord* rec;
     ERROR_CHECK(pthread_mutex_lock(&gMutex));
     rec = sub_find(sub);
-    ERROR_CHECK(pthread_mutex_unlock(&gMutex));
 
     if(rec)
     {
@@ -290,12 +289,11 @@ void rbusInterval_RemoveSubscriptionRecord(
             ERROR_CHECK(pthread_cond_signal(&rec->cond));
             ERROR_CHECK(pthread_join(rec->thread, NULL));
         }
-        ERROR_CHECK(pthread_mutex_lock(&gMutex));
         rtVector_RemoveItem(gRecord, rec, sub_Free);
-        ERROR_CHECK(pthread_mutex_unlock(&gMutex));
     }
     else
     {
         RBUSLOG_ERROR("value not found\n");
     }
+    ERROR_CHECK(pthread_mutex_unlock(&gMutex));
 }
