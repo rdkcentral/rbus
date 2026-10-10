@@ -32,9 +32,11 @@ static void asyncMethodHandler(
     rbusHandle_t handle, 
     char const* methodName, 
     rbusError_t error,
-    rbusObject_t params)
+    rbusObject_t params,
+    void* userData)
 {
     (void)handle;
+    (void)userData;
 
     printf("asyncMethodHandler called: %s\n  error=%d", methodName, error);
     if(error == RBUS_ERROR_SUCCESS)
@@ -171,14 +173,14 @@ int main(int argc, char *argv[])
     rbusObject_SetValue(inParams2, "status", value2);
     rbusValue_Release(value2);
 
-    rc1 = rbusMethod_InvokeAsync(handle1, "Device.Methods.AsyncMethod()", inParams1, asyncMethodHandler, 0);
+    rc1 = rbusMethod_InvokeAsync(handle1, "Device.Methods.AsyncMethod()", inParams1, asyncMethodHandler, 0, NULL);
     rbusObject_Release(inParams1);
     if(rc1 != RBUS_ERROR_INVALID_HANDLE)
     {
         printf("multiRbusOpenMethodConsumer: rbusMethod_InvokeAsync(Device.Methods.AsyncMethod()) for handle1 failed, err:%d\n", rc1);
         exit(EXIT_FAILURE);
     }
-    rc2 = rbusMethod_InvokeAsync(handle2, "Device.Methods.AsyncMethod()", inParams2, asyncMethodHandler, 0);
+    rc2 = rbusMethod_InvokeAsync(handle2, "Device.Methods.AsyncMethod()", inParams2, asyncMethodHandler, 0, NULL);
     if(rc2 != RBUS_ERROR_SUCCESS)
     {
         printf("multiRbusOpenMethodConsumer: rbusMethod_InvokeAsync(Device.Methods.AsyncMethod()) for handle2 failed, err:%d\n", rc2);

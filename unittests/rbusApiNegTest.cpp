@@ -33,9 +33,11 @@ static void asyncMethodHandler(
     rbusHandle_t handle,
     char const* methodName,
     rbusError_t error,
-    rbusObject_t params)
+    rbusObject_t params,
+    void* userData)
 {
     (void)handle;
+    (void)userData;
 }
 
 typedef struct MethodData
@@ -989,7 +991,7 @@ TEST(rbusInvokeAsyncNegTest, test1)
     rbusObject_t inParams = NULL;
 
     rbusObject_Init(&inParams, NULL);
-    rc = rbusMethod_InvokeAsync(handle, "Device.Methods.AsyncMethod()", inParams, asyncMethodHandler, 0);
+    rc = rbusMethod_InvokeAsync(handle, "Device.Methods.AsyncMethod()", inParams, asyncMethodHandler, 0, NULL);
     EXPECT_EQ(rc, RBUS_ERROR_INVALID_INPUT);
     rbusObject_Release(inParams);
 }
@@ -1002,7 +1004,7 @@ TEST(rbusInvokeAsyncNegTest, test2)
 
     rbusObject_Init(&inParams, NULL);
     handle = (struct _rbusHandle *) malloc(sizeof(struct _rbusHandle));
-    rc = rbusMethod_InvokeAsync(handle, NULL, inParams, asyncMethodHandler, 0);
+    rc = rbusMethod_InvokeAsync(handle, NULL, inParams, asyncMethodHandler, 0, NULL);
     EXPECT_EQ(rc, RBUS_ERROR_INVALID_HANDLE);
     rbusObject_Release(inParams);
     free(handle);
@@ -1016,7 +1018,7 @@ TEST(rbusInvokeAsyncNegTest, test3)
 
     rbusObject_Init(&inParams, NULL);
     handle = (struct _rbusHandle *) malloc(sizeof(struct _rbusHandle));
-    rc = rbusMethod_InvokeAsync(handle, "Device.Methods.AsyncMethod()", inParams, NULL, 0);
+    rc = rbusMethod_InvokeAsync(handle, "Device.Methods.AsyncMethod()", inParams, NULL, 0, NULL);
     EXPECT_EQ(rc, RBUS_ERROR_INVALID_HANDLE);
     rbusObject_Release(inParams);
     free(handle);
