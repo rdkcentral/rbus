@@ -58,6 +58,7 @@ typedef volatile int atomic_uint_least32_t;
 #include <time.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <sys/syscall.h>
 #include <sys/types.h>
 #include <sys/time.h>
 
@@ -109,9 +110,6 @@ struct _rtConnection
   struct _rtListener      listeners[RTMSG_LISTENERS_MAX];
   pthread_mutex_t         mutex;
   rtList                  pending_requests_list;
-  pthread_cond_t          pending_requests_cond;
-  unsigned int            active_requests;
-  int                     shutting_down;
   rtList                  callback_message_list;
   rtMessageCallback       default_callback;
   void*                   default_closure;
@@ -133,7 +131,7 @@ struct _rtConnection
   rtMessage               spakeconfig;
   int                     check_remote_router;
 #endif
-  pthread_t               read_tid;
+  pid_t                   read_tid;
 };
 
 typedef struct _rtMessageInfo
@@ -164,15 +162,6 @@ static int g_taint_packets = 0;
 static int rtConnection_StartThreads(rtConnection con);
 static int rtConnection_StopThreads(rtConnection con);
 static rtError rtConnection_Read(rtConnection con, int32_t timeout);
-
-static int rtConnection_IsShuttingDown(rtConnection con)
-{
-  int shutting_down;
-  pthread_mutex_lock(&con->mutex);
-  shutting_down = con->shutting_down;
-  pthread_mutex_unlock(&con->mutex);
-  return shutting_down;
-}
 
 static inline bool rtConnection_IsSecure(rtConnection con)
 {
@@ -308,9 +297,6 @@ rtConnection_ConnectAndRegister(rtConnection con, rtTime_t* reconnect_time)
   if (!con)
     return rtErrorFromErrno(EINVAL);
 
-  if(rtConnection_IsShuttingDown(con))
-    return RT_NO_CONNECTION;
-
   if(con->fd != -1)
     is_first_connect = false;
 
@@ -350,10 +336,8 @@ rtConnection_ConnectAndRegister(rtConnection con, rtTime_t* reconnect_time)
       if(con->reconnect_in_progress)
       {
         rtLog_Debug("ConnectAndRegister waiting for reconnect start");
-        while(con->reconnect_in_progress && !rtConnection_IsShuttingDown(con))
+        while(con->reconnect_in_progress)
           usleep(100000);
-        if(rtConnection_IsShuttingDown(con))
-          return RT_NO_CONNECTION;
         rtLog_Debug("ConnectAndRegister waiting for reconnect end");
       }
       else
@@ -393,11 +377,6 @@ rtConnection_ConnectAndRegister(rtConnection con, rtTime_t* reconnect_time)
 
   while (retry < con->max_retries || con->max_retries < 0 /*unlimited retries*/)
   {
-    if(rtConnection_IsShuttingDown(con))
-    {
-      con->reconnect_in_progress = 0;
-      return RT_NO_CONNECTION;
-    }
     rtLog_Debug("trying connect");
     ret = connect(con->fd, (struct sockaddr *)&con->remote_endpoint, socket_length);
     if (ret == -1)
@@ -430,12 +409,6 @@ rtConnection_ConnectAndRegister(rtConnection con, rtTime_t* reconnect_time)
     return RT_NO_CONNECTION;
   }
 
-  if(rtConnection_IsShuttingDown(con))
-  {
-    con->reconnect_in_progress = 0;
-    return RT_NO_CONNECTION;
-  }
-
   rtSocket_GetLocalEndpoint(con->fd, &con->local_endpoint);
 
   rtSocketStorage_ToString(&con->local_endpoint, local_addr, sizeof(local_addr), &local_port);
@@ -451,11 +424,6 @@ rtConnection_ConnectAndRegister(rtConnection con, rtTime_t* reconnect_time)
   /*on reconnect, add back all listeners */
   for (i = 0; i < RTMSG_LISTENERS_MAX; ++i)
   {
-    if(rtConnection_IsShuttingDown(con))
-    {
-      con->reconnect_in_progress = 0;
-      return RT_NO_CONNECTION;
-    }
     if (con->listeners[i].in_use)
     {
       rtMessage m;
@@ -560,12 +528,11 @@ rtConnection_ReadUntil(rtConnection con, uint8_t* buff, int count, int32_t timeo
  *   callback_mutex_init - true if callback mutex was initialized
  *   reconnect_mutex_init - true if reconnect mutex was initialized
  *   cond_init           - true if condition variable was initialized
- *   pending_cond_init   - true if pending request condition was initialized
  *   mutex_attr_init     - true if mutex_attribute was initialized
  *   mutex_attr_ptr      - pointer to mutex attribute to destroy (if not NULL)
  */
 static void
-rtConnection_DestroyOnCleanup(rtConnection c, bool mutex_init, bool callback_mutex_init, bool reconnect_mutex_init, bool cond_init, bool pending_cond_init, bool mutex_attr_init, pthread_mutexattr_t* mutex_attr_ptr)
+rtConnection_DestroyOnCleanup(rtConnection c, bool mutex_init, bool callback_mutex_init, bool reconnect_mutex_init, bool cond_init, bool mutex_attr_init, pthread_mutexattr_t* mutex_attr_ptr)
 {
     if (c)
     {
@@ -597,8 +564,6 @@ rtConnection_DestroyOnCleanup(rtConnection c, bool mutex_init, bool callback_mut
         pthread_mutex_destroy(&c->reconnect_mutex);
       if (cond_init)
         pthread_cond_destroy(&c->callback_message_cond);
-      if (pending_cond_init)
-        pthread_cond_destroy(&c->pending_requests_cond);
       if (mutex_attr_init && mutex_attr_ptr)
         pthread_mutexattr_destroy(mutex_attr_ptr);
       free(c);
@@ -611,7 +576,7 @@ rtConnection_CreateInternal(rtConnection* con, char const* application_name, cha
   int i = 0;
   rtError err = RT_OK;
 
-  bool mutex_init = false, callback_mutex_init = false, reconnect_mutex_init = false, cond_init = false, pending_cond_init = false;
+  bool mutex_init = false, callback_mutex_init = false, reconnect_mutex_init = false, cond_init = false;
   bool mutex_attr_init = false;
 
   rtConnection c = (rtConnection) rt_try_malloc(sizeof(struct _rtConnection));
@@ -638,13 +603,11 @@ rtConnection_CreateInternal(rtConnection* con, char const* application_name, cha
   }
   if (0 == pthread_cond_init(&c->callback_message_cond, NULL))
     cond_init = true;
-  if (0 == pthread_cond_init(&c->pending_requests_cond, NULL))
-    pending_cond_init = true;
 
-  if (!(mutex_attr_init && mutex_init && callback_mutex_init && reconnect_mutex_init && cond_init && pending_cond_init))
+  if (!(mutex_attr_init && mutex_init && callback_mutex_init && reconnect_mutex_init && cond_init))
   {
     rtLog_Error("Could not initialize mutex or mutex attribute. Cannot create connection.");
-    rtConnection_DestroyOnCleanup(c, mutex_init, callback_mutex_init, reconnect_mutex_init, cond_init, pending_cond_init, mutex_attr_init, &mutex_attribute);
+    rtConnection_DestroyOnCleanup(c, mutex_init, callback_mutex_init, reconnect_mutex_init, cond_init, mutex_attr_init, &mutex_attribute);
     return RT_ERROR;
   }
 
@@ -659,13 +622,13 @@ rtConnection_CreateInternal(rtConnection* con, char const* application_name, cha
   c->send_buffer = (uint8_t *) rt_try_malloc(RTMSG_SEND_BUFFER_SIZE);
   if(!c->send_buffer)
   {
-    rtConnection_DestroyOnCleanup(c, mutex_init, callback_mutex_init, reconnect_mutex_init, cond_init, pending_cond_init, mutex_attr_init, &mutex_attribute);
+    rtConnection_DestroyOnCleanup(c, mutex_init, callback_mutex_init, reconnect_mutex_init, cond_init, mutex_attr_init, &mutex_attribute);
     return rtErrorFromErrno(ENOMEM);
   }
   c->recv_buffer = (uint8_t *) rt_try_malloc(RTMSG_SEND_BUFFER_SIZE);
   if(!c->recv_buffer)
   {
-    rtConnection_DestroyOnCleanup(c, mutex_init, callback_mutex_init, reconnect_mutex_init, cond_init, pending_cond_init, mutex_attr_init, &mutex_attribute);
+    rtConnection_DestroyOnCleanup(c, mutex_init, callback_mutex_init, reconnect_mutex_init, cond_init, mutex_attr_init, &mutex_attribute);
     return rtErrorFromErrno(ENOMEM);
   }
   c->recv_buffer_capacity = RTMSG_SEND_BUFFER_SIZE;
@@ -679,14 +642,8 @@ rtConnection_CreateInternal(rtConnection* con, char const* application_name, cha
   if(c->max_retries == 0)
     c->max_retries = 1;
   c->fd = -1;
-  err = rtList_Create(&c->pending_requests_list);
-  if(err == RT_OK)
-    err = rtList_Create(&c->callback_message_list);
-  if(err != RT_OK)
-  {
-    rtConnection_DestroyOnCleanup(c, mutex_init, callback_mutex_init, reconnect_mutex_init, cond_init, pending_cond_init, mutex_attr_init, &mutex_attribute);
-    return err;
-  }
+  rtList_Create(&c->pending_requests_list);
+  rtList_Create(&c->callback_message_list);
   c->default_callback = NULL;
   c->run_threads = 0;
   c->read_tid = 0;
@@ -707,14 +664,14 @@ rtConnection_CreateInternal(rtConnection* con, char const* application_name, cha
   if (err != RT_OK)
   {
     rtLog_Warn("failed to parse:%s. %s", router_config, rtStrError(err));
-    rtConnection_DestroyOnCleanup(c, mutex_init, callback_mutex_init, reconnect_mutex_init, cond_init, pending_cond_init, mutex_attr_init, &mutex_attribute);
+    rtConnection_DestroyOnCleanup(c, mutex_init, callback_mutex_init, reconnect_mutex_init, cond_init, mutex_attr_init, &mutex_attribute);
     return err;
   }
   err = rtConnection_ConnectAndRegister(c, 0);
   if (err != RT_OK)
   {
     rtLog_Warn("rtConnection_ConnectAndRegister(1):%d", err);
-    rtConnection_DestroyOnCleanup(c, mutex_init, callback_mutex_init, reconnect_mutex_init, cond_init, pending_cond_init, mutex_attr_init, &mutex_attribute);
+    rtConnection_DestroyOnCleanup(c, mutex_init, callback_mutex_init, reconnect_mutex_init, cond_init, mutex_attr_init, &mutex_attribute);
     return err;
   }
 
@@ -812,36 +769,12 @@ rtConnection_Destroy(rtConnection con)
   if (con)
   {
     unsigned int i;
-    rtListItem listItem;
-
-    /* Stop accepting requests and wake waiters before joining the callback
-       thread: a callback can itself be waiting for a request response. */
-    pthread_mutex_lock(&con->mutex);
-    con->shutting_down = 1;
-    con->run_threads = 0;
-    for(rtList_GetFront(con->pending_requests_list, &listItem);
-          listItem != NULL;
-            rtListItem_GetNext(listItem, &listItem))
-    {
-      pending_request* entry;
-      rtListItem_GetData(listItem, (void**)&entry);
-      rtSemaphore_Post(entry->sem);
-    }
-    pthread_mutex_unlock(&con->mutex);
+    SetRunThreadsSync(con, 0);
 
     if (con->fd != -1)
       shutdown(con->fd, SHUT_RDWR);
 
     rtConnection_StopThreads(con);
-
-    /* SendRequestInternal removes its own entries before signalling this
-       condition. Keep the list and connection alive until all have left. */
-    pthread_mutex_lock(&con->mutex);
-    while(con->active_requests != 0)
-      pthread_cond_wait(&con->pending_requests_cond, &con->mutex);
-    rtList_Destroy(con->pending_requests_list, NULL);
-    con->pending_requests_list = NULL;
-    pthread_mutex_unlock(&con->mutex);
 
     if (con->fd != -1)
       close(con->fd);
@@ -858,9 +791,33 @@ rtConnection_Destroy(rtConnection con)
       if (con->listeners[i].in_use)
         free(con->listeners[i].expression);
     }
+    /*Unblock all threads waiting for RPC responses.*/
+    pthread_mutex_lock(&con->mutex);
+    int found_pending_requests = 0;
+
+    rtListItem listItem;
+    for(rtList_GetFront(con->pending_requests_list, &listItem);
+          listItem != NULL;
+            rtListItem_GetNext(listItem, &listItem))
+    {
+      pending_request *entry;
+      rtListItem_GetData(listItem, (void**)&entry);
+
+      found_pending_requests = 1;
+      rtSemaphore_Post(entry->sem);
+    }
+    rtList_Destroy(con->pending_requests_list,NULL);
+    con->pending_requests_list = NULL;
     rtList_Destroy(con->callback_message_list, rtMessageInfo_ListItemFree);
     con->callback_message_list = NULL;
-    rtConnection_DestroyOnCleanup(con, true, true, true, true, true, false, NULL);
+    pthread_mutex_unlock(&con->mutex);
+    if(0 != found_pending_requests)
+    {
+      rtLog_Error("Warning! Found pending requests while destroying connection.");
+      sleep(1); /* ugly hack to allow all sendRequest() calls to return and stop using con->* data members. Hopefully, this will never be
+      executed in practice. Revisit if necessary. */
+    }
+    rtConnection_DestroyOnCleanup(con, true, true, true, true, false, NULL);
   }
   return 0;
 }
@@ -1027,8 +984,6 @@ rtConnection_SendBinaryRequest(rtConnection con, uint8_t const* pReq, uint32_t n
   if (!con)
     return rtErrorFromErrno(EINVAL);
 
-  *pRes = NULL;
-  *nRes = 0;
   err = rtConnection_SendRequestInternal(con, pReq, nReq, topic, &mi, timeout, rtMessageFlags_RawBinary);
   if(err == RT_OK)
   {
@@ -1043,14 +998,11 @@ rtConnection_SendBinaryRequest(rtConnection con, uint8_t const* pReq, uint32_t n
       else
       {
         /*alloc on heap b/c data will be freed by rtMessageInfo_Release*/
+        *nRes = mi->dataLength;
         *pRes = rt_try_malloc(mi->dataLength);
         if(!*pRes)
-        {
-          rtMessageInfo_Release(mi);
           return rtErrorFromErrno(ENOMEM);
-        }
         memcpy(*pRes, mi->data, mi->dataLength);
-        *nRes = mi->dataLength;
       }
     }
     rtMessageInfo_Release(mi);
@@ -1085,74 +1037,48 @@ rtError
 rtConnection_SendRequestInternal(rtConnection con, uint8_t const* pReq, uint32_t nReq, char const* topic,
   rtMessageInfo** res, uint32_t timeout, int flags)
 {
-  rtError ret = RT_OK;
-
   if (!con)
     return rtErrorFromErrno(EINVAL);
-  *res = NULL;
-
-  pthread_mutex_lock(&con->mutex);
-  if(con->shutting_down)
-  {
-    pthread_mutex_unlock(&con->mutex);
-    return RT_NO_CONNECTION;
-  }
-  con->active_requests++;
-  pthread_mutex_unlock(&con->mutex);
-
   rtTime_Now(&con->sender_reconnect_time);
   while(1)
   {
+    rtError ret = RT_OK;
+    uint8_t const* p = pReq;
+    uint32_t n = nReq;
     rtError err;
     uint32_t sequence_number;
-    rtListItem listItem = NULL;
-    rtMessageInfo* response = NULL;
-    pending_request* entry = rt_try_malloc(sizeof(*entry));
-    int is_reader_thread;
+    rtListItem listItem;
 
-    if(!entry)
-    {
-      ret = rtErrorFromErrno(ENOMEM);
-      break;
-    }
-    entry->response = NULL;
-    entry->sem = NULL;
-    err = rtSemaphore_Create(&entry->sem);
-    if(err != RT_OK)
-    {
-      ret = err;
-      free(entry->sem);
-      free(entry);
-      break;
-    }
+    pid_t tid = syscall(__NR_gettid);
 
     pthread_mutex_lock(&con->mutex);
-    if(con->shutting_down)
-    {
-      ret = RT_NO_CONNECTION;
-      pthread_mutex_unlock(&con->mutex);
-      goto cleanup_entry;
-    }
-    is_reader_thread = con->read_tid && pthread_equal(pthread_self(), con->read_tid);
 #ifdef C11_ATOMICS_SUPPORTED
     sequence_number = atomic_fetch_add_explicit(&con->sequence_number, 1, memory_order_relaxed);
 #else
     sequence_number = __sync_fetch_and_add(&con->sequence_number, 1);
 #endif
-    entry->sequence_number = sequence_number;
+    /*Populate the pending request and enqueue it.*/
+    pending_request queue_entry;
+    queue_entry.sequence_number = sequence_number;
+    rtSemaphore_Create(&queue_entry.sem);
+    queue_entry.response = NULL;
 
-    ret = rtList_PushFront(con->pending_requests_list, entry, &listItem);
-    if(ret == RT_OK)
-      ret = rtConnection_SendInternal(con, pReq, nReq, topic, con->inbox_name, rtMessageFlags_Request | flags, sequence_number, 0, 0, 0);
+    rtList_PushFront(con->pending_requests_list, (void*)&queue_entry, &listItem);
+    err = rtConnection_SendInternal(con, p, n, topic, con->inbox_name, rtMessageFlags_Request | flags, sequence_number, 0, 0, 0);
+    if (err != RT_OK)
+    {
+      ret = err;
+      goto dequeue_and_continue;
+    }
     pthread_mutex_unlock(&con->mutex);
 
-    if(ret == RT_OK && !is_reader_thread)
+    if(tid != con->read_tid)
     {
       rtTime_t timeout_time;
       rtTime_Later(NULL, timeout, &timeout_time);
-      ret = rtSemaphore_TimedWait(entry->sem, &timeout_time);
+      ret = rtSemaphore_TimedWait(queue_entry.sem, &timeout_time); //TODO: handle wake triggered by signals
     }
-    else if(ret == RT_OK)
+    else
     {
       //Handle nested dispatching.
       rtTime_t start_time;
@@ -1162,7 +1088,7 @@ rtConnection_SendRequestInternal(rtConnection con, uint8_t const* pReq, uint32_t
         if((err = rtConnection_Read(con, timeout)) == RT_OK)
         {
           int sem_value = 0;
-          rtSemaphore_GetValue(entry->sem, &sem_value);
+          rtSemaphore_GetValue(queue_entry.sem, &sem_value);
           if(0 < sem_value)
           {
             ret = RT_OK;
@@ -1187,69 +1113,62 @@ rtConnection_SendRequestInternal(rtConnection con, uint8_t const* pReq, uint32_t
         else if(err == RT_NO_CONNECTION)
         {
           ret = err;
-          break;
+          goto dequeue_and_continue;
         }
         else
         {
           rtLog_Error("Nested read failed.");
-          ret = err;
+          ret = RT_ERROR;
           break;
         }
       } while(RT_OK == err);
     }
-
-    /* The reader can have posted just as the timed wait expired. Detach the
-       response under the same lock used to publish it, on every exit path. */
-    pthread_mutex_lock(&con->mutex);
-    if(listItem)
+    if(RT_OK == ret)
     {
-      rtListItem_SetData(listItem, NULL);
-      rtList_RemoveItem(con->pending_requests_list, listItem, NULL);
-    }
-    response = entry->response;
-    entry->response = NULL;
-    if(con->shutting_down)
-      ret = RT_NO_CONNECTION;
-    pthread_mutex_unlock(&con->mutex);
+      /*Sem posted*/
+      pthread_mutex_lock(&con->mutex);
 
-    if(ret == RT_OK)
-    {
-      if(!response)
-        ret = RT_ERROR;
-      else if(response->header.flags & rtMessageFlags_Undeliverable)
-        ret = RT_OBJECT_NO_LONGER_AVAILABLE;
+      if(queue_entry.response)
+      {
+        if(queue_entry.response->header.flags & rtMessageFlags_Undeliverable)
+        {
+          rtMessageInfo_Release(queue_entry.response);
+
+          ret = RT_OBJECT_NO_LONGER_AVAILABLE;
+        }
+        else
+        {
+          /*caller must call rtMessageInfo_Release on the response*/
+
+          *res = queue_entry.response;
+        }
+      }
       else
       {
-        *res = response;
-        response = NULL; /* The caller now owns the response. */
+        /*For some reason, we unblocked, but there's no data.*/
+        ret = RT_ERROR;
       }
     }
-    if(response)
-      rtMessageInfo_Release(response);
 
- cleanup_entry:
-    rtSemaphore_Destroy(entry->sem);
-    free(entry);
+dequeue_and_continue:
+    rtList_RemoveItem(con->pending_requests_list, listItem, NULL);
+    pthread_mutex_unlock(&con->mutex);
+    rtSemaphore_Destroy(queue_entry.sem);
 
-    if(ret == RT_NO_CONNECTION && !rtConnection_IsShuttingDown(con))
+    if(ret == RT_NO_CONNECTION)
     {
       ret = rtConnection_ConnectAndRegister(con, &con->sender_reconnect_time);
       if(ret == RT_OK)
         continue;
     }
 
-    break;
+    if(ret == RT_ERROR_TIMEOUT)
+    {
+      rtLog_Info("rtConnection_SendRequest TIMEOUT");
+    }
+
+    return ret;
   }
-
-  if(ret == RT_ERROR_TIMEOUT)
-    rtLog_Info("rtConnection_SendRequest TIMEOUT");
-
-  pthread_mutex_lock(&con->mutex);
-  con->active_requests--;
-  if(con->shutting_down && con->active_requests == 0)
-    pthread_cond_signal(&con->pending_requests_cond);
-  pthread_mutex_unlock(&con->mutex);
-  return ret;
 }
 
 rtError
@@ -1779,12 +1698,9 @@ rtConnection_Read(rtConnection con, int32_t timeout)
         rtListItem_GetData(listItem, (void**)&entry);
         if(entry->sequence_number == msginfo->header.sequence_number)
         {
-          if(!entry->response && !con->shutting_down)
-          {
-            entry->response = msginfo;
-            msginfo = NULL; /*rtConnection_SendRequest thread will release it*/
-            rtSemaphore_Post(entry->sem);
-          }
+          entry->response = msginfo;
+          msginfo = NULL; /*rtConnection_SendRequest thread will release it*/
+          rtSemaphore_Post(entry->sem);
           break;
         }
       }
@@ -2030,9 +1946,7 @@ static void * rtConnection_ReaderThread(void *data)
 {
   rtError err = RT_OK;
   rtConnection con = (rtConnection)data;
-  pthread_mutex_lock(&con->mutex);
-  con->read_tid = pthread_self();
-  pthread_mutex_unlock(&con->mutex);
+  con->read_tid = syscall(__NR_gettid);
   rtLog_Debug("Reader thread started");
   while (1 == GetRunThreadsSync(con))
   {
