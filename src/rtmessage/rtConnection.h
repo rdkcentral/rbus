@@ -65,6 +65,8 @@ rtConnection_CreateWithConfig(rtConnection* con, rtMessage const conf);
 
 /**
  * Destroy an rtConnection
+ * No new operations may begin on con after destruction starts. In-flight
+ * request calls are woken and drained before connection resources are freed.
  * @param con
  * @return error
  */
