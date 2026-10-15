@@ -100,6 +100,7 @@ struct tm32
   int32_t tm_wday;			/* Day of week.	[0-6] */
   int32_t tm_yday;			/* Days in year.[0-365]	*/
   int32_t tm_isdst;			/* DST.		[-1/0/1]*/
+  int32_t tm_usec;                      /* microseconds [0-999999] */
 };
 
 typedef struct _rbusDateTime {
