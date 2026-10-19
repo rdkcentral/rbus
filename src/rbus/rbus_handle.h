@@ -123,6 +123,7 @@ struct _rbusHandle
   pthread_mutex_t       handle_subsMutex;
   rtConnection          m_connectionParent;
   rbusTimeoutValues_t   timeoutValues;
+  void*                 userData;
 };
 
 bool rbusHandleList_IsValidHandle(struct _rbusHandle* handle);
