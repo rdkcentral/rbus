@@ -2068,11 +2068,7 @@ void validate_and_execute_subscribe_cmd (int argc, char *argv[], bool add, bool 
     }
     else if(subinterval || argc > 7)
     {
-exit_error:
-        runSteps = __LINE__;
-        printf ("Invalid arguments. Please see the help\r\n");
-        rt_free(userData);
-        return;
+        goto exit_error;
     }
 
     rbusEventSubscription_t subscription_rawdata = {argv[2], filter, interval, duration, event_receive_handler1, userData, NULL, NULL, publishOnSubscribe};
@@ -2138,6 +2134,13 @@ exit_error:
             rt_free(userData);
         }
     }
+    return;
+
+exit_error:
+    runSteps = __LINE__;
+    printf ("Invalid arguments. Please see the help\r\n");
+    rt_free(userData);
+    return;
 }
 
 void validate_and_execute_publish_command(int argc, char *argv[], bool rawDataPub)
