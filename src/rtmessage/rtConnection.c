@@ -1050,8 +1050,10 @@ rtConnection_SendRequestInternal(rtConnection con, uint8_t const* pReq, uint32_t
     rtListItem listItem;
 
     pid_t tid = syscall(__NR_gettid);
-
+    int mutex_held = 0;
+      
     pthread_mutex_lock(&con->mutex);
+    mutex_held = 1;
 #ifdef C11_ATOMICS_SUPPORTED
     sequence_number = atomic_fetch_add_explicit(&con->sequence_number, 1, memory_order_relaxed);
 #else
@@ -1071,6 +1073,7 @@ rtConnection_SendRequestInternal(rtConnection con, uint8_t const* pReq, uint32_t
       goto dequeue_and_continue;
     }
     pthread_mutex_unlock(&con->mutex);
+    mutex_held = 0;
 
     if(tid != con->read_tid)
     {
@@ -1127,6 +1130,7 @@ rtConnection_SendRequestInternal(rtConnection con, uint8_t const* pReq, uint32_t
     {
       /*Sem posted*/
       pthread_mutex_lock(&con->mutex);
+      mutex_held = 1;
 
       if(queue_entry.response)
       {
@@ -1151,6 +1155,13 @@ rtConnection_SendRequestInternal(rtConnection con, uint8_t const* pReq, uint32_t
     }
 
 dequeue_and_continue:
+    /* Timeout/error paths release con->mutex before waiting/reading. Re-acquire
+     * before touching pending_requests_list and before destroying the reply
+     * semaphore so the reader thread cannot Post a freed semaphore (hang in
+     * futex_wait_queue_me). Early send-failure goto still holds the mutex. */
+    if (!mutex_held)
+      pthread_mutex_lock(&con->mutex);
+    
     rtList_RemoveItem(con->pending_requests_list, listItem, NULL);
     pthread_mutex_unlock(&con->mutex);
     rtSemaphore_Destroy(queue_entry.sem);
