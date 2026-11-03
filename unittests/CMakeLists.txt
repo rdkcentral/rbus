@@ -77,6 +77,7 @@ target_link_libraries(rbus_event_server rbuscore)
 enable_testing()
 
 add_executable(rbus_gtest.bin
+  rtMessageHeaderTest.cpp
   rtSocketTest.cpp
   rbusValueTest.cpp
   rtRoutingTreeTest.cpp

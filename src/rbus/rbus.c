@@ -25,6 +25,7 @@
 #include <limits.h>
 #include <pthread.h>
 #include <unistd.h>
+#include <sys/un.h>
 #include <rtVector.h>
 #include <rtMemory.h>
 #include <rbuscore.h>
@@ -495,10 +496,10 @@ static bool _isValidTLV(rbusValueType_t type, uint32_t length, uint8_t const* va
     switch(type)
     {
     case RBUS_STRING:
-        return length > 0 && length <= INT_MAX &&
+        return length > 0 && length <= RBUS_BUFFER_MAX_SIZE &&
             memchr(value, '\0', length) == value + length - 1;
     case RBUS_BYTES:
-        return length <= INT_MAX;
+        return length <= RBUS_BUFFER_MAX_SIZE;
     case RBUS_BOOLEAN: expectedLength = sizeof(bool); break;
     case RBUS_CHAR:    expectedLength = sizeof(char); break;
     case RBUS_BYTE:    expectedLength = sizeof(unsigned char); break;
@@ -655,13 +656,8 @@ rbusError_t rbusValue_initFromMessage(rbusValue_t* value, rbusMessage msg)
 rbusError_t rbusProperty_initFromMessage(rbusProperty_t* property, rbusMessage msg)
 {
     char const* name;
-    rbusValue_t value;
+    rbusValue_t value = NULL;
     rbusError_t err = RBUS_ERROR_SUCCESS;
-
-    rbusMessage_GetString(msg, (char const**) &name);
-#if DEBUG_SERIALIZER
-    RBUSLOG_INFO("> prop pop name=%s", name);
-#endif
 
     if (!property)
     {
@@ -669,8 +665,13 @@ rbusError_t rbusProperty_initFromMessage(rbusProperty_t* property, rbusMessage m
         return RBUS_ERROR_INVALID_INPUT;
     }
 
+    rbusMessage_GetString(msg, (char const**) &name);
+#if DEBUG_SERIALIZER
+    RBUSLOG_INFO("> prop pop name=%s", name);
+#endif
+
     rbusProperty_Init(property, name, NULL);
-    err= rbusValue_initFromMessage(&value, msg);
+    err = rbusValue_initFromMessage(&value, msg);
     if (err != RBUS_ERROR_SUCCESS)
     {
         rbusProperty_Release(*property);
@@ -707,14 +708,21 @@ void rbusPropertyList_initFromMessage(rbusProperty_t* prop, rbusMessage msg)
 {
     rbusProperty_t previous = NULL, first = NULL;
     int numProps = 0;
+    *prop = NULL;
     rbusMessage_GetInt32(msg, (int*) &numProps);
 #if DEBUG_SERIALIZER
     RBUSLOG_INFO("> prop pop numProps=%d", numProps);
 #endif
     while(--numProps >= 0)
     {
-        rbusProperty_t nextProp;
-        rbusProperty_initFromMessage(&nextProp, msg);
+        rbusProperty_t nextProp = NULL;
+        rbusError_t err = rbusProperty_initFromMessage(&nextProp, msg);
+        if(err != RBUS_ERROR_SUCCESS)
+        {
+            RBUSLOG_WARN("error parsing property list %d", err);
+            rbusProperty_Release(first);
+            return;
+        }
         if(first == NULL)
             first = nextProp;
         if(previous != NULL)
@@ -724,7 +732,6 @@ void rbusPropertyList_initFromMessage(rbusProperty_t* prop, rbusMessage msg)
         }
         previous = nextProp;
     }
-    /*TODO we need to release the props we inited*/
     *prop = first;
 }
 
@@ -1590,6 +1597,7 @@ static void _set_callback_handler (rbusHandle_t handle, rbusMessage request, rbu
         pProperties = (rbusProperty_t*)rt_try_malloc(numVals*sizeof(rbusProperty_t));
         if(pProperties)
         {
+            memset(pProperties, 0, numVals * sizeof(rbusProperty_t));
             for (loopCnt = 0; loopCnt < numVals; loopCnt++)
             {
                 rc = rbusProperty_initFromMessage(&pProperties[loopCnt], request);
@@ -2843,8 +2851,12 @@ static void _create_direct_connection_callback_handler (rbusHandle_t handle, rbu
         if (0 == strncmp(consumerToBrokerConf, "unix", 4))
         {
             addressLength = snprintf(daemonAddress, sizeof(daemonAddress), "unix:///tmp/.direct_%s_%s", __progname, consumerName);
-            if (addressLength < 0 || (size_t)addressLength >= sizeof(daemonAddress))
+            if (addressLength < 0 || (size_t)addressLength >= sizeof(daemonAddress) ||
+                (size_t)addressLength >= sizeof(((struct sockaddr_un*)0)->sun_path) + 7)
+            {
+                RBUSLOG_WARN("private Unix socket path exceeds sun_path capacity");
                 ret = RBUSCORE_ERROR_INVALID_PARAM;
+            }
         }
         else
         {
@@ -3616,6 +3628,12 @@ rbusError_t rbus_get(rbusHandle_t handle, char const* name, rbusValue_t* value)
     if (handleInfo->m_handleType != RBUS_HWDL_TYPE_REGULAR)
         return RBUS_ERROR_INVALID_HANDLE;
 
+    if(value == NULL)
+    {
+        RBUSLOG_ERROR("rbus_get: value is NULL");
+        return RBUS_ERROR_INVALID_INPUT;
+    }
+
     /* Is it a valid Query */
     if (!_is_valid_get_query(name))
     {
@@ -3677,7 +3695,7 @@ rbusError_t rbus_get(rbusHandle_t handle, char const* name, rbusValue_t* value)
                 rbusMessage_GetString(response, &buff);
                 if(buff && (strcmp(name, buff) == 0))
                 {
-                    rbusValue_initFromMessage(value, response);
+                    errorcode = rbusValue_initFromMessage(value, response);
                 }
                 else
                 {
@@ -3715,35 +3733,41 @@ rbusError_t _getExt_response_parser(rbusMessage response, int *numValues, rbusPr
     legacyRetCode = (rbusLegacyReturn_t) ret;
 
     *numValues = 0;
+    *retProperties = NULL;
     if((errorcode == RBUS_ERROR_SUCCESS) || (legacyRetCode == RBUS_LEGACY_ERR_SUCCESS))
     {
         errorcode = RBUS_ERROR_SUCCESS;
         RBUSLOG_DEBUG("Received valid response!");
         rbusMessage_GetInt32(response, &numOfVals);
-        *numValues = numOfVals;
         RBUSLOG_DEBUG("Number of return params = %d", numOfVals);
 
         if(numOfVals)
         {
-            rbusProperty_t last;
+            rbusProperty_t last = NULL;
             for(i = 0; i < numOfVals; i++)
             {
-                /* For the first instance, lets use the given pointer */
-                if (0 == i)
+                rbusProperty_t next = NULL;
+                errorcode = rbusProperty_initFromMessage(&next, response);
+                if(errorcode != RBUS_ERROR_SUCCESS)
                 {
-                    rbusProperty_initFromMessage(retProperties, response);
-                    last = *retProperties;
+                    /* Stop before linking a failed property and discard partial results. */
+                    RBUSLOG_WARN("error parsing get response %d", errorcode);
+                    rbusProperty_Release(*retProperties);
+                    *retProperties = NULL;
+                    break;
                 }
+                if(last == NULL)
+                    *retProperties = next;
                 else
                 {
-                    rbusProperty_t tmpProperties;
-                    rbusProperty_initFromMessage(&tmpProperties, response);
-                    rbusProperty_SetNext(last, tmpProperties);
-                    rbusProperty_Release(tmpProperties);
-                    last = tmpProperties;
+                    rbusProperty_SetNext(last, next);
+                    rbusProperty_Release(next);
                 }
+                last = next;
             }
         }
+        if(errorcode == RBUS_ERROR_SUCCESS)
+            *numValues = numOfVals;
     }
     else
     {

@@ -32,6 +32,8 @@
 #include <unistd.h>
 #include <sys/file.h>
 #include <sys/stat.h>
+#include <sys/un.h>
+#include <fcntl.h>
 #include <time.h>
 
 #include <pthread.h>
@@ -51,6 +53,68 @@ rtRouteBase_CloseListener(rtListener *pListener)
     return RT_OK;
 }
 
+
+/*
+ * Return 1 if the private direct socket path is absent or was safely removed;
+ * return 0 if it exists but cannot safely be identified as stale.
+ */
+static int
+rtRouteBase_RemoveStaleDirectSocket(
+    const char* socket_name,
+    const struct sockaddr_storage* endpoint,
+    socklen_t socket_length)
+{
+  static const char direct_socket_prefix[] = "unix:///tmp/.direct_";
+  const char* socket_path;
+  struct stat before, after;
+  int probe_fd;
+  int probe_errno;
+
+  if (strncmp(socket_name, direct_socket_prefix,
+              sizeof(direct_socket_prefix) - 1) != 0)
+    return 0;
+
+  socket_path = socket_name + strlen("unix://");
+
+  if (lstat(socket_path, &before) != 0)
+    return errno == ENOENT;
+
+  /* Do not remove symlinks, non-sockets, or sockets owned by another user. */
+  if (!S_ISSOCK(before.st_mode) || before.st_uid != geteuid())
+    return 0;
+
+  probe_fd = socket(endpoint->ss_family, SOCK_STREAM, 0);
+  if (probe_fd < 0)
+    return 0;
+
+  if (connect(probe_fd, (const struct sockaddr*)endpoint, socket_length) == 0)
+  {
+    close(probe_fd);
+    return 0; /* A listener is active. */
+  }
+
+  probe_errno = errno;
+  close(probe_fd);
+
+  /* Other errors are inconclusive; never unlink on them. */
+  if (probe_errno != ECONNREFUSED && probe_errno != ENOENT)
+    return 0;
+
+  /* Check that the pathname still identifies the same socket before unlinking. */
+  if (lstat(socket_path, &after) != 0)
+    return errno == ENOENT;
+
+  if (!S_ISSOCK(after.st_mode) ||
+      after.st_uid != geteuid() ||
+      before.st_dev != after.st_dev ||
+      before.st_ino != after.st_ino)
+    return 0;
+
+  if (unlink(socket_path) == 0 || errno == ENOENT)
+    return 1;
+
+  return 0;
+}
 
 rtError
 rtRouteBase_BindListener(char const* socket_name, int no_delay, int indefinite_retry, rtListener **pListener)
@@ -117,7 +181,22 @@ rtRouteBase_BindListener(char const* socket_name, int no_delay, int indefinite_r
     ret = bind(listener->fd, (struct sockaddr *)&listener->local_endpoint, socket_length);
     if (ret == -1)
     {
-      rtError err = rtErrorFromErrno(errno);
+      int bind_errno = errno;
+
+      if (bind_errno == EADDRINUSE &&
+          listener->local_endpoint.ss_family == AF_UNIX &&
+          rtRouteBase_RemoveStaleDirectSocket(
+              socket_name, &listener->local_endpoint, socket_length))
+      {
+        ret = bind(listener->fd, (struct sockaddr *)&listener->local_endpoint,
+                   socket_length);
+        if (ret == 0)
+          break;
+
+        bind_errno = errno;
+      }
+
+      rtError err = rtErrorFromErrno(bind_errno);
       rtLog_Warn("failed to bind socket. %s.  num_retries=%u", rtStrError(err), num_retries);
       if(0 == --num_retries)
       {
@@ -610,6 +689,9 @@ rtRouteDirect_StartInstance(const char* socket_name, rtDriectClientHandler messa
   rtRouteEntry* route = NULL;
   rtConnectedClient* myDirectClient = NULL;
   rtListener* myDirectListener = NULL;
+  rtError result = RT_OK;
+  struct stat socketIdentity;
+  bool haveSocketIdentity = false;
 
   if (NULL == socket_name)
   {
@@ -636,12 +718,26 @@ rtRouteDirect_StartInstance(const char* socket_name, rtDriectClientHandler messa
 
   if (RT_OK != rtRouteBase_BindListener(socket_name, 1, 1, &myDirectListener))
   {
-    return RT_FAIL;
+    result = RT_FAIL;
+    goto finish;
+  }
+  if (strncmp(socket_name, "unix://", 7) == 0)
+  {
+    if (lstat(socket_name + 7, &socketIdentity) != 0)
+    {
+      rtLog_Warn("Failed to inspect bound direct socket: %s", strerror(errno));
+      result = RT_FAIL;
+      goto finish;
+    }
+    haveSocketIdentity = true;
   }
 
   route = (rtRouteEntry *)rt_malloc(sizeof(rtRouteEntry));
   if (!route)
-      return rtErrorFromErrno(ENOMEM);
+  {
+    result = rtErrorFromErrno(ENOMEM);
+    goto finish;
+  }
   route->subscription = NULL;
   rtString_Copy(route->expression, "_RTDIRECT>", RTMSG_MAX_EXPRESSION_LEN);
   route->message_handler = _rtdirect_OnMessage;
@@ -694,20 +790,34 @@ rtRouteDirect_StartInstance(const char* socket_name, rtDriectClientHandler messa
       if (err != RT_OK)
       {
         rtLog_Info("Private Client Exited. Lets shutdown the session");
-        if (myDirectClient->fd >= 0)
-        {
-          if (close(myDirectClient->fd) != 0)
-            rtLog_Warn("Failed to close private client socket: %s", rtStrError(errno));
-          myDirectClient->fd = -1;
-        }
         break;
       }
     }
   }
 
-  free(myDirectClient->read_buffer);
-  free(myDirectClient->send_buffer);
-  free(myDirectClient);
+finish:
+  if (myDirectClient)
+  {
+    if (myDirectClient->fd >= 0)
+    {
+      rtPrivateClientInfo disconnected = {0};
+      disconnected.clientFD = myDirectClient->fd;
+      /* The callback waits for publications and invalidates their cached fd before close. */
+      if (messageHandler)
+      {
+        rtError err = messageHandler(RT_DIRECT_CLIENT_DISCONNECTED, NULL,
+            (uint8_t const*)&disconnected, sizeof(disconnected), NULL, NULL);
+        if (err != RT_OK)
+          rtLog_Error("Private client disconnect notification failed: %s", rtStrError(err));
+      }
+      if (close(myDirectClient->fd) != 0)
+        rtLog_Warn("Failed to close private client socket: %s", rtStrError(errno));
+      myDirectClient->fd = -1;
+    }
+    free(myDirectClient->read_buffer);
+    free(myDirectClient->send_buffer);
+    free(myDirectClient);
+  }
 
   free(route);
   if (myDirectListener)
@@ -715,11 +825,14 @@ rtRouteDirect_StartInstance(const char* socket_name, rtDriectClientHandler messa
     rtRouteBase_CloseListener(myDirectListener);
     free(myDirectListener);
   }
-  if (strncmp(socket_name, "unix://", 7) == 0)
+  if (haveSocketIdentity)
   {
-    if (remove(&socket_name[7]) != 0)
-      rtLog_Warn("Failed to remove socket file %s", &socket_name[7]);
+    struct stat current;
+    if (lstat(socket_name + 7, &current) != 0 ||
+        current.st_dev != socketIdentity.st_dev || current.st_ino != socketIdentity.st_ino)
+      rtLog_Warn("Direct socket pathname changed; leaving it untouched: %s", socket_name + 7);
+    else if (unlink(socket_name + 7) != 0)
+      rtLog_Warn("Failed to remove socket file %s", socket_name + 7);
   }
-  return RT_OK;
+  return result;
 }
-

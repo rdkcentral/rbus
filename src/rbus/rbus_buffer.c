@@ -108,7 +108,18 @@ void rbusBuffer_Write(rbusBuffer_t buff, void const* data, int len)
 {
     VERIFY_NULL(buff);
     VERIFY_NULL(data);
+    if(len < 0 || buff->posWrite < 0 || buff->posWrite > RBUS_BUFFER_MAX_SIZE ||
+        len > RBUS_BUFFER_MAX_SIZE - buff->posWrite)
+    {
+        RBUSLOG_ERROR("rbusBuffer_Write: invalid length %d at position %d", len, buff->posWrite);
+        return;
+    }
     rbusBuffer_Reserve(buff, len);
+    if(buff->posWrite > buff->lenAlloc || len > buff->lenAlloc - buff->posWrite)
+    {
+        RBUSLOG_ERROR("rbusBuffer_Write: insufficient buffer capacity");
+        return;
+    }
     memcpy(buff->data + buff->posWrite, data, len);
     buff->posWrite += len;
 }
@@ -117,6 +128,12 @@ void rbusBuffer_Reserve(rbusBuffer_t buff, int len)
 {
     VERIFY_NULL(buff);
     assert(buff->data);
+    if(len < 0 || buff->posWrite < 0 || buff->posWrite > RBUS_BUFFER_MAX_SIZE ||
+        len > RBUS_BUFFER_MAX_SIZE - buff->posWrite)
+    {
+        RBUSLOG_ERROR("rbusBuffer_Reserve: invalid length %d at position %d", len, buff->posWrite);
+        return;
+    }
     int posNext = buff->posWrite+len;
     if(posNext > buff->lenAlloc)
     {

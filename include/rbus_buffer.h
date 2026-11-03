@@ -21,6 +21,10 @@
 #define RBUS_BUFFER_H
 
 #include "rbus.h"
+#include <limits.h>
+
+/* Leave room for the allocator's next 64-byte block when rounding up. */
+#define RBUS_BUFFER_MAX_SIZE (INT_MAX - 64)
 
 #ifdef __cplusplus
 extern "C" {

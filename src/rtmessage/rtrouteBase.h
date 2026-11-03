@@ -71,6 +71,9 @@ typedef struct
 
 typedef rtError (*rtDriectClientHandler) (uint8_t isClientRequest, rtMessageHeader* hdr, uint8_t const* pInbuff, int inLength, uint8_t** pOutBuff, uint32_t* pOutLength);
 
+/* Disconnect notifications carry rtPrivateClientInfo with the fd to invalidate before close. */
+#define RT_DIRECT_CLIENT_DISCONNECTED 2
+
 rtError rtRouteBase_BindListener(char const* socket_name, int no_delay, int indefinite_retry, rtListener **pListener);
 rtError rtRouteBase_CloseListener(rtListener *pListener);
 

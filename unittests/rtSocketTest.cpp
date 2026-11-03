@@ -26,6 +26,20 @@ TEST(rtSocketTest, rejects_empty_host_and_null_arguments)
     EXPECT_EQ(RT_ERROR_INVALID_ARG, rtSocketStorage_FromString(NULL, "tcp://127.0.0.1:6667"));
 }
 
+TEST(rtSocketTest, validates_unix_path_capacity_without_truncation)
+{
+    struct sockaddr_storage endpoint = {};
+    size_t capacity = sizeof(((struct sockaddr_un*)0)->sun_path);
+    std::string path(capacity - 1, 'a');
+    ASSERT_EQ(RT_OK, rtSocketStorage_FromString(&endpoint, ("unix://" + path).c_str()));
+    struct sockaddr_un* unixEndpoint = reinterpret_cast<struct sockaddr_un*>(&endpoint);
+    EXPECT_STREQ(path.c_str(), unixEndpoint->sun_path);
+    struct sockaddr_storage original = endpoint;
+    path += 'b';
+    EXPECT_EQ(RT_ERROR_INVALID_ARG, rtSocketStorage_FromString(&endpoint, ("unix://" + path).c_str()));
+    EXPECT_EQ(0, std::memcmp(&original, &endpoint, sizeof(endpoint)));
+}
+
 TEST(rtSocketTest, preserves_ipv4_and_unix_endpoints)
 {
     struct sockaddr_storage endpoint = {};

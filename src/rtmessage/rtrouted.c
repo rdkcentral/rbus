@@ -408,9 +408,18 @@ rtRouted_AddRoute(rtRouteMessageHandler handler, char const* exp, rtSubscription
   route->subscription = subscription;
   route->message_handler = handler;
   rtString_Copy(route->expression, exp, RTMSG_MAX_EXPRESSION_LEN);
-  rtVector_PushBack(gRoutes, route);
+  rtError rc = rtRoutingTree_AddTopicRoute(gRoutingTree, exp, (void *)route, 0/*ignore duplicate entry*/);
+  if (rc == RT_OK)
+    rc = rtVector_PushBack(gRoutes, route);
+  if (rc != RT_OK)
+  {
+    rtLog_Warn("Failed to add route expression=[%s]: %s", exp, rtStrError(rc));
+    rtRoutingTree_RemoveRoute(gRoutingTree, (void *)route);
+    free(subscription);
+    free(route);
+    return rc;
+  }
   rtLog_Debug("AddRoute route=[%p] address=[%s] expression=[%s]", route, subscription->client->ident, exp);
-  rtRoutingTree_AddTopicRoute(gRoutingTree, exp, (void *)route, 0/*ignfore duplicate entry*/);
   return RT_OK;
 }
 
@@ -816,7 +825,7 @@ rtRouted_OnMessageSubscribe(rtConnectedClient* sender, rtMessageHeader* hdr, uin
           subscription->client = sender;
           rc = rtRouted_AddRoute(rtRouted_ForwardMessage, expression, subscription);
 
-          if(strstr(expression, ".INBOX.") && sender->inbox[0] == '\0')
+          if(rc == RT_OK && strstr(expression, ".INBOX.") && sender->inbox[0] == '\0')
           {
             rtString_Copy(sender->inbox, expression, RTMSG_HEADER_MAX_TOPIC_LENGTH);
             rtLog_Debug("init client inbox to %s", sender->inbox);
@@ -896,7 +905,11 @@ rtRouted_OnMessageHello(rtConnectedClient* sender, rtMessageHeader* hdr, uint8_t
   rtSubscription* subscription = (rtSubscription *) rt_malloc(sizeof(rtSubscription));
   subscription->id = 0;
   subscription->client = sender;
-  rtRouted_AddRoute(rtRouted_ForwardMessage, inbox, subscription);
+  if(RT_OK != rtRouted_AddRoute(rtRouted_ForwardMessage, inbox, subscription))
+  {
+    rtMessage_Release(m);
+    return;
+  }
 
   rtMessage_Release(m);
 

@@ -1864,15 +1864,16 @@ rbusCoreError_t rbus_publishSubscriberEvent(const char* object_name,  const char
 
     directServerLock();
     const rtPrivateClientInfo *pPrivCliInfo = _rbuscore_find_server_privateconnection (event_name, listener);
+    bool hasPrivateConnection = pPrivCliInfo != NULL;
     if(pPrivCliInfo)
     {
         uint8_t* data;
         uint32_t dataLength;
         rbusMessage_ToBytes(out, &data, &dataLength);
-        rtRouteDirect_SendMessage (pPrivCliInfo, data, dataLength, subscriptionId, rawData);
+        ret = translate_rt_error(rtRouteDirect_SendMessage(pPrivCliInfo, data, dataLength, subscriptionId, rawData));
     }
     directServerUnlock();
-    if (!pPrivCliInfo)
+    if (!hasPrivateConnection)
     {
         lock();
         server_object_t obj = get_object(object_name);
@@ -2711,7 +2712,6 @@ rbusServerDMLList_t* rbuscore_FindServerPrivateClient (const char *pParameterNam
                 if ((0 == strncmp(pDmlObj->m_privateDML, pParameterName, MAX_OBJECT_NAME_LENGTH)) &&
                     (0 == strncmp(pDmlObj->m_consumerName, pConsumerName, MAX_OBJECT_NAME_LENGTH)))
                 {
-                    directServerUnlock();
                     return pDmlObj;
                 }
             }
@@ -2726,7 +2726,7 @@ const rtPrivateClientInfo* _rbuscore_find_server_privateconnection(const char *p
     rbusServerDMLList_t *pObj = NULL;
 
     pObj = rbuscore_FindServerPrivateClient (pParameterName, pConsumerName);
-    if(pObj)
+    if(pObj && pObj->m_consumerInfo.clientFD >= 0)
     {
         return &pObj->m_consumerInfo;
     }
@@ -2740,19 +2740,19 @@ rbusCoreError_t rbuscore_updatePrivateListener(const char* pConsumerName, const 
     rbusServerDMLList_t *pObj = NULL;
     if (pConsumerName && pDMLName)
     {
+        directServerLock();
         pObj = rbuscore_FindServerPrivateClient (pDMLName, pConsumerName);
         if (pObj)
         {
-            directServerLock();
             rtVector_RemoveItem(gListOfServerDirectDMLs, pObj, rtVector_Cleanup_Free);
             _rbuscore_directconnection_save_to_cache();
-            directServerUnlock();
         }
         else
         {
             RBUSCORELOG_DEBUG("No Direct Connection for this DML(%s) exist for this consumer(%s)", pDMLName, pConsumerName);
             ret = RBUSCORE_ERROR_INVALID_PARAM;
         }
+        directServerUnlock();
     }
     else
         ret = RBUSCORE_ERROR_INVALID_PARAM;
@@ -2787,6 +2787,25 @@ static rtError _onDirectMessage(uint8_t isClientRequest, rtMessageHeader* hdr, u
 {
     rbusMessage msg = NULL;
     rbusServerDMLList_t *pSubObj;
+
+    if(isClientRequest == RT_DIRECT_CLIENT_DISCONNECTED)
+    {
+        if(!pInBuff || inLength != (int)sizeof(rtPrivateClientInfo))
+        {
+            RBUSCORELOG_ERROR("Invalid private client disconnect notification");
+            return RT_ERROR_INVALID_ARG;
+        }
+        const rtPrivateClientInfo* disconnected = (const rtPrivateClientInfo*)pInBuff;
+        directServerLock();
+        for(size_t i = 0; i < rtVector_Size(gListOfServerDirectDMLs); ++i)
+        {
+            pSubObj = rtVector_At(gListOfServerDirectDMLs, i);
+            if(pSubObj->m_consumerInfo.clientFD == disconnected->clientFD)
+                pSubObj->m_consumerInfo.clientFD = -1;
+        }
+        directServerUnlock();
+        return RT_OK;
+    }
 
     if (isClientRequest)
     {
@@ -2864,6 +2883,7 @@ rbusCoreError_t rbuscore_startPrivateListener(const char* pPrivateConnAddress, c
     int err = 0;
     pthread_t pid;
     rtPrivateClientInfo  privConsInfo = {0};
+    privConsInfo.clientFD = -1;
 
     if (pDMLName && pPrivateConnAddress && handler)
     {

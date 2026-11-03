@@ -1586,7 +1586,7 @@ rtConnection_Read(rtConnection con, int32_t timeout)
         rtLog_Error("Invalid header length %u (buffer capacity %d)",
                     msginfo->header.header_length, con->recv_buffer_capacity);
         rtMessageInfo_Release(msginfo);
-        return RT_ERROR_INVALID_ARG;
+        return RT_NO_CONNECTION;;
       }
       err = rtConnection_ReadUntil(con, con->recv_buffer + RTMESSAGEHEADER_PREAMBLE_LENGTH,
           (msginfo->header.header_length-RTMESSAGEHEADER_PREAMBLE_LENGTH), timeout);
@@ -2065,4 +2065,3 @@ _rtConnection_TaintMessages(int i)
 {
   g_taint_packets = i;
 }
-

@@ -559,6 +559,11 @@ void rbusValue_SetTime(rbusValue_t v, rbusDateTime_t const* tv)
 static void rbusValue_SetBufferData(rbusValue_t v, const void* data, int len, rbusValueType_t type)
 {
     VERIFY_NULL(v);
+    if(len < 0 || len > RBUS_BUFFER_MAX_SIZE)
+    {
+        RBUSLOG_WARN("rbusValue_SetBufferData: invalid length %d", len);
+        return;
+    }
     if((v->type == RBUS_STRING || v->type == RBUS_BYTES) && v->d.bytes)
     {
         assert(v->d.bytes->data);
@@ -588,7 +593,13 @@ void rbusValue_SetString(rbusValue_t v, char const* s)
         v->type = RBUS_STRING;
         return;
     }
-    rbusValue_SetBufferData(v, s, strlen(s)+1, RBUS_STRING);/* +1 to write null terminator */
+    size_t length = strlen(s);
+    if(length >= RBUS_BUFFER_MAX_SIZE)
+    {
+        RBUSLOG_WARN("rbusValue_SetString: string exceeds buffer size limit");
+        return;
+    }
+    rbusValue_SetBufferData(v, s, (int)length+1, RBUS_STRING);/* +1 to write null terminator */
     assert(strlen((char const*)v->d.bytes->data)+1==(size_t)v->d.bytes->posWrite);
     assert(strlen(s)+1==(size_t)v->d.bytes->posWrite);
 }
@@ -680,7 +691,7 @@ void rbusValue_SetTLV(rbusValue_t v, rbusValueType_t type, uint32_t length, void
     {
     /*Calling rbusValue_SetString/rbusValue_SetBuffer so the value's internal buffer is created.*/
     case RBUS_STRING:
-        if (length == 0 || length > INT_MAX ||
+        if (length == 0 || length > RBUS_BUFFER_MAX_SIZE ||
             memchr(value, '\0', length) != (char const*)value + length - 1)
         {
             RBUSLOG_WARN("rbusValue_SetTLV: invalid string length %u", length);
@@ -689,7 +700,7 @@ void rbusValue_SetTLV(rbusValue_t v, rbusValueType_t type, uint32_t length, void
         rbusValue_SetString(v, (char const*)value);
         break;
     case RBUS_BYTES:
-        if (length > INT_MAX)
+        if (length > RBUS_BUFFER_MAX_SIZE)
         {
             RBUSLOG_WARN("rbusValue_SetTLV: invalid byte array length %u", length);
             return;
@@ -710,6 +721,15 @@ void rbusValue_SetTLV(rbusValue_t v, rbusValueType_t type, uint32_t length, void
     case RBUS_SINGLE:  expectedLength = sizeof(float); break;
     case RBUS_DOUBLE:  expectedLength = sizeof(double); break;
     case RBUS_DATETIME: expectedLength = sizeof(rbusDateTime_t); break;
+    case RBUS_NONE:
+         if (length != 0)
+         {
+             RBUSLOG_WARN("rbusValue_SetTLV: invalid length %u for type %d", length, type);
+             return;
+         }
+         rbusValue_FreeInternal(v);
+         v->type = RBUS_NONE;
+         return;
     default:
         RBUSLOG_WARN("rbusValue_SetTLV: unsupported type %d", type);
         return;

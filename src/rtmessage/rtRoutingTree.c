@@ -672,7 +672,11 @@ rtError rtRoutingTree_RemoveTopicRoute(rtRoutingTree rt, const char* topic, cons
     {
         rtTreeTopic* candidate;
         rtListItem_GetData(item, (void**)&candidate);
-        if(strcmp(candidate->fullName, topic) == 0)
+        size_t topicLength = strlen(topic);
+        if(topicLength > 0 && topic[topicLength - 1] == '.')
+             topicLength--;
+        if(strlen(candidate->fullName) == topicLength &&
+            strncmp(candidate->fullName, topic, topicLength) == 0)
         {
             target = candidate;
             break;
@@ -682,8 +686,16 @@ rtError rtRoutingTree_RemoveTopicRoute(rtRoutingTree rt, const char* topic, cons
     if(!target)
         return RT_ERROR_INVALID_ARG;
 
-    rtList_RemoveItemByCompare(target->routeList, entry, rtList_ComparePointer, NULL);
+    while(rtList_RemoveItemByCompare(target->routeList, entry, rtList_ComparePointer, NULL) == RT_OK)
+         ;
     rtList_RemoveItem(entry->topicList, item, NULL);
+    size_t routeCount = 0;
+    rtList_GetSize(target->routeList, &routeCount);
+    if(routeCount == 0)
+    {
+         rtList_Destroy(target->routeList, NULL);
+         target->routeList = NULL;
+    }
 
     /* Rebuild this route's ancestor cache from its remaining registrations. */
     for(rtTreeTopic* parent = target->parent; parent && parent->parent; parent = parent->parent)
@@ -707,6 +719,8 @@ rtError rtRoutingTree_RemoveTopicRoute(rtRoutingTree rt, const char* topic, cons
         rtList_GetSize(target->routeList, &numRoutes);
         if(numChildren || numRoutes)
             break;
+	if(target->name[0] == '{')
+             parent->isTable = 0;
         rtList_RemoveItemByCompare(parent->childList, target, rtList_ComparePointer, freeTreeTopic);
         target = parent;
     }

@@ -181,6 +181,12 @@ rtSocketStorage_FromString(struct sockaddr_storage* ss, char const* addr)
   if (strncmp(addr, "unix://", 7) == 0)
   {
     struct sockaddr_un* un = (struct sockaddr_un*) ss;
+    size_t pathLength = strnlen(addr + 7, sizeof(un->sun_path));
+    if(pathLength >= sizeof(un->sun_path))
+    {
+      rtLog_Warn("Unix socket path exceeds sun_path capacity");
+      return RT_ERROR_INVALID_ARG;
+    }
     un->sun_family = AF_UNIX;
     rtString_Copy(un->sun_path, addr + 7, sizeof(un->sun_path));
     //chmod(un->sun_path, S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH|S_IWOTH);

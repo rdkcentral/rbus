@@ -23,6 +23,64 @@
 #include "rbus_buffer.h"
 #include <float.h>
 
+TEST(rbusValueTest, buffer_rejects_rounding_and_position_overflow)
+{
+  rbusBuffer_t buff;
+  rbusBuffer_Create(&buff);
+  uint8_t byte = 1;
+  int lengths[] = {-1, RBUS_BUFFER_MAX_SIZE + 1, INT_MAX};
+  for(int length : lengths)
+  {
+    rbusBuffer_Reserve(buff, length);
+    rbusBuffer_Write(buff, &byte, length);
+    EXPECT_EQ(0, buff->posWrite);
+    EXPECT_EQ(64, buff->lenAlloc);
+    EXPECT_EQ(buff->block1, buff->data);
+  }
+  buff->posWrite = RBUS_BUFFER_MAX_SIZE;
+  rbusBuffer_Reserve(buff, 1);
+  rbusBuffer_Write(buff, &byte, 1);
+  EXPECT_EQ(RBUS_BUFFER_MAX_SIZE, buff->posWrite);
+  EXPECT_EQ(64, buff->lenAlloc);
+  buff->posWrite = 0;
+  rbusBuffer_Destroy(buff);
+}
+
+TEST(rbusValueTest, tlv_rejects_lengths_exceeding_allocator_limit)
+{
+  rbusValue_t value;
+  rbusValue_Init(&value);
+  rbusValue_SetInt32(value, 42);
+  uint8_t byte = 0;
+  uint32_t lengths[] = {RBUS_BUFFER_MAX_SIZE + 1U, INT_MAX, UINT32_MAX};
+  for(uint32_t length : lengths)
+  {
+    rbusValue_SetTLV(value, RBUS_STRING, length, &byte);
+    EXPECT_EQ(RBUS_INT32, rbusValue_GetType(value));
+    EXPECT_EQ(42, rbusValue_GetInt32(value));
+    rbusValue_SetTLV(value, RBUS_BYTES, length, &byte);
+    EXPECT_EQ(RBUS_INT32, rbusValue_GetType(value));
+    EXPECT_EQ(42, rbusValue_GetInt32(value));
+  }
+  rbusValue_Release(value);
+}
+
+TEST(rbusValueTest, buffer_preserves_block_rounding)
+{
+  rbusBuffer_t buff;
+  rbusBuffer_Create(&buff);
+  uint8_t bytes[64] = {1};
+  rbusBuffer_Write(buff, bytes, sizeof(bytes));
+  EXPECT_EQ(64, buff->posWrite);
+  EXPECT_EQ(64, buff->lenAlloc);
+  rbusBuffer_Write(buff, bytes, sizeof(bytes));
+  EXPECT_EQ(128, buff->posWrite);
+  EXPECT_EQ(192, buff->lenAlloc);
+  EXPECT_EQ(1, buff->data[0]);
+  EXPECT_EQ(1, buff->data[64]);
+  rbusBuffer_Destroy(buff);
+}
+
 TEST(rbusValueTest, tlv_rejects_invalid_datetime_lengths)
 {
   rbusValue_t value;
@@ -1178,4 +1236,3 @@ TEST(rbusValueEncDecTlv, enc_dec_tlv_string)
   sprintf(buffer,"%s","test string");
   exec_encode_decode_tlv_test(RBUS_STRING,buffer);
 }
-
