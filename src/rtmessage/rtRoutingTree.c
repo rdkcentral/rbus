@@ -657,6 +657,67 @@ void rtRoutingTree_RemoveRoute(rtRoutingTree rt, const void* route)
     rtList_RemoveItem(rt->routeList, routeItem, freeTreeRoute);
 }
 
+rtError rtRoutingTree_RemoveTopicRoute(rtRoutingTree rt, const char* topic, const void* route)
+{
+    rtListItem routeItem = NULL;
+    rtTreeRoute* entry = getTreeRoute(rt, route, &routeItem);
+    rtListItem item;
+    rtTreeTopic* target = NULL;
+
+    if(!topic || !entry)
+        return RT_ERROR_INVALID_ARG;
+
+    rtList_GetFront(entry->topicList, &item);
+    while(item)
+    {
+        rtTreeTopic* candidate;
+        rtListItem_GetData(item, (void**)&candidate);
+        if(strcmp(candidate->fullName, topic) == 0)
+        {
+            target = candidate;
+            break;
+        }
+        rtListItem_GetNext(item, &item);
+    }
+    if(!target)
+        return RT_ERROR_INVALID_ARG;
+
+    rtList_RemoveItemByCompare(target->routeList, entry, rtList_ComparePointer, NULL);
+    rtList_RemoveItem(entry->topicList, item, NULL);
+
+    /* Rebuild this route's ancestor cache from its remaining registrations. */
+    for(rtTreeTopic* parent = target->parent; parent && parent->parent; parent = parent->parent)
+        if(parent->routeList2)
+            rtList_RemoveItemByCompare(parent->routeList2, entry, rtList_ComparePointer, NULL);
+    rtList_GetFront(entry->topicList, &item);
+    while(item)
+    {
+        rtTreeTopic* remaining;
+        rtListItem_GetData(item, (void**)&remaining);
+        if(remaining->parent->parent)
+            optimizeTopicsBackpropagate(remaining->parent, entry);
+        rtListItem_GetNext(item, &item);
+    }
+
+    while(target->parent)
+    {
+        size_t numChildren = 0, numRoutes = 0;
+        rtTreeTopic* parent = target->parent;
+        rtList_GetSize(target->childList, &numChildren);
+        rtList_GetSize(target->routeList, &numRoutes);
+        if(numChildren || numRoutes)
+            break;
+        rtList_RemoveItemByCompare(parent->childList, target, rtList_ComparePointer, freeTreeTopic);
+        target = parent;
+    }
+
+    size_t numTopics = 0;
+    rtList_GetSize(entry->topicList, &numTopics);
+    if(numTopics == 0)
+        rtList_RemoveItem(rt->routeList, routeItem, freeTreeRoute);
+    return RT_OK;
+}
+
 void rtRoutingTree_RemoveTopic(rtRoutingTree rt, const char* topic)
 {
     int i;

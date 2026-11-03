@@ -840,9 +840,21 @@ rtRouted_OnMessageSubscribe(rtConnectedClient* sender, rtMessageHeader* hdr, uin
         }
         if(0 == route_removed)
         {
-          //Not a route. Is it an alias?
-          rtLog_Debug("Removing alias %s", expression);
-          rtRoutingTree_RemoveTopic(gRoutingTree, expression);
+          /* Alias removal must be scoped to the requesting client's route. */
+          rc = RT_ERROR_INVALID_ARG;
+          for (i = 0; i < rtVector_Size(gRoutes); i++)
+          {
+            rtRouteEntry* route = (rtRouteEntry *) rtVector_At(gRoutes, i);
+            if (route->subscription && route->subscription->client == sender &&
+                route->subscription->id == route_id &&
+                rtRoutingTree_RemoveTopicRoute(gRoutingTree, expression, route) == RT_OK)
+            {
+              rc = RT_OK;
+              break;
+            }
+          }
+          if(rc != RT_OK)
+            rtLog_Warn("Rejecting unsubscribe for unowned alias %s from %s", expression, sender->ident);
         }
       }
     }
@@ -2113,4 +2125,3 @@ int main(int argc, char* argv[])
 
   return 0;
 }
-
