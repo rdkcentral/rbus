@@ -27,6 +27,9 @@
 #include <sys/types.h>
 #include <signal.h>
 #include <unistd.h>
+#include <fcntl.h>
+#include <errno.h>
+#include <limits.h>
 
 #define VERIFY_NULL(T)         if(NULL == T){ return; }
 #define CACHE_FILE_PATH_FORMAT "%s/rbus_subs_%s"
@@ -431,6 +434,68 @@ static bool rbusSubscriptions_isListenerRunning(char const* listener)
     return true;
 }
 
+static bool rbusSubscriptions_isTrustedCache(struct stat const* st)
+{
+    return S_ISREG(st->st_mode) && st->st_uid == geteuid() &&
+        (st->st_mode & 0077) == 0 && st->st_nlink == 1;
+}
+
+static FILE* rbusSubscriptions_openCache(char const* path, bool write)
+{
+    struct stat before, after;
+    bool exists = lstat(path, &before) == 0;
+    int fd;
+    FILE* file;
+
+    if(!exists && errno != ENOENT)
+    {
+        RBUSLOG_ERROR("failed to inspect cache %s: %s", path, strerror(errno));
+        return NULL;
+    }
+    if(exists && !rbusSubscriptions_isTrustedCache(&before))
+    {
+        RBUSLOG_ERROR("rejecting untrusted cache %s", path);
+        return NULL;
+    }
+    if(!exists && !write)
+        return NULL;
+
+    /* Do not follow links or truncate until the opened inode has been validated. */
+    fd = open(path, (write ? O_WRONLY : O_RDONLY) | O_NOFOLLOW | O_CLOEXEC | O_NONBLOCK |
+        (!exists ? O_CREAT | O_EXCL : 0), 0600);
+    if(fd < 0)
+    {
+        RBUSLOG_ERROR("failed to open cache %s: %s", path, strerror(errno));
+        return NULL;
+    }
+    if(fstat(fd, &after) != 0)
+    {
+        RBUSLOG_ERROR("failed to inspect opened cache %s: %s", path, strerror(errno));
+        close(fd);
+        return NULL;
+    }
+    if(!rbusSubscriptions_isTrustedCache(&after) ||
+        (exists && (before.st_dev != after.st_dev || before.st_ino != after.st_ino)))
+    {
+        RBUSLOG_ERROR("rejecting replaced or untrusted cache %s", path);
+        close(fd);
+        return NULL;
+    }
+    if(write && ftruncate(fd, 0) != 0)
+    {
+        RBUSLOG_ERROR("failed to truncate cache %s: %s", path, strerror(errno));
+        close(fd);
+        return NULL;
+    }
+    file = fdopen(fd, write ? "wb" : "rb");
+    if(!file)
+    {
+        RBUSLOG_ERROR("failed to open cache stream %s: %s", path, strerror(errno));
+        close(fd);
+    }
+    return file;
+}
+
 static void rbusSubscriptions_loadCache(rbusSubscriptions_t subscriptions)
 {
     long size;
@@ -443,30 +508,41 @@ static void rbusSubscriptions_loadCache(rbusSubscriptions_t subscriptions)
     bool needSave = false;
     VERIFY_NULL(subscriptions);
 
-    snprintf(filePath, 256, CACHE_FILE_PATH_FORMAT, subscriptions->tmpDir, subscriptions->componentName);
+    int pathLength = snprintf(filePath, sizeof(filePath), CACHE_FILE_PATH_FORMAT,
+        subscriptions->tmpDir, subscriptions->componentName);
+    if(pathLength < 0 || (size_t)pathLength >= sizeof(filePath))
+    {
+        RBUSLOG_ERROR("subscription cache path is too long");
+        return;
+    }
 
     RBUSLOG_INFO("file %s", filePath);
 
-    file = fopen(filePath, "rb");
+    file = rbusSubscriptions_openCache(filePath, false);
     if(!file)
+        return;
+
+    if(fseek(file, 0, SEEK_END) != 0)
     {
-        RBUSLOG_ERROR("failed to open file %s", filePath);
+        RBUSLOG_ERROR("failed to seek cache %s", filePath);
         goto remove_bad_file;
     }
-
-    fseek(file, 0, SEEK_END);
     size = ftell(file);
-    if(size <= 0)
+    if(size <= 0 || size > INT_MAX - 64)
     {
-        RBUSLOG_DEBUG("file is empty %s", filePath);
+        RBUSLOG_WARN("invalid cache size %ld for %s", size, filePath);
         goto remove_bad_file;
     }
 
     rbusBuffer_Create(&buff);
     VERIFY_NULL(buff);
-    rbusBuffer_Reserve(buff, size);
+    rbusBuffer_Reserve(buff, (int)size);
 
-    fseek(file, 0, SEEK_SET);
+    if(fseek(file, 0, SEEK_SET) != 0)
+    {
+        RBUSLOG_ERROR("failed to rewind cache %s", filePath);
+        goto remove_bad_file;
+    }
     if(fread(buff->data, 1, size, file) != (size_t)size)
     {
         RBUSLOG_ERROR("failed to read entire file %s", filePath);
@@ -630,7 +706,13 @@ static void rbusSubscriptions_saveCache(rbusSubscriptions_t subscriptions)
     rbusSubscription_t* sub;
     char filePath[256];
 
-    snprintf(filePath, 256, CACHE_FILE_PATH_FORMAT, subscriptions->tmpDir, subscriptions->componentName);
+    int pathLength = snprintf(filePath, sizeof(filePath), CACHE_FILE_PATH_FORMAT,
+        subscriptions->tmpDir, subscriptions->componentName);
+    if(pathLength < 0 || (size_t)pathLength >= sizeof(filePath))
+    {
+        RBUSLOG_ERROR("subscription cache path is too long");
+        return;
+    }
 
     RBUSLOG_DEBUG("saving Cache %s", filePath);
 
@@ -646,7 +728,7 @@ static void rbusSubscriptions_saveCache(rbusSubscriptions_t subscriptions)
         return;
     }
 
-    file = fopen(filePath, "wb");
+    file = rbusSubscriptions_openCache(filePath, true);
 
     if(!file)
     {
@@ -682,11 +764,13 @@ static void rbusSubscriptions_saveCache(rbusSubscriptions_t subscriptions)
         rtListItem_GetNext(item, &item);
     }
 
-    fwrite(buff->data, 1, buff->posWrite, file);
+    if(fwrite(buff->data, 1, buff->posWrite, file) != (size_t)buff->posWrite)
+        RBUSLOG_ERROR("failed to write entire cache %s", filePath);
 
     rbusBuffer_Destroy(buff);
 
-    fclose(file);
+    if(fclose(file) != 0)
+        RBUSLOG_ERROR("failed to close cache %s: %s", filePath, strerror(errno));
 }
 
 /*this is basicially a strcmp with the addition that it will ignore any wildcard (e.g. "*") in the event name
@@ -975,4 +1059,3 @@ rbusSubscription_t* rbusSubscriptions_updateExisting(rbusSubscriptions_t subscri
     return NULL;
 }
 #endif
-
