@@ -21,6 +21,7 @@
 #define RTMSG_MAX_EXPRESSION_LEN 128
 #define RTMSG_ADDR_MAX 128
 #define RTMSG_MAX_LISTENING_SOCKETS 5
+#define RT_DIRECT_SOCKET_DIRECTORY_FORMAT "/tmp/rbus-direct-%lu"
 
 typedef struct
 {
@@ -74,10 +75,18 @@ typedef rtError (*rtDriectClientHandler) (uint8_t isClientRequest, rtMessageHead
 /* Disconnect notifications carry rtPrivateClientInfo with the fd to invalidate before close. */
 #define RT_DIRECT_CLIENT_DISCONNECTED 2
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 rtError rtRouteBase_BindListener(char const* socket_name, int no_delay, int indefinite_retry, rtListener **pListener);
 rtError rtRouteBase_CloseListener(rtListener *pListener);
 
 rtError rtRouteDirect_StartInstance(const char* socket_name, rtDriectClientHandler messageHandler);
 rtError rtRouteDirect_SendMessage(const rtPrivateClientInfo* pClient, uint8_t const* pInBuff, int inLength, uint32_t subscriptionId, bool rawData);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __RTROUTEBASE_H__ */

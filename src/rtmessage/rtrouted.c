@@ -840,7 +840,9 @@ rtRouted_OnMessageSubscribe(rtConnectedClient* sender, rtMessageHeader* hdr, uin
         {
           rtRouteEntry* route = (rtRouteEntry *) rtVector_At(gRoutes, i);
 
-          if((route->subscription) && (0 == strncmp(route->expression, expression, RTMSG_MAX_EXPRESSION_LEN)) && (route->subscription->client == sender))
+	  if(route->subscription && route->subscription->client == sender &&
+              route->subscription->id == route_id &&
+              0 == strncmp(route->expression, expression, RTMSG_MAX_EXPRESSION_LEN))
           {
             rtRouted_ClearRoute(route);
             route_removed = 1;
@@ -1687,7 +1689,7 @@ rtConnectedClient_Read(rtConnectedClient* clnt)
         }
         rtEncoder_DecodeUInt16(&itr, &header_length);
         /* Validate the wire length before the next recv writes into the header buffer. */
-        if (header_length <= RTMESSAGEHEADER_PREAMBLE_LENGTH ||
+        if (header_length < RTMESSAGEHEADER_MIN_LENGTH ||
             (size_t)header_length > clnt->read_buffer_capacity)
         {
           rtLog_Warn("Invalid header length %u from %s (buffer capacity %zu)",

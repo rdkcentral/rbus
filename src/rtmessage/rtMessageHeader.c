@@ -96,7 +96,7 @@ rtMessageHeader_Decode(rtMessageHeader* hdr, uint8_t const* buff)
   rtEncoder_DecodeUInt16(&ptr, &hdr->header_length);
   /* Callers receive the complete preamble and declared header before decoding.
      The shortest header is 32 bytes, including both string lengths and markers. */
-  if(hdr->version != RTMSG_HEADER_VERSION || hdr->header_length < 32)
+  if(hdr->version != RTMSG_HEADER_VERSION || hdr->header_length < RTMESSAGEHEADER_MIN_LENGTH)
   {
     rtLog_Warn("Invalid message header version or length: %u/%u", hdr->version, hdr->header_length);
     return RT_ERROR;

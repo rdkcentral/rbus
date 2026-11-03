@@ -54,66 +54,123 @@ rtRouteBase_CloseListener(rtListener *pListener)
 }
 
 
-/*
- * Return 1 if the private direct socket path is absent or was safely removed;
- * return 0 if it exists but cannot safely be identified as stale.
- */
 static int
-rtRouteBase_RemoveStaleDirectSocket(
-    const char* socket_name,
-    const struct sockaddr_storage* endpoint,
-    socklen_t socket_length)
+rtRouteBase_OpenDirectDirectory(const char* directory)
 {
-  static const char direct_socket_prefix[] = "unix:///tmp/.direct_";
-  const char* socket_path;
-  struct stat before, after;
-  int probe_fd;
-  int probe_errno;
-
-  if (strncmp(socket_name, direct_socket_prefix,
-              sizeof(direct_socket_prefix) - 1) != 0)
-    return 0;
-
-  socket_path = socket_name + strlen("unix://");
-
-  if (lstat(socket_path, &before) != 0)
-    return errno == ENOENT;
-
-  /* Do not remove symlinks, non-sockets, or sockets owned by another user. */
-  if (!S_ISSOCK(before.st_mode) || before.st_uid != geteuid())
-    return 0;
-
-  probe_fd = socket(endpoint->ss_family, SOCK_STREAM, 0);
-  if (probe_fd < 0)
-    return 0;
-
-  if (connect(probe_fd, (const struct sockaddr*)endpoint, socket_length) == 0)
+  struct stat st;
+  int tmp_fd = open("/tmp", O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
+  if (tmp_fd < 0)
   {
-    close(probe_fd);
-    return 0; /* A listener is active. */
+    rtLog_Error("Failed to open direct socket parent directory: %s", strerror(errno));
+    return -1;
   }
+  if (fstat(tmp_fd, &st) != 0)
+  {
+    rtLog_Error("Failed to inspect direct socket parent directory: %s", strerror(errno));
+    close(tmp_fd);
+    return -1;
+  }
+  if (st.st_uid != 0 || ((st.st_mode & 0022) != 0 && (st.st_mode & S_ISVTX) == 0))
+  {
+    rtLog_Error("Rejecting untrusted direct socket parent directory");
+    close(tmp_fd);
+    return -1;
+  }
+  bool created = mkdirat(tmp_fd, directory + strlen("/tmp/"), 0711) == 0;
+  if (!created && errno != EEXIST)
+  {
+    rtLog_Error("Failed to create direct socket directory %s: %s", directory, strerror(errno));
+    close(tmp_fd);
+    return -1;
+  }
+  int fd = openat(tmp_fd, directory + strlen("/tmp/"),
+      O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
+  close(tmp_fd);
+  if (fd < 0)
+  {
+    rtLog_Error("Failed to open direct socket directory %s: %s", directory, strerror(errno));
+    return -1;
+  }
+  if (fstat(fd, &st) != 0)
+  {
+    rtLog_Error("Failed to inspect direct socket directory: %s", strerror(errno));
+    close(fd);
+    return -1;
+  }
+  if (st.st_uid != geteuid() || (st.st_mode & 0022) != 0)
+  {
+    rtLog_Error("Rejecting untrusted direct socket directory %s", directory);
+    close(fd);
+    return -1;
+  }
+  /* Permit consumer traversal, but only the provider UID can modify entries. */
+  if (created && fchmod(fd, 0711) != 0)
+  {
+    rtLog_Error("Failed to set direct socket directory permissions: %s", strerror(errno));
+    close(fd);
+    return -1;
+  }
+  if (!created && (st.st_mode & 0777) != 0711)
+  {
+    rtLog_Error("Direct socket directory must have mode 0711: %s", directory);
+    close(fd);
+    return -1;
+  }
+  return fd;
+}
 
-  probe_errno = errno;
-  close(probe_fd);
+static int
+rtRouteBase_LockDirectSocket(int directory_fd, const char* socket_basename)
+{
+  char lock_path[sizeof(((struct sockaddr_un*)0)->sun_path) + sizeof(".lock")];
+  struct stat opened;
+  int length = snprintf(lock_path, sizeof(lock_path), "lock%s", socket_basename);
+  if (length < 0 || (size_t)length >= sizeof(lock_path))
+  {
+    rtLog_Error("Direct socket lock pathname is too long");
+    return -1;
+  }
+  int fd = openat(directory_fd, lock_path,
+      O_RDWR | O_CREAT | O_NOFOLLOW | O_CLOEXEC | O_NONBLOCK, 0600);
+  if (fd < 0)
+  {
+    rtLog_Error("Failed to open direct socket lock %s: %s", lock_path, strerror(errno));
+    return -1;
+  }
+  if (fstat(fd, &opened) != 0)
+  {
+    rtLog_Error("Failed to inspect direct socket lock: %s", strerror(errno));
+    close(fd);
+    return -1;
+  }
+  if (!S_ISREG(opened.st_mode) || opened.st_uid != geteuid() ||
+      opened.st_nlink != 1 || (opened.st_mode & 0077) != 0)
+  {
+    rtLog_Error("Rejecting untrusted direct socket lock %s", lock_path);
+    close(fd);
+    return -1;
+  }
+  if (flock(fd, LOCK_EX | LOCK_NB) != 0)
+  {
+    rtLog_Warn("Cannot acquire direct socket lock %s: %s", lock_path, strerror(errno));
+    close(fd);
+    return -1;
+  }
+  return fd;
+}
 
-  /* Other errors are inconclusive; never unlink on them. */
-  if (probe_errno != ECONNREFUSED && probe_errno != ENOENT)
-    return 0;
-
-  /* Check that the pathname still identifies the same socket before unlinking. */
-  if (lstat(socket_path, &after) != 0)
-    return errno == ENOENT;
-
-  if (!S_ISSOCK(after.st_mode) ||
-      after.st_uid != geteuid() ||
-      before.st_dev != after.st_dev ||
-      before.st_ino != after.st_ino)
-    return 0;
-
-  if (unlink(socket_path) == 0 || errno == ENOENT)
-    return 1;
-
-  return 0;
+/*
+ * Entries are reserved for sockets in the validated owner-writable directory.
+ * Hold the lifecycle lock through removal, bind and teardown. Same-UID and
+ * privileged processes are trusted and must not replace directory entries.
+ */
+static rtError
+rtRouteBase_RemoveDirectSocket(int directory_fd, const char* socket_basename)
+{
+  if (unlinkat(directory_fd, socket_basename, 0) == 0 || errno == ENOENT)
+    return RT_OK;
+  rtLog_Error("Failed to remove direct socket %s: %s", socket_basename, strerror(errno));
+  return RT_FAIL;
 }
 
 rtError
@@ -182,19 +239,6 @@ rtRouteBase_BindListener(char const* socket_name, int no_delay, int indefinite_r
     if (ret == -1)
     {
       int bind_errno = errno;
-
-      if (bind_errno == EADDRINUSE &&
-          listener->local_endpoint.ss_family == AF_UNIX &&
-          rtRouteBase_RemoveStaleDirectSocket(
-              socket_name, &listener->local_endpoint, socket_length))
-      {
-        ret = bind(listener->fd, (struct sockaddr *)&listener->local_endpoint,
-                   socket_length);
-        if (ret == 0)
-          break;
-
-        bind_errno = errno;
-      }
 
       rtError err = rtErrorFromErrno(bind_errno);
       rtLog_Warn("failed to bind socket. %s.  num_retries=%u", rtStrError(err), num_retries);
@@ -482,7 +526,7 @@ rtConnectedClient_Read(rtConnectedClient* clnt, rtRouteEntry* myDirectRoute)
           break;
         }
         rtEncoder_DecodeUInt16(&itr, &header_length);
-        if (header_length <= RTMESSAGEHEADER_PREAMBLE_LENGTH ||
+        if (header_length < RTMESSAGEHEADER_MIN_LENGTH ||
             (size_t)header_length > clnt->read_buffer_capacity)
         {
           rtLog_Warn("Invalid header length %u from %s (buffer capacity %zu)",
@@ -690,8 +734,11 @@ rtRouteDirect_StartInstance(const char* socket_name, rtDriectClientHandler messa
   rtConnectedClient* myDirectClient = NULL;
   rtListener* myDirectListener = NULL;
   rtError result = RT_OK;
-  struct stat socketIdentity;
-  bool haveSocketIdentity = false;
+  char socketDirectory[64];
+  const char* socketBasename = NULL;
+  int socketDirectoryFD = -1;
+  bool ownsSocketPath = false;
+  int socketLockFD = -1;
 
   if (NULL == socket_name)
   {
@@ -702,15 +749,35 @@ rtRouteDirect_StartInstance(const char* socket_name, rtDriectClientHandler messa
   if (strncmp(socket_name, "unix://", 7) == 0)
   {
     char const* socket_path = &socket_name[7];
-    static char const direct_socket_prefix[] = "/tmp/.direct_";
-
-    if (strncmp(socket_path, direct_socket_prefix, sizeof(direct_socket_prefix) - 1) != 0 ||
-        strchr(socket_path + sizeof(direct_socket_prefix) - 1, '/') != NULL ||
-        strstr(socket_path + sizeof(direct_socket_prefix) - 1, "..") != NULL)
+    int directoryLength = snprintf(socketDirectory, sizeof(socketDirectory),
+        RT_DIRECT_SOCKET_DIRECTORY_FORMAT, (unsigned long)geteuid());
+    if (directoryLength < 0 || (size_t)directoryLength >= sizeof(socketDirectory) ||
+        strncmp(socket_path, socketDirectory, (size_t)directoryLength) != 0 ||
+        socket_path[directoryLength] != '/' ||
+        strncmp(socket_path + directoryLength + 1, ".direct_", 8) != 0 ||
+        socket_path[directoryLength + 9] == '\0' ||
+        strchr(socket_path + directoryLength + 1, '/') != NULL ||
+        strstr(socket_path + directoryLength + 1, "..") != NULL ||
+        strnlen(socket_path, sizeof(((struct sockaddr_un*)0)->sun_path)) >=
+            sizeof(((struct sockaddr_un*)0)->sun_path))
     {
       rtLog_Warn("Rejected unsafe private Unix socket path: %s", socket_path);
       return RT_ERROR_INVALID_ARG;
     }
+    socketBasename = socket_path + directoryLength + 1;
+    socketDirectoryFD = rtRouteBase_OpenDirectDirectory(socketDirectory);
+    if (socketDirectoryFD < 0)
+      return RT_FAIL;
+    socketLockFD = rtRouteBase_LockDirectSocket(socketDirectoryFD, socketBasename);
+    if (socketLockFD < 0)
+    {
+      result = RT_FAIL;
+      goto finish;
+    }
+    result = rtRouteBase_RemoveDirectSocket(socketDirectoryFD, socketBasename);
+    if (result != RT_OK)
+      goto finish;
+    ownsSocketPath = true;
   }
 
   pthread_once(&_rtDirectRoute_once, &_rtdirect_route_thread_specific_key);
@@ -720,16 +787,6 @@ rtRouteDirect_StartInstance(const char* socket_name, rtDriectClientHandler messa
   {
     result = RT_FAIL;
     goto finish;
-  }
-  if (strncmp(socket_name, "unix://", 7) == 0)
-  {
-    if (lstat(socket_name + 7, &socketIdentity) != 0)
-    {
-      rtLog_Warn("Failed to inspect bound direct socket: %s", strerror(errno));
-      result = RT_FAIL;
-      goto finish;
-    }
-    haveSocketIdentity = true;
   }
 
   route = (rtRouteEntry *)rt_malloc(sizeof(rtRouteEntry));
@@ -825,14 +882,16 @@ finish:
     rtRouteBase_CloseListener(myDirectListener);
     free(myDirectListener);
   }
-  if (haveSocketIdentity)
+  if (ownsSocketPath)
   {
-    struct stat current;
-    if (lstat(socket_name + 7, &current) != 0 ||
-        current.st_dev != socketIdentity.st_dev || current.st_ino != socketIdentity.st_ino)
-      rtLog_Warn("Direct socket pathname changed; leaving it untouched: %s", socket_name + 7);
-    else if (unlink(socket_name + 7) != 0)
-      rtLog_Warn("Failed to remove socket file %s", socket_name + 7);
+    rtError cleanupResult = rtRouteBase_RemoveDirectSocket(socketDirectoryFD, socketBasename);
+    if (cleanupResult != RT_OK)
+      result = cleanupResult;
   }
+  /* Never unlink the lock file: other processes must lock the same inode. */
+  if (socketLockFD >= 0 && close(socketLockFD) != 0)
+    rtLog_Warn("Failed to close direct socket lock: %s", strerror(errno));
+  if (socketDirectoryFD >= 0 && close(socketDirectoryFD) != 0)
+    rtLog_Warn("Failed to close direct socket directory: %s", strerror(errno));
   return result;
 }

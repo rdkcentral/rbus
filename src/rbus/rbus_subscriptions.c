@@ -442,42 +442,51 @@ static bool rbusSubscriptions_isTrustedCache(struct stat const* st)
 
 static FILE* rbusSubscriptions_openCache(char const* path, bool write)
 {
-    struct stat before, after;
-    bool exists = lstat(path, &before) == 0;
+    struct stat opened;
+    int flags = (write ? O_WRONLY : O_RDONLY) | O_NOFOLLOW | O_CLOEXEC | O_NONBLOCK;
     int fd;
     FILE* file;
 
-    if(!exists && errno != ENOENT)
-    {
-        RBUSLOG_ERROR("failed to inspect cache %s: %s", path, strerror(errno));
-        return NULL;
-    }
-    if(exists && !rbusSubscriptions_isTrustedCache(&before))
-    {
-        RBUSLOG_ERROR("rejecting untrusted cache %s", path);
-        return NULL;
-    }
-    if(!exists && !write)
-        return NULL;
-
     /* Do not follow links or truncate until the opened inode has been validated. */
-    fd = open(path, (write ? O_WRONLY : O_RDONLY) | O_NOFOLLOW | O_CLOEXEC | O_NONBLOCK |
-        (!exists ? O_CREAT | O_EXCL : 0), 0600);
+    fd = open(path, flags);
+    if(fd < 0 && errno == ENOENT)
+    {
+        if(!write)
+            return NULL;
+        fd = open(path, flags | O_CREAT | O_EXCL, 0600);
+    }
     if(fd < 0)
     {
         RBUSLOG_ERROR("failed to open cache %s: %s", path, strerror(errno));
         return NULL;
     }
-    if(fstat(fd, &after) != 0)
+    if(fstat(fd, &opened) != 0)
     {
         RBUSLOG_ERROR("failed to inspect opened cache %s: %s", path, strerror(errno));
         close(fd);
         return NULL;
     }
-    if(!rbusSubscriptions_isTrustedCache(&after) ||
-        (exists && (before.st_dev != after.st_dev || before.st_ino != after.st_ino)))
+    /* Migrate legacy readable caches, but never trust externally writable files. */
+    if(S_ISREG(opened.st_mode) && opened.st_uid == geteuid() &&
+        opened.st_nlink == 1 && (opened.st_mode & 0033) == 0 &&
+        (opened.st_mode & 0044) != 0)
     {
-        RBUSLOG_ERROR("rejecting replaced or untrusted cache %s", path);
+        if(fchmod(fd, 0600) != 0)
+        {
+            RBUSLOG_ERROR("failed to secure legacy cache %s: %s", path, strerror(errno));
+            close(fd);
+            return NULL;
+        }
+        if(fstat(fd, &opened) != 0)
+        {
+            RBUSLOG_ERROR("failed to inspect migrated cache %s: %s", path, strerror(errno));
+            close(fd);
+            return NULL;
+        }
+    }
+    if(!rbusSubscriptions_isTrustedCache(&opened))
+    {
+        RBUSLOG_ERROR("rejecting untrusted cache %s", path);
         close(fd);
         return NULL;
     }
