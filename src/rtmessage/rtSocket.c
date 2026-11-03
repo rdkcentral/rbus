@@ -170,6 +170,12 @@ rtSocketStorage_FromString(struct sockaddr_storage* ss, char const* addr)
   struct sockaddr_in* v4;
   struct sockaddr_in6* v6;
 
+  if (!ss || !addr)
+  {
+    rtLog_Error("rtSocketStorage_FromString: endpoint or address is NULL");
+    return RT_ERROR_INVALID_ARG;
+  }
+
   memset(ip, 0, sizeof(ip));
 
   if (strncmp(addr, "unix://", 7) == 0)
@@ -196,7 +202,15 @@ rtSocketStorage_FromString(struct sockaddr_storage* ss, char const* addr)
     return RT_ERROR_INVALID_ARG;
   }
 
-  rtString_Copy(ip, addr + 6, (uint32_t)(p - addr - 6 + 1));
+  size_t ip_length = (size_t)(p - (addr + 6));
+  /* Reserve one byte for the terminator; never truncate an endpoint address. */
+  if (ip_length == 0 || ip_length >= sizeof(ip))
+  {
+    rtLog_Warn("invalid TCP host length:%zu", ip_length);
+    return RT_ERROR_INVALID_ARG;
+  }
+  memcpy(ip, addr + 6, ip_length);
+  ip[ip_length] = '\0';
   rtLog_Debug("parsing ip address:%s", ip);
   if (!rtSocket_IsNumeric(ip))
   {
@@ -266,3 +280,4 @@ rtSocketAddrStorage_GetLength(struct sockaddr_storage* ss, socklen_t* len)
 
   return RT_OK;
 }
+
