@@ -23,6 +23,37 @@
 #include "rbus_buffer.h"
 #include <float.h>
 
+TEST(rbusValueTest, tlv_rejects_invalid_datetime_lengths)
+{
+  rbusValue_t value;
+  rbusValue_Init(&value);
+  rbusValue_SetInt32(value, 42);
+  rbusDateTime_t datetime = {};
+  uint32_t lengths[] = {0, sizeof(datetime) - 1, sizeof(datetime) + 1, UINT32_MAX};
+  for(uint32_t length : lengths)
+  {
+    rbusValue_SetTLV(value, RBUS_DATETIME, length, &datetime);
+    EXPECT_EQ(RBUS_INT32, rbusValue_GetType(value));
+    EXPECT_EQ(42, rbusValue_GetInt32(value));
+  }
+  rbusValue_SetTLV(value, RBUS_DATETIME, sizeof(datetime), &datetime);
+  EXPECT_EQ(RBUS_DATETIME, rbusValue_GetType(value));
+  EXPECT_EQ(sizeof(datetime), rbusValue_GetL(value));
+  rbusValue_Release(value);
+}
+
+TEST(rbusValueTest, tlv_rejects_unknown_type_without_copying)
+{
+  rbusValue_t value;
+  rbusValue_Init(&value);
+  rbusValue_SetInt32(value, 42);
+  uint8_t byte = 0;
+  rbusValue_SetTLV(value, static_cast<rbusValueType_t>(0x7fff), UINT32_MAX, &byte);
+  EXPECT_EQ(RBUS_INT32, rbusValue_GetType(value));
+  EXPECT_EQ(42, rbusValue_GetInt32(value));
+  rbusValue_Release(value);
+}
+
 TEST(rbusValueTest, validate_types)
 {
   rbusValue_t val;
@@ -1147,3 +1178,4 @@ TEST(rbusValueEncDecTlv, enc_dec_tlv_string)
   sprintf(buffer,"%s","test string");
   exec_encode_decode_tlv_test(RBUS_STRING,buffer);
 }
+

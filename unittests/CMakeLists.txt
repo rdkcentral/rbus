@@ -78,6 +78,8 @@ enable_testing()
 
 add_executable(rbus_gtest.bin
   rbusValueTest.cpp
+  rtRoutingTreeTest.cpp
+  ${PROJECT_SOURCE_DIR}/src/rtmessage/rtRoutingTree.c
   rbusTokenTest.cpp
   rbusElementTest.cpp
   rbusFunctionalityTest.cpp

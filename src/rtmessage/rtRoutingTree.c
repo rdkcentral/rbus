@@ -114,31 +114,25 @@ static void freeTreeRoute(void* p)
 
 static int validateExpression(const char* expr)
 {
-    int token_count = 0;
-    int token_length = 0;
-    int result = 0;
+    int token_count;
 
+    if(!expr || strnlen(expr, MAX_TOKEN_BUFFER_SIZE) >= MAX_TOKEN_BUFFER_SIZE)
+        return -1;
+
+    token_count = *expr ? 1 : 0;
     while(*expr)
     {
         if(*expr == '.')
-	{
-	    if(*(expr + 1) == '.')
-	    {
-	       result = -1;
-	       break;
-	    }
-	    token_count++;
-	}
-        token_length++;
-        expr++;	
+        {
+            if(*(expr + 1) == '.')
+                return -1;
+            if(*(expr + 1))
+                token_count++;
+        }
+        expr++;
     }
 
-    if((token_length > MAX_TOKEN_BUFFER_SIZE) || (token_count > MAX_TOKENS))
-    {
-        result = -1;
-    }
-
-    return result;
+    return token_count > MAX_TOKENS ? -1 : 0;
 }
 
 static void tokenizeExpression(const char* expression)
@@ -147,6 +141,12 @@ static void tokenizeExpression(const char* expression)
     const char* from = expression;
     char* to = workBuffer;
     workTokenCount = 0;
+    /* Every caller must leave room for token terminators and stay within workTokens. */
+    if(validateExpression(expression) < 0)
+    {
+        rtLog_Warn("Rejecting invalid routing expression");
+        return;
+    }
     while(*from)
     {
         workTokens[i].name = to;
