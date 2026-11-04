@@ -1735,7 +1735,7 @@ static void _set_callback_handler (rbusHandle_t handle, rbusMessage request, rbu
         pProperties = (rbusProperty_t*)rt_try_malloc(numVals*sizeof(rbusProperty_t));
         if(pProperties)
         {
-             memset(pProperties, 0, numVals * sizeof(rbusProperty_t));
+            memset(pProperties, 0, numVals * sizeof(rbusProperty_t));
             for (loopCnt = 0; loopCnt < numVals; loopCnt++)
             {
                 rc = rbusProperty_initFromMessage(&pProperties[loopCnt], request);

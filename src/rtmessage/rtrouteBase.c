@@ -1124,6 +1124,8 @@ rtRouteDirect_StartInstance(const char* socket_name, rtDriectClientHandler messa
   }
 
 finish:
+  free(route);
+  route = NULL;
   rtRouteDirect_CleanupInstance(&cleanup);
   pthread_cleanup_pop(0);
   pthread_setcancelstate(previousCancelState, NULL);

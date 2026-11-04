@@ -2507,6 +2507,7 @@ typedef struct _rbusServerDMLList
     pthread_t               m_pid;
     rbus_callback_t         m_fnCallbackHandler;
     void*                   m_fnCallbackuserData;
+    struct _rbusServerDMLList* m_cleanupNext;
 } rbusServerDMLList_t;
 
 typedef struct _server_directHandler
@@ -2537,39 +2538,59 @@ static int _findPrivateServerDML(const void* left, const void* right)
 
 static void _rbuscore_destroy_serverPrivate_connections()
 {
+    rbusServerDMLList_t *detached = NULL;
     directServerLock();
     while(rtVector_Size(gListOfServerDirectDMLs) > 0)
     {
         rbusServerDMLList_t *obj = rtVector_At(gListOfServerDirectDMLs, 0);
         rtVector_RemoveItem(gListOfServerDirectDMLs, obj, NULL);
+        obj->m_cleanupNext = detached;
+        detached = obj;
+    }
+    directServerUnlock();
 
-        /* Multiple DML entries can share one listener thread. */
-        if(obj->m_pid)
+    bool allJoined = true;
+    for(rbusServerDMLList_t *obj = detached; obj; obj = obj->m_cleanupNext)
+    {
+        if(!obj->m_pid)
+            continue;
+        bool alreadyHandled = false;
+        for(rbusServerDMLList_t *entry = detached; entry != obj; entry = entry->m_cleanupNext)
         {
-            size_t i = 0;
-            while(i < rtVector_Size(gListOfServerDirectDMLs))
+            if(entry->m_pid && pthread_equal(entry->m_pid, obj->m_pid))
             {
-                rbusServerDMLList_t *entry = rtVector_At(gListOfServerDirectDMLs, i);
-                if(entry->m_pid && pthread_equal(entry->m_pid, obj->m_pid))
-                    rtVector_RemoveItem(gListOfServerDirectDMLs, entry, rtVector_Cleanup_Free);
-                else
-                    ++i;
+                alreadyHandled = true;
+                break;
             }
         }
-        directServerUnlock();
+        if(alreadyHandled)
+            continue;
 
-        if(obj->m_pid)
+        int err = pthread_cancel(obj->m_pid);
+        if(err != 0)
+            RBUSCORELOG_ERROR("Failed to cancel private listener: %s", strerror(err));
+        err = pthread_join(obj->m_pid, NULL);
+        if(err != 0)
         {
-            int err = pthread_cancel(obj->m_pid);
-            if(err != 0)
-                RBUSCORELOG_ERROR("Failed to cancel private listener: %s", strerror(err));
-            err = pthread_join(obj->m_pid, NULL);
-            if(err != 0)
-                RBUSCORELOG_ERROR("Failed to join private listener: %s", strerror(err));
+            RBUSCORELOG_ERROR("Failed to join private listener: %s", strerror(err));
+            allJoined = false;
         }
-        free(obj);
-        directServerLock();
     }
+
+    if(!allJoined)
+    {
+        RBUSCORELOG_ERROR("Retaining private listener records and registry because a listener may still be running");
+        return;
+    }
+
+    /* A callback may hold any selected entry until its listener has exited. */
+    while(detached)
+    {
+        rbusServerDMLList_t *next = detached->m_cleanupNext;
+        free(detached);
+        detached = next;
+    }
+    directServerLock();
     rtVector_Destroy(gListOfServerDirectDMLs, NULL);
     gListOfServerDirectDMLs = NULL;
     directServerUnlock();
