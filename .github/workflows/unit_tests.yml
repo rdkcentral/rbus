@@ -58,6 +58,8 @@ jobs:
           cd install/usr
           export PREFIX=$PWD
           export LD_LIBRARY_PATH=$PREFIX/lib
+          sudo install -d -m 0755 -o root -g root /run/rbus-direct
+          sudo install -d -m 0711 -o "$(id -u)" -g "$(id -g)" "/run/rbus-direct/$(id -u)"
           nohup ./bin/rtrouted -f -l DEBUG > /tmp/rtrouted_log.txt &
       - name: Run drop test with inactive provider
         continue-on-error: true
@@ -137,7 +139,7 @@ jobs:
           cd install/usr
           export PREFIX=$PWD
           export LD_LIBRARY_PATH=$PREFIX/lib
-          ./bin/rtrouted_diag shutdown
+          sudo env LD_LIBRARY_PATH="$LD_LIBRARY_PATH" "$PREFIX/bin/rtrouted_diag" shutdown
       - name:  Run CodeCoverage
         run: |
             rm -rf /tmp/rtrouted*

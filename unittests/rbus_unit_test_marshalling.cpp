@@ -24,9 +24,14 @@ Test Case : Testing Marshalling APIs
 #include <unistd.h>
 #include <string.h>
 #include "rbuscore_message.h"
+#include "rbus.h"
 
 extern "C" {
-
+rbusError_t rbusPropertyList_initFromMessage(rbusProperty_t* prop, rbusMessage msg);
+rbusError_t rbusValue_initFromMessage(rbusValue_t* value, rbusMessage msg);
+rbusError_t rbusObject_initFromMessage(rbusObject_t* obj, rbusMessage msg);
+rbusError_t rbusFilter_InitFromMessage(rbusFilter_t* filter, rbusMessage msg);
+rbusError_t _getExt_response_parser(rbusMessage response, int* numValues, rbusProperty_t* retProperties);
 }
 #include "gtest_app.h"
 
@@ -74,6 +79,249 @@ static void TearDownTestCase()
 TEST_F(TestMarshallingAPIs, sample_test)
 {
     EXPECT_EQ(1, 1);
+}
+
+static void appendBooleanProperty(rbusMessage message, bool valid)
+{
+    uint8_t bytes[] = {1, 0};
+    rbusMessage_SetString(message, "Test.Boolean");
+    rbusMessage_SetInt32(message, RBUS_BOOLEAN);
+    rbusMessage_SetBytes(message, bytes, valid ? 1 : sizeof(bytes));
+}
+
+TEST_F(TestMarshallingAPIs, getExt_rejects_invalid_property_at_each_position)
+{
+    for(int invalid = 0; invalid < 3; ++invalid)
+    {
+        rbusMessage message;
+        rbusProperty_t properties = NULL;
+        int count = -1;
+        rbusMessage_Init(&message);
+        rbusMessage_SetInt32(message, RBUS_ERROR_SUCCESS);
+        rbusMessage_SetInt32(message, 3);
+        for(int i = 0; i < 3; ++i)
+            appendBooleanProperty(message, i != invalid);
+
+        EXPECT_EQ(RBUS_ERROR_INVALID_INPUT, _getExt_response_parser(message, &count, &properties));
+        EXPECT_EQ(0, count);
+        EXPECT_EQ(nullptr, properties);
+        rbusProperty_Release(properties);
+    }
+}
+
+TEST_F(TestMarshallingAPIs, getExt_preserves_valid_properties)
+{
+    rbusMessage message;
+    rbusProperty_t properties = NULL;
+    int count = 0;
+    rbusMessage_Init(&message);
+    rbusMessage_SetInt32(message, RBUS_ERROR_SUCCESS);
+    rbusMessage_SetInt32(message, 3);
+    for(int i = 0; i < 3; ++i)
+        appendBooleanProperty(message, true);
+
+    EXPECT_EQ(RBUS_ERROR_SUCCESS, _getExt_response_parser(message, &count, &properties));
+    EXPECT_EQ(3, count);
+    EXPECT_EQ(3, rbusProperty_Count(properties));
+    for(rbusProperty_t current = properties; current; current = rbusProperty_GetNext(current))
+        EXPECT_TRUE(rbusValue_GetBoolean(rbusProperty_GetValue(current)));
+    rbusProperty_Release(properties);
+}
+
+TEST_F(TestMarshallingAPIs, property_list_rejects_invalid_property_at_each_position)
+{
+    for(int invalid = 0; invalid < 3; ++invalid)
+    {
+        rbusMessage message;
+        rbusProperty_t properties = NULL;
+        rbusMessage_Init(&message);
+        rbusMessage_SetInt32(message, 3);
+        for(int i = 0; i < 3; ++i)
+            appendBooleanProperty(message, i != invalid);
+
+        EXPECT_EQ(RBUS_ERROR_INVALID_INPUT, rbusPropertyList_initFromMessage(&properties, message));
+        EXPECT_EQ(nullptr, properties);
+        rbusProperty_Release(properties);
+        rbusMessage_Release(message);
+    }
+}
+
+TEST_F(TestMarshallingAPIs, nested_property_value_propagates_failure)
+{
+    for(int invalid = 0; invalid < 3; ++invalid)
+    {
+        rbusMessage message;
+        rbusValue_t value = NULL;
+        rbusMessage_Init(&message);
+        rbusMessage_SetInt32(message, RBUS_PROPERTY);
+        rbusMessage_SetInt32(message, 3);
+        for(int i = 0; i < 3; ++i)
+            appendBooleanProperty(message, i != invalid);
+        EXPECT_EQ(RBUS_ERROR_INVALID_INPUT, rbusValue_initFromMessage(&value, message));
+        EXPECT_EQ(nullptr, value);
+        rbusMessage_Release(message);
+    }
+}
+
+static void appendObjectHeader(rbusMessage message, const char* name)
+{
+    rbusMessage_SetString(message, name);
+    rbusMessage_SetInt32(message, RBUS_OBJECT_SINGLE_INSTANCE);
+}
+
+TEST_F(TestMarshallingAPIs, nested_object_stops_before_child_count_on_property_failure)
+{
+    rbusMessage message;
+    rbusValue_t value = NULL;
+    rbusMessage_Init(&message);
+    rbusMessage_SetInt32(message, RBUS_OBJECT);
+    appendObjectHeader(message, "root");
+    rbusMessage_SetInt32(message, 2);
+    appendBooleanProperty(message, true);
+    appendBooleanProperty(message, false);
+    rbusMessage_SetInt32(message, 123);
+    EXPECT_EQ(RBUS_ERROR_INVALID_INPUT, rbusValue_initFromMessage(&value, message));
+    EXPECT_EQ(nullptr, value);
+    int32_t unread = 0;
+    EXPECT_EQ(RT_OK, rbusMessage_GetInt32(message, &unread));
+    EXPECT_EQ(123, unread);
+    rbusMessage_Release(message);
+}
+
+TEST_F(TestMarshallingAPIs, object_releases_valid_children_when_later_child_fails)
+{
+    rbusMessage message;
+    rbusObject_t object = NULL;
+    rbusMessage_Init(&message);
+    appendObjectHeader(message, "root");
+    rbusMessage_SetInt32(message, 0);
+    rbusMessage_SetInt32(message, 2);
+    appendObjectHeader(message, "valid");
+    rbusMessage_SetInt32(message, 1);
+    appendBooleanProperty(message, true);
+    rbusMessage_SetInt32(message, 0);
+    appendObjectHeader(message, "invalid");
+    rbusMessage_SetInt32(message, 1);
+    appendBooleanProperty(message, false);
+    EXPECT_EQ(RBUS_ERROR_INVALID_INPUT, rbusObject_initFromMessage(&object, message));
+    EXPECT_EQ(nullptr, object);
+    rbusMessage_Release(message);
+}
+
+TEST_F(TestMarshallingAPIs, empty_nested_property_list_is_valid)
+{
+    rbusMessage message;
+    rbusValue_t value = NULL;
+    rbusMessage_Init(&message);
+    rbusMessage_SetInt32(message, RBUS_PROPERTY);
+    rbusMessage_SetInt32(message, 0);
+    ASSERT_EQ(RBUS_ERROR_SUCCESS, rbusValue_initFromMessage(&value, message));
+    ASSERT_NE(nullptr, value);
+    EXPECT_EQ(RBUS_PROPERTY, rbusValue_GetType(value));
+    EXPECT_EQ(nullptr, rbusValue_GetProperty(value));
+    rbusValue_Release(value);
+    rbusMessage_Release(message);
+}
+
+TEST_F(TestMarshallingAPIs, valid_object_deserialization_preserves_children)
+{
+    rbusMessage message;
+    rbusObject_t object = NULL;
+    rbusMessage_Init(&message);
+    appendObjectHeader(message, "root");
+    rbusMessage_SetInt32(message, 1);
+    appendBooleanProperty(message, true);
+    rbusMessage_SetInt32(message, 1);
+    appendObjectHeader(message, "child");
+    rbusMessage_SetInt32(message, 0);
+    rbusMessage_SetInt32(message, 0);
+    ASSERT_EQ(RBUS_ERROR_SUCCESS, rbusObject_initFromMessage(&object, message));
+    ASSERT_NE(nullptr, object);
+    EXPECT_STREQ("root", rbusObject_GetName(object));
+    EXPECT_TRUE(rbusValue_GetBoolean(rbusObject_GetValue(object, "Test.Boolean")));
+    ASSERT_NE(nullptr, rbusObject_GetChildren(object));
+    EXPECT_STREQ("child", rbusObject_GetName(rbusObject_GetChildren(object)));
+    rbusObject_Release(object);
+    rbusMessage_Release(message);
+}
+
+TEST_F(TestMarshallingAPIs, rejects_negative_property_and_child_counts)
+{
+    rbusMessage message;
+    rbusProperty_t properties = NULL;
+    rbusObject_t object = NULL;
+    rbusMessage_Init(&message);
+    rbusMessage_SetInt32(message, -1);
+    EXPECT_EQ(RBUS_ERROR_INVALID_INPUT, rbusPropertyList_initFromMessage(&properties, message));
+    EXPECT_EQ(nullptr, properties);
+    rbusMessage_Release(message);
+
+    rbusMessage_Init(&message);
+    appendObjectHeader(message, "root");
+    rbusMessage_SetInt32(message, 0);
+    rbusMessage_SetInt32(message, -1);
+    EXPECT_EQ(RBUS_ERROR_INVALID_INPUT, rbusObject_initFromMessage(&object, message));
+    EXPECT_EQ(nullptr, object);
+    rbusMessage_Release(message);
+}
+
+TEST_F(TestMarshallingAPIs, logic_filter_rejects_invalid_child_at_each_position)
+{
+    for(int invalid = 0; invalid < 2; ++invalid)
+    {
+        rbusMessage message;
+        rbusFilter_t filter = NULL;
+        rbusMessage_Init(&message);
+        rbusMessage_SetInt32(message, RBUS_FILTER_EXPRESSION_LOGIC);
+        rbusMessage_SetInt32(message, RBUS_FILTER_OPERATOR_AND);
+        for(int i = 0; i < 2; ++i)
+        {
+            rbusMessage_SetInt32(message, RBUS_FILTER_EXPRESSION_RELATION);
+            rbusMessage_SetInt32(message, RBUS_FILTER_OPERATOR_EQUAL);
+            appendBooleanProperty(message, i != invalid);
+        }
+        EXPECT_EQ(RBUS_ERROR_INVALID_INPUT, rbusFilter_InitFromMessage(&filter, message));
+        EXPECT_EQ(nullptr, filter);
+        rbusMessage_Release(message);
+    }
+}
+
+TEST_F(TestMarshallingAPIs, malformed_batch_preserves_previously_cached_properties)
+{
+    rbusMessage message;
+    rbusProperty_t cached = NULL, batch = NULL;
+    rbusMessage_Init(&message);
+    rbusMessage_SetInt32(message, 1);
+    appendBooleanProperty(message, true);
+    ASSERT_EQ(RBUS_ERROR_SUCCESS, rbusPropertyList_initFromMessage(&cached, message));
+    rbusMessage_Release(message);
+
+    rbusMessage_Init(&message);
+    rbusMessage_SetInt32(message, 2);
+    appendBooleanProperty(message, true);
+    appendBooleanProperty(message, false);
+    EXPECT_EQ(RBUS_ERROR_INVALID_INPUT, rbusPropertyList_initFromMessage(&batch, message));
+    EXPECT_EQ(nullptr, batch);
+    EXPECT_EQ(1U, rbusProperty_Count(cached));
+    EXPECT_TRUE(rbusValue_GetBoolean(rbusProperty_GetValue(cached)));
+    rbusProperty_Release(cached);
+    rbusMessage_Release(message);
+}
+
+TEST_F(TestMarshallingAPIs, filter_rejects_malformed_nested_value)
+{
+    rbusMessage message;
+    rbusFilter_t filter = NULL;
+    rbusMessage_Init(&message);
+    rbusMessage_SetInt32(message, RBUS_FILTER_EXPRESSION_RELATION);
+    rbusMessage_SetInt32(message, RBUS_FILTER_OPERATOR_EQUAL);
+    rbusMessage_SetString(message, "filter");
+    rbusMessage_SetInt32(message, RBUS_PROPERTY);
+    rbusMessage_SetInt32(message, 1);
+    appendBooleanProperty(message, false);
+    EXPECT_EQ(RBUS_ERROR_INVALID_INPUT, rbusFilter_InitFromMessage(&filter, message));
+    EXPECT_EQ(nullptr, filter);
+    rbusMessage_Release(message);
 }
 
 TEST_F(TestMarshallingAPIs, rbusMessage_SetString_test1)

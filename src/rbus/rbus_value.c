@@ -559,6 +559,11 @@ void rbusValue_SetTime(rbusValue_t v, rbusDateTime_t const* tv)
 static void rbusValue_SetBufferData(rbusValue_t v, const void* data, int len, rbusValueType_t type)
 {
     VERIFY_NULL(v);
+    if(len < 0 || len > RBUS_BUFFER_MAX_SIZE)
+    {
+        RBUSLOG_WARN("rbusValue_SetBufferData: invalid length %d", len);
+        return;
+    }
     if((v->type == RBUS_STRING || v->type == RBUS_BYTES) && v->d.bytes)
     {
         assert(v->d.bytes->data);
@@ -588,7 +593,13 @@ void rbusValue_SetString(rbusValue_t v, char const* s)
         v->type = RBUS_STRING;
         return;
     }
-    rbusValue_SetBufferData(v, s, strlen(s)+1, RBUS_STRING);/* +1 to write null terminator */
+    size_t length = strlen(s);
+    if(length >= RBUS_BUFFER_MAX_SIZE)
+    {
+        RBUSLOG_WARN("rbusValue_SetString: string exceeds buffer size limit");
+        return;
+    }
+    rbusValue_SetBufferData(v, s, (int)length+1, RBUS_STRING);/* +1 to write null terminator */
     assert(strlen((char const*)v->d.bytes->data)+1==(size_t)v->d.bytes->posWrite);
     assert(strlen(s)+1==(size_t)v->d.bytes->posWrite);
 }
@@ -668,23 +679,72 @@ uint32_t rbusValue_GetL(rbusValue_t v)
 
 void rbusValue_SetTLV(rbusValue_t v, rbusValueType_t type, uint32_t length, void const* value)
 {
-    VERIFY_NULL(v);
-    VERIFY_NULL(value);
+    size_t expectedLength;
+
+    if (!v || !value)
+    {
+        RBUSLOG_WARN("rbusValue_SetTLV: value handle or data is NULL");
+        return;
+    }
 
     switch(type)
     {
     /*Calling rbusValue_SetString/rbusValue_SetBuffer so the value's internal buffer is created.*/
     case RBUS_STRING:
+        if (length == 0 || length > RBUS_BUFFER_MAX_SIZE ||
+            memchr(value, '\0', length) != (char const*)value + length - 1)
+        {
+            RBUSLOG_WARN("rbusValue_SetTLV: invalid string length %u", length);
+            return;
+        }
         rbusValue_SetString(v, (char const*)value);
         break;
     case RBUS_BYTES:
-        rbusValue_SetBytes(v, value, length);
+        if (length > RBUS_BUFFER_MAX_SIZE)
+        {
+            RBUSLOG_WARN("rbusValue_SetTLV: invalid byte array length %u", length);
+            return;
+        }
+        rbusValue_SetBytes(v, value, (int)length);
         break;
+    case RBUS_BOOLEAN: expectedLength = sizeof(bool); break;
+    case RBUS_CHAR:    expectedLength = sizeof(char); break;
+    case RBUS_BYTE:    expectedLength = sizeof(unsigned char); break;
+    case RBUS_INT8:    expectedLength = sizeof(int8_t); break;
+    case RBUS_UINT8:   expectedLength = sizeof(uint8_t); break;
+    case RBUS_INT16:   expectedLength = sizeof(int16_t); break;
+    case RBUS_UINT16:  expectedLength = sizeof(uint16_t); break;
+    case RBUS_INT32:   expectedLength = sizeof(int32_t); break;
+    case RBUS_UINT32:  expectedLength = sizeof(uint32_t); break;
+    case RBUS_INT64:   expectedLength = sizeof(int64_t); break;
+    case RBUS_UINT64:  expectedLength = sizeof(uint64_t); break;
+    case RBUS_SINGLE:  expectedLength = sizeof(float); break;
+    case RBUS_DOUBLE:  expectedLength = sizeof(double); break;
+    case RBUS_DATETIME: expectedLength = sizeof(rbusDateTime_t); break;
+    case RBUS_NONE:
+         if (length != 0)
+         {
+             RBUSLOG_WARN("rbusValue_SetTLV: invalid length %u for type %d", length, type);
+             return;
+         }
+         rbusValue_FreeInternal(v);
+         v->type = RBUS_NONE;
+         return;
     default:
+        RBUSLOG_WARN("rbusValue_SetTLV: unsupported type %d", type);
+        return;
+    }
+
+    if (type != RBUS_STRING && type != RBUS_BYTES)
+    {
+        if (length != expectedLength)
+        {
+            RBUSLOG_WARN("rbusValue_SetTLV: invalid length %u for type %d", length, type);
+            return;
+        }
         rbusValue_FreeInternal(v);
         v->type = type;
-        memcpy(&v->d.b, value, length);
-        break;
+        memcpy(&v->d.b, value, expectedLength);
     }
     assert(rbusValue_GetL(v) == length);
 }

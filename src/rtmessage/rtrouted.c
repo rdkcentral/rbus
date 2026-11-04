@@ -18,6 +18,7 @@
 # limitations under the License.
 ##########################################################################
 */
+#define _GNU_SOURCE 1
 #include "rtMessage.h"
 #include "rtTime.h"
 #include "rtCipher.h"
@@ -407,9 +408,18 @@ rtRouted_AddRoute(rtRouteMessageHandler handler, char const* exp, rtSubscription
   route->subscription = subscription;
   route->message_handler = handler;
   rtString_Copy(route->expression, exp, RTMSG_MAX_EXPRESSION_LEN);
-  rtVector_PushBack(gRoutes, route);
+  rtError rc = rtRoutingTree_AddTopicRoute(gRoutingTree, exp, (void *)route, 0/*ignore duplicate entry*/);
+  if (rc == RT_OK)
+    rc = rtVector_PushBack(gRoutes, route);
+  if (rc != RT_OK)
+  {
+    rtLog_Warn("Failed to add route expression=[%s]: %s", exp, rtStrError(rc));
+    rtRoutingTree_RemoveRoute(gRoutingTree, (void *)route);
+    free(subscription);
+    free(route);
+    return rc;
+  }
   rtLog_Debug("AddRoute route=[%p] address=[%s] expression=[%s]", route, subscription->client->ident, exp);
-  rtRoutingTree_AddTopicRoute(gRoutingTree, exp, (void *)route, 0/*ignfore duplicate entry*/);
   return RT_OK;
 }
 
@@ -815,7 +825,7 @@ rtRouted_OnMessageSubscribe(rtConnectedClient* sender, rtMessageHeader* hdr, uin
           subscription->client = sender;
           rc = rtRouted_AddRoute(rtRouted_ForwardMessage, expression, subscription);
 
-          if(strstr(expression, ".INBOX.") && sender->inbox[0] == '\0')
+          if(rc == RT_OK && strstr(expression, ".INBOX.") && sender->inbox[0] == '\0')
           {
             rtString_Copy(sender->inbox, expression, RTMSG_HEADER_MAX_TOPIC_LENGTH);
             rtLog_Debug("init client inbox to %s", sender->inbox);
@@ -830,7 +840,7 @@ rtRouted_OnMessageSubscribe(rtConnectedClient* sender, rtMessageHeader* hdr, uin
         {
           rtRouteEntry* route = (rtRouteEntry *) rtVector_At(gRoutes, i);
 
-          if((route->subscription) && (0 == strncmp(route->expression, expression, RTMSG_MAX_EXPRESSION_LEN)) && (route->subscription->client == sender))
+          if(route->subscription && route->subscription->client == sender && route->subscription->id == route_id && 0 == strncmp(route->expression, expression, RTMSG_MAX_EXPRESSION_LEN))
           {
             rtRouted_ClearRoute(route);
             route_removed = 1;
@@ -839,9 +849,21 @@ rtRouted_OnMessageSubscribe(rtConnectedClient* sender, rtMessageHeader* hdr, uin
         }
         if(0 == route_removed)
         {
-          //Not a route. Is it an alias?
-          rtLog_Debug("Removing alias %s", expression);
-          rtRoutingTree_RemoveTopic(gRoutingTree, expression);
+          /* Alias removal must be scoped to the requesting client's route. */
+          rc = RT_ERROR_INVALID_ARG;
+          for (i = 0; i < rtVector_Size(gRoutes); i++)
+          {
+            rtRouteEntry* route = (rtRouteEntry *) rtVector_At(gRoutes, i);
+            if (route->subscription && route->subscription->client == sender &&
+                route->subscription->id == route_id &&
+                rtRoutingTree_RemoveTopicRoute(gRoutingTree, expression, route) == RT_OK)
+            {
+              rc = RT_OK;
+              break;
+            }
+          }
+          if(rc != RT_OK)
+            rtLog_Warn("Rejecting unsubscribe for unowned alias %s from %s", expression, sender->ident);
         }
       }
     }
@@ -883,7 +905,11 @@ rtRouted_OnMessageHello(rtConnectedClient* sender, rtMessageHeader* hdr, uint8_t
   rtSubscription* subscription = (rtSubscription *) rt_malloc(sizeof(rtSubscription));
   subscription->id = 0;
   subscription->client = sender;
-  rtRouted_AddRoute(rtRouted_ForwardMessage, inbox, subscription);
+  if(RT_OK != rtRouted_AddRoute(rtRouted_ForwardMessage, inbox, subscription))
+  {
+    rtMessage_Release(m);
+    return;
+  }
 
   rtMessage_Release(m);
 
@@ -1187,15 +1213,51 @@ rtRouted_OnMessageDiscoverElementObjects(rtConnectedClient* sender, rtMessageHea
   (void)sender;
 }
 
+static int
+rtRouted_IsAuthorizedDiagnosticsClient(const rtConnectedClient* sender)
+{
+#ifdef SO_PEERCRED
+  struct ucred credentials;
+  socklen_t credentials_length = sizeof(credentials);
+
+  if (sender == NULL || sender->endpoint.ss_family != AF_UNIX ||
+      getsockopt(sender->fd, SOL_SOCKET, SO_PEERCRED, &credentials, &credentials_length) != 0)
+  {
+    return 0;
+  }
+
+  return credentials_length == sizeof(credentials) && credentials.uid == 0;
+#else
+  (void)sender;
+  return 0;
+#endif
+}
+
 static void
 rtRouted_OnMessageDiagnostics(rtConnectedClient* sender, rtMessageHeader* hdr, uint8_t const* buff, int n)
 {
   rtMessage msg;
-  const char * cmd;
+  const char * cmd = NULL;
 
-  rtMessage_FromBytes(&msg, buff, n);
+  if (!rtRouted_IsAuthorizedDiagnosticsClient(sender))
+  {
+    rtLog_Warn("Rejected diagnostics request from unauthorized client %s",
+               sender ? sender->ident : "unknown");
+    return;
+  }
 
-  rtMessage_GetString(msg, RTROUTER_DIAG_CMD_KEY, &cmd);
+  if (rtMessage_FromBytes(&msg, buff, n) != RT_OK)
+  {
+    rtLog_Warn("Failed to parse diagnostics request from %s", sender->ident);
+    return;
+  }
+
+  if (rtMessage_GetString(msg, RTROUTER_DIAG_CMD_KEY, &cmd) != RT_OK || cmd == NULL)
+  {
+    rtLog_Warn("Diagnostics request from %s has no command", sender->ident);
+    rtMessage_Release(msg);
+    return;
+  }
 
   if(0 == strncmp(RTROUTER_DIAG_CMD_ENABLE_VERBOSE_LOGS, cmd, sizeof(RTROUTER_DIAG_CMD_ENABLE_VERBOSE_LOGS)))
     rtLog_SetLevel(RT_LOG_DEBUG);
@@ -1262,7 +1324,6 @@ rtRouted_OnMessageDiagnostics(rtConnectedClient* sender, rtMessageHeader* hdr, u
   else
     rtLog_Error("Unknown diag command: %s", cmd);
   rtMessage_Release(msg);
-  (void)sender;
   (void)hdr;
 }
 
@@ -1554,6 +1615,13 @@ static rtError
 rtConnectedClient_Read(rtConnectedClient* clnt)
 {
   ssize_t bytes_read;
+  if (clnt->bytes_read > clnt->read_buffer_capacity ||
+      clnt->bytes_to_read > clnt->read_buffer_capacity)
+  {
+    rtLog_Warn("Receive size exceeds buffer capacity %zu from %s",
+               clnt->read_buffer_capacity, clnt->ident);
+    return RT_ERROR_INVALID_ARG;
+  }
   if (clnt->bytes_read > clnt->bytes_to_read)
   {
     rtLog_Warn("rtConnectedClient_Read: bytes_read=%zu > bytes_to_read=%zu, clamping to expected size",
@@ -1618,7 +1686,15 @@ rtConnectedClient_Read(rtConnectedClient* clnt)
           break;
         }
         rtEncoder_DecodeUInt16(&itr, &header_length);
-        clnt->bytes_to_read += (header_length - RTMESSAGEHEADER_PREAMBLE_LENGTH);
+        /* Validate the wire length before the next recv writes into the header buffer. */
+        if (header_length < RTMESSAGEHEADER_MIN_LENGTH ||
+            (size_t)header_length > clnt->read_buffer_capacity)
+        {
+          rtLog_Warn("Invalid header length %u from %s (buffer capacity %zu)",
+                     header_length, clnt->ident, clnt->read_buffer_capacity);
+          return RT_ERROR_INVALID_ARG;
+        }
+        clnt->bytes_to_read = (size_t)header_length;
         clnt->state = rtConnectionState_ReadHeader;
       }
     }

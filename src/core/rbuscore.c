@@ -25,6 +25,8 @@
 #include <ctype.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <fcntl.h>
+#include <limits.h>
 
 #include "rbuscore.h"
 #include "rbuscore_logger.h"
@@ -97,7 +99,7 @@ typedef struct _server_object
 
 /////////////
 extern char* __progname;
-static void _freePrivateServer(void* p);
+static bool _rbuscore_destroy_serverPrivate_connections();
 static void _rbuscore_directconnection_load_from_cache();
 static void _rbuscore_destroy_clientPrivate_connections();
 const rtPrivateClientInfo* _rbuscore_find_server_privateconnection(const char *pParameterName, const char *pConsumerName);
@@ -382,17 +384,23 @@ static void perform_init()
     _rbuscore_directconnection_load_from_cache();
 }
 
-static void perform_cleanup()
+/* Caller holds g_mutex; return with that ownership unchanged. */
+static bool perform_cleanup()
 {
     size_t i, sz;
 
     RBUSCORELOG_DEBUG("Performing cleanup");
 
+    unlock();
+    bool listenersStopped = _rbuscore_destroy_serverPrivate_connections();
     lock();
+    if(!listenersStopped)
+    {
+        RBUSCORELOG_ERROR("Deferring core cleanup because a private listener has not joined");
+        return false;
+    }
 
     rtVector_Destroy(g_server_objects, server_object_destroy);
-
-    rtVector_Destroy(gListOfServerDirectDMLs, _freePrivateServer);
     _rbuscore_destroy_clientPrivate_connections();
     rtVector_Destroy(gListOfClientDirectDMLs, rtVector_Cleanup_Free);
 
@@ -417,7 +425,7 @@ static void perform_cleanup()
     }
     rtVector_Destroy(g_event_subscriptions_for_client, client_subscription_destroy);
 
-    unlock();
+    return true;
 }
 
 
@@ -665,6 +673,7 @@ rbusCoreError_t rbus_closeBrokerConnection()
     if(NULL == g_connection)
     {
         RBUSCORELOG_DEBUG("No connection exist to close.");
+        unlock();
         return RBUSCORE_ERROR_INVALID_STATE;
     }
     if(1 < rtVector_Size(g_server_objects))
@@ -674,11 +683,16 @@ rbusCoreError_t rbus_closeBrokerConnection()
         return RBUSCORE_SUCCESS;
     }
     rbus_releaseOpenTelemetryContext();
-    perform_cleanup();
+    if(!perform_cleanup())
+    {
+        unlock();
+        return RBUSCORE_ERROR_GENERAL;
+    }
     err = rtConnection_Destroy(g_connection);
     if(RT_OK != err)
     {
         RBUSCORELOG_DEBUG("Could not destroy connection. Error: 0x%x.", err);
+        unlock();
         return RBUSCORE_ERROR_GENERAL;
     }
     g_connection = NULL;
@@ -1824,17 +1838,56 @@ rbusCoreError_t rbus_unregisterClientDisconnectHandler()
     return RBUSCORE_SUCCESS;
 }
 
-rbusCoreError_t rbuscore_publishDirectSubscriberEvent(const char * event_name, const char* listener, const void* data, uint32_t dataLength, uint32_t subscriptionId, bool rawData)
+static int copyDirectClientForSend(const char* event, const char* listener,
+    rtPrivateClientInfo* client, bool* found)
 {
-    rtError err = RT_OK;
-
     directServerLock();
-    const rtPrivateClientInfo *pPrivCliInfo = _rbuscore_find_server_privateconnection (event_name, listener);
-    if(pPrivCliInfo)
+    const rtPrivateClientInfo* entry = _rbuscore_find_server_privateconnection(event, listener);
+    *found = entry != NULL;
+    int fd = -1;
+    if(entry)
     {
-        err = rtRouteDirect_SendMessage (pPrivCliInfo, data, dataLength, subscriptionId, rawData);
+        *client = *entry;
+        fd = fcntl(entry->clientFD, F_DUPFD_CLOEXEC, 0);
+        if(fd < 0)
+            RBUSCORELOG_ERROR("Failed to duplicate direct client socket: %s", strerror(errno));
+        else
+            client->clientFD = fd;
     }
     directServerUnlock();
+    return fd;
+}
+
+static void closeDirectSendSocket(void* context)
+{
+    int* ownedFD = context;
+    int fd = *ownedFD;
+    *ownedFD = -1;
+    if(fd >= 0 && close(fd) != 0)
+        RBUSCORELOG_ERROR("Failed to close direct send socket: %s", strerror(errno));
+}
+
+static rtError sendDirectClientCopy(rtPrivateClientInfo* client, const void* data,
+    uint32_t length, uint32_t subscriptionId, bool rawData)
+{
+    rtError err = RT_ERROR_INVALID_ARG;
+    pthread_cleanup_push(closeDirectSendSocket, &client->clientFD);
+    if(length <= INT_MAX)
+        err = rtRouteDirect_SendMessage(client, data, (int)length, subscriptionId, rawData);
+    else
+        RBUSCORELOG_ERROR("Direct event payload exceeds supported length");
+    closeDirectSendSocket(&client->clientFD);
+    pthread_cleanup_pop(0);
+    return err;
+}
+
+rbusCoreError_t rbuscore_publishDirectSubscriberEvent(const char * event_name, const char* listener, const void* data, uint32_t dataLength, uint32_t subscriptionId, bool rawData)
+{
+    rtError err = RT_FAIL;
+    rtPrivateClientInfo client;
+    bool found;
+    if(copyDirectClientForSend(event_name, listener, &client, &found) >= 0)
+        err = sendDirectClientCopy(&client, data, dataLength, subscriptionId, rawData);
     return translate_rt_error(err);
 }
 
@@ -1862,17 +1915,19 @@ rbusCoreError_t rbus_publishSubscriberEvent(const char* object_name,  const char
     rbusMessage_SetString(out, traceState);
     rbusMessage_EndMetaSectionWrite(out);
 
-    directServerLock();
-    const rtPrivateClientInfo *pPrivCliInfo = _rbuscore_find_server_privateconnection (event_name, listener);
-    if(pPrivCliInfo)
+    rtPrivateClientInfo client;
+    bool hasPrivateConnection;
+    int directFD = copyDirectClientForSend(event_name, listener, &client, &hasPrivateConnection);
+    if(directFD >= 0)
     {
         uint8_t* data;
         uint32_t dataLength;
         rbusMessage_ToBytes(out, &data, &dataLength);
-        rtRouteDirect_SendMessage (pPrivCliInfo, data, dataLength, subscriptionId, rawData);
+        ret = translate_rt_error(sendDirectClientCopy(&client, data, dataLength, subscriptionId, rawData));
     }
-    directServerUnlock();
-    if (!pPrivCliInfo)
+    else if(hasPrivateConnection)
+        ret = RBUSCORE_ERROR_GENERAL;
+    if (!hasPrivateConnection)
     {
         lock();
         server_object_t obj = get_object(object_name);
@@ -2506,7 +2561,10 @@ typedef struct _rbusServerDMLList
     pthread_t               m_pid;
     rbus_callback_t         m_fnCallbackHandler;
     void*                   m_fnCallbackuserData;
+    struct _rbusServerDMLList* m_cleanupNext;
 } rbusServerDMLList_t;
+
+static rbusServerDMLList_t* pendingPrivateServerCleanup;
 
 typedef struct _server_directHandler
 {
@@ -2534,16 +2592,78 @@ static int _findPrivateServerDML(const void* left, const void* right)
     return strncmp(((rbusServerDMLList_t*)left)->m_privateDML, (char*)right, MAX_OBJECT_NAME_LENGTH);
 }
 
-static void _freePrivateServer(void* p)
+static bool _rbuscore_destroy_serverPrivate_connections()
 {
-    rbusServerDMLList_t *pTmp = p;
-    if (pTmp->m_pid)
+    directServerLock();
+    rbusServerDMLList_t *detached = pendingPrivateServerCleanup;
+    pendingPrivateServerCleanup = NULL;
+    while(rtVector_Size(gListOfServerDirectDMLs) > 0)
     {
-        pthread_cancel(pTmp->m_pid);
-        pthread_join(pTmp->m_pid, NULL);
-        printf ("Cancel the thread..\n"); //FIXME
+        rbusServerDMLList_t *obj = rtVector_At(gListOfServerDirectDMLs, 0);
+        rtVector_RemoveItem(gListOfServerDirectDMLs, obj, NULL);
+        obj->m_cleanupNext = detached;
+        detached = obj;
     }
-    free(pTmp);
+    directServerUnlock();
+
+    bool allJoined = true;
+    for(rbusServerDMLList_t *obj = detached; obj; obj = obj->m_cleanupNext)
+    {
+        if(!obj->m_pid)
+            continue;
+        bool alreadyHandled = false;
+        for(rbusServerDMLList_t *entry = detached; entry != obj; entry = entry->m_cleanupNext)
+        {
+            if(entry->m_pid && pthread_equal(entry->m_pid, obj->m_pid))
+            {
+                alreadyHandled = true;
+                break;
+            }
+        }
+        if(alreadyHandled)
+            continue;
+
+        int err = pthread_cancel(obj->m_pid);
+        if(err != 0)
+            RBUSCORELOG_ERROR("Failed to cancel private listener: %s", strerror(err));
+        err = pthread_join(obj->m_pid, NULL);
+        if(err != 0)
+        {
+            RBUSCORELOG_ERROR("Failed to join private listener: %s", strerror(err));
+            allJoined = false;
+        }
+        else
+        {
+            pthread_t joined = obj->m_pid;
+            for(rbusServerDMLList_t *entry = detached; entry; entry = entry->m_cleanupNext)
+            {
+                if(entry->m_pid && pthread_equal(entry->m_pid, joined))
+                    entry->m_pid = 0;
+            }
+        }
+    }
+
+    if(!allJoined)
+    {
+        directServerLock();
+        pendingPrivateServerCleanup = detached;
+        directServerUnlock();
+        RBUSCORELOG_ERROR("Private listener join failed; retaining detached records for a later cleanup retry");
+        return false;
+    }
+
+    /* A callback may hold any selected entry until its listener has exited. */
+    while(detached)
+    {
+        rbusServerDMLList_t *next = detached->m_cleanupNext;
+        free(detached);
+        detached = next;
+    }
+    directServerLock();
+    rtVector_Destroy(gListOfServerDirectDMLs, NULL);
+    gListOfServerDirectDMLs = NULL;
+    directServerUnlock();
+    return true;
 }
 
 #define RBUS_DIRECT_FILE_CACHE "/tmp/.rbus_%s_direct.cache"
@@ -2711,7 +2831,6 @@ rbusServerDMLList_t* rbuscore_FindServerPrivateClient (const char *pParameterNam
                 if ((0 == strncmp(pDmlObj->m_privateDML, pParameterName, MAX_OBJECT_NAME_LENGTH)) &&
                     (0 == strncmp(pDmlObj->m_consumerName, pConsumerName, MAX_OBJECT_NAME_LENGTH)))
                 {
-                    directServerUnlock();
                     return pDmlObj;
                 }
             }
@@ -2726,7 +2845,7 @@ const rtPrivateClientInfo* _rbuscore_find_server_privateconnection(const char *p
     rbusServerDMLList_t *pObj = NULL;
 
     pObj = rbuscore_FindServerPrivateClient (pParameterName, pConsumerName);
-    if(pObj)
+    if(pObj && pObj->m_consumerInfo.clientFD >= 0)
     {
         return &pObj->m_consumerInfo;
     }
@@ -2740,19 +2859,19 @@ rbusCoreError_t rbuscore_updatePrivateListener(const char* pConsumerName, const 
     rbusServerDMLList_t *pObj = NULL;
     if (pConsumerName && pDMLName)
     {
+        directServerLock();
         pObj = rbuscore_FindServerPrivateClient (pDMLName, pConsumerName);
         if (pObj)
         {
-            directServerLock();
             rtVector_RemoveItem(gListOfServerDirectDMLs, pObj, rtVector_Cleanup_Free);
             _rbuscore_directconnection_save_to_cache();
-            directServerUnlock();
         }
         else
         {
             RBUSCORELOG_DEBUG("No Direct Connection for this DML(%s) exist for this consumer(%s)", pDMLName, pConsumerName);
             ret = RBUSCORE_ERROR_INVALID_PARAM;
         }
+        directServerUnlock();
     }
     else
         ret = RBUSCORE_ERROR_INVALID_PARAM;
@@ -2764,6 +2883,7 @@ void* rbuscore_PrivateThreadFunc (void* ptr)
 {
     rbusServerDirectHandler_t *pInstance = (rbusServerDirectHandler_t *) ptr;
 
+    pthread_cleanup_push(free, pInstance);
     sleep(2);
     rtRouteDirect_StartInstance(pInstance->m_privConnAddress, pInstance->m_fnRouteCallback);
 
@@ -2779,7 +2899,7 @@ void* rbuscore_PrivateThreadFunc (void* ptr)
     _rbuscore_directconnection_save_to_cache();
     directServerUnlock();
 
-    free (pInstance);
+    pthread_cleanup_pop(1);
     return NULL;
 }
 
@@ -2787,6 +2907,25 @@ static rtError _onDirectMessage(uint8_t isClientRequest, rtMessageHeader* hdr, u
 {
     rbusMessage msg = NULL;
     rbusServerDMLList_t *pSubObj;
+
+    if(isClientRequest == RT_DIRECT_CLIENT_DISCONNECTED)
+    {
+        if(!pInBuff || inLength != (int)sizeof(rtPrivateClientInfo))
+        {
+            RBUSCORELOG_ERROR("Invalid private client disconnect notification");
+            return RT_ERROR_INVALID_ARG;
+        }
+        const rtPrivateClientInfo* disconnected = (const rtPrivateClientInfo*)pInBuff;
+        directServerLock();
+        for(size_t i = 0; i < rtVector_Size(gListOfServerDirectDMLs); ++i)
+        {
+            pSubObj = rtVector_At(gListOfServerDirectDMLs, i);
+            if(pSubObj->m_consumerInfo.clientFD == disconnected->clientFD)
+                pSubObj->m_consumerInfo.clientFD = -1;
+        }
+        directServerUnlock();
+        return RT_OK;
+    }
 
     if (isClientRequest)
     {
@@ -2864,6 +3003,7 @@ rbusCoreError_t rbuscore_startPrivateListener(const char* pPrivateConnAddress, c
     int err = 0;
     pthread_t pid;
     rtPrivateClientInfo  privConsInfo = {0};
+    privConsInfo.clientFD = -1;
 
     if (pDMLName && pPrivateConnAddress && handler)
     {

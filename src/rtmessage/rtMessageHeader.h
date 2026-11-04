@@ -40,6 +40,8 @@ extern "C" {
 #define RTMSG_HEADER_VERSION 2
 #define RTMSG_HEADER_MARKER 0xAAAA
 #define RTMESSAGEHEADER_PREAMBLE_LENGTH 6
+/* Minimum wire header includes fixed fields, both string lengths and markers. */
+#define RTMESSAGEHEADER_MIN_LENGTH 32
 #define RTMESSAGEHEADER_HDR_LENGTH_OFFSET 4
 typedef enum
 {

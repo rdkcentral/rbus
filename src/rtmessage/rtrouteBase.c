@@ -32,7 +32,11 @@
 #include <unistd.h>
 #include <sys/file.h>
 #include <sys/stat.h>
+#include <sys/un.h>
+#include <fcntl.h>
+#include <dirent.h>
 #include <time.h>
+#include <poll.h>
 
 #include <pthread.h>
 
@@ -52,8 +56,303 @@ rtRouteBase_CloseListener(rtListener *pListener)
 }
 
 
-rtError
-rtRouteBase_BindListener(char const* socket_name, int no_delay, int indefinite_retry, rtListener **pListener)
+static int
+rtRouteBase_OpenDirectDirectory(const char* directory)
+{
+  struct stat st;
+  int run_fd = open("/run", O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
+  if (run_fd < 0)
+  {
+    rtLog_Error("Failed to open /run: %s", strerror(errno));
+    return -1;
+  }
+  if (fstat(run_fd, &st) != 0 || st.st_uid != 0 || (st.st_mode & 0022) != 0)
+  {
+    rtLog_Error("Rejecting inaccessible or untrusted /run directory");
+    close(run_fd);
+    return -1;
+  }
+  if (geteuid() == 0)
+  {
+    bool parentCreated = mkdirat(run_fd, "rbus-direct", 0755) == 0;
+    if (!parentCreated && errno != EEXIST)
+    {
+      rtLog_Error("Failed to create direct socket parent: %s", strerror(errno));
+      close(run_fd);
+      return -1;
+    }
+  }
+  int parent_fd = openat(run_fd, "rbus-direct", O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
+  close(run_fd);
+  if (parent_fd < 0)
+  {
+    rtLog_Error("Failed to open direct socket parent; root must provision " RT_DIRECT_SOCKET_PARENT ": %s", strerror(errno));
+    return -1;
+  }
+  if (fstat(parent_fd, &st) != 0)
+  {
+    rtLog_Error("Failed to inspect direct socket parent directory: %s", strerror(errno));
+    close(parent_fd);
+    return -1;
+  }
+  if (st.st_uid != 0 || (st.st_mode & 0022) != 0)
+  {
+    rtLog_Error("Rejecting untrusted direct socket parent directory");
+    close(parent_fd);
+    return -1;
+  }
+  if ((st.st_mode & 0777) != 0755 && fchmod(parent_fd, 0755) != 0)
+  {
+    rtLog_Error("Failed to set direct socket parent permissions: %s", strerror(errno));
+    close(parent_fd);
+    return -1;
+  }
+  const char* basename = directory + strlen(RT_DIRECT_SOCKET_PARENT) + 1;
+  if (geteuid() == 0 && mkdirat(parent_fd, basename, 0711) != 0 && errno != EEXIST)
+  {
+    rtLog_Error("Failed to create direct socket directory %s; non-root provider directories must be provisioned by root: %s", directory, strerror(errno));
+    close(parent_fd);
+    return -1;
+  }
+  int fd = openat(parent_fd, basename,
+      O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
+  close(parent_fd);
+  if (fd < 0)
+  {
+    rtLog_Error("Failed to open direct socket directory %s; non-root provider directories must be provisioned by root: %s", directory, strerror(errno));
+    return -1;
+  }
+  if (fstat(fd, &st) != 0)
+  {
+    rtLog_Error("Failed to inspect direct socket directory: %s", strerror(errno));
+    close(fd);
+    return -1;
+  }
+  if (st.st_uid != geteuid() || (st.st_mode & 0022) != 0)
+  {
+    rtLog_Error("Rejecting untrusted direct socket directory %s", directory);
+    close(fd);
+    return -1;
+  }
+  /* Permit consumer traversal, but only the provider UID can modify entries. */
+  if ((st.st_mode & 0777) != 0711 && fchmod(fd, 0711) != 0)
+  {
+    rtLog_Error("Failed to set direct socket directory permissions: %s", strerror(errno));
+    close(fd);
+    return -1;
+  }
+  return fd;
+}
+
+static int
+rtRouteBase_ReclaimDirectLocks(int directory_fd)
+{
+  int scan_fd = openat(directory_fd, ".", O_RDONLY | O_DIRECTORY | O_CLOEXEC);
+  if (scan_fd < 0)
+  {
+    rtLog_Error("Failed to open direct lock directory scan: %s", strerror(errno));
+    return -1;
+  }
+  DIR* directory = fdopendir(scan_fd);
+  if (!directory)
+  {
+    rtLog_Error("Failed to start direct lock directory scan: %s", strerror(errno));
+    close(scan_fd);
+    return -1;
+  }
+  int result = 0;
+  for (;;)
+  {
+    errno = 0;
+    struct dirent* entry = readdir(directory);
+    if (!entry)
+    {
+      if (errno != 0)
+      {
+        rtLog_Error("Failed to read direct lock directory: %s", strerror(errno));
+        result = -1;
+      }
+      break;
+    }
+    if (strncmp(entry->d_name, "lock.direct_", strlen("lock.direct_")) != 0)
+      continue;
+    int fd = openat(directory_fd, entry->d_name,
+        O_RDWR | O_NOFOLLOW | O_CLOEXEC | O_NONBLOCK);
+    if (fd < 0)
+    {
+      rtLog_Error("Failed to open stale direct lock %s: %s", entry->d_name, strerror(errno));
+      result = -1;
+      break;
+    }
+    struct stat st;
+    if (fstat(fd, &st) != 0)
+    {
+      rtLog_Error("Failed to inspect stale direct lock: %s", strerror(errno));
+      close(fd);
+      result = -1;
+      break;
+    }
+    if (!S_ISREG(st.st_mode) || st.st_uid != geteuid() ||
+        st.st_nlink != 1 || (st.st_mode & 0077) != 0)
+    {
+      rtLog_Error("Rejecting untrusted stale direct lock %s", entry->d_name);
+      close(fd);
+      result = -1;
+      break;
+    }
+    if (flock(fd, LOCK_EX | LOCK_NB) != 0)
+    {
+      int lock_errno = errno;
+      close(fd);
+      if (lock_errno == EWOULDBLOCK || lock_errno == EAGAIN)
+        continue;
+      rtLog_Error("Failed to inspect stale direct lock ownership: %s", strerror(lock_errno));
+      result = -1;
+      break;
+    }
+    /* Directory locking excludes all other lock-file openers and removers. */
+    if (unlinkat(directory_fd, entry->d_name, 0) != 0)
+    {
+      rtLog_Error("Failed to reclaim direct lock %s: %s", entry->d_name, strerror(errno));
+      result = -1;
+    }
+    close(fd);
+    if (result != 0)
+      break;
+  }
+  if (closedir(directory) != 0)
+  {
+    rtLog_Error("Failed to close direct lock directory scan: %s", strerror(errno));
+    result = -1;
+  }
+  return result;
+}
+
+static int
+rtRouteBase_OpenDirectLock(int directory_fd, const char* socket_basename)
+{
+  char lock_path[sizeof(((struct sockaddr_un*)0)->sun_path) + sizeof(".lock")];
+  struct stat opened;
+  int length = snprintf(lock_path, sizeof(lock_path), "lock%s", socket_basename);
+  if (length < 0 || (size_t)length >= sizeof(lock_path))
+  {
+    rtLog_Error("Direct socket lock pathname is too long");
+    return -1;
+  }
+  int fd = openat(directory_fd, lock_path,
+      O_RDWR | O_CREAT | O_NOFOLLOW | O_CLOEXEC | O_NONBLOCK, 0600);
+  if (fd < 0)
+  {
+    rtLog_Error("Failed to open direct socket lock %s: %s", lock_path, strerror(errno));
+    return -1;
+  }
+  if (fstat(fd, &opened) != 0)
+  {
+    rtLog_Error("Failed to inspect direct socket lock: %s", strerror(errno));
+    close(fd);
+    return -1;
+  }
+  if (!S_ISREG(opened.st_mode) || opened.st_uid != geteuid() ||
+      opened.st_nlink != 1 || (opened.st_mode & 0077) != 0)
+  {
+    rtLog_Error("Rejecting untrusted direct socket lock %s", lock_path);
+    close(fd);
+    return -1;
+  }
+  if (flock(fd, LOCK_EX | LOCK_NB) != 0)
+  {
+    rtLog_Warn("Cannot acquire direct socket lock %s: %s", lock_path, strerror(errno));
+    close(fd);
+    return -1;
+  }
+  return fd;
+}
+
+static int
+rtRouteBase_ReclaimDirectLocksIfDue(int directory_fd)
+{
+  /* Shared across processes; the directory gate protects the sweep timestamp. */
+  int fd = rtRouteBase_OpenDirectLock(directory_fd, ".maintenance");
+  if (fd < 0)
+    return -1;
+
+  int result = -1;
+  struct stat st;
+  time_t now = time(NULL);
+  if (now == (time_t)-1)
+    rtLog_Error("Failed to read direct lock maintenance time: %s", strerror(errno));
+  else if (fstat(fd, &st) != 0)
+    rtLog_Error("Failed to inspect direct lock maintenance state: %s", strerror(errno));
+  else if (st.st_size != 0 && st.st_size != 1)
+    rtLog_Error("Invalid direct lock maintenance state");
+  else
+  {
+    double elapsed = difftime(now, st.st_mtime);
+    if (st.st_size == 1 && elapsed >= 0 && elapsed < 60)
+      result = 0;
+    else if (rtRouteBase_ReclaimDirectLocks(directory_fd) == 0)
+    {
+      /* Writing also updates mtime, including after a backward clock adjustment. */
+      if (pwrite(fd, "1", 1, 0) == 1)
+        result = 0;
+      else
+        rtLog_Error("Failed to record direct lock sweep completion");
+    }
+  }
+  if (close(fd) != 0)
+  {
+    rtLog_Error("Failed to close direct lock maintenance state: %s", strerror(errno));
+    result = -1;
+  }
+  return result;
+}
+
+static int
+rtRouteBase_LockDirectSocket(int directory_fd, const char* socket_basename)
+{
+  if (flock(directory_fd, LOCK_EX) != 0)
+  {
+    rtLog_Error("Failed to acquire direct lock directory gate: %s", strerror(errno));
+    return -1;
+  }
+  int fd = -1;
+  if (rtRouteBase_ReclaimDirectLocksIfDue(directory_fd) == 0)
+    fd = rtRouteBase_OpenDirectLock(directory_fd, socket_basename);
+  if (flock(directory_fd, LOCK_UN) != 0)
+  {
+    rtLog_Error("Failed to release direct lock directory gate: %s", strerror(errno));
+    if (fd >= 0)
+      close(fd);
+    return -1;
+  }
+  return fd;
+}
+
+/*
+ * Entries are reserved for sockets in the validated owner-writable directory.
+ * Hold the lifecycle lock through removal, bind and teardown. Same-UID and
+ * privileged processes are trusted and must not replace directory entries.
+ */
+static rtError
+rtRouteBase_RemoveDirectSocket(int directory_fd, const char* socket_basename)
+{
+  if (unlinkat(directory_fd, socket_basename, 0) == 0 || errno == ENOENT)
+    return RT_OK;
+  rtLog_Error("Failed to remove direct socket %s: %s", socket_basename, strerror(errno));
+  return RT_FAIL;
+}
+
+static void
+rtRouteBase_CleanupBindingListener(void* context)
+{
+  rtListener* listener = context;
+  rtRouteBase_CloseListener(listener);
+  free(listener);
+}
+
+static rtError
+rtRouteBase_BindListenerInternal(char const* socket_name, int no_delay, int indefinite_retry,
+    rtListener **pListener, bool cancellable_retry)
 {
   int ret;
   rtError err;
@@ -117,7 +416,9 @@ rtRouteBase_BindListener(char const* socket_name, int no_delay, int indefinite_r
     ret = bind(listener->fd, (struct sockaddr *)&listener->local_endpoint, socket_length);
     if (ret == -1)
     {
-      rtError err = rtErrorFromErrno(errno);
+      int bind_errno = errno;
+
+      rtError err = rtErrorFromErrno(bind_errno);
       rtLog_Warn("failed to bind socket. %s.  num_retries=%u", rtStrError(err), num_retries);
       if(0 == --num_retries)
       {
@@ -125,6 +426,15 @@ rtRouteBase_BindListener(char const* socket_name, int no_delay, int indefinite_r
         rtRouteBase_CloseListener(listener);
         free(listener);
         return RT_FAIL;
+      }
+      else if (cancellable_retry)
+      {
+        /* Startup owns this listener until it is transferred to the caller. */
+        pthread_cleanup_push(rtRouteBase_CleanupBindingListener, listener);
+        pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
+        sleep(10);
+        pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
+        pthread_cleanup_pop(0);
       }
       else
         sleep(10);
@@ -153,34 +463,276 @@ rtRouteBase_BindListener(char const* socket_name, int no_delay, int indefinite_r
   return RT_OK;
 }
 
+rtError
+rtRouteBase_BindListener(char const* socket_name, int no_delay, int indefinite_retry, rtListener **pListener)
+{
+  return rtRouteBase_BindListenerInternal(socket_name, no_delay, indefinite_retry, pListener, false);
+}
+
+typedef struct rtDirectSendState
+{
+  dev_t device;
+  ino_t inode;
+  size_t users;
+  bool sending;
+  pthread_cond_t available;
+  struct rtDirectSendState* next;
+} rtDirectSendState;
+
+static pthread_mutex_t directSendMutex = PTHREAD_MUTEX_INITIALIZER;
+static rtDirectSendState* directSendStates;
+
+/* Caller holds directSendMutex. */
+static rtDirectSendState**
+rtRouteDirect_FindSendState(dev_t device, ino_t inode)
+{
+  rtDirectSendState** link = &directSendStates;
+  while (*link && ((*link)->device != device || (*link)->inode != inode))
+    link = &(*link)->next;
+  return link;
+}
+
+static int
+rtRouteDirect_RemainingSendTime(const struct timespec* deadline)
+{
+  struct timespec now;
+  if (clock_gettime(CLOCK_MONOTONIC, &now) != 0)
+  {
+    rtLog_Error("Failed to read direct send clock: %s", strerror(errno));
+    return -1;
+  }
+  int64_t ns = (int64_t)(deadline->tv_sec - now.tv_sec) * 1000000000 +
+      deadline->tv_nsec - now.tv_nsec;
+  return ns <= 0 ? 0 : (int)((ns + 999999) / 1000000);
+}
+
+static rtError
+rtRouteDirect_SendFrame(int fd, rtMessageHeader* header, const uint8_t* data, uint32_t length)
+{
+  struct stat st;
+  struct timespec deadline;
+  if (fstat(fd, &st) != 0 || clock_gettime(CLOCK_MONOTONIC, &deadline) != 0)
+  {
+    rtLog_Error("Failed to prepare direct send: %s", strerror(errno));
+    return RT_FAIL;
+  }
+  deadline.tv_sec += 15;
+  int previousCancelState;
+  int cancelError = pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &previousCancelState);
+  if (cancelError != 0)
+  {
+    rtLog_Error("Failed to protect direct send cleanup: %s", strerror(cancelError));
+    return RT_FAIL;
+  }
+  pthread_mutex_lock(&directSendMutex);
+  rtDirectSendState** link = rtRouteDirect_FindSendState(st.st_dev, st.st_ino);
+  rtDirectSendState* state = *link;
+  if (!state)
+  {
+    state = rt_calloc(1, sizeof(*state));
+    if (!state)
+    {
+      pthread_mutex_unlock(&directSendMutex);
+      rtLog_Error("Failed to allocate direct send state");
+      pthread_setcancelstate(previousCancelState, NULL);
+      return rtErrorFromErrno(ENOMEM);
+    }
+    state->device = st.st_dev;
+    state->inode = st.st_ino;
+    pthread_condattr_t attributes;
+    int initError = pthread_condattr_init(&attributes);
+    if (initError == 0)
+    {
+      initError = pthread_condattr_setclock(&attributes, CLOCK_MONOTONIC);
+      if (initError == 0)
+        initError = pthread_cond_init(&state->available, &attributes);
+      int destroyError = pthread_condattr_destroy(&attributes);
+      if (destroyError != 0)
+        rtLog_Error("Failed to destroy direct send condition attributes: %s", strerror(destroyError));
+    }
+    if (initError != 0)
+    {
+      free(state);
+      pthread_mutex_unlock(&directSendMutex);
+      rtLog_Error("Failed to initialize direct send condition: %s", strerror(initError));
+      pthread_setcancelstate(previousCancelState, NULL);
+      return rtErrorFromErrno(initError);
+    }
+    *link = state;
+  }
+  ++state->users;
+
+  rtError result = RT_OK;
+  bool acquired = false;
+  for (;;)
+  {
+    int remaining = rtRouteDirect_RemainingSendTime(&deadline);
+    if (remaining <= 0)
+    {
+      result = remaining == 0 ? RT_ERROR_TIMEOUT : RT_FAIL;
+      break;
+    }
+    state = *rtRouteDirect_FindSendState(st.st_dev, st.st_ino);
+    if (!state)
+    {
+      rtLog_Error("Direct send state disappeared while referenced");
+      result = RT_FAIL;
+      break;
+    }
+    if (!state->sending)
+    {
+      state->sending = true;
+      acquired = true;
+    }
+    if (acquired)
+      break;
+    int waitError = pthread_cond_timedwait(&state->available, &directSendMutex, &deadline);
+    if (waitError != 0)
+    {
+      if (waitError != ETIMEDOUT)
+        rtLog_Error("Direct send condition wait failed: %s", strerror(waitError));
+      result = waitError == ETIMEDOUT ? RT_ERROR_TIMEOUT : rtErrorFromErrno(waitError);
+      break;
+    }
+  }
+  pthread_mutex_unlock(&directSendMutex);
+
+  if (acquired)
+  {
+    uint8_t buffer[RTMSG_CLIENT_READ_BUFFER_SIZE];
+    header->payload_length = length;
+    size_t topicLength = strnlen(header->topic, sizeof(header->topic));
+    size_t replyLength = strnlen(header->reply_topic, sizeof(header->reply_topic));
+    size_t encodedLength = RTMESSAGEHEADER_MIN_LENGTH + topicLength + replyLength;
+#ifdef MSG_ROUNDTRIP_TIME
+    encodedLength += 5 * sizeof(uint64_t);
+#endif
+    if (topicLength == sizeof(header->topic) || replyLength == sizeof(header->reply_topic) ||
+        encodedLength > sizeof(buffer))
+    {
+      rtLog_Error("Direct frame header exceeds available encoding capacity");
+      result = RT_ERROR_INVALID_ARG;
+    }
+    else
+    {
+      result = rtMessageHeader_Encode(header, buffer);
+      if (result == RT_OK &&
+          (header->header_length > sizeof(buffer) || header->header_length != encodedLength))
+      {
+        rtLog_Error("Invalid encoded direct frame header length");
+        result = RT_FAIL;
+      }
+    }
+    struct iovec vectors[2] = {{0}};
+    if (result == RT_OK)
+    {
+      vectors[0].iov_base = buffer;
+      vectors[0].iov_len = header->header_length;
+      vectors[1].iov_base = (void*)data;
+      vectors[1].iov_len = length;
+    }
+    size_t index = 0;
+    bool wrote = false;
+    while (result == RT_OK && index < 2)
+    {
+      if (vectors[index].iov_len == 0)
+      {
+        ++index;
+        continue;
+      }
+      int remaining = rtRouteDirect_RemainingSendTime(&deadline);
+      if (remaining <= 0)
+      {
+        result = remaining == 0 ? RT_ERROR_TIMEOUT : RT_FAIL;
+        break;
+      }
+      struct msghdr message = {NULL, 0, vectors + index, 2 - index, NULL, 0, 0};
+      ssize_t sent = sendmsg(fd, &message, MSG_NOSIGNAL | MSG_DONTWAIT);
+      if (sent > 0)
+      {
+        wrote = true;
+        size_t consumed = (size_t)sent;
+        while (index < 2 && consumed >= vectors[index].iov_len)
+        {
+          consumed -= vectors[index].iov_len;
+          ++index;
+        }
+        if (index < 2)
+        {
+          vectors[index].iov_base = (uint8_t*)vectors[index].iov_base + consumed;
+          vectors[index].iov_len -= consumed;
+        }
+        continue;
+      }
+      if (sent < 0 && errno == EINTR)
+        continue;
+      if (sent < 0 && (errno == EAGAIN || errno == EWOULDBLOCK))
+      {
+        remaining = rtRouteDirect_RemainingSendTime(&deadline);
+        if (remaining <= 0)
+        {
+          result = remaining == 0 ? RT_ERROR_TIMEOUT : RT_FAIL;
+          break;
+        }
+        struct pollfd writable = {fd, POLLOUT, 0};
+        int ready = poll(&writable, 1, remaining);
+        if (ready > 0 && !(writable.revents & (POLLERR | POLLHUP | POLLNVAL)))
+          continue;
+        if (ready < 0 && errno == EINTR)
+          continue;
+        result = ready == 0 ? RT_ERROR_TIMEOUT : RT_FAIL;
+        break;
+      }
+      result = sent < 0 ? rtErrorFromErrno(errno) : RT_ERROR_STREAM_CLOSED;
+      break;
+    }
+    /* A partial frame must never be followed by another frame on this stream. */
+    if (result != RT_OK && wrote && shutdown(fd, SHUT_RDWR) != 0)
+      rtLog_Warn("Failed to shut down incomplete direct frame: %s", strerror(errno));
+  }
+  if (result != RT_OK)
+    rtLog_Error("Direct frame send failed: %s", rtStrError(result));
+  pthread_mutex_lock(&directSendMutex);
+  link = rtRouteDirect_FindSendState(st.st_dev, st.st_ino);
+  state = *link;
+  if (!state || state->users == 0)
+  {
+    rtLog_Error("Invalid direct send state during release");
+    result = RT_FAIL;
+  }
+  else
+  {
+    if (acquired)
+    {
+      state->sending = false;
+      int notifyError = pthread_cond_broadcast(&state->available);
+      if (notifyError != 0)
+      {
+        rtLog_Error("Failed to notify queued direct senders: %s", strerror(notifyError));
+        result = RT_FAIL;
+      }
+    }
+    if (--state->users == 0)
+    {
+      *link = state->next;
+      int destroyError = pthread_cond_destroy(&state->available);
+      if (destroyError != 0)
+      {
+        rtLog_Error("Failed to destroy direct send condition: %s", strerror(destroyError));
+        result = RT_FAIL;
+      }
+      free(state);
+    }
+  }
+  pthread_mutex_unlock(&directSendMutex);
+  pthread_setcancelstate(previousCancelState, NULL);
+  return result;
+}
+
 static rtError
 _rtdirect_send_reply_to_client(rtConnectedClient* client, rtMessageHeader * request_hdr, const uint8_t* rspData, uint32_t rspDataLength)
 {
-    rtError ret = RT_OK;
-    ssize_t bytes_sent;
-    request_hdr->payload_length = rspDataLength;
-
-    rtLog_Debug("SendMessage topic=%s expression...", request_hdr->topic);
-
-    rtMessageHeader_Encode(request_hdr, client->send_buffer);
-    struct iovec send_vec[] = {{client->send_buffer, request_hdr->header_length}, {(void *)rspData, rspDataLength}};
-    struct msghdr send_hdr = {NULL, 0, send_vec, 2, NULL, 0, 0};
-    do
-    {
-      bytes_sent = sendmsg(client->fd, &send_hdr, MSG_NOSIGNAL);
-      if (bytes_sent == -1)
-      {
-        if (errno == EBADF)
-          ret = rtErrorFromErrno(errno);
-        else
-        {
-          rtLog_Warn("error forwarding message to client. %d %s", errno, strerror(errno));
-          ret = RT_FAIL;
-        }
-        break;
-      }
-    } while(0);
-    return ret;
+  return rtRouteDirect_SendFrame(client->fd, request_hdr, rspData, rspDataLength);
 }
 
 static void
@@ -339,6 +891,13 @@ static rtError
 rtConnectedClient_Read(rtConnectedClient* clnt, rtRouteEntry* myDirectRoute)
 {
   ssize_t bytes_read;
+  if (clnt->bytes_read > clnt->read_buffer_capacity ||
+      clnt->bytes_to_read > clnt->read_buffer_capacity)
+  {
+    rtLog_Warn("Receive size exceeds buffer capacity %zu from %s",
+               clnt->read_buffer_capacity, clnt->ident);
+    return RT_ERROR_INVALID_ARG;
+  }
   if (clnt->bytes_read > clnt->bytes_to_read)
   {
     rtLog_Warn("rtConnectedClient_Read: bytes_read=%zu > bytes_to_read=%zu, clamping to expected size",
@@ -396,7 +955,14 @@ rtConnectedClient_Read(rtConnectedClient* clnt, rtRouteEntry* myDirectRoute)
           break;
         }
         rtEncoder_DecodeUInt16(&itr, &header_length);
-        clnt->bytes_to_read += (header_length - RTMESSAGEHEADER_PREAMBLE_LENGTH);
+        if (header_length < RTMESSAGEHEADER_MIN_LENGTH ||
+            (size_t)header_length > clnt->read_buffer_capacity)
+        {
+          rtLog_Warn("Invalid header length %u from %s (buffer capacity %zu)",
+                     header_length, clnt->ident, clnt->read_buffer_capacity);
+          return RT_ERROR_INVALID_ARG;
+        }
+        clnt->bytes_to_read = (size_t)header_length;
         clnt->state = rtConnectionState_ReadHeader;
       }
     }
@@ -419,20 +985,16 @@ rtConnectedClient_Read(rtConnectedClient* clnt, rtRouteEntry* myDirectRoute)
         size_t payload = (size_t)clnt->header.payload_length;
         if (clnt->bytes_to_read > (SIZE_MAX - payload))
         {
-          rtLog_Info("Requested payload_length (%u) would overflow size_t. Message will be dropped.", clnt->header.payload_length);
-          _rtConnection_ReadAndDropBytes(clnt->fd, clnt->header.payload_length);
-          rtConnectedClient_Reset(clnt);
-          break;
+          rtLog_Warn("Requested payload_length (%u) would overflow size_t. Closing private connection.", clnt->header.payload_length);
+          return RT_ERROR_INVALID_ARG;
         }
         clnt->bytes_to_read += payload;
         clnt->state = rtConnectionState_ReadPayload;
         if (clnt->bytes_to_read > (SIZE_MAX - clnt->bytes_read))
         {
-          rtLog_Info("Requested buffer size (%zu + %zu) would overflow size_t. Message will be dropped.",
+          rtLog_Warn("Requested buffer size (%zu + %zu) would overflow size_t. Closing private connection.",
                      clnt->bytes_to_read, clnt->bytes_read);
-          _rtConnection_ReadAndDropBytes(clnt->fd, clnt->header.payload_length);
-          rtConnectedClient_Reset(clnt);
-          break;
+          return RT_ERROR_INVALID_ARG;
         }
         size_t incoming_data_size = clnt->bytes_to_read + clnt->bytes_read;
         if(clnt->read_buffer_capacity < incoming_data_size)
@@ -446,10 +1008,8 @@ rtConnectedClient_Read(rtConnectedClient* clnt, rtRouteEntry* myDirectRoute)
           }
           else
           {
-            rtLog_Info("Couldn't reallocate read buffer to accommodate %zu bytes. Message will be dropped.", incoming_data_size);
-            _rtConnection_ReadAndDropBytes(clnt->fd, clnt->header.payload_length);
-            rtConnectedClient_Reset(clnt);
-            break;
+            rtLog_Warn("Couldn't reallocate read buffer to accommodate %zu bytes. Closing private connection.", incoming_data_size);
+            return rtErrorFromErrno(ENOMEM);
           }
         }
       }
@@ -539,7 +1099,6 @@ rtRouteDirect_SendMessage(const rtPrivateClientInfo* pClient, uint8_t const* pIn
 {
     rtError ret = RT_OK;
     rtMessageHeader new_header;
-    ssize_t bytes_sent;
 
     if (pClient && pInBuff && (inLength > 0))
     {
@@ -561,32 +1120,103 @@ rtRouteDirect_SendMessage(const rtPrivateClientInfo* pClient, uint8_t const* pIn
 
 
         rtLog_Debug("SendMessage topic=%s expression...", new_header.topic);
-        static uint8_t buffer[RTMSG_CLIENT_READ_BUFFER_SIZE];
-
-        memset(buffer, 0, RTMSG_CLIENT_READ_BUFFER_SIZE);
-        rtMessageHeader_Encode(&new_header, buffer);
-        struct iovec send_vec[] = {{buffer, new_header.header_length}, {(void *)pInBuff, inLength}};
-        struct msghdr send_hdr = {NULL, 0, send_vec, 2, NULL, 0, 0};
-        do
-        {
-          bytes_sent = sendmsg(pClient->clientFD, &send_hdr, MSG_NOSIGNAL);
-          if (bytes_sent == -1)
-          {
-            if (errno == EBADF)
-              ret = rtErrorFromErrno(errno);
-            else
-            {
-              rtLog_Warn("error forwarding message to client. %d %s", errno, strerror(errno));
-              ret = RT_FAIL;
-            }
-            break;
-          }
-        } while(0);
+        ret = rtRouteDirect_SendFrame(pClient->clientFD, &new_header, pInBuff, (uint32_t)inLength);
     }
     else
+    {
+        rtLog_Error("Invalid direct message arguments");
         ret = RT_ERROR;
+    }
 
     return ret;
+}
+
+typedef struct
+{
+  rtRouteEntry** route;
+  rtConnectedClient** client;
+  rtListener** listener;
+  int* directoryFD;
+  int* lockFD;
+  bool* ownsPath;
+  const char** basename;
+  rtDriectClientHandler messageHandler;
+  rtError* result;
+} rtDirectInstanceCleanup;
+
+static void
+rtRouteDirect_CleanupInstance(void* context)
+{
+  rtDirectInstanceCleanup* cleanup = context;
+  rtConnectedClient* client = *cleanup->client;
+  if (client)
+  {
+    if (client->fd >= 0)
+    {
+      rtPrivateClientInfo disconnected = {0};
+      disconnected.clientFD = client->fd;
+      if (cleanup->messageHandler)
+      {
+        rtError err = cleanup->messageHandler(RT_DIRECT_CLIENT_DISCONNECTED, NULL,
+            (uint8_t const*)&disconnected, sizeof(disconnected), NULL, NULL);
+        if (err != RT_OK)
+          rtLog_Error("Private client disconnect notification failed: %s", rtStrError(err));
+      }
+      if (close(client->fd) != 0)
+        rtLog_Warn("Failed to close private client socket: %s", strerror(errno));
+      client->fd = -1;
+    }
+    free(client->read_buffer);
+    free(client->send_buffer);
+    free(client);
+  }
+  free(*cleanup->route);
+  if (*cleanup->listener)
+  {
+    rtRouteBase_CloseListener(*cleanup->listener);
+    free(*cleanup->listener);
+  }
+  if (*cleanup->ownsPath &&
+      rtRouteBase_RemoveDirectSocket(*cleanup->directoryFD, *cleanup->basename) != RT_OK)
+    *cleanup->result = RT_FAIL;
+
+  bool haveDirectoryGate = false;
+  if (*cleanup->lockFD >= 0)
+  {
+    haveDirectoryGate = flock(*cleanup->directoryFD, LOCK_EX) == 0;
+    if (!haveDirectoryGate)
+    {
+      rtLog_Error("Failed to acquire direct lock cleanup gate: %s", strerror(errno));
+      *cleanup->result = RT_FAIL;
+    }
+    if (haveDirectoryGate)
+    {
+      char lockPath[sizeof(((struct sockaddr_un*)0)->sun_path) + sizeof(".lock")];
+      int length = snprintf(lockPath, sizeof(lockPath), "lock%s", *cleanup->basename);
+      if (length < 0 || (size_t)length >= sizeof(lockPath))
+      {
+        rtLog_Error("Direct socket cleanup lock pathname is too long");
+        *cleanup->result = RT_FAIL;
+      }
+      else if (unlinkat(*cleanup->directoryFD, lockPath, 0) != 0)
+      {
+        rtLog_Error("Failed to remove direct socket lock: %s", strerror(errno));
+        *cleanup->result = RT_FAIL;
+      }
+    }
+    if (close(*cleanup->lockFD) != 0)
+      rtLog_Warn("Failed to close direct socket lock: %s", strerror(errno));
+  }
+  if (haveDirectoryGate)
+  {
+    if (flock(*cleanup->directoryFD, LOCK_UN) != 0)
+    {
+      rtLog_Error("Failed to release direct lock cleanup gate: %s", strerror(errno));
+      *cleanup->result = RT_FAIL;
+    }
+  }
+  if (*cleanup->directoryFD >= 0 && close(*cleanup->directoryFD) != 0)
+    rtLog_Warn("Failed to close direct socket directory: %s", strerror(errno));
 }
 
 rtError
@@ -596,6 +1226,13 @@ rtRouteDirect_StartInstance(const char* socket_name, rtDriectClientHandler messa
   rtRouteEntry* route = NULL;
   rtConnectedClient* myDirectClient = NULL;
   rtListener* myDirectListener = NULL;
+  rtError result = RT_OK;
+  char socketDirectory[64];
+  const char* socketBasename = NULL;
+  int socketDirectoryFD = -1;
+  bool ownsSocketPath = false;
+  int socketLockFD = -1;
+  int previousCancelState;
 
   if (NULL == socket_name)
   {
@@ -603,22 +1240,71 @@ rtRouteDirect_StartInstance(const char* socket_name, rtDriectClientHandler messa
     return RT_ERROR;
   }
 
+  int cancelError = pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &previousCancelState);
+  if (cancelError != 0)
+  {
+    rtLog_Error("Failed to disable direct listener cancellation: %s", strerror(cancelError));
+    return rtErrorFromErrno(cancelError);
+  }
+  rtDirectInstanceCleanup cleanup = {&route, &myDirectClient, &myDirectListener,
+      &socketDirectoryFD, &socketLockFD, &ownsSocketPath, &socketBasename,
+      messageHandler, &result};
+  pthread_cleanup_push(rtRouteDirect_CleanupInstance, &cleanup);
+
+  if (strncmp(socket_name, "unix://", 7) == 0)
+  {
+    char const* socket_path = &socket_name[7];
+    int directoryLength = snprintf(socketDirectory, sizeof(socketDirectory),
+        RT_DIRECT_SOCKET_DIRECTORY_FORMAT, (unsigned long)geteuid());
+    if (directoryLength < 0 || (size_t)directoryLength >= sizeof(socketDirectory) ||
+        strncmp(socket_path, socketDirectory, (size_t)directoryLength) != 0 ||
+        socket_path[directoryLength] != '/' ||
+        strncmp(socket_path + directoryLength + 1, ".direct_", 8) != 0 ||
+        socket_path[directoryLength + 9] == '\0' ||
+        strchr(socket_path + directoryLength + 1, '/') != NULL ||
+        strstr(socket_path + directoryLength + 1, "..") != NULL ||
+        strnlen(socket_path, sizeof(((struct sockaddr_un*)0)->sun_path)) >=
+            sizeof(((struct sockaddr_un*)0)->sun_path))
+    {
+      rtLog_Warn("Rejected unsafe private Unix socket path: %s", socket_path);
+      result = RT_ERROR_INVALID_ARG;
+      goto finish;
+    }
+    socketBasename = socket_path + directoryLength + 1;
+    socketDirectoryFD = rtRouteBase_OpenDirectDirectory(socketDirectory);
+    if (socketDirectoryFD < 0)
+    {
+      result = RT_FAIL;
+      goto finish;
+    }
+    socketLockFD = rtRouteBase_LockDirectSocket(socketDirectoryFD, socketBasename);
+    if (socketLockFD < 0)
+    {
+      result = RT_FAIL;
+      goto finish;
+    }
+    result = rtRouteBase_RemoveDirectSocket(socketDirectoryFD, socketBasename);
+    if (result != RT_OK)
+      goto finish;
+    ownsSocketPath = true;
+  }
+
   pthread_once(&_rtDirectRoute_once, &_rtdirect_route_thread_specific_key);
   pthread_setspecific(_rtDirectRoute_key, messageHandler);
 
-  if (RT_OK != rtRouteBase_BindListener(socket_name, 1, 1, &myDirectListener))
+  if (RT_OK != rtRouteBase_BindListenerInternal(socket_name, 1, 1, &myDirectListener,
+      previousCancelState == PTHREAD_CANCEL_ENABLE))
   {
-    if (strncmp(socket_name, "unix://", 7) == 0)
-    {
-      if (remove(&socket_name[7]) != 0)
-        rtLog_Warn("Failed to remove socket file %s", &socket_name[7]);
-    }
-    return RT_FAIL;
+    result = RT_FAIL;
+    goto finish;
   }
 
   route = (rtRouteEntry *)rt_malloc(sizeof(rtRouteEntry));
   if (!route)
-      return rtErrorFromErrno(ENOMEM);
+  {
+    result = rtErrorFromErrno(ENOMEM);
+    goto finish;
+  }
   route->subscription = NULL;
   rtString_Copy(route->expression, "_RTDIRECT>", RTMSG_MAX_EXPRESSION_LEN);
   route->message_handler = _rtdirect_OnMessage;
@@ -649,7 +1335,10 @@ rtRouteDirect_StartInstance(const char* socket_name, rtDriectClientHandler messa
       _rtdirect_pushFd(&err_fds, myDirectClient->fd, &max_fd);
     }
 
+    /* Deliver cancellation only where no callbacks or registry locks are active. */
+    pthread_setcancelstate(previousCancelState, NULL);
     ret = select(max_fd + 1, &read_fds, NULL, &err_fds, &timeout);
+    pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
     if (ret == 0)
       continue;
 
@@ -676,20 +1365,11 @@ rtRouteDirect_StartInstance(const char* socket_name, rtDriectClientHandler messa
     }
   }
 
-  free(myDirectClient->read_buffer);
-  free(myDirectClient->send_buffer);
-  free(myDirectClient);
-
+finish:
   free(route);
-  if (myDirectListener)
-  {
-    rtRouteBase_CloseListener(myDirectListener);
-    free(myDirectListener);
-  }
-  if (strncmp(socket_name, "unix://", 7) == 0)
-  {
-    if (remove(&socket_name[7]) != 0)
-      rtLog_Warn("Failed to remove socket file %s", &socket_name[7]);
-  }
-  return RT_OK;
+  route = NULL;
+  rtRouteDirect_CleanupInstance(&cleanup);
+  pthread_cleanup_pop(0);
+  pthread_setcancelstate(previousCancelState, NULL);
+  return result;
 }

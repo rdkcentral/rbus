@@ -76,8 +76,16 @@ target_link_libraries(rbus_event_server rbuscore)
 
 enable_testing()
 
+if (MSG_ROUNDTRIP_TIME)
+    add_definitions(-DMSG_ROUNDTRIP_TIME=1)
+endif ()
+
 add_executable(rbus_gtest.bin
+  rtMessageHeaderTest.cpp
+  rtSocketTest.cpp
   rbusValueTest.cpp
+  rtRoutingTreeTest.cpp
+  ${PROJECT_SOURCE_DIR}/src/rtmessage/rtRoutingTree.c
   rbusTokenTest.cpp
   rbusElementTest.cpp
   rbusFunctionalityTest.cpp

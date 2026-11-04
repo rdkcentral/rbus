@@ -22,6 +22,163 @@
 #include <errno.h>
 #include "rbus_buffer.h"
 #include <float.h>
+#include <cstring>
+
+TEST(rbusValueTest, buffer_rejects_rounding_and_position_overflow)
+{
+  rbusBuffer_t buff;
+  rbusBuffer_Create(&buff);
+  uint8_t byte = 1;
+  int lengths[] = {-1, RBUS_BUFFER_MAX_SIZE + 1, INT_MAX};
+  for(int length : lengths)
+  {
+    rbusBuffer_Reserve(buff, length);
+    rbusBuffer_Write(buff, &byte, length);
+    EXPECT_EQ(0, buff->posWrite);
+    EXPECT_EQ(64, buff->lenAlloc);
+    EXPECT_EQ(buff->block1, buff->data);
+  }
+  buff->posWrite = RBUS_BUFFER_MAX_SIZE;
+  rbusBuffer_Reserve(buff, 1);
+  rbusBuffer_Write(buff, &byte, 1);
+  EXPECT_EQ(RBUS_BUFFER_MAX_SIZE, buff->posWrite);
+  EXPECT_EQ(64, buff->lenAlloc);
+  buff->posWrite = 0;
+  rbusBuffer_Destroy(buff);
+}
+
+TEST(rbusValueTest, buffer_rejects_positions_outside_current_storage)
+{
+  rbusBuffer_t buff;
+  rbusBuffer_Create(&buff);
+  uint8_t byte = 1;
+  int positions[] = {65, RBUS_BUFFER_MAX_SIZE};
+  for(int position : positions)
+  {
+    buff->posWrite = position;
+    rbusBuffer_Reserve(buff, 0);
+    rbusBuffer_Write(buff, &byte, 0);
+    EXPECT_EQ(buff->block1, buff->data);
+    EXPECT_EQ(64, buff->lenAlloc);
+    EXPECT_EQ(position, buff->posWrite);
+  }
+  buff->posWrite = 0;
+  buff->lenAlloc = 128;
+  rbusBuffer_Reserve(buff, 65);
+  rbusBuffer_Write(buff, &byte, 1);
+  EXPECT_EQ(buff->block1, buff->data);
+  EXPECT_EQ(128, buff->lenAlloc);
+  EXPECT_EQ(0, buff->posWrite);
+  buff->lenAlloc = 64;
+
+  uint8_t bytes[65] = {};
+  rbusBuffer_Write(buff, bytes, sizeof(bytes));
+  if(buff->data == buff->block1)
+  {
+    rbusBuffer_Destroy(buff);
+    ADD_FAILURE() << "Buffer did not grow beyond inline storage";
+    return;
+  }
+  int capacity = buff->lenAlloc;
+  uint8_t* storage = buff->data;
+  buff->posWrite = capacity + 1;
+  rbusBuffer_Reserve(buff, 0);
+  rbusBuffer_Write(buff, &byte, 1);
+  EXPECT_EQ(storage, buff->data);
+  EXPECT_EQ(capacity, buff->lenAlloc);
+  EXPECT_EQ(capacity + 1, buff->posWrite);
+  buff->posWrite = sizeof(bytes);
+  rbusBuffer_Destroy(buff);
+}
+
+TEST(rbusValueTest, tlv_rejects_lengths_exceeding_allocator_limit)
+{
+  rbusValue_t value;
+  rbusValue_Init(&value);
+  rbusValue_SetInt32(value, 42);
+  uint8_t byte = 0;
+  uint32_t lengths[] = {RBUS_BUFFER_MAX_SIZE + 1U, INT_MAX, UINT32_MAX};
+  for(uint32_t length : lengths)
+  {
+    rbusValue_SetTLV(value, RBUS_STRING, length, &byte);
+    EXPECT_EQ(RBUS_INT32, rbusValue_GetType(value));
+    EXPECT_EQ(42, rbusValue_GetInt32(value));
+    rbusValue_SetTLV(value, RBUS_BYTES, length, &byte);
+    EXPECT_EQ(RBUS_INT32, rbusValue_GetType(value));
+    EXPECT_EQ(42, rbusValue_GetInt32(value));
+  }
+  rbusValue_Release(value);
+}
+
+TEST(rbusValueTest, buffer_growth_preserves_written_bytes_at_boundaries)
+{
+  int lengths[] = {0, 1, 63, 64, 65, 127, 128, 129};
+  for(int initial : lengths)
+  {
+    for(int added : lengths)
+    {
+      rbusBuffer_t buff;
+      rbusBuffer_Create(&buff);
+      uint8_t first[129], second[129];
+      std::memset(first, 0x5a, sizeof(first));
+      std::memset(second, 0xa5, sizeof(second));
+      rbusBuffer_Write(buff, first, initial);
+      rbusBuffer_Write(buff, second, added);
+      EXPECT_EQ(initial + added, buff->posWrite);
+      EXPECT_GE(buff->lenAlloc, buff->posWrite);
+      EXPECT_EQ(0, std::memcmp(buff->data, first, initial));
+      EXPECT_EQ(0, std::memcmp(buff->data + initial, second, added));
+      rbusBuffer_Destroy(buff);
+    }
+  }
+}
+
+TEST(rbusValueTest, buffer_preserves_block_rounding)
+{
+  rbusBuffer_t buff;
+  rbusBuffer_Create(&buff);
+  uint8_t bytes[64] = {1};
+  rbusBuffer_Write(buff, bytes, sizeof(bytes));
+  EXPECT_EQ(64, buff->posWrite);
+  EXPECT_EQ(64, buff->lenAlloc);
+  rbusBuffer_Write(buff, bytes, sizeof(bytes));
+  EXPECT_EQ(128, buff->posWrite);
+  EXPECT_EQ(192, buff->lenAlloc);
+  EXPECT_EQ(1, buff->data[0]);
+  EXPECT_EQ(1, buff->data[64]);
+  rbusBuffer_Destroy(buff);
+}
+
+TEST(rbusValueTest, tlv_rejects_invalid_datetime_lengths)
+{
+  rbusValue_t value;
+  rbusValue_Init(&value);
+  rbusValue_SetInt32(value, 42);
+  rbusDateTime_t datetime = {};
+  uint32_t lengths[] = {0, sizeof(datetime) - 1, sizeof(datetime) + 1, UINT32_MAX};
+  for(uint32_t length : lengths)
+  {
+    rbusValue_SetTLV(value, RBUS_DATETIME, length, &datetime);
+    EXPECT_EQ(RBUS_INT32, rbusValue_GetType(value));
+    EXPECT_EQ(42, rbusValue_GetInt32(value));
+  }
+  rbusValue_SetTLV(value, RBUS_DATETIME, sizeof(datetime), &datetime);
+  EXPECT_EQ(RBUS_DATETIME, rbusValue_GetType(value));
+  EXPECT_EQ(sizeof(datetime), rbusValue_GetL(value));
+  rbusValue_Release(value);
+}
+
+TEST(rbusValueTest, tlv_rejects_unknown_type_without_copying)
+{
+  rbusValue_t value;
+  rbusValue_Init(&value);
+  rbusValue_SetInt32(value, 42);
+  uint8_t byte = 0;
+  rbusValue_SetTLV(value, static_cast<rbusValueType_t>(0x7fff), UINT32_MAX, &byte);
+  EXPECT_EQ(RBUS_INT32, rbusValue_GetType(value));
+  EXPECT_EQ(42, rbusValue_GetInt32(value));
+  rbusValue_Release(value);
+}
 
 TEST(rbusValueTest, validate_types)
 {
@@ -289,6 +446,26 @@ static void exec_encode_decode_tlv_test(rbusValueType_t type,void *buf)
 
   rbusValue_Release(valOut);
   rbusValue_Release(valIn);
+}
+
+TEST(rbusValueTest, set_tlv_rejects_invalid_lengths_and_types)
+{
+  rbusValue_t value = NULL;
+  uint32_t data = 0x12345678;
+  uint8_t oversizedDateTime[sizeof(rbusDateTime_t) + 16] = {};
+
+  rbusValue_Init(&value);
+
+  rbusValue_SetTLV(value, RBUS_INT32, sizeof(data) - 1, &data);
+  EXPECT_EQ(RBUS_NONE, rbusValue_GetType(value));
+  rbusValue_SetTLV(value, RBUS_INT32, sizeof(data) + 1, &data);
+  EXPECT_EQ(RBUS_NONE, rbusValue_GetType(value));
+  rbusValue_SetTLV(value, RBUS_DATETIME, sizeof(oversizedDateTime), oversizedDateTime);
+  EXPECT_EQ(RBUS_NONE, rbusValue_GetType(value));
+  rbusValue_SetTLV(value, (rbusValueType_t)0xFFFF, sizeof(data), &data);
+  EXPECT_EQ(RBUS_NONE, rbusValue_GetType(value));
+
+  rbusValue_Release(value);
 }
 
 TEST(rbusValueTest, validate_datetime1)
