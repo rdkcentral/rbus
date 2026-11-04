@@ -5,12 +5,14 @@
 #include <sys/un.h>
 #include "rtrouteBase.h"
 #include <sys/stat.h>
+#include <sys/file.h>
 #include <sys/wait.h>
 #include <fcntl.h>
 #include <signal.h>
 #include <unistd.h>
 #include <cstdio>
 #include <cerrno>
+#include <pthread.h>
 
 TEST(rtSocketTest, rejects_oversized_tcp_host_without_modifying_endpoint)
 {
@@ -151,6 +153,34 @@ protected:
         return -1;
     }
 
+    bool setLockSweepDue(bool due)
+    {
+        int directoryFD = open(directory.c_str(), O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
+        if(directoryFD < 0)
+            return false;
+        if(flock(directoryFD, LOCK_EX) != 0)
+        {
+            close(directoryFD);
+            return false;
+        }
+        int fd = openat(directoryFD, "lock.maintenance", O_RDWR | O_NOFOLLOW | O_CLOEXEC);
+        bool updated = false;
+        if(fd >= 0)
+        {
+            struct timespec times[2] = {};
+            times[0].tv_nsec = UTIME_OMIT;
+            times[1].tv_nsec = due ? 0 : UTIME_NOW;
+            updated = futimens(fd, times) == 0;
+            if(close(fd) != 0)
+                updated = false;
+        }
+        if(flock(directoryFD, LOCK_UN) != 0)
+            updated = false;
+        if(close(directoryFD) != 0)
+            updated = false;
+        return updated;
+    }
+
     bool waitForProviderExit()
     {
         for(int i = 0; i < 300; ++i)
@@ -176,6 +206,7 @@ TEST_F(rtDirectSocketTest, duplicate_start_does_not_replace_active_listener)
         ADD_FAILURE() << "Failed to connect consumer";
         return;
     }
+    ASSERT_TRUE(setLockSweepDue(true));
     EXPECT_NE(RT_OK, rtRouteDirect_StartInstance(address.c_str(), NULL));
     int status;
     EXPECT_EQ(0, waitpid(child, &status, WNOHANG));
@@ -206,16 +237,75 @@ TEST_F(rtDirectSocketTest, provider_crash_allows_restart_at_same_address)
         return;
     }
     close(staleFD);
+    ASSERT_TRUE(setLockSweepDue(false));
     ASSERT_TRUE(startProvider());
-    EXPECT_EQ(-1, access(staleLock.c_str(), F_OK));
-    EXPECT_EQ(ENOENT, errno);
     consumer = connectConsumer();
     if(consumer < 0)
     {
         ADD_FAILURE() << "Failed to reconnect consumer after provider crash";
         return;
     }
+    /* The crashed provider's socket path alone does not establish restart readiness. */
+    EXPECT_EQ(0, access(staleLock.c_str(), F_OK));
     close(consumer);
+    ASSERT_TRUE(waitForProviderExit());
+    EXPECT_EQ(0, access(staleLock.c_str(), F_OK));
+    EXPECT_EQ(-1, access((directory + "/lock" + basename).c_str(), F_OK));
+    EXPECT_EQ(ENOENT, errno);
+
+    ASSERT_TRUE(setLockSweepDue(true));
+    ASSERT_TRUE(startProvider());
+    consumer = connectConsumer();
+    if(consumer < 0)
+    {
+        ADD_FAILURE() << "Failed to connect consumer after periodic lock sweep";
+        return;
+    }
+    EXPECT_EQ(-1, access(staleLock.c_str(), F_OK));
+    EXPECT_EQ(ENOENT, errno);
+    close(consumer);
+    EXPECT_TRUE(waitForProviderExit());
+}
+
+static void* runCancelableDirectListener(void* address)
+{
+    rtRouteDirect_StartInstance(static_cast<const char*>(address), NULL);
+    return NULL;
+}
+
+TEST_F(rtDirectSocketTest, cancellation_releases_listener_and_allows_same_process_restart)
+{
+    child = fork();
+    ASSERT_GE(child, 0);
+    if(child == 0)
+    {
+        for(int attempt = 0; attempt < 2; ++attempt)
+        {
+            pthread_t thread;
+            if(pthread_create(&thread, NULL, runCancelableDirectListener,
+                const_cast<char*>(address.c_str())) != 0)
+                _exit(1);
+            bool ready = false;
+            for(int i = 0; i < 200; ++i)
+            {
+                if(access((directory + "/" + basename).c_str(), F_OK) == 0)
+                {
+                    ready = true;
+                    break;
+                }
+                usleep(1000);
+            }
+            if(!ready || pthread_cancel(thread) != 0)
+                _exit(2);
+            void* status = NULL;
+            if(pthread_join(thread, &status) != 0 || status != PTHREAD_CANCELED)
+                _exit(3);
+            if(access((directory + "/" + basename).c_str(), F_OK) == 0 ||
+                access((directory + "/lock" + basename).c_str(), F_OK) == 0)
+                _exit(4);
+        }
+        _exit(0);
+    }
     EXPECT_TRUE(waitForProviderExit());
 }
 

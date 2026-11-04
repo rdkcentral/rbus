@@ -1826,7 +1826,7 @@ rbusCoreError_t rbus_unregisterClientDisconnectHandler()
 
 rbusCoreError_t rbuscore_publishDirectSubscriberEvent(const char * event_name, const char* listener, const void* data, uint32_t dataLength, uint32_t subscriptionId, bool rawData)
 {
-    rtError err = RT_OK;
+    rtError err = RT_FAIL;
 
     directServerLock();
     const rtPrivateClientInfo *pPrivCliInfo = _rbuscore_find_server_privateconnection (event_name, listener);

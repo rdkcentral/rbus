@@ -239,6 +239,45 @@ rtRouteBase_OpenDirectLock(int directory_fd, const char* socket_basename)
 }
 
 static int
+rtRouteBase_ReclaimDirectLocksIfDue(int directory_fd)
+{
+  /* Shared across processes; the directory gate protects the sweep timestamp. */
+  int fd = rtRouteBase_OpenDirectLock(directory_fd, ".maintenance");
+  if (fd < 0)
+    return -1;
+
+  int result = -1;
+  struct stat st;
+  time_t now = time(NULL);
+  if (now == (time_t)-1)
+    rtLog_Error("Failed to read direct lock maintenance time: %s", strerror(errno));
+  else if (fstat(fd, &st) != 0)
+    rtLog_Error("Failed to inspect direct lock maintenance state: %s", strerror(errno));
+  else if (st.st_size != 0 && st.st_size != 1)
+    rtLog_Error("Invalid direct lock maintenance state");
+  else
+  {
+    double elapsed = difftime(now, st.st_mtime);
+    if (st.st_size == 1 && elapsed >= 0 && elapsed < 60)
+      result = 0;
+    else if (rtRouteBase_ReclaimDirectLocks(directory_fd) == 0)
+    {
+      /* Writing also updates mtime, including after a backward clock adjustment. */
+      if (pwrite(fd, "1", 1, 0) == 1)
+        result = 0;
+      else
+        rtLog_Error("Failed to record direct lock sweep completion");
+    }
+  }
+  if (close(fd) != 0)
+  {
+    rtLog_Error("Failed to close direct lock maintenance state: %s", strerror(errno));
+    result = -1;
+  }
+  return result;
+}
+
+static int
 rtRouteBase_LockDirectSocket(int directory_fd, const char* socket_basename)
 {
   if (flock(directory_fd, LOCK_EX) != 0)
@@ -247,7 +286,7 @@ rtRouteBase_LockDirectSocket(int directory_fd, const char* socket_basename)
     return -1;
   }
   int fd = -1;
-  if (rtRouteBase_ReclaimDirectLocks(directory_fd) == 0)
+  if (rtRouteBase_ReclaimDirectLocksIfDue(directory_fd) == 0)
     fd = rtRouteBase_OpenDirectLock(directory_fd, socket_basename);
   if (flock(directory_fd, LOCK_UN) != 0)
   {
@@ -826,6 +865,94 @@ rtRouteDirect_SendMessage(const rtPrivateClientInfo* pClient, uint8_t const* pIn
     return ret;
 }
 
+typedef struct
+{
+  rtRouteEntry** route;
+  rtConnectedClient** client;
+  rtListener** listener;
+  int* directoryFD;
+  int* lockFD;
+  bool* ownsPath;
+  const char** basename;
+  rtDriectClientHandler messageHandler;
+  rtError* result;
+} rtDirectInstanceCleanup;
+
+static void
+rtRouteDirect_CleanupInstance(void* context)
+{
+  rtDirectInstanceCleanup* cleanup = context;
+  rtConnectedClient* client = *cleanup->client;
+  if (client)
+  {
+    if (client->fd >= 0)
+    {
+      rtPrivateClientInfo disconnected = {0};
+      disconnected.clientFD = client->fd;
+      if (cleanup->messageHandler)
+      {
+        rtError err = cleanup->messageHandler(RT_DIRECT_CLIENT_DISCONNECTED, NULL,
+            (uint8_t const*)&disconnected, sizeof(disconnected), NULL, NULL);
+        if (err != RT_OK)
+          rtLog_Error("Private client disconnect notification failed: %s", rtStrError(err));
+      }
+      if (close(client->fd) != 0)
+        rtLog_Warn("Failed to close private client socket: %s", strerror(errno));
+      client->fd = -1;
+    }
+    free(client->read_buffer);
+    free(client->send_buffer);
+    free(client);
+  }
+  free(*cleanup->route);
+  if (*cleanup->listener)
+  {
+    rtRouteBase_CloseListener(*cleanup->listener);
+    free(*cleanup->listener);
+  }
+  if (*cleanup->ownsPath &&
+      rtRouteBase_RemoveDirectSocket(*cleanup->directoryFD, *cleanup->basename) != RT_OK)
+    *cleanup->result = RT_FAIL;
+
+  bool haveDirectoryGate = false;
+  if (*cleanup->lockFD >= 0)
+  {
+    haveDirectoryGate = flock(*cleanup->directoryFD, LOCK_EX) == 0;
+    if (!haveDirectoryGate)
+    {
+      rtLog_Error("Failed to acquire direct lock cleanup gate: %s", strerror(errno));
+      *cleanup->result = RT_FAIL;
+    }
+    if (haveDirectoryGate)
+    {
+      char lockPath[sizeof(((struct sockaddr_un*)0)->sun_path) + sizeof(".lock")];
+      int length = snprintf(lockPath, sizeof(lockPath), "lock%s", *cleanup->basename);
+      if (length < 0 || (size_t)length >= sizeof(lockPath))
+      {
+        rtLog_Error("Direct socket cleanup lock pathname is too long");
+        *cleanup->result = RT_FAIL;
+      }
+      else if (unlinkat(*cleanup->directoryFD, lockPath, 0) != 0)
+      {
+        rtLog_Error("Failed to remove direct socket lock: %s", strerror(errno));
+        *cleanup->result = RT_FAIL;
+      }
+    }
+    if (close(*cleanup->lockFD) != 0)
+      rtLog_Warn("Failed to close direct socket lock: %s", strerror(errno));
+  }
+  if (haveDirectoryGate)
+  {
+    if (flock(*cleanup->directoryFD, LOCK_UN) != 0)
+    {
+      rtLog_Error("Failed to release direct lock cleanup gate: %s", strerror(errno));
+      *cleanup->result = RT_FAIL;
+    }
+  }
+  if (*cleanup->directoryFD >= 0 && close(*cleanup->directoryFD) != 0)
+    rtLog_Warn("Failed to close direct socket directory: %s", strerror(errno));
+}
+
 rtError
 rtRouteDirect_StartInstance(const char* socket_name, rtDriectClientHandler messageHandler)
 {
@@ -839,12 +966,24 @@ rtRouteDirect_StartInstance(const char* socket_name, rtDriectClientHandler messa
   int socketDirectoryFD = -1;
   bool ownsSocketPath = false;
   int socketLockFD = -1;
+  int previousCancelState;
 
   if (NULL == socket_name)
   {
     rtLog_Warn("NULL Socket Name to listen to");
     return RT_ERROR;
   }
+
+  int cancelError = pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &previousCancelState);
+  if (cancelError != 0)
+  {
+    rtLog_Error("Failed to disable direct listener cancellation: %s", strerror(cancelError));
+    return rtErrorFromErrno(cancelError);
+  }
+  rtDirectInstanceCleanup cleanup = {&route, &myDirectClient, &myDirectListener,
+      &socketDirectoryFD, &socketLockFD, &ownsSocketPath, &socketBasename,
+      messageHandler, &result};
+  pthread_cleanup_push(rtRouteDirect_CleanupInstance, &cleanup);
 
   if (strncmp(socket_name, "unix://", 7) == 0)
   {
@@ -862,12 +1001,16 @@ rtRouteDirect_StartInstance(const char* socket_name, rtDriectClientHandler messa
             sizeof(((struct sockaddr_un*)0)->sun_path))
     {
       rtLog_Warn("Rejected unsafe private Unix socket path: %s", socket_path);
-      return RT_ERROR_INVALID_ARG;
+      result = RT_ERROR_INVALID_ARG;
+      goto finish;
     }
     socketBasename = socket_path + directoryLength + 1;
     socketDirectoryFD = rtRouteBase_OpenDirectDirectory(socketDirectory);
     if (socketDirectoryFD < 0)
-      return RT_FAIL;
+    {
+      result = RT_FAIL;
+      goto finish;
+    }
     socketLockFD = rtRouteBase_LockDirectSocket(socketDirectoryFD, socketBasename);
     if (socketLockFD < 0)
     {
@@ -925,7 +1068,10 @@ rtRouteDirect_StartInstance(const char* socket_name, rtDriectClientHandler messa
       _rtdirect_pushFd(&err_fds, myDirectClient->fd, &max_fd);
     }
 
+    /* Deliver cancellation only where no callbacks or registry locks are active. */
+    pthread_setcancelstate(previousCancelState, NULL);
     ret = select(max_fd + 1, &read_fds, NULL, &err_fds, &timeout);
+    pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
     if (ret == 0)
       continue;
 
@@ -953,65 +1099,7 @@ rtRouteDirect_StartInstance(const char* socket_name, rtDriectClientHandler messa
   }
 
 finish:
-  if (myDirectClient)
-  {
-    if (myDirectClient->fd >= 0)
-    {
-      rtPrivateClientInfo disconnected = {0};
-      disconnected.clientFD = myDirectClient->fd;
-      /* The callback waits for publications and invalidates their cached fd before close. */
-      if (messageHandler)
-      {
-        rtError err = messageHandler(RT_DIRECT_CLIENT_DISCONNECTED, NULL,
-            (uint8_t const*)&disconnected, sizeof(disconnected), NULL, NULL);
-        if (err != RT_OK)
-          rtLog_Error("Private client disconnect notification failed: %s", rtStrError(err));
-      }
-      if (close(myDirectClient->fd) != 0)
-        rtLog_Warn("Failed to close private client socket: %s", rtStrError(errno));
-      myDirectClient->fd = -1;
-    }
-    free(myDirectClient->read_buffer);
-    free(myDirectClient->send_buffer);
-    free(myDirectClient);
-  }
-
-  free(route);
-  if (myDirectListener)
-  {
-    rtRouteBase_CloseListener(myDirectListener);
-    free(myDirectListener);
-  }
-  if (ownsSocketPath)
-  {
-    rtError cleanupResult = rtRouteBase_RemoveDirectSocket(socketDirectoryFD, socketBasename);
-    if (cleanupResult != RT_OK)
-      result = cleanupResult;
-  }
-  /* Release ownership before reclaiming, under the same gate used by openers. */
-  bool haveDirectoryGate = false;
-  if (socketLockFD >= 0)
-  {
-    haveDirectoryGate = flock(socketDirectoryFD, LOCK_EX) == 0;
-    if (!haveDirectoryGate)
-    {
-      rtLog_Error("Failed to acquire direct lock cleanup gate: %s", strerror(errno));
-      result = RT_FAIL;
-    }
-  }
-  if (socketLockFD >= 0 && close(socketLockFD) != 0)
-    rtLog_Warn("Failed to close direct socket lock: %s", strerror(errno));
-  if (haveDirectoryGate)
-  {
-    if (rtRouteBase_ReclaimDirectLocks(socketDirectoryFD) != 0)
-      result = RT_FAIL;
-    if (flock(socketDirectoryFD, LOCK_UN) != 0)
-    {
-      rtLog_Error("Failed to release direct lock cleanup gate: %s", strerror(errno));
-      result = RT_FAIL;
-    }
-  }
-  if (socketDirectoryFD >= 0 && close(socketDirectoryFD) != 0)
-    rtLog_Warn("Failed to close direct socket directory: %s", strerror(errno));
+  pthread_cleanup_pop(1);
+  pthread_setcancelstate(previousCancelState, NULL);
   return result;
 }
