@@ -1084,6 +1084,7 @@ void execute_discover_wildcard_dests_cmd(int argc, char* argv[])
         else
         {
             printf("No destinations discovered.\r\n");
+            free(destinations);
         }
     }
     else
