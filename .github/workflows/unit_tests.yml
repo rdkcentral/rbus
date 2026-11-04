@@ -137,7 +137,7 @@ jobs:
           cd install/usr
           export PREFIX=$PWD
           export LD_LIBRARY_PATH=$PREFIX/lib
-          ./bin/rtrouted_diag shutdown
+          sudo env LD_LIBRARY_PATH="$LD_LIBRARY_PATH" "$PREFIX/bin/rtrouted_diag" shutdown
       - name:  Run CodeCoverage
         run: |
             rm -rf /tmp/rtrouted*

@@ -286,6 +286,28 @@ TEST_F(TestMarshallingAPIs, logic_filter_rejects_invalid_child_at_each_position)
     }
 }
 
+TEST_F(TestMarshallingAPIs, malformed_batch_preserves_previously_cached_properties)
+{
+    rbusMessage message;
+    rbusProperty_t cached = NULL, batch = NULL;
+    rbusMessage_Init(&message);
+    rbusMessage_SetInt32(message, 1);
+    appendBooleanProperty(message, true);
+    ASSERT_EQ(RBUS_ERROR_SUCCESS, rbusPropertyList_initFromMessage(&cached, message));
+    rbusMessage_Release(message);
+
+    rbusMessage_Init(&message);
+    rbusMessage_SetInt32(message, 2);
+    appendBooleanProperty(message, true);
+    appendBooleanProperty(message, false);
+    EXPECT_EQ(RBUS_ERROR_INVALID_INPUT, rbusPropertyList_initFromMessage(&batch, message));
+    EXPECT_EQ(nullptr, batch);
+    EXPECT_EQ(1U, rbusProperty_Count(cached));
+    EXPECT_TRUE(rbusValue_GetBoolean(rbusProperty_GetValue(cached)));
+    rbusProperty_Release(cached);
+    rbusMessage_Release(message);
+}
+
 TEST_F(TestMarshallingAPIs, filter_rejects_malformed_nested_value)
 {
     rbusMessage message;

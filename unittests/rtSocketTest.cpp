@@ -101,6 +101,8 @@ protected:
             EXPECT_TRUE(unlinkat(fd, basename.c_str(), 0) == 0 || errno == ENOENT);
             std::string lockname = "lock" + basename;
             EXPECT_TRUE(unlinkat(fd, lockname.c_str(), 0) == 0 || errno == ENOENT);
+            std::string staleLock = lockname + "_stale";
+            EXPECT_TRUE(unlinkat(fd, staleLock.c_str(), 0) == 0 || errno == ENOENT);
             close(fd);
         }
     }
@@ -169,7 +171,11 @@ TEST_F(rtDirectSocketTest, duplicate_start_does_not_replace_active_listener)
 {
     ASSERT_TRUE(startProvider());
     int consumer = connectConsumer();
-    ASSERT_GE(consumer, 0);
+    if(consumer < 0)
+    {
+        ADD_FAILURE() << "Failed to connect consumer";
+        return;
+    }
     EXPECT_NE(RT_OK, rtRouteDirect_StartInstance(address.c_str(), NULL));
     int status;
     EXPECT_EQ(0, waitpid(child, &status, WNOHANG));
@@ -177,18 +183,38 @@ TEST_F(rtDirectSocketTest, duplicate_start_does_not_replace_active_listener)
     EXPECT_TRUE(waitForProviderExit());
     EXPECT_EQ(-1, access((directory + "/" + basename).c_str(), F_OK));
     EXPECT_EQ(ENOENT, errno);
+    EXPECT_EQ(-1, access((directory + "/lock" + basename).c_str(), F_OK));
+    EXPECT_EQ(ENOENT, errno);
 }
 
 TEST_F(rtDirectSocketTest, provider_crash_allows_restart_at_same_address)
 {
     ASSERT_TRUE(startProvider());
     int consumer = connectConsumer();
-    ASSERT_GE(consumer, 0);
+    if(consumer < 0)
+    {
+        ADD_FAILURE() << "Failed to connect consumer";
+        return;
+    }
     stopProvider();
     close(consumer);
+    std::string staleLock = directory + "/lock" + basename + "_stale";
+    int staleFD = open(staleLock.c_str(), O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW, 0600);
+    if(staleFD < 0)
+    {
+        ADD_FAILURE() << "Failed to create unused lock for reclamation test";
+        return;
+    }
+    close(staleFD);
     ASSERT_TRUE(startProvider());
+    EXPECT_EQ(-1, access(staleLock.c_str(), F_OK));
+    EXPECT_EQ(ENOENT, errno);
     consumer = connectConsumer();
-    ASSERT_GE(consumer, 0);
+    if(consumer < 0)
+    {
+        ADD_FAILURE() << "Failed to reconnect consumer after provider crash";
+        return;
+    }
     close(consumer);
     EXPECT_TRUE(waitForProviderExit());
 }

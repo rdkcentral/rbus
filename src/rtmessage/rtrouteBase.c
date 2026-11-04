@@ -34,6 +34,7 @@
 #include <sys/stat.h>
 #include <sys/un.h>
 #include <fcntl.h>
+#include <dirent.h>
 #include <time.h>
 
 #include <pthread.h>
@@ -104,15 +105,9 @@ rtRouteBase_OpenDirectDirectory(const char* directory)
     return -1;
   }
   /* Permit consumer traversal, but only the provider UID can modify entries. */
-  if (created && fchmod(fd, 0711) != 0)
+  if ((st.st_mode & 0777) != 0711 && fchmod(fd, 0711) != 0)
   {
     rtLog_Error("Failed to set direct socket directory permissions: %s", strerror(errno));
-    close(fd);
-    return -1;
-  }
-  if (!created && (st.st_mode & 0777) != 0711)
-  {
-    rtLog_Error("Direct socket directory must have mode 0711: %s", directory);
     close(fd);
     return -1;
   }
@@ -120,7 +115,91 @@ rtRouteBase_OpenDirectDirectory(const char* directory)
 }
 
 static int
-rtRouteBase_LockDirectSocket(int directory_fd, const char* socket_basename)
+rtRouteBase_ReclaimDirectLocks(int directory_fd)
+{
+  int scan_fd = openat(directory_fd, ".", O_RDONLY | O_DIRECTORY | O_CLOEXEC);
+  if (scan_fd < 0)
+  {
+    rtLog_Error("Failed to open direct lock directory scan: %s", strerror(errno));
+    return -1;
+  }
+  DIR* directory = fdopendir(scan_fd);
+  if (!directory)
+  {
+    rtLog_Error("Failed to start direct lock directory scan: %s", strerror(errno));
+    close(scan_fd);
+    return -1;
+  }
+  int result = 0;
+  for (;;)
+  {
+    errno = 0;
+    struct dirent* entry = readdir(directory);
+    if (!entry)
+    {
+      if (errno != 0)
+      {
+        rtLog_Error("Failed to read direct lock directory: %s", strerror(errno));
+        result = -1;
+      }
+      break;
+    }
+    if (strncmp(entry->d_name, "lock.direct_", strlen("lock.direct_")) != 0)
+      continue;
+    int fd = openat(directory_fd, entry->d_name,
+        O_RDWR | O_NOFOLLOW | O_CLOEXEC | O_NONBLOCK);
+    if (fd < 0)
+    {
+      rtLog_Error("Failed to open stale direct lock %s: %s", entry->d_name, strerror(errno));
+      result = -1;
+      break;
+    }
+    struct stat st;
+    if (fstat(fd, &st) != 0)
+    {
+      rtLog_Error("Failed to inspect stale direct lock: %s", strerror(errno));
+      close(fd);
+      result = -1;
+      break;
+    }
+    if (!S_ISREG(st.st_mode) || st.st_uid != geteuid() ||
+        st.st_nlink != 1 || (st.st_mode & 0077) != 0)
+    {
+      rtLog_Error("Rejecting untrusted stale direct lock %s", entry->d_name);
+      close(fd);
+      result = -1;
+      break;
+    }
+    if (flock(fd, LOCK_EX | LOCK_NB) != 0)
+    {
+      int lock_errno = errno;
+      close(fd);
+      if (lock_errno == EWOULDBLOCK || lock_errno == EAGAIN)
+        continue;
+      rtLog_Error("Failed to inspect stale direct lock ownership: %s", strerror(lock_errno));
+      result = -1;
+      break;
+    }
+    /* Directory locking excludes all other lock-file openers and removers. */
+    if (unlinkat(directory_fd, entry->d_name, 0) != 0)
+    {
+      rtLog_Error("Failed to reclaim direct lock %s: %s", entry->d_name, strerror(errno));
+      result = -1;
+    }
+    close(fd);
+    if (result != 0)
+      break;
+  }
+  if (closedir(directory) != 0)
+  {
+    rtLog_Error("Failed to close direct lock directory scan: %s", strerror(errno));
+    result = -1;
+  }
+  return result;
+}
+
+static int
+rtRouteBase_OpenDirectLock(int directory_fd, const char* socket_basename)
 {
   char lock_path[sizeof(((struct sockaddr_un*)0)->sun_path) + sizeof(".lock")];
   struct stat opened;
@@ -154,6 +233,27 @@ rtRouteBase_LockDirectSocket(int directory_fd, const char* socket_basename)
   {
     rtLog_Warn("Cannot acquire direct socket lock %s: %s", lock_path, strerror(errno));
     close(fd);
+    return -1;
+  }
+  return fd;
+}
+
+static int
+rtRouteBase_LockDirectSocket(int directory_fd, const char* socket_basename)
+{
+  if (flock(directory_fd, LOCK_EX) != 0)
+  {
+    rtLog_Error("Failed to acquire direct lock directory gate: %s", strerror(errno));
+    return -1;
+  }
+  int fd = -1;
+  if (rtRouteBase_ReclaimDirectLocks(directory_fd) == 0)
+    fd = rtRouteBase_OpenDirectLock(directory_fd, socket_basename);
+  if (flock(directory_fd, LOCK_UN) != 0)
+  {
+    rtLog_Error("Failed to release direct lock directory gate: %s", strerror(errno));
+    if (fd >= 0)
+      close(fd);
     return -1;
   }
   return fd;
@@ -888,9 +988,29 @@ finish:
     if (cleanupResult != RT_OK)
       result = cleanupResult;
   }
-  /* Never unlink the lock file: other processes must lock the same inode. */
+  /* Release ownership before reclaiming, under the same gate used by openers. */
+  bool haveDirectoryGate = false;
+  if (socketLockFD >= 0)
+  {
+    haveDirectoryGate = flock(socketDirectoryFD, LOCK_EX) == 0;
+    if (!haveDirectoryGate)
+    {
+      rtLog_Error("Failed to acquire direct lock cleanup gate: %s", strerror(errno));
+      result = RT_FAIL;
+    }
+  }
   if (socketLockFD >= 0 && close(socketLockFD) != 0)
     rtLog_Warn("Failed to close direct socket lock: %s", strerror(errno));
+  if (haveDirectoryGate)
+  {
+    if (rtRouteBase_ReclaimDirectLocks(socketDirectoryFD) != 0)
+      result = RT_FAIL;
+    if (flock(socketDirectoryFD, LOCK_UN) != 0)
+    {
+      rtLog_Error("Failed to release direct lock cleanup gate: %s", strerror(errno));
+      result = RT_FAIL;
+    }
+  }
   if (socketDirectoryFD >= 0 && close(socketDirectoryFD) != 0)
     rtLog_Warn("Failed to close direct socket directory: %s", strerror(errno));
   return result;

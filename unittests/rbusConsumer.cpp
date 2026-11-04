@@ -761,6 +761,8 @@ int rbusConsumer(rbusGtest_t test, pid_t pid, int runtime)
       break;
     case RBUS_GTEST_GET29:
       {
+        EXPECT_EQ(RBUS_ERROR_INVALID_INPUT,
+            rbus_get(handle, "Device.rbusProvider.Int32", NULL));
         rc = rbus_get(handle, "Device.rbusProvider.", NULL);
         EXPECT_EQ(rc, RBUS_ERROR_ACCESS_NOT_ALLOWED);
       }

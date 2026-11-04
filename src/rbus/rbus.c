@@ -3791,12 +3791,6 @@ rbusError_t rbus_get(rbusHandle_t handle, char const* name, rbusValue_t* value)
     if (handleInfo->m_handleType != RBUS_HWDL_TYPE_REGULAR)
         return RBUS_ERROR_INVALID_HANDLE;
 
-    if(value == NULL)
-    {
-        RBUSLOG_ERROR("rbus_get: value is NULL");
-        return RBUS_ERROR_INVALID_INPUT;
-    }
-
     /* Is it a valid Query */
     if (!_is_valid_get_query(name))
     {
@@ -3808,6 +3802,12 @@ rbusError_t rbus_get(rbusHandle_t handle, char const* name, rbusValue_t* value)
     {
         RBUSLOG_WARN("This method does not support wildcard query");
         return RBUS_ERROR_ACCESS_NOT_ALLOWED;
+    }
+
+    if(value == NULL)
+    {
+        RBUSLOG_ERROR("rbus_get: value is NULL");
+        return RBUS_ERROR_INVALID_INPUT;
     }
 
     rbusMessage_Init(&request);
@@ -4194,7 +4194,7 @@ rbusError_t rbus_getExt(rbusHandle_t handle, int paramCount, char const** pParam
                         if((errorcode = _getExt_response_parser(response, &batchNumVals, &batchResult)) != RBUS_ERROR_SUCCESS)
                         {
                             RBUSLOG_ERROR("error parsing response %d", errorcode);
-			    rbusProperty_Release(*retProperties);
+                            rbusProperty_Release(*retProperties);
                             *retProperties = NULL;
                             *numValues = 0;
                             break;
@@ -4622,6 +4622,7 @@ rbusError_t _setMultiInternal(rbusHandle_t handle, uint32_t numProps, rbusProper
                     {
                         char const* pErrorReason = NULL;
                         rbusLegacyReturn_t legacyRetCode = RBUS_LEGACY_ERR_FAILURE;
+                        bool parseFailed = false;
                         int ret = -1;
                         rbusMessage_GetInt32(setResponse, &ret);
                         RBUSLOG_DEBUG("Response from the remote method is [%d]!", ret);
@@ -4629,21 +4630,33 @@ rbusError_t _setMultiInternal(rbusHandle_t handle, uint32_t numProps, rbusProper
                         legacyRetCode = (rbusLegacyReturn_t) ret;
                         if((errorcode == RBUS_ERROR_SUCCESS) || (legacyRetCode == RBUS_LEGACY_ERR_SUCCESS))
                         {
-                            errorcode = rbusPropertyList_initFromMessage(&cachedProperties, setResponse);
+                            rbusProperty_t batchProperties = NULL;
+                            errorcode = rbusPropertyList_initFromMessage(&batchProperties, setResponse);
                             if(errorcode != RBUS_ERROR_SUCCESS)
                             {
                                 RBUSLOG_WARN("Failed to decode set response properties %d", errorcode);
-                                rbusMessage_Release(setResponse);
-                                if(componentName)
-                                    free(componentName);
-                                break;
+                                parseFailed = true;
                             }
-                            RBUSLOG_DEBUG("Successfully Set the Value");
-                            pFailedElement = NULL;
+                            else
+                            {
+                                if(cachedProperties && batchProperties)
+                                {
+                                    rbusProperty_Append(cachedProperties, batchProperties);
+                                    rbusProperty_Release(batchProperties);
+                                }
+                                else if(batchProperties)
+                                    cachedProperties = batchProperties;
+                                RBUSLOG_DEBUG("Successfully Set the Value");
+                                pFailedElement = NULL;
+                            }
                         }
-                        else
+                        if(errorcode != RBUS_ERROR_SUCCESS)
                         {
-                            if(pFailedElement)
+                            if(parseFailed)
+                            {
+                                RBUSLOG_WARN("Set response is malformed; current batch rollback values are unavailable. Rolling back earlier cached values when enabled");
+                            }
+                            else if(pFailedElement)
                             {
                                 rbusMessage_GetString(setResponse, &pErrorReason);
                                 *pFailedElement = strdup((char*)pErrorReason);
@@ -4654,7 +4667,7 @@ rbusError_t _setMultiInternal(rbusHandle_t handle, uint32_t numProps, rbusProper
                                 rbusMessage_GetString(setResponse, &pErrorReason);
                                 RBUSLOG_WARN("Failed to Set the Value for %s", pErrorReason);
                             }
-                            if(rollBack)
+                            if(rollBack && cachedProperties)
                             {
                                 char *pTempFailedElement = NULL;
                                 rbusSetOptions_t revertOpts;
@@ -4674,13 +4687,14 @@ rbusError_t _setMultiInternal(rbusHandle_t handle, uint32_t numProps, rbusProper
                                 result = _setMultiInternal(handle, cachedNumProps, cachedProperties, &revertOpts, (int)timeout, &pTempFailedElement, false);
                                 if(result == RBUS_ERROR_SUCCESS)
                                     RBUSLOG_DEBUG("Successfully reverted back the values");
-                                else if((result != RBUS_ERROR_SUCCESS) && (pTempFailedElement))
+                                else
                                 {
-                                    RBUSLOG_WARN("Failed to rollback %s\n",pTempFailedElement);
-                                    free(pTempFailedElement);
+                                    RBUSLOG_WARN("Failed to rollback cached values: %d, element: %s",
+                                        result, pTempFailedElement ? pTempFailedElement : "(unknown)");
                                 }
+                                free(pTempFailedElement);
                             }
-                            if(legacyRetCode > RBUS_LEGACY_ERR_SUCCESS)
+                            if(!parseFailed && legacyRetCode > RBUS_LEGACY_ERR_SUCCESS)
                             {
                                 errorcode = CCSPError_to_rbusError(legacyRetCode);
                             }
