@@ -73,7 +73,12 @@ TEST(rbusValueTest, buffer_rejects_positions_outside_current_storage)
 
   uint8_t bytes[65] = {};
   rbusBuffer_Write(buff, bytes, sizeof(bytes));
-  ASSERT_NE(buff->block1, buff->data);
+  if(buff->data == buff->block1)
+  {
+    rbusBuffer_Destroy(buff);
+    ADD_FAILURE() << "Buffer did not grow beyond inline storage";
+    return;
+  }
   int capacity = buff->lenAlloc;
   uint8_t* storage = buff->data;
   buff->posWrite = capacity + 1;

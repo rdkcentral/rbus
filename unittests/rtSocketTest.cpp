@@ -80,6 +80,11 @@ TEST_F(rtDirectSendTest, maximum_topic_encodes_only_initialized_header_bytes)
     uint16_t wireLength;
     std::memcpy(&wireLength, bytes + RTMESSAGEHEADER_HDR_LENGTH_OFFSET, sizeof(wireLength));
     size_t length = ntohs(wireLength);
+    if(length < RTMESSAGEHEADER_MIN_LENGTH || length > sizeof(bytes))
+    {
+        ADD_FAILURE() << "Invalid direct frame header length: " << length;
+        return;
+    }
     size_t expected = RTMESSAGEHEADER_MIN_LENGTH + sizeof(client.clientTopic) - 1;
 #ifdef MSG_ROUNDTRIP_TIME
     expected += 5 * sizeof(uint64_t);

@@ -948,20 +948,16 @@ rtConnectedClient_Read(rtConnectedClient* clnt, rtRouteEntry* myDirectRoute)
         size_t payload = (size_t)clnt->header.payload_length;
         if (clnt->bytes_to_read > (SIZE_MAX - payload))
         {
-          rtLog_Info("Requested payload_length (%u) would overflow size_t. Message will be dropped.", clnt->header.payload_length);
-          _rtConnection_ReadAndDropBytes(clnt->fd, clnt->header.payload_length);
-          rtConnectedClient_Reset(clnt);
-          break;
+          rtLog_Warn("Requested payload_length (%u) would overflow size_t. Closing private connection.", clnt->header.payload_length);
+          return RT_ERROR_INVALID_ARG;
         }
         clnt->bytes_to_read += payload;
         clnt->state = rtConnectionState_ReadPayload;
         if (clnt->bytes_to_read > (SIZE_MAX - clnt->bytes_read))
         {
-          rtLog_Info("Requested buffer size (%zu + %zu) would overflow size_t. Message will be dropped.",
+          rtLog_Warn("Requested buffer size (%zu + %zu) would overflow size_t. Closing private connection.",
                      clnt->bytes_to_read, clnt->bytes_read);
-          _rtConnection_ReadAndDropBytes(clnt->fd, clnt->header.payload_length);
-          rtConnectedClient_Reset(clnt);
-          break;
+          return RT_ERROR_INVALID_ARG;
         }
         size_t incoming_data_size = clnt->bytes_to_read + clnt->bytes_read;
         if(clnt->read_buffer_capacity < incoming_data_size)
@@ -975,10 +971,8 @@ rtConnectedClient_Read(rtConnectedClient* clnt, rtRouteEntry* myDirectRoute)
           }
           else
           {
-            rtLog_Info("Couldn't reallocate read buffer to accommodate %zu bytes. Message will be dropped.", incoming_data_size);
-            _rtConnection_ReadAndDropBytes(clnt->fd, clnt->header.payload_length);
-            rtConnectedClient_Reset(clnt);
-            break;
+            rtLog_Warn("Couldn't reallocate read buffer to accommodate %zu bytes. Closing private connection.", incoming_data_size);
+            return rtErrorFromErrno(ENOMEM);
           }
         }
       }

@@ -6612,7 +6612,15 @@ rbusError_t rbusMethod_SendAsyncResponse(
         rbusObject_SetValue(outParams, "error_code", value1);
         rbusObject_SetValue(outParams, "error_string", value2);
     }
-    rbusObject_appendToMessage(outParams, response);
+    if(outParams == NULL)
+    {
+        rbusObject_t empty;
+        rbusObject_Init(&empty, NULL);
+        rbusObject_appendToMessage(empty, response);
+        rbusObject_Release(empty);
+    }
+    else
+        rbusObject_appendToMessage(outParams, response);
     rbus_sendResponse(&asyncHandle->hdr, response);
     rbusValue_Release(value1);
     rbusValue_Release(value2);
