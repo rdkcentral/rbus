@@ -475,6 +475,7 @@ typedef struct rtDirectSendState
   ino_t inode;
   size_t users;
   bool sending;
+  pthread_cond_t available;
   struct rtDirectSendState* next;
 } rtDirectSendState;
 
@@ -538,10 +539,28 @@ rtRouteDirect_SendFrame(int fd, rtMessageHeader* header, const uint8_t* data, ui
     }
     state->device = st.st_dev;
     state->inode = st.st_ino;
+    pthread_condattr_t attributes;
+    int initError = pthread_condattr_init(&attributes);
+    if (initError == 0)
+    {
+      initError = pthread_condattr_setclock(&attributes, CLOCK_MONOTONIC);
+      if (initError == 0)
+        initError = pthread_cond_init(&state->available, &attributes);
+      int destroyError = pthread_condattr_destroy(&attributes);
+      if (destroyError != 0)
+        rtLog_Error("Failed to destroy direct send condition attributes: %s", strerror(destroyError));
+    }
+    if (initError != 0)
+    {
+      free(state);
+      pthread_mutex_unlock(&directSendMutex);
+      rtLog_Error("Failed to initialize direct send condition: %s", strerror(initError));
+      pthread_setcancelstate(previousCancelState, NULL);
+      return rtErrorFromErrno(initError);
+    }
     *link = state;
   }
   ++state->users;
-  pthread_mutex_unlock(&directSendMutex);
 
   rtError result = RT_OK;
   bool acquired = false;
@@ -553,11 +572,9 @@ rtRouteDirect_SendFrame(int fd, rtMessageHeader* header, const uint8_t* data, ui
       result = remaining == 0 ? RT_ERROR_TIMEOUT : RT_FAIL;
       break;
     }
-    pthread_mutex_lock(&directSendMutex);
     state = *rtRouteDirect_FindSendState(st.st_dev, st.st_ino);
     if (!state)
     {
-      pthread_mutex_unlock(&directSendMutex);
       rtLog_Error("Direct send state disappeared while referenced");
       result = RT_FAIL;
       break;
@@ -567,12 +584,18 @@ rtRouteDirect_SendFrame(int fd, rtMessageHeader* header, const uint8_t* data, ui
       state->sending = true;
       acquired = true;
     }
-    pthread_mutex_unlock(&directSendMutex);
     if (acquired)
       break;
-    struct timespec pause = {0, 1000000};
-    nanosleep(&pause, NULL);
+    int waitError = pthread_cond_timedwait(&state->available, &directSendMutex, &deadline);
+    if (waitError != 0)
+    {
+      if (waitError != ETIMEDOUT)
+        rtLog_Error("Direct send condition wait failed: %s", strerror(waitError));
+      result = waitError == ETIMEDOUT ? RT_ERROR_TIMEOUT : rtErrorFromErrno(waitError);
+      break;
+    }
   }
+  pthread_mutex_unlock(&directSendMutex);
 
   if (acquired)
   {
@@ -680,10 +703,24 @@ rtRouteDirect_SendFrame(int fd, rtMessageHeader* header, const uint8_t* data, ui
   else
   {
     if (acquired)
+    {
       state->sending = false;
+      int notifyError = pthread_cond_broadcast(&state->available);
+      if (notifyError != 0)
+      {
+        rtLog_Error("Failed to notify queued direct senders: %s", strerror(notifyError));
+        result = RT_FAIL;
+      }
+    }
     if (--state->users == 0)
     {
       *link = state->next;
+      int destroyError = pthread_cond_destroy(&state->available);
+      if (destroyError != 0)
+      {
+        rtLog_Error("Failed to destroy direct send condition: %s", strerror(destroyError));
+        result = RT_FAIL;
+      }
       free(state);
     }
   }

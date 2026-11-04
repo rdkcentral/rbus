@@ -99,7 +99,7 @@ typedef struct _server_object
 
 /////////////
 extern char* __progname;
-static void _rbuscore_destroy_serverPrivate_connections();
+static bool _rbuscore_destroy_serverPrivate_connections();
 static void _rbuscore_directconnection_load_from_cache();
 static void _rbuscore_destroy_clientPrivate_connections();
 const rtPrivateClientInfo* _rbuscore_find_server_privateconnection(const char *pParameterName, const char *pConsumerName);
@@ -384,17 +384,23 @@ static void perform_init()
     _rbuscore_directconnection_load_from_cache();
 }
 
-static void perform_cleanup()
+/* Caller holds g_mutex; return with that ownership unchanged. */
+static bool perform_cleanup()
 {
     size_t i, sz;
 
     RBUSCORELOG_DEBUG("Performing cleanup");
 
+    unlock();
+    bool listenersStopped = _rbuscore_destroy_serverPrivate_connections();
     lock();
+    if(!listenersStopped)
+    {
+        RBUSCORELOG_ERROR("Deferring core cleanup because a private listener has not joined");
+        return false;
+    }
 
     rtVector_Destroy(g_server_objects, server_object_destroy);
-
-    _rbuscore_destroy_serverPrivate_connections();
     _rbuscore_destroy_clientPrivate_connections();
     rtVector_Destroy(gListOfClientDirectDMLs, rtVector_Cleanup_Free);
 
@@ -419,7 +425,7 @@ static void perform_cleanup()
     }
     rtVector_Destroy(g_event_subscriptions_for_client, client_subscription_destroy);
 
-    unlock();
+    return true;
 }
 
 
@@ -667,6 +673,7 @@ rbusCoreError_t rbus_closeBrokerConnection()
     if(NULL == g_connection)
     {
         RBUSCORELOG_DEBUG("No connection exist to close.");
+        unlock();
         return RBUSCORE_ERROR_INVALID_STATE;
     }
     if(1 < rtVector_Size(g_server_objects))
@@ -676,11 +683,16 @@ rbusCoreError_t rbus_closeBrokerConnection()
         return RBUSCORE_SUCCESS;
     }
     rbus_releaseOpenTelemetryContext();
-    perform_cleanup();
+    if(!perform_cleanup())
+    {
+        unlock();
+        return RBUSCORE_ERROR_GENERAL;
+    }
     err = rtConnection_Destroy(g_connection);
     if(RT_OK != err)
     {
         RBUSCORELOG_DEBUG("Could not destroy connection. Error: 0x%x.", err);
+        unlock();
         return RBUSCORE_ERROR_GENERAL;
     }
     g_connection = NULL;
@@ -2580,7 +2592,7 @@ static int _findPrivateServerDML(const void* left, const void* right)
     return strncmp(((rbusServerDMLList_t*)left)->m_privateDML, (char*)right, MAX_OBJECT_NAME_LENGTH);
 }
 
-static void _rbuscore_destroy_serverPrivate_connections()
+static bool _rbuscore_destroy_serverPrivate_connections()
 {
     directServerLock();
     rbusServerDMLList_t *detached = pendingPrivateServerCleanup;
@@ -2637,7 +2649,7 @@ static void _rbuscore_destroy_serverPrivate_connections()
         pendingPrivateServerCleanup = detached;
         directServerUnlock();
         RBUSCORELOG_ERROR("Private listener join failed; retaining detached records for a later cleanup retry");
-        return;
+        return false;
     }
 
     /* A callback may hold any selected entry until its listener has exited. */
@@ -2651,6 +2663,7 @@ static void _rbuscore_destroy_serverPrivate_connections()
     rtVector_Destroy(gListOfServerDirectDMLs, NULL);
     gListOfServerDirectDMLs = NULL;
     directServerUnlock();
+    return true;
 }
 
 #define RBUS_DIRECT_FILE_CACHE "/tmp/.rbus_%s_direct.cache"
