@@ -21,7 +21,8 @@
 #define RTMSG_MAX_EXPRESSION_LEN 128
 #define RTMSG_ADDR_MAX 128
 #define RTMSG_MAX_LISTENING_SOCKETS 5
-#define RT_DIRECT_SOCKET_DIRECTORY_FORMAT "/tmp/rbus-direct-%lu"
+#define RT_DIRECT_SOCKET_PARENT "/run/rbus-direct"
+#define RT_DIRECT_SOCKET_DIRECTORY_FORMAT RT_DIRECT_SOCKET_PARENT "/%lu"
 
 typedef struct
 {
@@ -83,6 +84,8 @@ rtError rtRouteBase_BindListener(char const* socket_name, int no_delay, int inde
 rtError rtRouteBase_CloseListener(rtListener *pListener);
 
 rtError rtRouteDirect_StartInstance(const char* socket_name, rtDriectClientHandler messageHandler);
+/* Serialized per socket; the 15-second deadline includes send-queue waiting.
+ * A failed partial frame shuts down the connection to preserve framing. */
 rtError rtRouteDirect_SendMessage(const rtPrivateClientInfo* pClient, uint8_t const* pInBuff, int inLength, uint32_t subscriptionId, bool rawData);
 
 #ifdef __cplusplus

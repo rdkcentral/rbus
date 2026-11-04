@@ -36,6 +36,7 @@
 #include <fcntl.h>
 #include <dirent.h>
 #include <time.h>
+#include <poll.h>
 
 #include <pthread.h>
 
@@ -59,37 +60,66 @@ static int
 rtRouteBase_OpenDirectDirectory(const char* directory)
 {
   struct stat st;
-  int tmp_fd = open("/tmp", O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
-  if (tmp_fd < 0)
+  int run_fd = open("/run", O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
+  if (run_fd < 0)
   {
-    rtLog_Error("Failed to open direct socket parent directory: %s", strerror(errno));
+    rtLog_Error("Failed to open /run: %s", strerror(errno));
     return -1;
   }
-  if (fstat(tmp_fd, &st) != 0)
+  if (fstat(run_fd, &st) != 0 || st.st_uid != 0 || (st.st_mode & 0022) != 0)
+  {
+    rtLog_Error("Rejecting inaccessible or untrusted /run directory");
+    close(run_fd);
+    return -1;
+  }
+  if (geteuid() == 0)
+  {
+    bool parentCreated = mkdirat(run_fd, "rbus-direct", 0755) == 0;
+    if (!parentCreated && errno != EEXIST)
+    {
+      rtLog_Error("Failed to create direct socket parent: %s", strerror(errno));
+      close(run_fd);
+      return -1;
+    }
+  }
+  int parent_fd = openat(run_fd, "rbus-direct", O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
+  close(run_fd);
+  if (parent_fd < 0)
+  {
+    rtLog_Error("Failed to open direct socket parent; root must provision " RT_DIRECT_SOCKET_PARENT ": %s", strerror(errno));
+    return -1;
+  }
+  if (fstat(parent_fd, &st) != 0)
   {
     rtLog_Error("Failed to inspect direct socket parent directory: %s", strerror(errno));
-    close(tmp_fd);
+    close(parent_fd);
     return -1;
   }
-  if (st.st_uid != 0 || ((st.st_mode & 0022) != 0 && (st.st_mode & S_ISVTX) == 0))
+  if (st.st_uid != 0 || (st.st_mode & 0022) != 0)
   {
     rtLog_Error("Rejecting untrusted direct socket parent directory");
-    close(tmp_fd);
+    close(parent_fd);
     return -1;
   }
-  bool created = mkdirat(tmp_fd, directory + strlen("/tmp/"), 0711) == 0;
-  if (!created && errno != EEXIST)
+  if ((st.st_mode & 0777) != 0755 && fchmod(parent_fd, 0755) != 0)
   {
-    rtLog_Error("Failed to create direct socket directory %s: %s", directory, strerror(errno));
-    close(tmp_fd);
+    rtLog_Error("Failed to set direct socket parent permissions: %s", strerror(errno));
+    close(parent_fd);
     return -1;
   }
-  int fd = openat(tmp_fd, directory + strlen("/tmp/"),
+  const char* basename = directory + strlen(RT_DIRECT_SOCKET_PARENT) + 1;
+  if (geteuid() == 0 && mkdirat(parent_fd, basename, 0711) != 0 && errno != EEXIST)
+  {
+    rtLog_Error("Failed to create direct socket directory %s; non-root provider directories must be provisioned by root: %s", directory, strerror(errno));
+    close(parent_fd);
+    return -1;
+  }
+  int fd = openat(parent_fd, basename,
       O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
-  close(tmp_fd);
+  close(parent_fd);
   if (fd < 0)
   {
-    rtLog_Error("Failed to open direct socket directory %s: %s", directory, strerror(errno));
+    rtLog_Error("Failed to open direct socket directory %s; non-root provider directories must be provisioned by root: %s", directory, strerror(errno));
     return -1;
   }
   if (fstat(fd, &st) != 0)
@@ -439,34 +469,182 @@ rtRouteBase_BindListener(char const* socket_name, int no_delay, int indefinite_r
   return rtRouteBase_BindListenerInternal(socket_name, no_delay, indefinite_retry, pListener, false);
 }
 
+typedef struct rtDirectSendState
+{
+  dev_t device;
+  ino_t inode;
+  size_t users;
+  bool sending;
+  struct rtDirectSendState* next;
+} rtDirectSendState;
+
+static pthread_mutex_t directSendMutex = PTHREAD_MUTEX_INITIALIZER;
+static rtDirectSendState* directSendStates;
+
+static int
+rtRouteDirect_RemainingSendTime(const struct timespec* deadline)
+{
+  struct timespec now;
+  if (clock_gettime(CLOCK_MONOTONIC, &now) != 0)
+  {
+    rtLog_Error("Failed to read direct send clock: %s", strerror(errno));
+    return -1;
+  }
+  int64_t ns = (int64_t)(deadline->tv_sec - now.tv_sec) * 1000000000 +
+      deadline->tv_nsec - now.tv_nsec;
+  return ns <= 0 ? 0 : (int)((ns + 999999) / 1000000);
+}
+
+static rtError
+rtRouteDirect_SendFrame(int fd, rtMessageHeader* header, const uint8_t* data, uint32_t length)
+{
+  struct stat st;
+  struct timespec deadline;
+  if (fstat(fd, &st) != 0 || clock_gettime(CLOCK_MONOTONIC, &deadline) != 0)
+  {
+    rtLog_Error("Failed to prepare direct send: %s", strerror(errno));
+    return RT_FAIL;
+  }
+  deadline.tv_sec += 15;
+  int previousCancelState;
+  int cancelError = pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &previousCancelState);
+  if (cancelError != 0)
+  {
+    rtLog_Error("Failed to protect direct send cleanup: %s", strerror(cancelError));
+    return RT_FAIL;
+  }
+  pthread_mutex_lock(&directSendMutex);
+  rtDirectSendState* state = directSendStates;
+  while (state && (state->device != st.st_dev || state->inode != st.st_ino))
+    state = state->next;
+  if (!state)
+  {
+    state = rt_calloc(1, sizeof(*state));
+    if (!state)
+    {
+      pthread_mutex_unlock(&directSendMutex);
+      rtLog_Error("Failed to allocate direct send state");
+      pthread_setcancelstate(previousCancelState, NULL);
+      return rtErrorFromErrno(ENOMEM);
+    }
+    state->device = st.st_dev;
+    state->inode = st.st_ino;
+    state->next = directSendStates;
+    directSendStates = state;
+  }
+  ++state->users;
+  pthread_mutex_unlock(&directSendMutex);
+
+  rtError result = RT_OK;
+  bool acquired = false;
+  for (;;)
+  {
+    int remaining = rtRouteDirect_RemainingSendTime(&deadline);
+    if (remaining <= 0)
+    {
+      result = remaining == 0 ? RT_ERROR_TIMEOUT : RT_FAIL;
+      break;
+    }
+    pthread_mutex_lock(&directSendMutex);
+    if (!state->sending)
+    {
+      state->sending = true;
+      acquired = true;
+    }
+    pthread_mutex_unlock(&directSendMutex);
+    if (acquired)
+      break;
+    struct timespec pause = {0, 1000000};
+    nanosleep(&pause, NULL);
+  }
+
+  if (acquired)
+  {
+    uint8_t buffer[RTMSG_CLIENT_READ_BUFFER_SIZE];
+    header->payload_length = length;
+    rtMessageHeader_Encode(header, buffer);
+    struct iovec vectors[] = {{buffer, header->header_length}, {(void*)data, length}};
+    size_t index = 0;
+    bool wrote = false;
+    while (index < 2)
+    {
+      if (vectors[index].iov_len == 0)
+      {
+        ++index;
+        continue;
+      }
+      int remaining = rtRouteDirect_RemainingSendTime(&deadline);
+      if (remaining <= 0)
+      {
+        result = remaining == 0 ? RT_ERROR_TIMEOUT : RT_FAIL;
+        break;
+      }
+      struct msghdr message = {NULL, 0, vectors + index, 2 - index, NULL, 0, 0};
+      ssize_t sent = sendmsg(fd, &message, MSG_NOSIGNAL | MSG_DONTWAIT);
+      if (sent > 0)
+      {
+        wrote = true;
+        size_t consumed = (size_t)sent;
+        while (index < 2 && consumed >= vectors[index].iov_len)
+        {
+          consumed -= vectors[index].iov_len;
+          ++index;
+        }
+        if (index < 2)
+        {
+          vectors[index].iov_base = (uint8_t*)vectors[index].iov_base + consumed;
+          vectors[index].iov_len -= consumed;
+        }
+        continue;
+      }
+      if (sent < 0 && errno == EINTR)
+        continue;
+      if (sent < 0 && (errno == EAGAIN || errno == EWOULDBLOCK))
+      {
+        remaining = rtRouteDirect_RemainingSendTime(&deadline);
+        if (remaining <= 0)
+        {
+          result = remaining == 0 ? RT_ERROR_TIMEOUT : RT_FAIL;
+          break;
+        }
+        struct pollfd writable = {fd, POLLOUT, 0};
+        int ready = poll(&writable, 1, remaining);
+        if (ready > 0 && !(writable.revents & (POLLERR | POLLHUP | POLLNVAL)))
+          continue;
+        if (ready < 0 && errno == EINTR)
+          continue;
+        result = ready == 0 ? RT_ERROR_TIMEOUT : RT_FAIL;
+        break;
+      }
+      result = sent < 0 ? rtErrorFromErrno(errno) : RT_ERROR_STREAM_CLOSED;
+      break;
+    }
+    /* A partial frame must never be followed by another frame on this stream. */
+    if (result != RT_OK && wrote && shutdown(fd, SHUT_RDWR) != 0)
+      rtLog_Warn("Failed to shut down incomplete direct frame: %s", strerror(errno));
+  }
+  if (result != RT_OK)
+    rtLog_Error("Direct frame send failed: %s", rtStrError(result));
+  pthread_mutex_lock(&directSendMutex);
+  if (acquired)
+    state->sending = false;
+  if (--state->users == 0)
+  {
+    rtDirectSendState** link = &directSendStates;
+    while (*link != state)
+      link = &(*link)->next;
+    *link = state->next;
+    free(state);
+  }
+  pthread_mutex_unlock(&directSendMutex);
+  pthread_setcancelstate(previousCancelState, NULL);
+  return result;
+}
+
 static rtError
 _rtdirect_send_reply_to_client(rtConnectedClient* client, rtMessageHeader * request_hdr, const uint8_t* rspData, uint32_t rspDataLength)
 {
-    rtError ret = RT_OK;
-    ssize_t bytes_sent;
-    request_hdr->payload_length = rspDataLength;
-
-    rtLog_Debug("SendMessage topic=%s expression...", request_hdr->topic);
-
-    rtMessageHeader_Encode(request_hdr, client->send_buffer);
-    struct iovec send_vec[] = {{client->send_buffer, request_hdr->header_length}, {(void *)rspData, rspDataLength}};
-    struct msghdr send_hdr = {NULL, 0, send_vec, 2, NULL, 0, 0};
-    do
-    {
-      bytes_sent = sendmsg(client->fd, &send_hdr, MSG_NOSIGNAL);
-      if (bytes_sent == -1)
-      {
-        if (errno == EBADF)
-          ret = rtErrorFromErrno(errno);
-        else
-        {
-          rtLog_Warn("error forwarding message to client. %d %s", errno, strerror(errno));
-          ret = RT_FAIL;
-        }
-        break;
-      }
-    } while(0);
-    return ret;
+  return rtRouteDirect_SendFrame(client->fd, request_hdr, rspData, rspDataLength);
 }
 
 static void
@@ -839,7 +1017,6 @@ rtRouteDirect_SendMessage(const rtPrivateClientInfo* pClient, uint8_t const* pIn
 {
     rtError ret = RT_OK;
     rtMessageHeader new_header;
-    ssize_t bytes_sent;
 
     if (pClient && pInBuff && (inLength > 0))
     {
@@ -861,30 +1038,13 @@ rtRouteDirect_SendMessage(const rtPrivateClientInfo* pClient, uint8_t const* pIn
 
 
         rtLog_Debug("SendMessage topic=%s expression...", new_header.topic);
-        static uint8_t buffer[RTMSG_CLIENT_READ_BUFFER_SIZE];
-
-        memset(buffer, 0, RTMSG_CLIENT_READ_BUFFER_SIZE);
-        rtMessageHeader_Encode(&new_header, buffer);
-        struct iovec send_vec[] = {{buffer, new_header.header_length}, {(void *)pInBuff, inLength}};
-        struct msghdr send_hdr = {NULL, 0, send_vec, 2, NULL, 0, 0};
-        do
-        {
-          bytes_sent = sendmsg(pClient->clientFD, &send_hdr, MSG_NOSIGNAL);
-          if (bytes_sent == -1)
-          {
-            if (errno == EBADF)
-              ret = rtErrorFromErrno(errno);
-            else
-            {
-              rtLog_Warn("error forwarding message to client. %d %s", errno, strerror(errno));
-              ret = RT_FAIL;
-            }
-            break;
-          }
-        } while(0);
+        ret = rtRouteDirect_SendFrame(pClient->clientFD, &new_header, pInBuff, (uint32_t)inLength);
     }
     else
+    {
+        rtLog_Error("Invalid direct message arguments");
         ret = RT_ERROR;
+    }
 
     return ret;
 }

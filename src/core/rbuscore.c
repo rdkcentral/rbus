@@ -25,6 +25,8 @@
 #include <ctype.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <fcntl.h>
+#include <limits.h>
 
 #include "rbuscore.h"
 #include "rbuscore_logger.h"
@@ -1824,17 +1826,56 @@ rbusCoreError_t rbus_unregisterClientDisconnectHandler()
     return RBUSCORE_SUCCESS;
 }
 
+static int copyDirectClientForSend(const char* event, const char* listener,
+    rtPrivateClientInfo* client, bool* found)
+{
+    directServerLock();
+    const rtPrivateClientInfo* entry = _rbuscore_find_server_privateconnection(event, listener);
+    *found = entry != NULL;
+    int fd = -1;
+    if(entry)
+    {
+        *client = *entry;
+        fd = fcntl(entry->clientFD, F_DUPFD_CLOEXEC, 0);
+        if(fd < 0)
+            RBUSCORELOG_ERROR("Failed to duplicate direct client socket: %s", strerror(errno));
+        else
+            client->clientFD = fd;
+    }
+    directServerUnlock();
+    return fd;
+}
+
+static void closeDirectSendSocket(void* context)
+{
+    int* ownedFD = context;
+    int fd = *ownedFD;
+    *ownedFD = -1;
+    if(fd >= 0 && close(fd) != 0)
+        RBUSCORELOG_ERROR("Failed to close direct send socket: %s", strerror(errno));
+}
+
+static rtError sendDirectClientCopy(rtPrivateClientInfo* client, const void* data,
+    uint32_t length, uint32_t subscriptionId, bool rawData)
+{
+    rtError err = RT_ERROR_INVALID_ARG;
+    pthread_cleanup_push(closeDirectSendSocket, &client->clientFD);
+    if(length <= INT_MAX)
+        err = rtRouteDirect_SendMessage(client, data, (int)length, subscriptionId, rawData);
+    else
+        RBUSCORELOG_ERROR("Direct event payload exceeds supported length");
+    closeDirectSendSocket(&client->clientFD);
+    pthread_cleanup_pop(0);
+    return err;
+}
+
 rbusCoreError_t rbuscore_publishDirectSubscriberEvent(const char * event_name, const char* listener, const void* data, uint32_t dataLength, uint32_t subscriptionId, bool rawData)
 {
     rtError err = RT_FAIL;
-
-    directServerLock();
-    const rtPrivateClientInfo *pPrivCliInfo = _rbuscore_find_server_privateconnection (event_name, listener);
-    if(pPrivCliInfo)
-    {
-        err = rtRouteDirect_SendMessage (pPrivCliInfo, data, dataLength, subscriptionId, rawData);
-    }
-    directServerUnlock();
+    rtPrivateClientInfo client;
+    bool found;
+    if(copyDirectClientForSend(event_name, listener, &client, &found) >= 0)
+        err = sendDirectClientCopy(&client, data, dataLength, subscriptionId, rawData);
     return translate_rt_error(err);
 }
 
@@ -1862,17 +1903,18 @@ rbusCoreError_t rbus_publishSubscriberEvent(const char* object_name,  const char
     rbusMessage_SetString(out, traceState);
     rbusMessage_EndMetaSectionWrite(out);
 
-    directServerLock();
-    const rtPrivateClientInfo *pPrivCliInfo = _rbuscore_find_server_privateconnection (event_name, listener);
-    bool hasPrivateConnection = pPrivCliInfo != NULL;
-    if(pPrivCliInfo)
+    rtPrivateClientInfo client;
+    bool hasPrivateConnection;
+    int directFD = copyDirectClientForSend(event_name, listener, &client, &hasPrivateConnection);
+    if(directFD >= 0)
     {
         uint8_t* data;
         uint32_t dataLength;
         rbusMessage_ToBytes(out, &data, &dataLength);
-        ret = translate_rt_error(rtRouteDirect_SendMessage(pPrivCliInfo, data, dataLength, subscriptionId, rawData));
+        ret = translate_rt_error(sendDirectClientCopy(&client, data, dataLength, subscriptionId, rawData));
     }
-    directServerUnlock();
+    else if(hasPrivateConnection)
+        ret = RBUSCORE_ERROR_GENERAL;
     if (!hasPrivateConnection)
     {
         lock();

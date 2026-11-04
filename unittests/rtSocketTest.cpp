@@ -14,6 +14,184 @@
 #include <cerrno>
 #include <pthread.h>
 #include <dirent.h>
+#include <vector>
+#include <chrono>
+#include <poll.h>
+
+class rtDirectSendTest : public ::testing::Test
+{
+protected:
+    int sockets[2] = {-1, -1};
+    void SetUp() override
+    {
+        ASSERT_EQ(0, socketpair(AF_UNIX, SOCK_STREAM, 0, sockets));
+        int size = 4096;
+        ASSERT_EQ(0, setsockopt(sockets[0], SOL_SOCKET, SO_SNDBUF, &size, sizeof(size)));
+        struct timeval timeout = {5, 0};
+        ASSERT_EQ(0, setsockopt(sockets[1], SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)));
+    }
+    void TearDown() override
+    {
+        for(int fd : sockets)
+            if(fd >= 0)
+                close(fd);
+    }
+};
+
+struct DirectSendArgs
+{
+    rtPrivateClientInfo client = {};
+    std::vector<uint8_t> payload;
+    rtError result = RT_FAIL;
+};
+
+static void* sendDirectTestFrame(void* context)
+{
+    DirectSendArgs* args = static_cast<DirectSendArgs*>(context);
+    args->result = rtRouteDirect_SendMessage(&args->client, args->payload.data(),
+        static_cast<int>(args->payload.size()), 7, true);
+    return NULL;
+}
+
+static bool readDirectTestBytes(int fd, uint8_t* data, size_t length)
+{
+    while(length)
+    {
+        ssize_t count = recv(fd, data, length, 0);
+        if(count < 0 && errno == EINTR)
+            continue;
+        if(count <= 0)
+            return false;
+        data += count;
+        length -= static_cast<size_t>(count);
+    }
+    return true;
+}
+
+TEST_F(rtDirectSendTest, concurrent_duplicate_descriptors_preserve_complete_frames)
+{
+    int duplicate = dup(sockets[0]);
+    if(duplicate < 0)
+    {
+        ADD_FAILURE() << "Failed to duplicate test socket";
+        return;
+    }
+    DirectSendArgs first, second;
+    first.client.clientFD = sockets[0];
+    second.client.clientFD = duplicate;
+    std::strcpy(first.client.clientTopic, "first");
+    std::strcpy(second.client.clientTopic, "second");
+    first.payload.assign(256 * 1024, 'a');
+    second.payload.assign(256 * 1024, 'b');
+    pthread_t threads[2];
+    if(pthread_create(&threads[0], NULL, sendDirectTestFrame, &first) != 0)
+    {
+        close(duplicate);
+        FAIL() << "Failed to start first sender";
+    }
+    int secondError = pthread_create(&threads[1], NULL, sendDirectTestFrame, &second);
+    if(secondError != 0)
+    {
+        shutdown(sockets[0], SHUT_RDWR);
+        pthread_join(threads[0], NULL);
+        close(duplicate);
+        FAIL() << "Failed to start second sender";
+    }
+    bool seenFirst = false, seenSecond = false;
+    for(int i = 0; i < 2; ++i)
+    {
+        uint8_t headerBytes[1024] = {};
+        bool read = readDirectTestBytes(sockets[1], headerBytes, RTMESSAGEHEADER_PREAMBLE_LENGTH);
+        EXPECT_TRUE(read);
+        if(!read)
+            break;
+        uint16_t wireLength;
+        std::memcpy(&wireLength, headerBytes + RTMESSAGEHEADER_HDR_LENGTH_OFFSET, sizeof(wireLength));
+        size_t headerLength = ntohs(wireLength);
+        if(headerLength < RTMESSAGEHEADER_MIN_LENGTH || headerLength > sizeof(headerBytes))
+        {
+            ADD_FAILURE() << "Interleaved frame header";
+            break;
+        }
+        read = readDirectTestBytes(sockets[1], headerBytes + RTMESSAGEHEADER_PREAMBLE_LENGTH,
+            headerLength - RTMESSAGEHEADER_PREAMBLE_LENGTH);
+        EXPECT_TRUE(read);
+        if(!read)
+            break;
+        rtMessageHeader header = {};
+        rtError decoded = rtMessageHeader_Decode(&header, headerBytes);
+        EXPECT_EQ(RT_OK, decoded);
+        if(decoded != RT_OK)
+            break;
+        if(header.payload_length != first.payload.size())
+        {
+            ADD_FAILURE() << "Corrupted payload length";
+            break;
+        }
+        std::vector<uint8_t> payload(header.payload_length);
+        read = readDirectTestBytes(sockets[1], payload.data(), payload.size());
+        EXPECT_TRUE(read);
+        if(!read)
+            break;
+        if(std::strcmp(header.topic, "first") == 0)
+        {
+            EXPECT_FALSE(seenFirst);
+            seenFirst = true;
+            EXPECT_EQ(first.payload, payload);
+        }
+        else
+        {
+            EXPECT_STREQ("second", header.topic);
+            EXPECT_FALSE(seenSecond);
+            seenSecond = true;
+            EXPECT_EQ(second.payload, payload);
+        }
+    }
+    if(!seenFirst || !seenSecond)
+        shutdown(sockets[0], SHUT_RDWR);
+    EXPECT_EQ(0, pthread_join(threads[0], NULL));
+    EXPECT_EQ(0, pthread_join(threads[1], NULL));
+    EXPECT_EQ(RT_OK, first.result);
+    EXPECT_EQ(RT_OK, second.result);
+    EXPECT_TRUE(seenFirst && seenSecond);
+    close(duplicate);
+}
+
+TEST_F(rtDirectSendTest, stalled_reader_times_out_without_blocking_another_socket)
+{
+    DirectSendArgs stalled;
+    stalled.client.clientFD = sockets[0];
+    stalled.payload.assign(1024 * 1024, 'x');
+    pthread_t thread;
+    auto start = std::chrono::steady_clock::now();
+    ASSERT_EQ(0, pthread_create(&thread, NULL, sendDirectTestFrame, &stalled));
+    struct pollfd readable = {sockets[1], POLLIN, 0};
+    EXPECT_EQ(1, poll(&readable, 1, 2000));
+
+    int other[2];
+    int created = socketpair(AF_UNIX, SOCK_STREAM, 0, other);
+    EXPECT_EQ(0, created);
+    if(created == 0)
+    {
+        rtPrivateClientInfo client = {};
+        client.clientFD = other[0];
+        uint8_t byte = 42;
+        auto independentStart = std::chrono::steady_clock::now();
+        EXPECT_EQ(RT_OK, rtRouteDirect_SendMessage(&client, &byte, 1, 1, true));
+        EXPECT_LT(std::chrono::duration<double>(std::chrono::steady_clock::now() -
+            independentStart).count(), 2.0);
+        close(other[0]);
+        close(other[1]);
+    }
+    EXPECT_EQ(0, pthread_join(thread, NULL));
+    double seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+    EXPECT_EQ(RT_ERROR_TIMEOUT, stalled.result);
+    EXPECT_GE(seconds, 14.5);
+    EXPECT_LT(seconds, 18.0);
+    uint8_t byte = 42;
+    EXPECT_EQ(-1, send(sockets[0], &byte, 1, MSG_NOSIGNAL));
+    EXPECT_EQ(EPIPE, errno);
+}
 
 TEST(rtSocketTest, rejects_oversized_tcp_host_without_modifying_endpoint)
 {
@@ -201,6 +379,22 @@ protected:
 TEST_F(rtDirectSocketTest, duplicate_start_does_not_replace_active_listener)
 {
     ASSERT_TRUE(startProvider());
+    struct stat parent = {};
+    ASSERT_EQ(0, lstat(RT_DIRECT_SOCKET_PARENT, &parent));
+    EXPECT_TRUE(S_ISDIR(parent.st_mode));
+    EXPECT_EQ(0u, parent.st_uid);
+    EXPECT_EQ(0755, parent.st_mode & 0777);
+    if(geteuid() != 0)
+    {
+        std::string reserved = std::string(RT_DIRECT_SOCKET_PARENT) + "/gtest_reservation_" +
+            std::to_string(getpid());
+        int rc = mkdir(reserved.c_str(), 0711);
+        int mkdirError = errno;
+        if(rc == 0)
+            EXPECT_EQ(0, rmdir(reserved.c_str()));
+        EXPECT_EQ(-1, rc);
+        EXPECT_EQ(EACCES, mkdirError);
+    }
     ASSERT_TRUE(setLockSweepDue(true));
     int consumer = connectConsumer();
     if(consumer < 0)
@@ -395,6 +589,8 @@ TEST_F(rtDirectSocketTest, cancellation_releases_listener_and_allows_same_proces
 TEST(rtSocketTest, direct_listener_rejects_legacy_and_traversal_paths)
 {
     EXPECT_EQ(RT_ERROR_INVALID_ARG, rtRouteDirect_StartInstance("unix:///tmp/.direct_legacy", NULL));
+    std::string legacy = "unix:///tmp/rbus-direct-" + std::to_string(geteuid()) + "/.direct_legacy";
+    EXPECT_EQ(RT_ERROR_INVALID_ARG, rtRouteDirect_StartInstance(legacy.c_str(), NULL));
     char directory[64];
     std::snprintf(directory, sizeof(directory), RT_DIRECT_SOCKET_DIRECTORY_FORMAT,
         static_cast<unsigned long>(geteuid()));

@@ -21,6 +21,14 @@ Description= An IPC framework
 
 [Service]
 Type=forking
+RuntimeDirectory=rbus-direct
+RuntimeDirectoryMode=0755
+RuntimeDirectoryPreserve=yes
+# For each non-root provider UID, provision /run/rbus-direct/<uid> at boot:
+# install -d -m 0711 -o <uid> -g <gid> /run/rbus-direct/<uid>
+# The parent must remain root-owned and not group/other writable.
+# Non-systemd deployments must also create the parent as root with mode 0755.
+# Stop old providers before upgrading: legacy /tmp direct socket paths are rejected.
 TimeoutSec=300
 ExecStart=/usr/bin/rtrouted $RTROUTER_OPTIONAL_ARGS
 ExecStopPost=/bin/sh -c 'echo 0 > /tmp/rbus_stopped'
