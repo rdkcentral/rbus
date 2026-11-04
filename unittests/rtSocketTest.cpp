@@ -13,6 +13,7 @@
 #include <cstdio>
 #include <cerrno>
 #include <pthread.h>
+#include <dirent.h>
 
 TEST(rtSocketTest, rejects_oversized_tcp_host_without_modifying_endpoint)
 {
@@ -200,13 +201,13 @@ protected:
 TEST_F(rtDirectSocketTest, duplicate_start_does_not_replace_active_listener)
 {
     ASSERT_TRUE(startProvider());
+    ASSERT_TRUE(setLockSweepDue(true));
     int consumer = connectConsumer();
     if(consumer < 0)
     {
         ADD_FAILURE() << "Failed to connect consumer";
         return;
     }
-    ASSERT_TRUE(setLockSweepDue(true));
     EXPECT_NE(RT_OK, rtRouteDirect_StartInstance(address.c_str(), NULL));
     int status;
     EXPECT_EQ(0, waitpid(child, &status, WNOHANG));
@@ -271,6 +272,88 @@ static void* runCancelableDirectListener(void* address)
 {
     rtRouteDirect_StartInstance(static_cast<const char*>(address), NULL);
     return NULL;
+}
+
+static int countOpenDescriptors()
+{
+    DIR* directory = opendir("/proc/self/fd");
+    if(!directory)
+        return -1;
+    int count = 0;
+    errno = 0;
+    while(struct dirent* entry = readdir(directory))
+    {
+        if(std::strcmp(entry->d_name, ".") != 0 && std::strcmp(entry->d_name, "..") != 0)
+            ++count;
+    }
+    int readError = errno;
+    if(closedir(directory) != 0 || readError != 0)
+        return -1;
+    return count;
+}
+
+TEST_F(rtDirectSocketTest, cancellation_interrupts_occupied_tcp_bind_retry)
+{
+    int occupied = socket(AF_INET, SOCK_STREAM, 0);
+    if(occupied < 0)
+    {
+        FAIL() << "Failed to create occupied TCP listener";
+    }
+    struct sockaddr_in endpoint = {};
+    endpoint.sin_family = AF_INET;
+    endpoint.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    if(bind(occupied, reinterpret_cast<struct sockaddr*>(&endpoint), sizeof(endpoint)) != 0 ||
+        listen(occupied, 1) != 0)
+    {
+        close(occupied);
+        FAIL() << "Failed to bind occupied TCP listener";
+    }
+    socklen_t length = sizeof(endpoint);
+    if(getsockname(occupied, reinterpret_cast<struct sockaddr*>(&endpoint), &length) != 0)
+    {
+        close(occupied);
+        FAIL() << "Failed to read occupied TCP port";
+    }
+    std::string tcpAddress = "tcp://127.0.0.1:" + std::to_string(ntohs(endpoint.sin_port));
+    child = fork();
+    if(child != 0)
+        close(occupied);
+    ASSERT_GE(child, 0);
+    if(child == 0)
+    {
+        /* The child retains its copy of the occupied listening socket. */
+        int before = countOpenDescriptors();
+        if(before < 0)
+            _exit(1);
+        for(int attempt = 0; attempt < 2; ++attempt)
+        {
+            pthread_t thread;
+            if(pthread_create(&thread, NULL, runCancelableDirectListener,
+                const_cast<char*>(tcpAddress.c_str())) != 0)
+                _exit(2);
+            bool binding = false;
+            for(int i = 0; i < 200; ++i)
+            {
+                if(countOpenDescriptors() == before + 1)
+                {
+                    binding = true;
+                    break;
+                }
+                usleep(1000);
+            }
+            if(!binding)
+                _exit(6);
+            if(pthread_cancel(thread) != 0)
+                _exit(3);
+            void* status = NULL;
+            if(pthread_join(thread, &status) != 0 || status != PTHREAD_CANCELED)
+                _exit(4);
+            if(countOpenDescriptors() != before)
+                _exit(5);
+        }
+        _exit(0);
+    }
+    EXPECT_TRUE(waitForProviderExit());
 }
 
 TEST_F(rtDirectSocketTest, cancellation_releases_listener_and_allows_same_process_restart)

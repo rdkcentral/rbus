@@ -97,7 +97,7 @@ typedef struct _server_object
 
 /////////////
 extern char* __progname;
-static void _freePrivateServer(void* p);
+static void _rbuscore_destroy_serverPrivate_connections();
 static void _rbuscore_directconnection_load_from_cache();
 static void _rbuscore_destroy_clientPrivate_connections();
 const rtPrivateClientInfo* _rbuscore_find_server_privateconnection(const char *pParameterName, const char *pConsumerName);
@@ -392,7 +392,7 @@ static void perform_cleanup()
 
     rtVector_Destroy(g_server_objects, server_object_destroy);
 
-    rtVector_Destroy(gListOfServerDirectDMLs, _freePrivateServer);
+    _rbuscore_destroy_serverPrivate_connections();
     _rbuscore_destroy_clientPrivate_connections();
     rtVector_Destroy(gListOfClientDirectDMLs, rtVector_Cleanup_Free);
 
@@ -2535,16 +2535,44 @@ static int _findPrivateServerDML(const void* left, const void* right)
     return strncmp(((rbusServerDMLList_t*)left)->m_privateDML, (char*)right, MAX_OBJECT_NAME_LENGTH);
 }
 
-static void _freePrivateServer(void* p)
+static void _rbuscore_destroy_serverPrivate_connections()
 {
-    rbusServerDMLList_t *pTmp = p;
-    if (pTmp->m_pid)
+    directServerLock();
+    while(rtVector_Size(gListOfServerDirectDMLs) > 0)
     {
-        pthread_cancel(pTmp->m_pid);
-        pthread_join(pTmp->m_pid, NULL);
-        printf ("Cancel the thread..\n"); //FIXME
+        rbusServerDMLList_t *obj = rtVector_At(gListOfServerDirectDMLs, 0);
+        rtVector_RemoveItem(gListOfServerDirectDMLs, obj, NULL);
+
+        /* Multiple DML entries can share one listener thread. */
+        if(obj->m_pid)
+        {
+            size_t i = 0;
+            while(i < rtVector_Size(gListOfServerDirectDMLs))
+            {
+                rbusServerDMLList_t *entry = rtVector_At(gListOfServerDirectDMLs, i);
+                if(entry->m_pid && pthread_equal(entry->m_pid, obj->m_pid))
+                    rtVector_RemoveItem(gListOfServerDirectDMLs, entry, rtVector_Cleanup_Free);
+                else
+                    ++i;
+            }
+        }
+        directServerUnlock();
+
+        if(obj->m_pid)
+        {
+            int err = pthread_cancel(obj->m_pid);
+            if(err != 0)
+                RBUSCORELOG_ERROR("Failed to cancel private listener: %s", strerror(err));
+            err = pthread_join(obj->m_pid, NULL);
+            if(err != 0)
+                RBUSCORELOG_ERROR("Failed to join private listener: %s", strerror(err));
+        }
+        free(obj);
+        directServerLock();
     }
-    free(pTmp);
+    rtVector_Destroy(gListOfServerDirectDMLs, NULL);
+    gListOfServerDirectDMLs = NULL;
+    directServerUnlock();
 }
 
 #define RBUS_DIRECT_FILE_CACHE "/tmp/.rbus_%s_direct.cache"
@@ -2764,6 +2792,7 @@ void* rbuscore_PrivateThreadFunc (void* ptr)
 {
     rbusServerDirectHandler_t *pInstance = (rbusServerDirectHandler_t *) ptr;
 
+    pthread_cleanup_push(free, pInstance);
     sleep(2);
     rtRouteDirect_StartInstance(pInstance->m_privConnAddress, pInstance->m_fnRouteCallback);
 
@@ -2779,7 +2808,7 @@ void* rbuscore_PrivateThreadFunc (void* ptr)
     _rbuscore_directconnection_save_to_cache();
     directServerUnlock();
 
-    free (pInstance);
+    pthread_cleanup_pop(1);
     return NULL;
 }
 

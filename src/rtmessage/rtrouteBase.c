@@ -312,8 +312,17 @@ rtRouteBase_RemoveDirectSocket(int directory_fd, const char* socket_basename)
   return RT_FAIL;
 }
 
-rtError
-rtRouteBase_BindListener(char const* socket_name, int no_delay, int indefinite_retry, rtListener **pListener)
+static void
+rtRouteBase_CleanupBindingListener(void* context)
+{
+  rtListener* listener = context;
+  rtRouteBase_CloseListener(listener);
+  free(listener);
+}
+
+static rtError
+rtRouteBase_BindListenerInternal(char const* socket_name, int no_delay, int indefinite_retry,
+    rtListener **pListener, bool cancellable_retry)
 {
   int ret;
   rtError err;
@@ -388,6 +397,15 @@ rtRouteBase_BindListener(char const* socket_name, int no_delay, int indefinite_r
         free(listener);
         return RT_FAIL;
       }
+      else if (cancellable_retry)
+      {
+        /* Startup owns this listener until it is transferred to the caller. */
+        pthread_cleanup_push(rtRouteBase_CleanupBindingListener, listener);
+        pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
+        sleep(10);
+        pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
+        pthread_cleanup_pop(0);
+      }
       else
         sleep(10);
     }
@@ -413,6 +431,12 @@ rtRouteBase_BindListener(char const* socket_name, int no_delay, int indefinite_r
 
   *pListener = listener;
   return RT_OK;
+}
+
+rtError
+rtRouteBase_BindListener(char const* socket_name, int no_delay, int indefinite_retry, rtListener **pListener)
+{
+  return rtRouteBase_BindListenerInternal(socket_name, no_delay, indefinite_retry, pListener, false);
 }
 
 static rtError
@@ -1026,7 +1050,8 @@ rtRouteDirect_StartInstance(const char* socket_name, rtDriectClientHandler messa
   pthread_once(&_rtDirectRoute_once, &_rtdirect_route_thread_specific_key);
   pthread_setspecific(_rtDirectRoute_key, messageHandler);
 
-  if (RT_OK != rtRouteBase_BindListener(socket_name, 1, 1, &myDirectListener))
+  if (RT_OK != rtRouteBase_BindListenerInternal(socket_name, 1, 1, &myDirectListener,
+      previousCancelState == PTHREAD_CANCEL_ENABLE))
   {
     result = RT_FAIL;
     goto finish;
@@ -1099,7 +1124,8 @@ rtRouteDirect_StartInstance(const char* socket_name, rtDriectClientHandler messa
   }
 
 finish:
-  pthread_cleanup_pop(1);
+  rtRouteDirect_CleanupInstance(&cleanup);
+  pthread_cleanup_pop(0);
   pthread_setcancelstate(previousCancelState, NULL);
   return result;
 }
