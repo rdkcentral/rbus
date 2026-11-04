@@ -68,6 +68,34 @@ static bool readDirectTestBytes(int fd, uint8_t* data, size_t length)
     return true;
 }
 
+TEST_F(rtDirectSendTest, maximum_topic_encodes_only_initialized_header_bytes)
+{
+    rtPrivateClientInfo client = {};
+    client.clientFD = sockets[0];
+    std::memset(client.clientTopic, 't', sizeof(client.clientTopic) - 1);
+    uint8_t payload = 42;
+    ASSERT_EQ(RT_OK, rtRouteDirect_SendMessage(&client, &payload, 1, 7, true));
+    uint8_t bytes[1024] = {};
+    ASSERT_TRUE(readDirectTestBytes(sockets[1], bytes, RTMESSAGEHEADER_PREAMBLE_LENGTH));
+    uint16_t wireLength;
+    std::memcpy(&wireLength, bytes + RTMESSAGEHEADER_HDR_LENGTH_OFFSET, sizeof(wireLength));
+    size_t length = ntohs(wireLength);
+    size_t expected = RTMESSAGEHEADER_MIN_LENGTH + sizeof(client.clientTopic) - 1;
+#ifdef MSG_ROUNDTRIP_TIME
+    expected += 5 * sizeof(uint64_t);
+#endif
+    ASSERT_EQ(expected, length);
+    ASSERT_TRUE(readDirectTestBytes(sockets[1], bytes + RTMESSAGEHEADER_PREAMBLE_LENGTH,
+        length - RTMESSAGEHEADER_PREAMBLE_LENGTH));
+    rtMessageHeader header = {};
+    ASSERT_EQ(RT_OK, rtMessageHeader_Decode(&header, bytes));
+    EXPECT_STREQ(client.clientTopic, header.topic);
+    EXPECT_EQ(1u, header.payload_length);
+    uint8_t received = 0;
+    ASSERT_TRUE(readDirectTestBytes(sockets[1], &received, 1));
+    EXPECT_EQ(payload, received);
+}
+
 TEST_F(rtDirectSendTest, concurrent_duplicate_descriptors_preserve_complete_frames)
 {
     int duplicate = dup(sockets[0]);

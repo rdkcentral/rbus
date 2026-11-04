@@ -2552,6 +2552,8 @@ typedef struct _rbusServerDMLList
     struct _rbusServerDMLList* m_cleanupNext;
 } rbusServerDMLList_t;
 
+static rbusServerDMLList_t* pendingPrivateServerCleanup;
+
 typedef struct _server_directHandler
 {
     char                  m_privConnAddress[MAX_OBJECT_NAME_LENGTH];
@@ -2580,8 +2582,9 @@ static int _findPrivateServerDML(const void* left, const void* right)
 
 static void _rbuscore_destroy_serverPrivate_connections()
 {
-    rbusServerDMLList_t *detached = NULL;
     directServerLock();
+    rbusServerDMLList_t *detached = pendingPrivateServerCleanup;
+    pendingPrivateServerCleanup = NULL;
     while(rtVector_Size(gListOfServerDirectDMLs) > 0)
     {
         rbusServerDMLList_t *obj = rtVector_At(gListOfServerDirectDMLs, 0);
@@ -2617,11 +2620,23 @@ static void _rbuscore_destroy_serverPrivate_connections()
             RBUSCORELOG_ERROR("Failed to join private listener: %s", strerror(err));
             allJoined = false;
         }
+        else
+        {
+            pthread_t joined = obj->m_pid;
+            for(rbusServerDMLList_t *entry = detached; entry; entry = entry->m_cleanupNext)
+            {
+                if(entry->m_pid && pthread_equal(entry->m_pid, joined))
+                    entry->m_pid = 0;
+            }
+        }
     }
 
     if(!allJoined)
     {
-        RBUSCORELOG_ERROR("Retaining private listener records and registry because a listener may still be running");
+        directServerLock();
+        pendingPrivateServerCleanup = detached;
+        directServerUnlock();
+        RBUSCORELOG_ERROR("Private listener join failed; retaining detached records for a later cleanup retry");
         return;
     }
 

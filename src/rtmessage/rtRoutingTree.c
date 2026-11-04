@@ -716,7 +716,8 @@ rtError rtRoutingTree_RemoveTopicRoute(rtRoutingTree rt, const char* topic, cons
         size_t numChildren = 0, numRoutes = 0;
         rtTreeTopic* parent = target->parent;
         rtList_GetSize(target->childList, &numChildren);
-        rtList_GetSize(target->routeList, &numRoutes);
+	if(target->routeList)
+            rtList_GetSize(target->routeList, &numRoutes);
         if(numChildren || numRoutes)
             break;
 	if(target->name[0] == '{')

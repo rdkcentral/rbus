@@ -63,6 +63,22 @@ TEST(rtRoutingTreeTest, removing_one_registration_preserves_shared_routes_and_ca
     rtRoutingTree_Destroy(tree);
 }
 
+TEST(rtRoutingTreeTest, removing_last_route_prunes_empty_topics_and_allows_reregistration)
+{
+    rtRoutingTree tree;
+    rtRoutingTree_Create(&tree);
+    int route = 0;
+    ASSERT_EQ(RT_OK, rtRoutingTree_AddTopicRoute(tree, "single.branch.leaf", &route, 0));
+    EXPECT_EQ(RT_OK, rtRoutingTree_RemoveTopicRoute(tree, "single.branch.leaf", &route));
+    EXPECT_FALSE(hasRoute(tree, "single.branch.leaf", &route));
+    EXPECT_EQ(RT_ERROR_INVALID_ARG,
+        rtRoutingTree_RemoveTopicRoute(tree, "single.branch.leaf", &route));
+    ASSERT_EQ(RT_OK, rtRoutingTree_AddTopicRoute(tree, "single.branch.leaf", &route, 0));
+    EXPECT_TRUE(hasRoute(tree, "single.branch.leaf", &route));
+    EXPECT_EQ(RT_OK, rtRoutingTree_RemoveTopicRoute(tree, "single.branch.leaf", &route));
+    rtRoutingTree_Destroy(tree);
+}
+
 TEST(rtRoutingTreeTest, accepts_exact_length_and_token_limits)
 {
     rtRoutingTree tree;

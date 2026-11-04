@@ -108,26 +108,43 @@ void rbusBuffer_Write(rbusBuffer_t buff, void const* data, int len)
 {
     VERIFY_NULL(buff);
     VERIFY_NULL(data);
+    if(buff->posWrite > buff->lenAlloc ||
+        (buff->data == buff->block1 &&
+         (buff->posWrite > (int)sizeof(buff->block1) || buff->lenAlloc != (int)sizeof(buff->block1))))
+    {
+        RBUSLOG_ERROR("rbusBuffer_Write: invalid buffer capacity %d at position %d", buff->lenAlloc, buff->posWrite);
+        return;
+    }
     if(len < 0 || buff->posWrite < 0 || buff->posWrite > RBUS_BUFFER_MAX_SIZE ||
         len > RBUS_BUFFER_MAX_SIZE - buff->posWrite)
     {
         RBUSLOG_ERROR("rbusBuffer_Write: invalid length %d at position %d", len, buff->posWrite);
         return;
     }
+    int position = buff->posWrite;
+    int end = position + len;
     rbusBuffer_Reserve(buff, len);
-    if(buff->posWrite > buff->lenAlloc || len > buff->lenAlloc - buff->posWrite)
+    if(end > buff->lenAlloc)
     {
         RBUSLOG_ERROR("rbusBuffer_Write: insufficient buffer capacity");
         return;
     }
-    memcpy(buff->data + buff->posWrite, data, len);
-    buff->posWrite += len;
+    if(len > 0)
+        memcpy(buff->data + position, data, (size_t)len);
+    buff->posWrite = end;
 }
 
 void rbusBuffer_Reserve(rbusBuffer_t buff, int len)
 {
     VERIFY_NULL(buff);
     assert(buff->data);
+    if(buff->posWrite > buff->lenAlloc ||
+        (buff->data == buff->block1 &&
+         (buff->posWrite > (int)sizeof(buff->block1) || buff->lenAlloc != (int)sizeof(buff->block1))))
+    {
+        RBUSLOG_ERROR("rbusBuffer_Reserve: invalid buffer capacity %d at position %d", buff->lenAlloc, buff->posWrite);
+        return;
+    }
     if(len < 0 || buff->posWrite < 0 || buff->posWrite > RBUS_BUFFER_MAX_SIZE ||
         len > RBUS_BUFFER_MAX_SIZE - buff->posWrite)
     {
@@ -137,17 +154,20 @@ void rbusBuffer_Reserve(rbusBuffer_t buff, int len)
     int posNext = buff->posWrite+len;
     if(posNext > buff->lenAlloc)
     {
-        buff->lenAlloc = (posNext/BUFFER_BLOCK_SIZE+1)*BUFFER_BLOCK_SIZE;
+        int capacity = (posNext/BUFFER_BLOCK_SIZE+1)*BUFFER_BLOCK_SIZE;
+        uint8_t* storage;
         if(buff->data == buff->block1)
         {
-            buff->data = rt_malloc(buff->lenAlloc);
+            storage = rt_malloc(capacity);
             if(buff->posWrite > 0)
-                memcpy(buff->data, buff->block1, buff->posWrite);
+                memcpy(storage, buff->block1, (size_t)buff->posWrite);
         }
         else
         {
-            buff->data = rt_realloc(buff->data, buff->lenAlloc);
+            storage = rt_realloc(buff->data, capacity);
         }
+        buff->data = storage;
+        buff->lenAlloc = capacity;
     }
 }
 

@@ -840,9 +840,7 @@ rtRouted_OnMessageSubscribe(rtConnectedClient* sender, rtMessageHeader* hdr, uin
         {
           rtRouteEntry* route = (rtRouteEntry *) rtVector_At(gRoutes, i);
 
-	  if(route->subscription && route->subscription->client == sender &&
-              route->subscription->id == route_id &&
-              0 == strncmp(route->expression, expression, RTMSG_MAX_EXPRESSION_LEN))
+          if(route->subscription && route->subscription->client == sender && route->subscription->id == route_id && 0 == strncmp(route->expression, expression, RTMSG_MAX_EXPRESSION_LEN))
           {
             rtRouted_ClearRoute(route);
             route_removed = 1;

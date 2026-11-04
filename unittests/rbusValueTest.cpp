@@ -22,6 +22,7 @@
 #include <errno.h>
 #include "rbus_buffer.h"
 #include <float.h>
+#include <cstring>
 
 TEST(rbusValueTest, buffer_rejects_rounding_and_position_overflow)
 {
@@ -46,6 +47,45 @@ TEST(rbusValueTest, buffer_rejects_rounding_and_position_overflow)
   rbusBuffer_Destroy(buff);
 }
 
+TEST(rbusValueTest, buffer_rejects_positions_outside_current_storage)
+{
+  rbusBuffer_t buff;
+  rbusBuffer_Create(&buff);
+  uint8_t byte = 1;
+  int positions[] = {65, RBUS_BUFFER_MAX_SIZE};
+  for(int position : positions)
+  {
+    buff->posWrite = position;
+    rbusBuffer_Reserve(buff, 0);
+    rbusBuffer_Write(buff, &byte, 0);
+    EXPECT_EQ(buff->block1, buff->data);
+    EXPECT_EQ(64, buff->lenAlloc);
+    EXPECT_EQ(position, buff->posWrite);
+  }
+  buff->posWrite = 0;
+  buff->lenAlloc = 128;
+  rbusBuffer_Reserve(buff, 65);
+  rbusBuffer_Write(buff, &byte, 1);
+  EXPECT_EQ(buff->block1, buff->data);
+  EXPECT_EQ(128, buff->lenAlloc);
+  EXPECT_EQ(0, buff->posWrite);
+  buff->lenAlloc = 64;
+
+  uint8_t bytes[65] = {};
+  rbusBuffer_Write(buff, bytes, sizeof(bytes));
+  ASSERT_NE(buff->block1, buff->data);
+  int capacity = buff->lenAlloc;
+  uint8_t* storage = buff->data;
+  buff->posWrite = capacity + 1;
+  rbusBuffer_Reserve(buff, 0);
+  rbusBuffer_Write(buff, &byte, 1);
+  EXPECT_EQ(storage, buff->data);
+  EXPECT_EQ(capacity, buff->lenAlloc);
+  EXPECT_EQ(capacity + 1, buff->posWrite);
+  buff->posWrite = sizeof(bytes);
+  rbusBuffer_Destroy(buff);
+}
+
 TEST(rbusValueTest, tlv_rejects_lengths_exceeding_allocator_limit)
 {
   rbusValue_t value;
@@ -63,6 +103,29 @@ TEST(rbusValueTest, tlv_rejects_lengths_exceeding_allocator_limit)
     EXPECT_EQ(42, rbusValue_GetInt32(value));
   }
   rbusValue_Release(value);
+}
+
+TEST(rbusValueTest, buffer_growth_preserves_written_bytes_at_boundaries)
+{
+  int lengths[] = {0, 1, 63, 64, 65, 127, 128, 129};
+  for(int initial : lengths)
+  {
+    for(int added : lengths)
+    {
+      rbusBuffer_t buff;
+      rbusBuffer_Create(&buff);
+      uint8_t first[129], second[129];
+      std::memset(first, 0x5a, sizeof(first));
+      std::memset(second, 0xa5, sizeof(second));
+      rbusBuffer_Write(buff, first, initial);
+      rbusBuffer_Write(buff, second, added);
+      EXPECT_EQ(initial + added, buff->posWrite);
+      EXPECT_GE(buff->lenAlloc, buff->posWrite);
+      EXPECT_EQ(0, std::memcmp(buff->data, first, initial));
+      EXPECT_EQ(0, std::memcmp(buff->data + initial, second, added));
+      rbusBuffer_Destroy(buff);
+    }
+  }
 }
 
 TEST(rbusValueTest, buffer_preserves_block_rounding)

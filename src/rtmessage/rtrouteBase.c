@@ -481,6 +481,16 @@ typedef struct rtDirectSendState
 static pthread_mutex_t directSendMutex = PTHREAD_MUTEX_INITIALIZER;
 static rtDirectSendState* directSendStates;
 
+/* Caller holds directSendMutex. */
+static rtDirectSendState**
+rtRouteDirect_FindSendState(dev_t device, ino_t inode)
+{
+  rtDirectSendState** link = &directSendStates;
+  while (*link && ((*link)->device != device || (*link)->inode != inode))
+    link = &(*link)->next;
+  return link;
+}
+
 static int
 rtRouteDirect_RemainingSendTime(const struct timespec* deadline)
 {
@@ -514,9 +524,8 @@ rtRouteDirect_SendFrame(int fd, rtMessageHeader* header, const uint8_t* data, ui
     return RT_FAIL;
   }
   pthread_mutex_lock(&directSendMutex);
-  rtDirectSendState* state = directSendStates;
-  while (state && (state->device != st.st_dev || state->inode != st.st_ino))
-    state = state->next;
+  rtDirectSendState** link = rtRouteDirect_FindSendState(st.st_dev, st.st_ino);
+  rtDirectSendState* state = *link;
   if (!state)
   {
     state = rt_calloc(1, sizeof(*state));
@@ -529,8 +538,7 @@ rtRouteDirect_SendFrame(int fd, rtMessageHeader* header, const uint8_t* data, ui
     }
     state->device = st.st_dev;
     state->inode = st.st_ino;
-    state->next = directSendStates;
-    directSendStates = state;
+    *link = state;
   }
   ++state->users;
   pthread_mutex_unlock(&directSendMutex);
@@ -546,6 +554,14 @@ rtRouteDirect_SendFrame(int fd, rtMessageHeader* header, const uint8_t* data, ui
       break;
     }
     pthread_mutex_lock(&directSendMutex);
+    state = *rtRouteDirect_FindSendState(st.st_dev, st.st_ino);
+    if (!state)
+    {
+      pthread_mutex_unlock(&directSendMutex);
+      rtLog_Error("Direct send state disappeared while referenced");
+      result = RT_FAIL;
+      break;
+    }
     if (!state->sending)
     {
       state->sending = true;
@@ -562,11 +578,39 @@ rtRouteDirect_SendFrame(int fd, rtMessageHeader* header, const uint8_t* data, ui
   {
     uint8_t buffer[RTMSG_CLIENT_READ_BUFFER_SIZE];
     header->payload_length = length;
-    rtMessageHeader_Encode(header, buffer);
-    struct iovec vectors[] = {{buffer, header->header_length}, {(void*)data, length}};
+    size_t topicLength = strnlen(header->topic, sizeof(header->topic));
+    size_t replyLength = strnlen(header->reply_topic, sizeof(header->reply_topic));
+    size_t encodedLength = RTMESSAGEHEADER_MIN_LENGTH + topicLength + replyLength;
+#ifdef MSG_ROUNDTRIP_TIME
+    encodedLength += 5 * sizeof(uint64_t);
+#endif
+    if (topicLength == sizeof(header->topic) || replyLength == sizeof(header->reply_topic) ||
+        encodedLength > sizeof(buffer))
+    {
+      rtLog_Error("Direct frame header exceeds available encoding capacity");
+      result = RT_ERROR_INVALID_ARG;
+    }
+    else
+    {
+      result = rtMessageHeader_Encode(header, buffer);
+      if (result == RT_OK &&
+          (header->header_length > sizeof(buffer) || header->header_length != encodedLength))
+      {
+        rtLog_Error("Invalid encoded direct frame header length");
+        result = RT_FAIL;
+      }
+    }
+    struct iovec vectors[2] = {{0}};
+    if (result == RT_OK)
+    {
+      vectors[0].iov_base = buffer;
+      vectors[0].iov_len = header->header_length;
+      vectors[1].iov_base = (void*)data;
+      vectors[1].iov_len = length;
+    }
     size_t index = 0;
     bool wrote = false;
-    while (index < 2)
+    while (result == RT_OK && index < 2)
     {
       if (vectors[index].iov_len == 0)
       {
@@ -626,15 +670,22 @@ rtRouteDirect_SendFrame(int fd, rtMessageHeader* header, const uint8_t* data, ui
   if (result != RT_OK)
     rtLog_Error("Direct frame send failed: %s", rtStrError(result));
   pthread_mutex_lock(&directSendMutex);
-  if (acquired)
-    state->sending = false;
-  if (--state->users == 0)
+  link = rtRouteDirect_FindSendState(st.st_dev, st.st_ino);
+  state = *link;
+  if (!state || state->users == 0)
   {
-    rtDirectSendState** link = &directSendStates;
-    while (*link != state)
-      link = &(*link)->next;
-    *link = state->next;
-    free(state);
+    rtLog_Error("Invalid direct send state during release");
+    result = RT_FAIL;
+  }
+  else
+  {
+    if (acquired)
+      state->sending = false;
+    if (--state->users == 0)
+    {
+      *link = state->next;
+      free(state);
+    }
   }
   pthread_mutex_unlock(&directSendMutex);
   pthread_setcancelstate(previousCancelState, NULL);
