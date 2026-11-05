@@ -2976,12 +2976,12 @@ rbusError_t rbus_close(rbusHandle_t handle)
         ret = RBUS_ERROR_INVALID_HANDLE;
     }
 
-    componentName = handleInfo->componentName;
-    handleInfo->componentName=NULL;
     ERROR_CHECK(pthread_mutex_destroy(&handleInfo->handle_eventSubsMutex));
     ERROR_CHECK(pthread_mutex_destroy(&handleInfo->handle_subsMutex));
 
     LockMutex();
+    componentName = handleInfo->componentName;
+    handleInfo->componentName=NULL;
     rbusHandleList_Remove(handleInfo);
 
     if(rbusHandleList_IsEmpty())
