@@ -47,7 +47,6 @@ int main(int argc, char *argv[])
 
     int rc = RBUS_ERROR_SUCCESS;
     rbusHandle_t handle;
-    rbusHandle_t directHandle = NULL;
 
     rtLog_SetOption(RT_USE_RTLOGGER);
     rc = rbus_open(&handle, "WiFi-CSIEvent-Consumer");
@@ -78,29 +77,7 @@ int main(int argc, char *argv[])
     }
 
     while(1)
-    {
-        if ((0 == access("/tmp/rbus_csi_test", F_OK)) && (directHandle == NULL))
-        {
-            rc = rbus_openDirect(handle, &directHandle, pDMLName[index]);
-            if(rc != RBUS_ERROR_SUCCESS)
-            {
-                printf("consumer: openDirect failed: %d\n", rc);
-                goto exit3;
-            }
-        }
-        else if ((0 != access("/tmp/rbus_csi_test", F_OK)) && (directHandle != NULL))
-        {
-            rc = rbus_closeDirect(directHandle);
-            if(rc != RBUS_ERROR_SUCCESS)
-            {
-                printf("consumer: closeDirect failed: %d\n", rc);
-                goto exit3;
-            }
-            directHandle = NULL;
-        }
-
         sleep(1);
-    }
 
 exit3:
     rbus_close(handle);

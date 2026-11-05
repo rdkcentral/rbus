@@ -51,7 +51,6 @@ int main(int argc, char *argv[])
 
     int rc = RBUS_ERROR_SUCCESS;
     rbusHandle_t handle;
-    rbusHandle_t directHandle = NULL;
     char* data[2] = { "My Data 1", "My Data2" };
     rbusEventSubscription_t subscriptions[1] = {
         {"Device.Provider1.Event1!", NULL, 0, 0, generalEvent1Handler, data[0], NULL, NULL, false},
@@ -66,18 +65,6 @@ int main(int argc, char *argv[])
         goto exit;
     }
 
-    if(argc == 2 && strcmp(argv[1], "opendirect")==0)
-    {
-        rc = rbus_openDirect(handle, &directHandle, "Device.Provider1.Event1!");
-        if (RBUS_ERROR_SUCCESS != rc)
-        {
-            printf ("Failed to open direct connection to %s\r\n", "Device.Provider1.Event1!");
-        }
-        else
-        {
-            printf("******* In rbus_openDirect Mode *******\n");
-        }
-    }
     printf("-----------------------------------------------------\n");
     printf("Testing rbusEvent_SubscribeRawData\n");
     printf("-----------------------------------------------------\n");
@@ -111,14 +98,6 @@ int main(int argc, char *argv[])
 
     sleep(loopFor/4);
 
-    if(argc == 2 && strcmp(argv[1], "opendirect")==0)
-    {
-        rc = rbus_closeDirect(directHandle);
-        if (RBUS_ERROR_SUCCESS != rc)
-        {
-            printf ("Failed to close direct connection to %s\r\n", "Device.Provider1.Event1!");
-        }
-    }
     rbusEvent_UnsubscribeExRawData(handle, subscriptions, 1);
 
 exit:

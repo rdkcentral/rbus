@@ -1824,26 +1824,14 @@ rbusCoreError_t rbus_unregisterClientDisconnectHandler()
     return RBUSCORE_SUCCESS;
 }
 
-rbusCoreError_t rbuscore_publishDirectSubscriberEvent(const char * event_name, const char* listener, const void* data, uint32_t dataLength, uint32_t subscriptionId, bool rawData)
-{
-    rtError err = RT_OK;
-
-    directServerLock();
-    const rtPrivateClientInfo *pPrivCliInfo = _rbuscore_find_server_privateconnection (event_name, listener);
-    if(pPrivCliInfo)
-    {
-        err = rtRouteDirect_SendMessage (pPrivCliInfo, data, dataLength, subscriptionId, rawData);
-    }
-    directServerUnlock();
-    return translate_rt_error(err);
-}
-
 rbusCoreError_t rbus_publishSubscriberEvent(const char* object_name,  const char * event_name, const char* listener, rbusMessage out, uint32_t subscriptionId, bool rawData)
 {
     /*using namespace rbus_server;*/
     rbusCoreError_t ret = RBUSCORE_SUCCESS;
     const char* traceParent = NULL;
     const char* traceState = NULL;
+    (void)subscriptionId;
+    (void)rawData;
 
     if(NULL == event_name)
         event_name = DEFAULT_EVENT;
@@ -1862,33 +1850,20 @@ rbusCoreError_t rbus_publishSubscriberEvent(const char* object_name,  const char
     rbusMessage_SetString(out, traceState);
     rbusMessage_EndMetaSectionWrite(out);
 
-    directServerLock();
-    const rtPrivateClientInfo *pPrivCliInfo = _rbuscore_find_server_privateconnection (event_name, listener);
-    if(pPrivCliInfo)
+    lock();
+    server_object_t obj = get_object(object_name);
+    if(NULL == obj)
     {
-        uint8_t* data;
-        uint32_t dataLength;
-        rbusMessage_ToBytes(out, &data, &dataLength);
-        rtRouteDirect_SendMessage (pPrivCliInfo, data, dataLength, subscriptionId, rawData);
+        /*Object not present yet. Register it now.*/
+        RBUSCORELOG_DEBUG("Could not find object %s", object_name);
+        ret = RBUSCORE_ERROR_INVALID_PARAM;
     }
-    directServerUnlock();
-    if (!pPrivCliInfo)
-    {
-        lock();
-        server_object_t obj = get_object(object_name);
-        if(NULL == obj)
-        {
-            /*Object not present yet. Register it now.*/
-            RBUSCORELOG_DEBUG("Could not find object %s", object_name);
-            ret = RBUSCORE_ERROR_INVALID_PARAM;
-        }
 
-        if(rbus_sendMessage(out, listener, object_name) != RBUSCORE_SUCCESS)
-        {
-           RBUSCORELOG_DEBUG("Couldn't send event %s::%s to %s.", object_name, event_name, listener);
-        }
-        unlock();
+    if(rbus_sendMessage(out, listener, object_name) != RBUSCORE_SUCCESS)
+    {
+       RBUSCORELOG_DEBUG("Couldn't send event %s::%s to %s.", object_name, event_name, listener);
     }
+    unlock();
     return ret;
 }
 
