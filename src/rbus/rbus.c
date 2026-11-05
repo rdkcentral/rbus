@@ -2911,7 +2911,6 @@ rbusError_t rbus_close(rbusHandle_t handle)
 
     RBUSLOG_INFO("rbus close for (%s)", handleInfo->componentName);
 
-    LockMutex();
     char filename[RTMSG_HEADER_MAX_TOPIC_LENGTH];
     snprintf(filename, RTMSG_HEADER_MAX_TOPIC_LENGTH-1, "%s%d_%d", "/tmp/.rbus/", getpid(), handleInfo->componentId);
     int removeRet = remove(filename);
@@ -2981,6 +2980,8 @@ rbusError_t rbus_close(rbusHandle_t handle)
     handleInfo->componentName=NULL;
     ERROR_CHECK(pthread_mutex_destroy(&handleInfo->handle_eventSubsMutex));
     ERROR_CHECK(pthread_mutex_destroy(&handleInfo->handle_subsMutex));
+
+    LockMutex();
     rbusHandleList_Remove(handleInfo);
 
     if(rbusHandleList_IsEmpty())
