@@ -1593,10 +1593,15 @@ rtConnectedClient_Read(rtConnectedClient* clnt)
   ssize_t bytes_read;
   if (clnt->bytes_read > clnt->bytes_to_read)
   {
-    rtLog_Warn("rtConnectedClient_Read: bytes_read=%zu > bytes_to_read=%zu, clamping to expected size",
+    rtLog_Warn("rtConnectedClient_Read: bytes_read=%zu > bytes_to_read=%zu",
                clnt->bytes_read, clnt->bytes_to_read);
-    rtConnectedClient_Reset(clnt);
-    return RT_OK; 
+    return RT_ERROR_INVALID_ARG;
+  }
+  if (clnt->bytes_to_read > clnt->read_buffer_capacity)
+  {
+    rtLog_Warn("rtConnectedClient_Read: requested size %zu exceeds buffer capacity %zu",
+               clnt->bytes_to_read, clnt->read_buffer_capacity);
+    return RT_ERROR_INVALID_ARG;
   }
   size_t bytes_to_read = clnt->bytes_to_read - clnt->bytes_read;
   if (bytes_to_read == 0)
@@ -1655,7 +1660,14 @@ rtConnectedClient_Read(rtConnectedClient* clnt)
           break;
         }
         rtEncoder_DecodeUInt16(&itr, &header_length);
-        clnt->bytes_to_read += (header_length - RTMESSAGEHEADER_PREAMBLE_LENGTH);
+        if (header_length <= RTMESSAGEHEADER_PREAMBLE_LENGTH ||
+            (size_t)header_length > clnt->read_buffer_capacity)
+        {
+          rtLog_Warn("Invalid header length %u from %s (buffer capacity %zu)",
+                     header_length, clnt->ident, clnt->read_buffer_capacity);
+          return RT_ERROR_INVALID_ARG;
+        }
+        clnt->bytes_to_read = (size_t)header_length;
         clnt->state = rtConnectionState_ReadHeader;
       }
     }
