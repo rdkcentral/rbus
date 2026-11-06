@@ -99,7 +99,6 @@ extern "C" {
 typedef enum _rbusHandleType
 {
     RBUS_HWDL_TYPE_REGULAR = 0xD0D0,
-    RBUS_HWDL_TYPE_DIRECT = 0xE0E0,
     RBUS_HWDL_TYPE_UNKNOWN = 0xB0DE
 } rbusHandleType_t;
 
@@ -121,7 +120,6 @@ struct _rbusHandle
   rbusHandleType_t      m_handleType;
   pthread_mutex_t       handle_eventSubsMutex;
   pthread_mutex_t       handle_subsMutex;
-  rtConnection          m_connectionParent;
   rbusTimeoutValues_t   timeoutValues;
   void*                 userData;
 };

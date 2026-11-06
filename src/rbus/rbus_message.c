@@ -117,46 +117,6 @@ static int compareContextExpression(const void *left, const void *right)
     return strcmp(((const rbusMessageHandlerContext_t*)left)->expression, (const char*)right);
 }
 
-rbusError_t rbusMessage_AddPrivateListener(
-    rbusHandle_t handle,
-    char const* expression,
-    rbusMessageHandler_t handler,
-    void* userData,
-    uint32_t subscriptionId)
-{
-    VERIFY_NULL(handle);
-    VERIFY_NULL(expression);
-
-    char rawDataTopic[RBUS_MAX_NAME_LENGTH] = {0};
-
-    rtConnection myConn = rbuscore_FindClientPrivateConnection(expression);
-    if (NULL == myConn)
-    {
-        return RBUS_ERROR_DIRECT_CON_NOT_EXIST;
-    }
-
-    rbusMessageHandlerContext_t* ctx = rt_malloc(sizeof(rbusMessageHandlerContext_t));
-    ctx->handle = handle;
-    ctx->expression = strdup(expression);
-    ctx->handler = handler;
-    ctx->userData = userData;
-    ctx->connection = myConn;
-    ctx->subscriptionId = subscriptionId;
-    RBUS_MESSAGE_MUTEX_LOCK();
-    rtVector_PushBack(handle->messageCallbacks, ctx);
-
-    snprintf(rawDataTopic, RBUS_MAX_NAME_LENGTH, "%d.%s", subscriptionId, expression);
-    rtError e = rtConnection_AddListenerWithId(myConn, rawDataTopic, subscriptionId, &rtMessage_CallbackHandler, ctx);
-    RBUS_MESSAGE_MUTEX_UNLOCK();
-    if (e != RT_OK)
-    {
-        RBUSLOG_WARN("rtConnection_AddListenerWithId:%s", rtStrError(e));
-        return RBUS_ERROR_BUS_ERROR;
-    }
-
-    return RBUS_ERROR_SUCCESS;
-}
-
 rbusError_t rbusMessage_AddListener(
     rbusHandle_t handle,
     char const* expression,
@@ -183,35 +143,6 @@ rbusError_t rbusMessage_AddListener(
     if (e != RT_OK)
     {
         RBUSLOG_WARN("rtConnection_AddListenerWithId:%s", rtStrError(e));
-        return RBUS_ERROR_BUS_ERROR;
-    }
-
-    return RBUS_ERROR_SUCCESS;
-}
-
-rbusError_t rbusMessage_RemovePrivateListener(
-    rbusHandle_t handle,
-    char const* expression,
-    uint32_t subscriptionId)
-{
-    VERIFY_NULL(handle);
-    char rawDataTopic[RBUS_MAX_NAME_LENGTH] = {0};
-
-    rtConnection myConn = rbuscore_FindClientPrivateConnection(expression);
-    if (NULL == myConn)
-    {
-        return RBUS_ERROR_DIRECT_CON_NOT_EXIST;
-    }
-
-    snprintf(rawDataTopic, RBUS_MAX_NAME_LENGTH, "%d.%s", subscriptionId, expression);
-    RBUS_MESSAGE_MUTEX_LOCK();
-    rtVector_RemoveItemByCompare(handle->messageCallbacks, rawDataTopic, compareContextExpression, cleanupContext);
-
-    rtError e = rtConnection_RemoveListenerWithId(myConn, rawDataTopic, subscriptionId);
-    RBUS_MESSAGE_MUTEX_UNLOCK();
-    if (e != RT_OK)
-    {
-        RBUSLOG_WARN("rtConnection_RemoveListenerWithId:%s", rtStrError(e));
         return RBUS_ERROR_BUS_ERROR;
     }
 
