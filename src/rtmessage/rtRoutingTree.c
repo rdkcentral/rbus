@@ -679,6 +679,47 @@ void rtRoutingTree_RemoveRoute(rtRoutingTree rt, const void* route)
     rtList_RemoveItem(rt->routeList, routeItem, freeTreeRoute);
 }
 
+rtError rtRoutingTree_RemoveTopicRoute(rtRoutingTree rt, const char* topic, const void* route)
+{
+    rtTreeRoute* entry = getTreeRoute(rt, route, NULL);
+    rtListItem item;
+
+    if(!entry || !topic)
+        return RT_ERROR_INVALID_ARG;
+
+    rtList_GetFront(entry->topicList, &item);
+    while(item)
+    {
+        rtTreeTopic* treeTopic;
+        rtListItem_GetData(item, (void**)&treeTopic);
+        if(strcmp(treeTopic->fullName, topic) == 0)
+        {
+            rtTreeTopic* parent = treeTopic->parent;
+            rtList_RemoveItemByCompare(treeTopic->routeList, entry, rtList_ComparePointer, NULL);
+            rtList_RemoveItem(entry->topicList, item, NULL);
+
+            /* Rebuild this route's descendant caches after removing one association. */
+            while(parent && parent->parent)
+            {
+                if(parent->routeList2)
+                    rtList_RemoveItemByCompare(parent->routeList2, entry, rtList_ComparePointer, NULL);
+                parent = parent->parent;
+            }
+            rtList_GetFront(entry->topicList, &item);
+            while(item)
+            {
+                rtListItem_GetData(item, (void**)&treeTopic);
+                if(treeTopic->parent->parent)
+                    optimizeTopicsBackpropagate(treeTopic->parent, entry);
+                rtListItem_GetNext(item, &item);
+            }
+            return RT_OK;
+        }
+        rtListItem_GetNext(item, &item);
+    }
+    return RT_ERROR_INVALID_ARG;
+}
+
 void rtRoutingTree_RemoveTopic(rtRoutingTree rt, const char* topic)
 {
     int i;

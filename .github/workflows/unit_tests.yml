@@ -128,7 +128,7 @@ jobs:
           cd build/rbus
           export RT_LOG_LEVEL=info
           nohup ./src/session_manager/rbus_session_mgr &
-          ./unittests/rbus_gtest.bin
+          ./unittests/rbus_gtest.bin > /tmp/log_gtestlogs.txt
       - name: Stop SessionManager
         run: |
           killall -15 rbus_session_mgr || true

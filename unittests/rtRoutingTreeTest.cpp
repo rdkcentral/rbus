@@ -113,3 +113,50 @@ TEST_F(rtRoutingTreeTest, rejects_4999_character_expression)
 {
   expectRejected(std::string(4999, 'A'));
 }
+
+TEST_F(rtRoutingTreeTest, removing_unowned_alias_preserves_routes)
+{
+  int otherRoute = 0;
+  ASSERT_EQ(rtRoutingTree_AddTopicRoute(tree, "Device.Owner", &routeData, 0), RT_OK);
+  ASSERT_EQ(rtRoutingTree_AddTopicRoute(tree, "Device.Other", &otherRoute, 0), RT_OK);
+
+  EXPECT_EQ(rtRoutingTree_RemoveTopicRoute(tree, "Device.Owner", &otherRoute),
+            RT_ERROR_INVALID_ARG);
+  expectRoute("Device.Owner");
+  EXPECT_EQ(rtRoutingTree_RemoveTopicRoute(tree, "Device", &otherRoute),
+            RT_ERROR_INVALID_ARG);
+  expectRoute("Device.Owner");
+}
+
+TEST_F(rtRoutingTreeTest, removing_alias_preserves_other_owner_and_descendants)
+{
+  int otherRoute = 0;
+  ASSERT_EQ(rtRoutingTree_AddTopicRoute(tree, "Device.Alias", &routeData, 0), RT_OK);
+  ASSERT_EQ(rtRoutingTree_AddTopicRoute(tree, "Device.Alias", &otherRoute, 0), RT_OK);
+  ASSERT_EQ(rtRoutingTree_AddTopicRoute(tree, "Device.Alias.Child", &routeData, 0), RT_OK);
+
+  EXPECT_EQ(rtRoutingTree_RemoveTopicRoute(tree, "Device.Alias", &otherRoute), RT_OK);
+  expectRoute("Device.Alias");
+  expectRoute("Device.Alias.Child");
+  expectRoute("Device.Alias.");
+  EXPECT_EQ(rtRoutingTree_RemoveTopicRoute(tree, "Device.Alias", &otherRoute),
+            RT_ERROR_INVALID_ARG);
+}
+
+TEST_F(rtRoutingTreeTest, removing_alias_updates_descendant_caches)
+{
+  ASSERT_EQ(rtRoutingTree_AddTopicRoute(tree, "Device.Alias.First", &routeData, 0), RT_OK);
+  ASSERT_EQ(rtRoutingTree_AddTopicRoute(tree, "Device.Alias.Second", &routeData, 0), RT_OK);
+
+  EXPECT_EQ(rtRoutingTree_RemoveTopicRoute(tree, "Device.Alias.First", &routeData), RT_OK);
+  expectRoute("Device.Alias.Second");
+  expectRoute("Device.Alias.");
+  EXPECT_EQ(rtRoutingTree_RemoveTopicRoute(tree, "Device.Alias.Second", &routeData), RT_OK);
+
+  rtList routes = NULL;
+  rtRoutingTree_GetTopicRoutes(tree, "Device.Alias.", &routes);
+  size_t count = 0;
+  if(routes)
+    ASSERT_EQ(rtList_GetSize(routes, &count), RT_OK);
+  EXPECT_EQ(count, 0u);
+}
