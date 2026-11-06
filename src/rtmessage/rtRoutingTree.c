@@ -118,6 +118,9 @@ static int validateExpression(const char* expr)
     int token_length = 0;
     int result = 0;
 
+    if(!expr)
+        return -1;
+
     while(*expr)
     {
         if(*expr == '.')
@@ -141,25 +144,42 @@ static int validateExpression(const char* expr)
     return result;
 }
 
-static void tokenizeExpression(const char* expression)
+static int tokenizeExpression(const char* expression)
 {
     int i = 0;
     const char* from = expression;
     char* to = workBuffer;
     workTokenCount = 0;
+    if(!expression)
+        goto invalidExpression;
+
     while(*from)
     {
+        if(i >= MAX_TOKENS)
+            goto invalidExpression;
         workTokens[i].name = to;
         
         while(*from && *from != '.')
+        {
+            /* Reserve space for this token's terminating NUL. */
+            if(to >= workBuffer + sizeof(workBuffer) - 1)
+                goto invalidExpression;
             *to++ = *from++;
+        }
         workTokens[i].length = to - workTokens[i].name;
+        if(to >= workBuffer + sizeof(workBuffer))
+            goto invalidExpression;
         *to++ = 0;
         if(*from == '.')
             from++;
         i++;
     }
     workTokenCount = i;
+    return 0;
+
+invalidExpression:
+    rtLog_Warn("Rejecting routing expression: NULL input or tokenizer capacity exceeded");
+    return -1;
 }
 
 static void removeTopicFromRoutes(rtRoutingTree rt, rtTreeTopic* topic)
@@ -490,7 +510,8 @@ rtError rtRoutingTree_AddTopicRoute(rtRoutingTree rt, const char* topicPath, con
         return RT_ERROR_INVALID_EXPRESSION;
     }
 
-    tokenizeExpression(topicPath);
+    if(tokenizeExpression(topicPath) < 0)
+        return RT_ERROR_INVALID_EXPRESSION;
 
     if(workTokenCount == 0)
         return rc;
@@ -543,7 +564,8 @@ void rtRoutingTree_GetTopicRoutes(rtRoutingTree rt, const char* topic, rtList* r
 
     rtLog_Debug("%s: %s", __FUNCTION__, topic);
 
-    tokenizeExpression(topic);
+    if(tokenizeExpression(topic) < 0)
+        return;
     if(workTokenCount == 0)
         return;
 
@@ -664,7 +686,8 @@ void rtRoutingTree_RemoveTopic(rtRoutingTree rt, const char* topic)
 
     rtLog_Debug("%s topic=%s", __FUNCTION__, topic);
 
-    tokenizeExpression(topic);
+    if(tokenizeExpression(topic) < 0)
+        return;
     if(workTokenCount == 0)
         return;
 
@@ -682,7 +705,8 @@ void rtRoutingTree_ResolvePartialPath(rtRoutingTree rt, const char* partialPath,
     int i;
     rtTreeTopic* treeTopic = rt->topicRoot;
 
-    tokenizeExpression(partialPath);
+    if(tokenizeExpression(partialPath) < 0)
+        return;
     if(workTokenCount == 0)
         return;
 
