@@ -826,23 +826,28 @@ rtRouted_OnMessageSubscribe(rtConnectedClient* sender, rtMessageHeader* hdr, uin
       }
       else
       {
-        int route_removed = 0;
+        rc = RT_ERROR_INVALID_ARG;
         for (i = 0; i < rtVector_Size(gRoutes); i++)
         {
           rtRouteEntry* route = (rtRouteEntry *) rtVector_At(gRoutes, i);
 
-          if((route->subscription) && (0 == strncmp(route->expression, expression, RTMSG_MAX_EXPRESSION_LEN)) && (route->subscription->client == sender))
+          if(route->subscription && route->subscription->client == sender &&
+             route->subscription->id == route_id)
           {
-            rtRouted_ClearRoute(route);
-            route_removed = 1;
+            if(0 == strcmp(route->expression, expression))
+            {
+              rtRouted_ClearRoute(route);
+              rc = RT_OK;
+            }
+            else
+              rc = rtRoutingTree_RemoveTopicRoute(gRoutingTree, expression, route);
             break;
           }
         }
-        if(0 == route_removed)
+        if(rc != RT_OK)
         {
-          //Not a route. Is it an alias?
-          rtLog_Debug("Removing alias %s", expression);
-          rtRoutingTree_RemoveTopic(gRoutingTree, expression);
+          rtLog_Warn("Rejected unsubscribe for unowned topic %s from %s (route %u)",
+                     expression, sender->ident, route_id);
         }
       }
     }
