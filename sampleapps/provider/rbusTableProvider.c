@@ -160,7 +160,10 @@ rbusError_t tableAddRowHandler1(rbusHandle_t handle, char const* tableName, char
             t1->instNum = ++gDM.t1InstNum;
             ++g_count;
             if(aliasName)
-                strncpy(t1->alias, aliasName, MAX_LENGTH);
+                {
+strncpy(t1->alias, aliasName, MAX_LENGTH-1);
+            t1->alias[MAX_LENGTH-1] = '\0';
+            }
 
             *instNum = t1->instNum;
             printDataModel();
@@ -220,7 +223,10 @@ rbusError_t tableAddRowHandler2(rbusHandle_t handle, char const* tableName, char
                 t2->inUse = true;
                 t2->instNum = ++t1->t2InstNum;
                 if(aliasName)
-                    strncpy(t2->alias, aliasName, MAX_LENGTH);
+                {
+                    strncpy(t2->alias, aliasName, MAX_LENGTH-1);
+                    t2->alias[MAX_LENGTH-1] = '\0';
+                }
 
                 *instNum = t2->instNum;
                 printDataModel();
@@ -396,8 +402,9 @@ rbusError_t setHandler2(rbusHandle_t handle, rbusProperty_t property, rbusSetHan
 
     if(propertyNameEquals(name, "Data"))
     {
-        strncpy(t2->data, rbusValue_GetString(value, NULL), MAX_LENGTH);
-        printDataModel();
+        strncpy(t2->data, rbusValue_GetString(value, NULL), MAX_LENGTH-1);
+        t2->data[MAX_LENGTH-1] = '\0';
+    printDataModel();
         return RBUS_ERROR_SUCCESS;
     }
     else
