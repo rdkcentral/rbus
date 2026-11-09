@@ -668,7 +668,7 @@ uint32_t rbusValue_GetL(rbusValue_t v)
 
 void rbusValue_SetTLV(rbusValue_t v, rbusValueType_t type, uint32_t length, void const* value)
 {
-    size_t expectedLength;
+    size_t expectedLength = 0;
 
     if(!v)
     {
