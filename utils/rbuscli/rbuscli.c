@@ -1040,6 +1040,7 @@ void execute_discover_elements_cmd(int argc, char *argv[])
         else
         {
             printf("No elements discovered!\r\n");
+        free(pElementNames);
         }
     }
     else
