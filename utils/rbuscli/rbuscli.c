@@ -2071,9 +2071,13 @@ void validate_and_execute_subscribe_cmd (int argc, char *argv[], bool add, bool 
 exit_error:
         runSteps = __LINE__;
         printf ("Invalid arguments. Please see the help\r\n");
-        rt_free(userData);
-        return;
-    }
+        if(filterValue)
+        rbusValue_Release(filterValue);
+    if(filter)
+rbusFilter_Release(filter);
+    rt_free(userData);
+    return;
+}
 
     rbusEventSubscription_t subscription_rawdata = {argv[2], filter, interval, duration, event_receive_handler1, userData, NULL, NULL, publishOnSubscribe};
     rbusEventSubscription_t subscription = {argv[2], filter, interval, duration, event_receive_handler2, userData, NULL, NULL, publishOnSubscribe};
@@ -2081,7 +2085,7 @@ exit_error:
     /* Async will be TRUE only when add is TRUE */
     if (isAsync && add)
     {
-        rc = rbusEvent_SubscribeExAsync(g_busHandle, &subscription, 1, event_receive_subscription_handler, 0);
+    rc = rbusEvent_SubscribeExAsync(g_busHandle, &subscription, 1, event_receive_subscription_handler, 0);
     }
     else if(add && rawDataSub)
     {
