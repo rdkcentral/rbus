@@ -216,6 +216,10 @@ TokenChain* TokenChain_create(char const* sourceName, elementNode* regNode)
     }
 
     chain->first = next;
+    if(next)
+        next->text = name; /* ensure name buffer is freed via first token's text */
+    else
+        free(name);
     return chain;
 
 tokenChainError:
