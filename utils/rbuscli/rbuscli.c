@@ -2334,9 +2334,11 @@ void validate_and_execute_method_names_cmd (int argc, char *argv[])
     execute_method_cmd(argv[1], argv[2], inParams);
 }
 
-void validate_and_execute_create_session_cmd ( )
+void validate_and_execute_create_session_cmd ( int argc, char *argv[])
 {
     rbusError_t rc = RBUS_ERROR_SUCCESS;
+    (void)argc;
+    (void)argv;
     if (!verify_rbus_open())
         return;
     rc = rbus_createSession(g_busHandle, &g_curr_sessionId);
@@ -2346,8 +2348,10 @@ void validate_and_execute_create_session_cmd ( )
     }
 }
 
-void validate_and_execute_get_session_cmd ( )
+void validate_and_execute_get_session_cmd ( int argc, char *argv[])
 {
+    (void)argc;
+    (void)argv;
     if (!verify_rbus_open())
         return;
     rbus_getCurrentSession(g_busHandle, &g_curr_sessionId);

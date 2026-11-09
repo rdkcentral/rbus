@@ -3295,6 +3295,39 @@ rbusError_t rbus_close(rbusHandle_t handle)
     return ret;
 }
 
+static struct _rbusHandle* _rbusHandle_GetValidUserDataHandle(rbusHandle_t handle)
+{
+    struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
+    if(!handleInfo)
+        return NULL;
+
+    // Unsure why direct handles are not part of the handle list. rbus_open uses rbusHandleList_Add, rbus_openDirect does not.
+    if(handleInfo->m_handleType == RBUS_HWDL_TYPE_DIRECT)
+        return handleInfo;
+
+    return handleInfo->m_handleType == RBUS_HWDL_TYPE_REGULAR &&
+        rbusHandleList_IsValidHandle(handleInfo) ? handleInfo : NULL;
+}
+
+rbusError_t rbusHandle_SetUserData(rbusHandle_t handle, void* userData)
+{
+    if(!handle)
+        return RBUS_ERROR_INVALID_INPUT;
+
+    struct _rbusHandle* handleInfo = _rbusHandle_GetValidUserDataHandle(handle);
+    if(!handleInfo)
+        return RBUS_ERROR_INVALID_HANDLE;
+
+    handleInfo->userData = userData;
+    return RBUS_ERROR_SUCCESS;
+}
+
+void* rbusHandle_GetUserData(rbusHandle_t handle)
+{
+    struct _rbusHandle* handleInfo = _rbusHandle_GetValidUserDataHandle(handle);
+    return handleInfo ? handleInfo->userData : NULL;
+}
+
 rbusError_t rbus_regDataElements(
     rbusHandle_t handle,
     int numDataElements,
@@ -6536,6 +6569,9 @@ rbusError_t rbusHandle_GetTraceContextAsString(
     if (!rbus)
       return RBUS_ERROR_INVALID_HANDLE;
 
+    if ((traceParent && traceParentLength <= 0) ||(traceState && traceStateLength <= 0))
+      return RBUS_ERROR_INVALID_INPUT;
+
     size_t n;
     char const *s = NULL;
     char const *t = NULL;
@@ -6544,11 +6580,10 @@ rbusError_t rbusHandle_GetTraceContextAsString(
 
     if (traceParent)
     {
-        if (s)
+        if (s && traceParentLength > 0)
         {
-            n = RBUS_MIN( (int) strlen(s), traceParentLength - 1 );
-            rtString_Copy(traceParent, s, n);
-            traceParent[n] ='\0';
+            n = RBUS_MIN(strlen(s), (size_t) (traceParentLength - 1));
+            rtString_Copy(traceParent, s, n + 1);
         }
         else
             traceParent[0] = '\0';
@@ -6556,11 +6591,10 @@ rbusError_t rbusHandle_GetTraceContextAsString(
 
     if (traceState)
     {
-        if (t)
+        if (t && traceStateLength > 0)
         {
-            n = RBUS_MIN( (int) strlen(t), traceStateLength - 1);
-            rtString_Copy(traceState, t, n);
-            traceState[n] = '\0';
+            n = RBUS_MIN(strlen(t), (size_t) (traceStateLength - 1));
+            rtString_Copy(traceState, t, n + 1);
         }
         else
             traceState[0] = '\0';
