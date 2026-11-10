@@ -251,8 +251,8 @@ char* rbusValue_ToString(rbusValue_t v, char* buf, size_t buflen)
             size_t written = 0;
             if (!v->d.bytes)
                 return NULL;
-
-            while (i < v->d.bytes->posWrite && written + 2 < (size_t)n)
+            
+	    while (i < (size_t)v->d.bytes->posWrite && written + 2 < (size_t)n)
             {
                 int chars = snprintf(&p[written], n - written, "%02X", v->d.bytes->data[i]);
                 if (chars < 0)
@@ -335,7 +335,7 @@ char* rbusValue_ToString(rbusValue_t v, char* buf, size_t buflen)
     {
         size_t i = 0;
         size_t written = 0;
-        while (i < v->d.bytes->posWrite && written + 2 < (size_t)n)
+        while (i < (size_t)v->d.bytes->posWrite && written + 2 < (size_t)n)
         {
             int chars = snprintf(&p[written], n - written, "%02X", v->d.bytes->data[i]);
             if (chars < 0)
