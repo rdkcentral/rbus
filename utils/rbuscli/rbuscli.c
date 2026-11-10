@@ -2077,7 +2077,7 @@ exit_error:
             rbusFilter_Release(filter);
         rt_free(userData);
         return;
-}
+    }
 
     rbusEventSubscription_t subscription_rawdata = {argv[2], filter, interval, duration, event_receive_handler1, userData, NULL, NULL, publishOnSubscribe};
     rbusEventSubscription_t subscription = {argv[2], filter, interval, duration, event_receive_handler2, userData, NULL, NULL, publishOnSubscribe};
