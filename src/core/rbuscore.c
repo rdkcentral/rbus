@@ -2719,15 +2719,15 @@ static void _rbuscore_directconnection_load_from_cache()
         }
 
         rbusMessage msg = NULL;
-        rtError err = rbusMessage_FromBytes(&msg, pBuff, size);
+        rbusMessage_FromBytes(&msg, pBuff, size);
         int numOfEntries = 0;
-        if((RT_OK != err) || (msg == NULL))
+        if(msg == NULL)
         {
             RBUSCORELOG_DEBUG("invalid message in cache %s", cacheFileName);
             goto invalidFile;
         }
 
-        err = rbusMessage_GetInt32(msg, &numOfEntries);
+        rtError err = rbusMessage_GetInt32(msg, &numOfEntries);
         if((RT_OK != err) || (numOfEntries < 0) || (numOfEntries > RBUS_DIRECT_ROW_CACHE_LENGTH))
         {
             RBUSCORELOG_DEBUG("invalid direct cache entry count %d in %s", numOfEntries, cacheFileName);
