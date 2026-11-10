@@ -2085,7 +2085,7 @@ exit_error:
     /* Async will be TRUE only when add is TRUE */
     if (isAsync && add)
     {
-    rc = rbusEvent_SubscribeExAsync(g_busHandle, &subscription, 1, event_receive_subscription_handler, 0);
+        rc = rbusEvent_SubscribeExAsync(g_busHandle, &subscription, 1, event_receive_subscription_handler, 0);
     }
     else if(add && rawDataSub)
     {
