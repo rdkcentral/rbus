@@ -106,8 +106,6 @@ rtMessage_Clone(rtMessage const message, rtMessage* copy)
 rtError
 rtMessage_FromBytes(rtMessage* message, uint8_t const* bytes, int n)
 {
-  (void) n;
-
   #if 0
   printf("------------------------------------------\n")
   for (i = 0; i < 256; ++i)
@@ -121,19 +119,39 @@ rtMessage_FromBytes(rtMessage* message, uint8_t const* bytes, int n)
   printf("\n\n");
   #endif
 
+  char* buffer = NULL;
+  cJSON* json = NULL;
+
+  if (!message || !bytes || n <= 0)
+    return RT_ERROR_INVALID_ARG;
+
+  buffer = (char*) rt_try_malloc((size_t)n + 1U);
+  if (!buffer)
+    return rtErrorFromErrno(ENOMEM);
+
+  memcpy(buffer, bytes, (size_t)n);
+  buffer[n] = '\0';
+
   *message = (rtMessage) rt_try_malloc(sizeof(struct _rtMessage));
   if(!*message)
-    return rtErrorFromErrno(ENOMEM);
-  (*message)->json = cJSON_Parse((char *) bytes);
-  if (!(*message)->json)
   {
+    free(buffer);
+    return rtErrorFromErrno(ENOMEM);
+  }
+
+  json = cJSON_Parse(buffer);
+  if (!json)
+  {
+    free(buffer);
     free(*message);
     *message = NULL;
     return RT_FAIL;
   }
 
+  (*message)->json = json;
   (*message)->count = 0;
   rt_atomic_fetch_add(&(*message)->count, 1);
+  free(buffer);
   return RT_OK;
 }
 
@@ -699,6 +717,8 @@ rtMessage_Retain(rtMessage m)
 rtError
 rtMessage_Release(rtMessage m)
 {
+  if (!m)
+    return RT_OK;
   if (m->count != 0)
     rt_atomic_fetch_sub(&m->count, 1);
   if (m->count == 0)

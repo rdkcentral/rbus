@@ -483,6 +483,11 @@ static void dispatch_method_call(rbusMessage msg, const rtMessageHeader *hdr, se
 
     /* Fetch the context that was sent with the message */
     _rbusMessage_GetMetaInfo(msg, &method_name, &traceParent, &traceState);
+    if((NULL == method_name) || ('\0' == method_name[0]))
+    {
+        RBUSCORELOG_DEBUG("Dropping method call with missing method name");
+        return;
+    }
     rbus_setOpenTelemetryContext(traceParent, traceState);
 
     lock();
@@ -1254,10 +1259,9 @@ static rbusCoreError_t rbus_sendMessage(rbusMessage msg, const char * destinatio
 
 static int subscription_handler(const char *not_used, const char * method_name, rbusMessage in, void * user_data, rbusMessage *out, const rtMessageHeader* hdr)
 {
-    (void) hdr;
-    /*using namespace rbus_server;*/
     const char * sender = NULL;
     const char * event_name = NULL;
+    const char * message_sender = NULL;
     int has_payload = 0;
     rbusMessage payload = NULL;
     server_object_t obj = (server_object_t)user_data;
@@ -1265,13 +1269,27 @@ static int subscription_handler(const char *not_used, const char * method_name, 
 
     rbusMessage_Init(out);
 
+    if(!hdr || !hdr->reply_topic || !hdr->reply_topic[0])
+    {
+        RBUSCORELOG_DEBUG("Malformed subscription request: missing trusted sender in message header.");
+        rbusMessage_SetInt32(*out, RBUSCORE_ERROR_INVALID_PARAM);
+        return 0;
+    }
+
+    sender = hdr->reply_topic;
+
     if((RT_OK == rbusMessage_GetString(in, &event_name)) &&
-        (RT_OK == rbusMessage_GetString(in, &sender)))
+        (RT_OK == rbusMessage_GetString(in, &message_sender)))
     {
         /*Extract arguments*/
         if((NULL == sender) || (NULL == event_name))
         {
             RBUSCORELOG_DEBUG("Malformed subscription request. Sender: %s. Event: %s.", sender, event_name);
+            rbusMessage_SetInt32(*out, RBUSCORE_ERROR_INVALID_PARAM);
+        }
+        else if(message_sender && strcmp(message_sender, sender) != 0)
+        {
+            RBUSCORELOG_DEBUG("Rejected subscription request with mismatched sender. Header sender: %s. Message sender: %s.", sender, message_sender);
             rbusMessage_SetInt32(*out, RBUSCORE_ERROR_INVALID_PARAM);
         }
         else
@@ -1285,6 +1303,11 @@ static int subscription_handler(const char *not_used, const char * method_name, 
                 rbusMessage_Release(payload);
             rbusMessage_SetInt32(*out, ret);
         }
+    }
+    else
+    {
+        RBUSCORELOG_DEBUG("Malformed subscription request: missing event or sender payload.");
+        rbusMessage_SetInt32(*out, RBUSCORE_ERROR_INVALID_PARAM);
     }
 
     return 0;
@@ -1931,9 +1954,12 @@ rbusCoreError_t rbus_discoverWildcardDestinations(const char * expression, int *
             rtMessage_GetInt32(msg, RTM_DISCOVERY_COUNT, &size);
             rtMessage_GetArrayLength(msg, RTM_DISCOVERY_ITEMS, &length);
 
-            if(size != length)
+            if((size < 0) || (length < 0) || (size != length))
             {
-                RBUSCORELOG_DEBUG("rbus_resolveWildcardDestination size missmatch");
+                RBUSCORELOG_DEBUG("rbus_resolveWildcardDestination invalid discovery response: count=%d length=%d", size, length);
+                ret = RBUSCORE_ERROR_MALFORMED_RESPONSE;
+                rtMessage_Release(msg);
+                goto exit;
             }
 
             if(size && length)
@@ -1962,6 +1988,11 @@ rbusCoreError_t rbus_discoverWildcardDestinations(const char * expression, int *
                     RBUSCORELOG_DEBUG("Memory allocation failure");
                     ret = RBUSCORE_ERROR_INSUFFICIENT_MEMORY;
                 }
+            }
+            else
+            {
+                *count = 0;
+                *destinations = NULL;
             }
 
             rtMessage_Release(msg);
@@ -2026,9 +2057,12 @@ rbusCoreError_t rbus_discoverObjectElements(const char * object, int * count, ch
         rtMessage_GetInt32(msg, RTM_DISCOVERY_COUNT, &size);
         rtMessage_GetArrayLength(msg, RTM_DISCOVERY_ITEMS, &length);
 
-        if(size != length)
+        if((size < 0) || (length < 0) || (size != length))
         {
-            RBUSCORELOG_DEBUG("rbus_GetElementsAddedByObject size missmatch");
+            RBUSCORELOG_DEBUG("rbus_GetElementsAddedByObject invalid discovery response: count=%d length=%d", size, length);
+            ret = RBUSCORE_ERROR_MALFORMED_RESPONSE;
+            rtMessage_Release(msg);
+            goto exit;
         }
 
         *count = size;
@@ -2059,6 +2093,11 @@ rbusCoreError_t rbus_discoverObjectElements(const char * object, int * count, ch
                 RBUSCORELOG_DEBUG("Memory allocation failure");
                 ret = RBUSCORE_ERROR_INSUFFICIENT_MEMORY;
             }
+        }
+        else
+        {
+            *count = 0;
+            *elements = NULL;
         }
         rtMessage_Release(msg);
     }
@@ -2324,9 +2363,12 @@ rbusCoreError_t rbus_discoverRegisteredComponents(int * count, char *** componen
         rtMessage_GetInt32(msg, RTM_DISCOVERY_COUNT, &size);
         rtMessage_GetArrayLength(msg, RTM_DISCOVERY_ITEMS, &length);
 
-        if(size != length)
+        if((size < 0) || (length < 0) || (size != length))
         {
-            RBUSCORELOG_DEBUG("rbus_registeredComponents size missmatch");
+            RBUSCORELOG_DEBUG("rbus_registeredComponents invalid discovery response: count=%d length=%d", size, length);
+            ret = RBUSCORE_ERROR_MALFORMED_RESPONSE;
+            rtMessage_Release(msg);
+            goto exit;
         }
 
         char **array_ptr = (char **)rt_try_malloc(size * sizeof(char *));
@@ -2548,12 +2590,38 @@ static void _freePrivateServer(void* p)
 
 #define RBUS_DIRECT_FILE_CACHE "/tmp/.rbus_%s_direct.cache"
 #define RBUS_DIRECT_ROW_CACHE_LENGTH 512
+static bool _rbuscore_directconnection_cache_is_safe(const char* cacheFileName)
+{
+    struct stat statInfo;
+
+    if(!cacheFileName || !cacheFileName[0])
+        return false;
+
+    if(lstat(cacheFileName, &statInfo) == 0 && S_ISLNK(statInfo.st_mode))
+    {
+        RBUSCORELOG_ERROR("refusing to use symlinked direct cache %s", cacheFileName);
+        return false;
+    }
+
+    return true;
+}
+
 static void _rbuscore_directconnection_save_to_cache()
 {
     FILE* file;
     size_t sz = 0, i = 0;
     char cacheFileName[256] = "";
     snprintf(cacheFileName, 256, RBUS_DIRECT_FILE_CACHE, __progname);
+    
+    if(!_rbuscore_directconnection_cache_is_safe(cacheFileName))
+    {
+        RBUSCORELOG_DEBUG("refusing to write unsafe direct cache %s", cacheFileName);
+        if(remove(cacheFileName) != 0)
+        {
+            RBUSCORELOG_DEBUG("failed to remove unsafe cache %s", cacheFileName);
+        }
+        return;
+    }
 
     sz = rtVector_Size(gListOfServerDirectDMLs);
     if(0 == sz)
@@ -2609,6 +2677,12 @@ static void _rbuscore_directconnection_load_from_cache()
 
     RBUSCORELOG_DEBUG("Entry of %s", __FUNCTION__);
 
+    if(!_rbuscore_directconnection_cache_is_safe(cacheFileName))
+    {
+        RBUSCORELOG_DEBUG("unsafe cache path %s", cacheFileName);
+        goto invalidFile;
+    }
+
     file = fopen(cacheFileName, "rb");
     if(!file)
     {
@@ -2644,11 +2718,22 @@ static void _rbuscore_directconnection_load_from_cache()
             goto invalidFile;
         }
 
-        //
         rbusMessage msg = NULL;
-        rbusMessage_FromBytes(&msg, pBuff, size);
+        rtError err = rbusMessage_FromBytes(&msg, pBuff, size);
         int numOfEntries = 0;
-        rbusMessage_GetInt32(msg, &numOfEntries);
+        if((RT_OK != err) || (msg == NULL))
+        {
+            RBUSCORELOG_DEBUG("invalid message in cache %s", cacheFileName);
+            goto invalidFile;
+        }
+
+        err = rbusMessage_GetInt32(msg, &numOfEntries);
+        if((RT_OK != err) || (numOfEntries < 0) || (numOfEntries > RBUS_DIRECT_ROW_CACHE_LENGTH))
+        {
+            RBUSCORELOG_DEBUG("invalid direct cache entry count %d in %s", numOfEntries, cacheFileName);
+            rbusMessage_Release(msg);
+            goto invalidFile;
+        }
         RBUSCORELOG_DEBUG("Number of Entries...%d", numOfEntries);
 
         for (int i = 0; i < numOfEntries; i++)
@@ -2656,10 +2741,34 @@ static void _rbuscore_directconnection_load_from_cache()
             rbusMessage tmpMsg = NULL;
             const char* pDMLName = NULL;
             const char* pConsumerName = NULL;
-            rbusMessage_GetMessage(msg, &tmpMsg);
-            rbusMessage_GetString(tmpMsg, &pDMLName);
-            rbusMessage_GetString(tmpMsg, &pConsumerName);
+            err = rbusMessage_GetMessage(msg, &tmpMsg);
+            if((RT_OK != err) || (tmpMsg == NULL))
+            {
+                RBUSCORELOG_DEBUG("invalid direct cache entry %d in %s", i, cacheFileName);
+                rbusMessage_Release(msg);
+                goto invalidFile;
+            }
+
+            err = rbusMessage_GetString(tmpMsg, &pDMLName);
+            if((RT_OK != err) || (pDMLName == NULL))
+            {
+                RBUSCORELOG_DEBUG("invalid direct cache DML entry %d in %s", i, cacheFileName);
+                rbusMessage_Release(tmpMsg);
+                rbusMessage_Release(msg);
+                goto invalidFile;
+            }
+
+            err = rbusMessage_GetString(tmpMsg, &pConsumerName);
+            if((RT_OK != err) || (pConsumerName == NULL))
+            {
+                RBUSCORELOG_DEBUG("invalid direct cache consumer entry %d in %s", i, cacheFileName);
+                rbusMessage_Release(tmpMsg);
+                rbusMessage_Release(msg);
+                goto invalidFile;
+            }
+
             RBUSCORELOG_DEBUG("Direct Connection Existed for DML (%s) for this client(%s)", pDMLName, pConsumerName);
+            rbusMessage_Release(tmpMsg);
 
             //TODO
             /* Add it to vector and when add_element is called, start a listener */

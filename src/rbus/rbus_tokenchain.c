@@ -100,8 +100,10 @@ TokenChain* TokenChain_create(char const* sourceName, elementNode* regNode)
     chain = rt_malloc(sizeof(TokenChain));
 
     chain->first = chain->last = NULL;
+    chain->sourceName = NULL;
 
     name = strdup(sourceName);
+    chain->sourceName = name;
 
     node = regNode;
 
@@ -236,15 +238,21 @@ void TokenChain_destroy(TokenChain* chain)
 {
     if(!chain)
         return;
+
     Token* token = chain->first;
-    if(token)
-        free(token->text);
     while(token)
     {
         Token* next = token->next;
         free(token);
         token = next;
     }
+
+    if(chain->sourceName)
+    {
+        free(chain->sourceName);
+        chain->sourceName = NULL;
+    }
+
     free(chain);
 }
 

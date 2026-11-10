@@ -27,6 +27,8 @@
 #include <sys/types.h>
 #include <signal.h>
 #include <unistd.h>
+#include <fcntl.h>
+#include <errno.h>
 
 #define VERIFY_NULL(T)         if(NULL == T){ return; }
 #define CACHE_FILE_PATH_FORMAT "%s/rbus_subs_%s"
@@ -42,6 +44,57 @@ struct _rbusSubscriptions
 
 static void rbusSubscriptions_loadCache(rbusSubscriptions_t subscriptions);
 static void rbusSubscriptions_saveCache(rbusSubscriptions_t subscriptions);
+static bool rbusSubscriptions_openCacheFile(const char* filePath, bool write, FILE** file)
+{
+    int fd;
+    int flags;
+    struct stat st;
+
+    if(!file)
+        return false;
+    *file = NULL;
+
+    if(lstat(filePath, &st) == 0)
+    {
+        if(S_ISLNK(st.st_mode) || !S_ISREG(st.st_mode))
+        {
+            RBUSLOG_ERROR("refusing to use unsafe cache path %s", filePath);
+            return false;
+        }
+    }
+
+#ifdef O_NOFOLLOW
+    flags = write ? (O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC | O_NOFOLLOW) : (O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
+#else
+    flags = write ? (O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC) : (O_RDONLY | O_CLOEXEC);
+#endif
+
+    fd = open(filePath, flags, 0600);
+    if(fd < 0)
+    {
+        if(errno == ENOENT)
+            return true;
+        RBUSLOG_ERROR("failed to open cache file %s: %s", filePath, strerror(errno));
+        return false;
+    }
+
+    if(fstat(fd, &st) != 0 || !S_ISREG(st.st_mode))
+    {
+        RBUSLOG_ERROR("refusing to use non-regular cache file %s", filePath);
+        close(fd);
+        return false;
+    }
+
+    *file = fdopen(fd, write ? "wb" : "rb");
+    if(!*file)
+    {
+        RBUSLOG_ERROR("fdopen failed for cache file %s", filePath);
+        close(fd);
+        return false;
+    }
+
+    return true;
+}
 
 int subscribeHandlerImpl(rbusHandle_t handle, bool added, elementNode* el, char const* eventName, char const* listener, int32_t componentId, int32_t interval, int32_t duration, rbusFilter_t filter, int rawData, uint32_t *subscriptionId);
 
@@ -447,11 +500,16 @@ static void rbusSubscriptions_loadCache(rbusSubscriptions_t subscriptions)
 
     RBUSLOG_INFO("file %s", filePath);
 
-    file = fopen(filePath, "rb");
+    if(!rbusSubscriptions_openCacheFile(filePath, false, &file))
+    {
+        RBUSLOG_ERROR("failed to open cache file %s for read", filePath);
+        goto remove_bad_file;
+    }
+
     if(!file)
     {
-        RBUSLOG_ERROR("failed to open file %s", filePath);
-        goto remove_bad_file;
+        RBUSLOG_DEBUG("cache file %s does not exist or was not opened", filePath);
+        return;
     }
 
     fseek(file, 0, SEEK_END);
@@ -646,11 +704,15 @@ static void rbusSubscriptions_saveCache(rbusSubscriptions_t subscriptions)
         return;
     }
 
-    file = fopen(filePath, "wb");
+    if(!rbusSubscriptions_openCacheFile(filePath, true, &file))
+    {
+        RBUSLOG_ERROR("failed to open %s for safe write", filePath);
+        return;
+    }
 
     if(!file)
     {
-        RBUSLOG_ERROR("failed to open %s", filePath);
+        RBUSLOG_DEBUG("cache file %s does not exist and safe open was not possible", filePath);
         return;
     }
 

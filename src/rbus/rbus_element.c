@@ -114,6 +114,17 @@ static void freeElementRecurse(elementNode* node)
 void freeElementNode(elementNode* node)
 {
     VERIFY_NULL(node);
+    /*
+       Nodes returned by retrieveElement/retrieveInstanceElementEx are used after
+       the tree mutex is dropped. Serialize removal with the node-local mutex so a
+       caller that locks the node before dereferencing cannot race with concurrent
+       delete/remove operations on the same element.
+     */
+    if(pthread_mutex_lock(&node->elmMutex) != 0)
+    {
+        RBUSLOG_ERROR("Error locking element mutex during free for %s", node->fullName ? node->fullName : node->name);
+        return;
+    }
     elementNode* parent = node->parent;
     elementNode* child = node->child;
 
