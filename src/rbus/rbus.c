@@ -4820,7 +4820,7 @@ rbusError_t rbusTable_getRowNames(
             {
                 RBUSLOG_ERROR("Malformed provider response: invalid row-name count %d", count);
                 rbusMessage_Release(response);
-                return RBUS_ERROR_MALFORMED_RESPONSE;
+                return RBUS_ERROR_INVALID_RESPONSE_FROM_DESTINATION;
             }
 
             if(count > 0)
@@ -4969,7 +4969,7 @@ rbusError_t rbusElementInfo_get(
                     if((count < 0) || (total_count > (SIZE_MAX / sizeof(rbusElementInfo_t))))
                     {
                         RBUSLOG_ERROR("Malformed provider response: invalid element-info count %d", count);
-                        return RBUS_ERROR_MALFORMED_RESPONSE;
+                        return RBUS_ERROR_INVALID_RESPONSE_FROM_DESTINATION;
                     }
                     runningCount += count;
                     if(*elemInfo == NULL)
@@ -5007,7 +5007,7 @@ rbusError_t rbusElementInfo_get(
                         }
                         free(*elemInfo);
                         *elemInfo = NULL;
-                        return RBUS_ERROR_MALFORMED_RESPONSE;
+                        return RBUS_ERROR_INVALID_RESPONSE_FROM_DESTINATION;
                     }
 
                     if (RT_OK != rbusMessage_GetInt32(response, &type) ||
@@ -5025,7 +5025,7 @@ rbusError_t rbusElementInfo_get(
                         }
                         free(*elemInfo);
                         *elemInfo = NULL;
-                        return RBUS_ERROR_MALFORMED_RESPONSE;
+                        return RBUS_ERROR_INVALID_RESPONSE_FROM_DESTINATION;
                     }
 
                     (*elemInfo)[i].name = strdup(name);
