@@ -2072,11 +2072,11 @@ exit_error:
         runSteps = __LINE__;
         printf ("Invalid arguments. Please see the help\r\n");
         if(filterValue)
-        rbusValue_Release(filterValue);
-    if(filter)
-rbusFilter_Release(filter);
-    rt_free(userData);
-    return;
+            rbusValue_Release(filterValue);
+        if(filter)
+            rbusFilter_Release(filter);
+        rt_free(userData);
+        return;
 }
 
     rbusEventSubscription_t subscription_rawdata = {argv[2], filter, interval, duration, event_receive_handler1, userData, NULL, NULL, publishOnSubscribe};
