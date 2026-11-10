@@ -1084,7 +1084,7 @@ void execute_discover_wildcard_dests_cmd(int argc, char* argv[])
         else
         {
             printf("No destinations discovered.\r\n");
-        /* coverity[leaked_storage] - rbus_discoverWildcardDestinations() is an external API; ownership/allocation behavior for 'destinations' on success with zero results is ambiguous without its contract (may allocate internal storage or leave output undefined). */
+			free(destinations);
     }
     }
     else
