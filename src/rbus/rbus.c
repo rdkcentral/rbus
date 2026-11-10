@@ -5046,7 +5046,7 @@ rbusError_t rbusElementInfo_get(
                         return RBUS_ERROR_OUT_OF_RESOURCES;
                     }
 
-                    (*elemInfo)[i].type = (rbusValueType_t)type;
+		    (*elemInfo)[i].type = (rbusElementType_t)type;
                     (*elemInfo)[i].access = access;
                     (*elemInfo)[i].component = strdup(destinations[d]);
                     if(!(*elemInfo)[i].component)
