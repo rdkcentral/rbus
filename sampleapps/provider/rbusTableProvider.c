@@ -161,9 +161,9 @@ rbusError_t tableAddRowHandler1(rbusHandle_t handle, char const* tableName, char
             ++g_count;
             if(aliasName)
                 {
-strncpy(t1->alias, aliasName, MAX_LENGTH-1);
-            t1->alias[MAX_LENGTH-1] = '\0';
-            }
+                    strncpy(t1->alias, aliasName, MAX_LENGTH-1);
+                    t1->alias[MAX_LENGTH-1] = '\0';
+                }
 
             *instNum = t1->instNum;
             printDataModel();
