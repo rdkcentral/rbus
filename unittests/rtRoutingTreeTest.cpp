@@ -180,3 +180,45 @@ TEST_F(rtRoutingTreeTest, removing_last_alias_allows_immediate_registration)
             RT_ERROR_DUPLICATE_ENTRY);
   expectRoute("Device.rbusProvider.Param1.Child");
 }
+
+TEST_F(rtRoutingTreeTest, removing_subtree_clears_freed_routes_from_ancestor_caches)
+{
+  int otherRoute = 0;
+  ASSERT_EQ(rtRoutingTree_AddTopicRoute(tree, "Device.A.B", &routeData, 0), RT_OK);
+  ASSERT_EQ(rtRoutingTree_AddTopicRoute(tree, "Device.A.B.Child", &otherRoute, 0), RT_OK);
+
+  rtRoutingTree_RemoveTopic(tree, "Device.A.B");
+  rtRoutingTree_RemoveTopic(tree, "Device.Absent");
+
+  rtList routes = NULL;
+  rtRoutingTree_GetTopicRoutes(tree, "Device.A.", &routes);
+  size_t count = 0;
+  if(routes)
+    ASSERT_EQ(rtList_GetSize(routes, &count), RT_OK);
+  EXPECT_EQ(count, 0u);
+
+  rtList topics = NULL;
+  ASSERT_EQ(rtList_Create(&topics), RT_OK);
+  rtRoutingTree_ResolvePartialPath(tree, "Device.A", topics);
+  ASSERT_EQ(rtList_GetSize(topics, &count), RT_OK);
+  EXPECT_EQ(count, 0u);
+  rtList_Destroy(topics, NULL);
+}
+
+TEST_F(rtRoutingTreeTest, removing_subtree_preserves_shared_route_elsewhere)
+{
+  ASSERT_EQ(rtRoutingTree_AddTopicRoute(tree, "Device.A.B.Child", &routeData, 0), RT_OK);
+  ASSERT_EQ(rtRoutingTree_AddTopicRoute(tree, "Device.X.Y", &routeData, 0), RT_OK);
+
+  rtRoutingTree_RemoveTopic(tree, "Device.A.B");
+
+  expectRoute("Device.X.Y");
+  expectRoute("Device.X.");
+  expectRoute("Device.");
+  rtList routes = NULL;
+  rtRoutingTree_GetTopicRoutes(tree, "Device.A.", &routes);
+  size_t count = 0;
+  if(routes)
+    ASSERT_EQ(rtList_GetSize(routes, &count), RT_OK);
+  EXPECT_EQ(count, 0u);
+}
