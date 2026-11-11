@@ -699,6 +699,8 @@ rtMessage_Retain(rtMessage m)
 rtError
 rtMessage_Release(rtMessage m)
 {
+  if (!m)
+    return RT_OK;
   if (m->count != 0)
     rt_atomic_fetch_sub(&m->count, 1);
   if (m->count == 0)

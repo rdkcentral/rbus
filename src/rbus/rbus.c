@@ -480,6 +480,7 @@ static bool _parse_rbusData_to_value (char const* pBuff, rbusLegacyDataType_t le
 
 //*************************** SERIALIZE/DERIALIZE FUNCTIONS ***************************//
 #define DEBUG_SERIALIZER 0
+#define RBUS_MAX_DECODE_DEPTH 64
 
 rbusError_t rbusValue_initFromMessage(rbusValue_t* value, rbusMessage msg);
 void rbusValue_appendToMessage(char const* name, rbusValue_t value, rbusMessage msg);
@@ -713,13 +714,23 @@ void rbusObject_appendToMessage(rbusObject_t obj, rbusMessage msg)
     }
 }
 
-void rbusObject_initFromMessage(rbusObject_t* obj, rbusMessage msg)
+static void rbusObject_initFromMessageInternal(rbusObject_t* obj, rbusMessage msg, int depth)
 {
     char const* name = NULL;
     int type = 0;
     int numChild = 0;
     rbusProperty_t prop;
     rbusObject_t children=NULL, previous=NULL;
+
+    if (!obj)
+        return;
+
+    if (depth > RBUS_MAX_DECODE_DEPTH)
+    {
+        RBUSLOG_ERROR("rbusObject_initFromMessage: object depth exceeds %d", RBUS_MAX_DECODE_DEPTH);
+        *obj = NULL;
+        return;
+    }
 
     rbusMessage_GetString(msg, &name);
     rbusMessage_GetInt32(msg, &type);
@@ -736,8 +747,8 @@ void rbusObject_initFromMessage(rbusObject_t* obj, rbusMessage msg)
 
     while(--numChild >= 0)
     {
-        rbusObject_t next;
-        rbusObject_initFromMessage(&next, msg);/*object child object*/
+        rbusObject_t next = NULL;
+        rbusObject_initFromMessageInternal(&next, msg, depth + 1);/*object child object*/
         if(children == NULL)
             children = next;
         if(previous != NULL)
@@ -757,6 +768,15 @@ void rbusObject_initFromMessage(rbusObject_t* obj, rbusMessage msg)
     rbusProperty_Release(prop);
     rbusObject_SetChildren(*obj, children);
     rbusObject_Release(children);
+}
+
+void rbusObject_initFromMessage(rbusObject_t* obj, rbusMessage msg)
+{
+    if (!obj)
+        return;
+
+    *obj = NULL;
+    rbusObject_initFromMessageInternal(obj, msg, 0);
 }
 
 void rbusValue_appendToMessage(char const* name, rbusValue_t value, rbusMessage msg)
@@ -856,10 +876,20 @@ void rbusFilter_AppendToMessage(rbusFilter_t filter, rbusMessage msg)
     }
 }
 
-void rbusFilter_InitFromMessage(rbusFilter_t* filter, rbusMessage msg)
+static void rbusFilter_InitFromMessageInternal(rbusFilter_t* filter, rbusMessage msg, int depth)
 {
     int32_t type;
     int32_t op;
+
+    if (!filter)
+        return;
+
+    if (depth > RBUS_MAX_DECODE_DEPTH)
+    {
+        RBUSLOG_ERROR("rbusFilter_InitFromMessage: filter depth exceeds %d", RBUS_MAX_DECODE_DEPTH);
+        *filter = NULL;
+        return;
+    }
 
     rbusMessage_GetInt32(msg, &type);
 
@@ -877,14 +907,27 @@ void rbusFilter_InitFromMessage(rbusFilter_t* filter, rbusMessage msg)
     {
         rbusFilter_t left = NULL, right = NULL;
         rbusMessage_GetInt32(msg, &op);
-        rbusFilter_InitFromMessage(&left, msg);
+        rbusFilter_InitFromMessageInternal(&left, msg, depth + 1);
         if(op != RBUS_FILTER_OPERATOR_NOT)
-            rbusFilter_InitFromMessage(&right, msg);
+            rbusFilter_InitFromMessageInternal(&right, msg, depth + 1);
         rbusFilter_InitLogic(filter, op, left, right);
         rbusFilter_Release(left);
         if(right)
             rbusFilter_Release(right);
     }
+    else
+    {
+        *filter = NULL;
+    }
+}
+
+void rbusFilter_InitFromMessage(rbusFilter_t* filter, rbusMessage msg)
+{
+    if (!filter)
+        return;
+
+    *filter = NULL;
+    rbusFilter_InitFromMessageInternal(filter, msg, 0);
 }
 
 void rbusEventData_updateFromMessage(rbusEvent_t* event, rbusFilter_t* filter,
@@ -4926,14 +4969,33 @@ rbusError_t rbusElementInfo_get(
                        (*elemInfo)[i].next = &(*elemInfo)[i+1];
                     (*elemInfo)[runningCount-1].next = NULL;
                 }
-
                 for(i = startIndex; i < runningCount; ++i)
                 {
-                    rbusMessage_GetString(response, (char const**)&(*elemInfo)[i].name);
+                    char const* name = NULL;
+
+                    if (RBUSCORE_SUCCESS != rbusMessage_GetString(response, &name) || NULL == name)
+                    {
+                        RBUSLOG_ERROR("missing element name in response for %s from %s", elemName, destinations[d]);
+                        errorcode = RBUS_ERROR_INVALID_MESSAGE;
+                        break;
+                    }
+
                     rbusMessage_GetInt32(response, (int32_t*)&(*elemInfo)[i].type);
                     rbusMessage_GetInt32(response, (int32_t*)&(*elemInfo)[i].access);
-                    (*elemInfo)[i].name = strdup((*elemInfo)[i].name);
+                    (*elemInfo)[i].name = strdup(name);
+                    if (!(*elemInfo)[i].name)
+                    {
+                        RBUSLOG_ERROR("failed to duplicate element name for %s from %s", elemName, destinations[d]);
+                        errorcode = RBUS_ERROR_OUT_OF_RESOURCES;
+                        break;
+                    }
                     (*elemInfo)[i].component = strdup(destinations[d]);
+                    if (!(*elemInfo)[i].component)
+                    {
+                        RBUSLOG_ERROR("failed to duplicate component name for %s from %s", elemName, destinations[d]);
+                        errorcode = RBUS_ERROR_OUT_OF_RESOURCES;
+                        break;
+                    }
                     RBUSLOG_DEBUG("adding name %s", (*elemInfo)[i].name);
                 }
             }
@@ -4946,7 +5008,6 @@ rbusError_t rbusElementInfo_get(
             rbusMessage_Release(response);
         }
     }
-
     for(d = 0; d < numDestinations; d++)
         free(destinations[d]);
     free(destinations);
