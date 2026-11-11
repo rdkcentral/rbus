@@ -40,6 +40,7 @@
 #include "local_benchmarking.h"
 #include <arpa/inet.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <getopt.h>
 #include <sys/select.h>
 #include <sys/wait.h>
@@ -594,10 +595,20 @@ rtError rtRouted_TrafficMonitorLog(rtConnectedClient* sender, rtMessageHeader* h
 
   if(!file)
   {
-    file = fopen("/tmp/rtrouted_traffic_monitor", "a");
+    int fd = open("/tmp/rtrouted_traffic_monitor",
+                  O_WRONLY | O_APPEND | O_CREAT | O_CLOEXEC | O_NOFOLLOW,
+                  S_IRUSR | S_IWUSR);
+    if(fd < 0)
+    {
+      rtLog_Warn("Failed to open traffic monitor log: %s", strerror(errno));
+      return RT_FAIL;
+    }
+
+    file = fdopen(fd, "a");
     if(!file)
     {
-      rtLog_Warn("Failed to open traffix monitor log");
+      rtLog_Warn("Failed to create traffic monitor stream: %s", strerror(errno));
+      close(fd);
       return RT_FAIL;
     }
   }
