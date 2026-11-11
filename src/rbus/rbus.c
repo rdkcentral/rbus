@@ -1162,6 +1162,9 @@ int subscribeHandlerImpl(
     {
         if(el->type == RBUS_ELEMENT_TYPE_PROPERTY && subscription->autoPublish)
         {
+            if(!added && subscription->interval)
+                rbusInterval_RemoveSubscriptionRecord(handle, el, subscription);
+
             rtListItem item;
             rtList_GetFront(subscription->instances, &item);
             while(item)
@@ -1180,10 +1183,7 @@ int subscribeHandlerImpl(
                         break;
                     }
                     else
-                    {
-                        rbusInterval_RemoveSubscriptionRecord(handle, node, subscription);
                         break;
-                    }
                 }
                 else if(!elementHasAutoPubSubscriptions(node, subscription))
                 {
