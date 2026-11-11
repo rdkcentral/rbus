@@ -1,8 +1,11 @@
 #include "gtest/gtest.h"
 #include "rtSocket.h"
 #include <cstring>
+#include <cstdlib>
 #include <string>
+#include <sys/stat.h>
 #include <sys/un.h>
+#include <unistd.h>
 
 extern "C" {
 #include "rtrouteBase.h"
@@ -61,4 +64,46 @@ TEST(rtSocketTest, rejects_disabled_direct_tcp_listener)
 {
   EXPECT_EQ(rtRouteDirect_StartInstance("tcp://127.0.0.1:0", NULL),
             RT_ERROR_INVALID_OPERATION);
+}
+
+TEST(rtSocketTest, unix_listener_creates_permissions_and_restores_umask)
+{
+  char directory[] = "/tmp/rbus-listener-test-XXXXXX";
+  ASSERT_NE(mkdtemp(directory), nullptr);
+  const std::string path = std::string(directory) + "/socket";
+  const std::string address = "unix://" + path;
+  const mode_t masks[] = {0022, 0077};
+
+  for(mode_t mask : masks)
+  {
+    rtListener* listener = NULL;
+    mode_t original = umask(mask);
+    rtError result = rtRouteBase_BindListener(address.c_str(), 0, 0, &listener);
+    mode_t observed = umask(original);
+    EXPECT_EQ(observed, mask);
+    EXPECT_EQ(result, RT_OK);
+    if(listener)
+    {
+      struct stat status = {};
+      EXPECT_EQ(stat(path.c_str(), &status), 0);
+      EXPECT_TRUE(S_ISSOCK(status.st_mode));
+      EXPECT_EQ(status.st_mode & 0777, mode_t(0666));
+
+      rtListener* duplicate = NULL;
+      original = umask(mask);
+      result = rtRouteBase_BindListener(address.c_str(), 0, 0, &duplicate);
+      observed = umask(original);
+      EXPECT_EQ(observed, mask);
+      EXPECT_NE(result, RT_OK);
+      if(duplicate)
+      {
+        rtRouteBase_CloseListener(duplicate);
+        free(duplicate);
+      }
+      rtRouteBase_CloseListener(listener);
+      free(listener);
+      EXPECT_EQ(unlink(path.c_str()), 0);
+    }
+  }
+  EXPECT_EQ(rmdir(directory), 0);
 }
