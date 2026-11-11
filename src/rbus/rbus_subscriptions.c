@@ -23,6 +23,8 @@
 #include <rtMemory.h>
 #include <string.h>
 #include <assert.h>
+#include <errno.h>
+#include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <signal.h>
@@ -431,6 +433,49 @@ static bool rbusSubscriptions_isListenerRunning(char const* listener)
     return true;
 }
 
+static FILE* rbusSubscriptions_openCache(char const* path, bool writing)
+{
+    int flags = O_NOFOLLOW | O_CLOEXEC | O_NONBLOCK;
+    int fd = open(path, flags | (writing ? O_WRONLY | O_CREAT : O_RDONLY),
+                  S_IRUSR | S_IWUSR);
+    if(fd < 0)
+    {
+        if(writing || errno != ENOENT)
+            RBUSLOG_ERROR("failed to open cache %s: %s", path, strerror(errno));
+        return NULL;
+    }
+
+    struct stat status;
+    if(fstat(fd, &status) < 0)
+    {
+        RBUSLOG_ERROR("failed to inspect cache %s: %s", path, strerror(errno));
+        close(fd);
+        return NULL;
+    }
+    if(!S_ISREG(status.st_mode) || status.st_uid != geteuid() ||
+       status.st_nlink != 1 || (status.st_mode & (S_IWGRP | S_IWOTH)))
+    {
+        RBUSLOG_ERROR("rejected untrusted subscription cache %s", path);
+        close(fd);
+        return NULL;
+    }
+    /* Never truncate a pre-existing file before validating its ownership. */
+    if(writing && ftruncate(fd, 0) < 0)
+    {
+        RBUSLOG_ERROR("failed to truncate cache %s: %s", path, strerror(errno));
+        close(fd);
+        return NULL;
+    }
+
+    FILE* file = fdopen(fd, writing ? "wb" : "rb");
+    if(!file)
+    {
+        RBUSLOG_ERROR("failed to create cache stream %s: %s", path, strerror(errno));
+        close(fd);
+    }
+    return file;
+}
+
 static void rbusSubscriptions_loadCache(rbusSubscriptions_t subscriptions)
 {
     long size;
@@ -447,12 +492,9 @@ static void rbusSubscriptions_loadCache(rbusSubscriptions_t subscriptions)
 
     RBUSLOG_INFO("file %s", filePath);
 
-    file = fopen(filePath, "rb");
+    file = rbusSubscriptions_openCache(filePath, false);
     if(!file)
-    {
-        RBUSLOG_ERROR("failed to open file %s", filePath);
-        goto remove_bad_file;
-    }
+        return;
 
     fseek(file, 0, SEEK_END);
     size = ftell(file);
@@ -646,7 +688,7 @@ static void rbusSubscriptions_saveCache(rbusSubscriptions_t subscriptions)
         return;
     }
 
-    file = fopen(filePath, "wb");
+    file = rbusSubscriptions_openCache(filePath, true);
 
     if(!file)
     {
