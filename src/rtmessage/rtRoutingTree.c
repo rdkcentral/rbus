@@ -696,6 +696,13 @@ rtError rtRoutingTree_RemoveTopicRoute(rtRoutingTree rt, const char* topic, cons
         {
             rtTreeTopic* parent = treeTopic->parent;
             rtList_RemoveItemByCompare(treeTopic->routeList, entry, rtList_ComparePointer, NULL);
+            size_t routeCount = 0;
+            rtList_GetSize(treeTopic->routeList, &routeCount);
+            if(routeCount == 0)
+            {
+                rtList_Destroy(treeTopic->routeList, NULL);
+                treeTopic->routeList = NULL;
+            }
             rtList_RemoveItem(entry->topicList, item, NULL);
 
             /* Rebuild this route's descendant caches after removing one association. */

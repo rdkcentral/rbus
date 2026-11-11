@@ -160,3 +160,23 @@ TEST_F(rtRoutingTreeTest, removing_alias_updates_descendant_caches)
     ASSERT_EQ(rtList_GetSize(routes, &count), RT_OK);
   EXPECT_EQ(count, 0u);
 }
+
+TEST_F(rtRoutingTreeTest, removing_last_alias_allows_immediate_registration)
+{
+  int otherRoute = 0;
+  ASSERT_EQ(rtRoutingTree_AddTopicRoute(tree, "Device.rbusProvider.Param1", &routeData, 1),
+            RT_OK);
+  ASSERT_EQ(rtRoutingTree_AddTopicRoute(tree, "Device.rbusProvider.Param1.Child", &routeData, 1),
+            RT_OK);
+  ASSERT_EQ(rtRoutingTree_RemoveTopicRoute(tree, "Device.rbusProvider.Param1", &routeData),
+            RT_OK);
+
+  rtList routes = NULL;
+  rtRoutingTree_GetTopicRoutes(tree, "Device.rbusProvider.Param1", &routes);
+  EXPECT_EQ(routes, nullptr);
+  EXPECT_EQ(rtRoutingTree_AddTopicRoute(tree, "Device.rbusProvider.Param1", &otherRoute, 1),
+            RT_OK);
+  EXPECT_EQ(rtRoutingTree_AddTopicRoute(tree, "Device.rbusProvider.Param1", &routeData, 1),
+            RT_ERROR_DUPLICATE_ENTRY);
+  expectRoute("Device.rbusProvider.Param1.Child");
+}
