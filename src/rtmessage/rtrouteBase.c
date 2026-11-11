@@ -111,7 +111,17 @@ rtRouteBase_BindListener(char const* socket_name, int no_delay, int indefinite_r
 
   while(0 != num_retries)
   {
-    ret = bind(listener->fd, (struct sockaddr *)&listener->local_endpoint, socket_length);
+    if (listener->local_endpoint.ss_family == AF_UNIX)
+    {
+      /* umask is process-wide; do not overlap this bind with other file creation. */
+      mode_t saved_umask = umask(S_IXUSR | S_IXGRP | S_IXOTH);
+      ret = bind(listener->fd, (struct sockaddr *)&listener->local_endpoint, socket_length);
+      int bind_errno = errno;
+      umask(saved_umask);
+      errno = bind_errno;
+    }
+    else
+      ret = bind(listener->fd, (struct sockaddr *)&listener->local_endpoint, socket_length);
     if (ret == -1)
     {
       rtError err = rtErrorFromErrno(errno);
@@ -128,13 +138,6 @@ rtRouteBase_BindListener(char const* socket_name, int no_delay, int indefinite_r
     }
     else
       break;
-  }
-
-  if (listener->local_endpoint.ss_family == AF_UNIX)
-  {
-    //skip the 7 letters from socket name as it points to `unix://`
-    if (chmod(&socket_name[7], S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH) < 0)
-      rtLog_Warn("Failed to change socket's write permission for non-root listener");
   }
 
   ret = listen(listener->fd, 4);
