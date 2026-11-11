@@ -1012,7 +1012,7 @@ void execute_discover_elements_cmd(int argc, char *argv[])
     int numOfInputParams = argc - 2;
     bool nextLevel = true;
     int numElements = 0;
-    char** pElementNames; // FIXME: every component will have more than RBUS_CLI_MAX_PARAM elements right?
+    char** pElementNames = NULL;
 
     if (!verify_rbus_open())
         return;
@@ -1056,7 +1056,7 @@ void execute_discover_wildcard_dests_cmd(int argc, char* argv[])
 {
     rbusCoreError_t rc = RBUSCORE_SUCCESS;
     int numDestinations = 0;
-    char** destinations;
+    char** destinations = NULL;
 
     (void)argc;
     (void)argv;
