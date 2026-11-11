@@ -1190,12 +1190,21 @@ rtRouted_OnMessageDiscoverElementObjects(rtConnectedClient* sender, rtMessageHea
 static void
 rtRouted_OnMessageDiagnostics(rtConnectedClient* sender, rtMessageHeader* hdr, uint8_t const* buff, int n)
 {
-  rtMessage msg;
-  const char * cmd;
+  rtMessage msg = NULL;
+  const char * cmd = NULL;
 
-  rtMessage_FromBytes(&msg, buff, n);
+  if (RT_OK != rtMessage_FromBytes(&msg, buff, n))
+  {
+    rtLog_Warn("Diagnostics request is not valid JSON.");
+    return;
+  }
 
-  rtMessage_GetString(msg, RTROUTER_DIAG_CMD_KEY, &cmd);
+  if (RT_OK != rtMessage_GetString(msg, RTROUTER_DIAG_CMD_KEY, &cmd) || NULL == cmd)
+  {
+    rtLog_Warn("Diagnostics request missing command field.");
+    rtMessage_Release(msg);
+    return;
+  }
 
   if(0 == strncmp(RTROUTER_DIAG_CMD_ENABLE_VERBOSE_LOGS, cmd, sizeof(RTROUTER_DIAG_CMD_ENABLE_VERBOSE_LOGS)))
     rtLog_SetLevel(RT_LOG_DEBUG);

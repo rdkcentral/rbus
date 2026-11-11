@@ -118,22 +118,27 @@ static int validateExpression(const char* expr)
     int token_length = 0;
     int result = 0;
 
+    if(!expr || !*expr)
+        return -1;
+
     while(*expr)
     {
         if(*expr == '.')
-	{
-	    if(*(expr + 1) == '.')
-	    {
-	       result = -1;
-	       break;
-	    }
-	    token_count++;
-	}
+        {
+            if(*(expr + 1) == '.')
+            {
+               result = -1;
+               break;
+            }
+            token_count++;
+        }
         token_length++;
-        expr++;	
+        expr++;
     }
 
-    if((token_length > MAX_TOKEN_BUFFER_SIZE) || (token_count > MAX_TOKENS))
+    token_count++;
+
+    if((token_length > (MAX_TOKEN_BUFFER_SIZE - 1)) || (token_count > MAX_TOKENS))
     {
         result = -1;
     }
@@ -147,18 +152,27 @@ static void tokenizeExpression(const char* expression)
     const char* from = expression;
     char* to = workBuffer;
     workTokenCount = 0;
-    while(*from)
+    while(*from && i < MAX_TOKENS)
     {
+        size_t remaining = (size_t)(MAX_TOKEN_BUFFER_SIZE - (to - workBuffer));
+        if(remaining <= 1)
+            return;
+
         workTokens[i].name = to;
-        
-        while(*from && *from != '.')
+
+        while(*from && *from != '.' && remaining > 1)
+        {
             *to++ = *from++;
+            remaining--;
+        }
         workTokens[i].length = to - workTokens[i].name;
         *to++ = 0;
         if(*from == '.')
             from++;
         i++;
     }
+    if(*from)
+        return;
     workTokenCount = i;
 }
 
