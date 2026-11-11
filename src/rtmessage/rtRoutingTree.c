@@ -189,18 +189,19 @@ static void removeTopicFromRoutes(rtRoutingTree rt, rtTreeTopic* topic)
     rtListItem routeItem;
     rtTreeRoute* route;
     size_t size;
-    rtList_GetFront(topic->routeList, &routeItem);
-    while(routeItem)
+    while(topic->routeList)
     {
+        rtList_GetFront(topic->routeList, &routeItem);
+        if(!routeItem)
+            break;
         rtListItem_GetData(routeItem, (void**)&route);
 
-        rtList_RemoveItemByCompare(route->topicList, topic, rtList_ComparePointer, NULL);
+        /* Remove ancestor cache entries before this route can be freed. */
+        rtRoutingTree_RemoveTopicRoute(rt, topic->fullName, route->route);
         /*if the route's topicList has become empty, then remove the whole route*/
         rtList_GetSize(route->topicList, &size);
         if(size == 0)
             rtList_RemoveItemByCompare(rt->routeList, route, rtList_ComparePointer, freeTreeRoute);
-
-        rtListItem_GetNext(routeItem, &routeItem);
     }
 
     rtList_GetFront(topic->childList, &childItem);
