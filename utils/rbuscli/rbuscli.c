@@ -1071,7 +1071,6 @@ void execute_discover_wildcard_dests_cmd(int argc, char* argv[])
 
     runSteps = __LINE__;
     rc = rbus_discoverWildcardDestinations(argv[2], &numDestinations, &destinations);
-    
     if(RBUSCORE_SUCCESS == rc)
     {
         if (numDestinations)
@@ -1087,6 +1086,7 @@ void execute_discover_wildcard_dests_cmd(int argc, char* argv[])
         else
         {
             printf("No destinations discovered.\r\n");
+            free(destinations);
         }
     }
     else
