@@ -318,7 +318,6 @@ void rbusSubscriptions_onElementDeleted(rbusSubscriptions_t subscriptions, eleme
             {
                 rtListItem item, tempitem;
                 rbusSubscription_t* sub;
-                bool val=false;
                 rbusSubscription_t* subscription = NULL;
 
                 rtList_GetFront(subscriptions->subList, &item);
@@ -326,6 +325,7 @@ void rbusSubscriptions_onElementDeleted(rbusSubscriptions_t subscriptions, eleme
                 /* go through all subscriptions */
                 while(item)
                 {
+                    bool val = false;
                     rtListItem item2;
                     elementNode* inst;
 
@@ -349,8 +349,8 @@ void rbusSubscriptions_onElementDeleted(rbusSubscriptions_t subscriptions, eleme
                         rtListItem_GetNext(item2, &item2);
                     }
 
-                    /* RDKB-38389 : Removing the instance of the row to be removed from the subscriptions->subList linked list */
-                    if(val)
+                    /* Interval publishers own this subscription until unsubscribe or duration completion. */
+                    if(val && !sub->interval)
                     {
                         subscription = rbusSubscriptions_getSubscription(subscriptions, sub->listener, sub->eventName,
                                 sub->componentId, sub->filter, sub->interval, sub->duration, sub->rawData);
@@ -975,4 +975,3 @@ rbusSubscription_t* rbusSubscriptions_updateExisting(rbusSubscriptions_t subscri
     return NULL;
 }
 #endif
-
