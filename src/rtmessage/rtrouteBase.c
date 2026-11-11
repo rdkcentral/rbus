@@ -424,15 +424,6 @@ rtConnectedClient_Read(rtConnectedClient* clnt, rtRouteEntry* myDirectRoute)
           rtConnectedClient_Reset(clnt);
           break;
         }
-        if ((size_t)clnt->header.header_length > RTMSG_CLIENT_READ_BUFFER_SIZE ||
-            payload > (RTMSG_CLIENT_READ_BUFFER_SIZE - (size_t)clnt->header.header_length))
-        {
-          rtLog_Info("Requested message size (%u payload + %u header) exceeds the broker read buffer limit. Message will be dropped.",
-                     clnt->header.payload_length, clnt->header.header_length);
-          _rtConnection_ReadAndDropBytes(clnt->fd, clnt->header.payload_length);
-          rtConnectedClient_Reset(clnt);
-          break;
-        }
         clnt->bytes_to_read += payload;
         clnt->state = rtConnectionState_ReadPayload;
         if (clnt->bytes_to_read > (SIZE_MAX - clnt->bytes_read))
