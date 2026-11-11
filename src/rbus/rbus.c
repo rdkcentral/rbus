@@ -1496,8 +1496,9 @@ static void _set_callback_handler (rbusHandle_t handle, rbusMessage request, rbu
     rbusMessage_GetInt32(request, &sessionId);
     rbusMessage_GetString(request, (char const**) &pCompName);
     rbusMessage_GetInt32(request, &rollBack);
-    rbusMessage_GetInt32(request, &numVals);
-    if(numVals > 0)
+    if(rbusMessage_GetInt32(request, &numVals) != RT_OK)
+        numVals = 0;
+    if(numVals > 0 && sizeof(*pProperties) <= SIZE_MAX / (size_t)numVals)
     {
         /* Update the Get Handler input options */
         opts.sessionId = sessionId;
@@ -1505,7 +1506,7 @@ static void _set_callback_handler (rbusHandle_t handle, rbusMessage request, rbu
 
         elementNode* el = NULL;
 
-        pProperties = (rbusProperty_t*)rt_try_malloc(numVals*sizeof(rbusProperty_t));
+        pProperties = (rbusProperty_t*)rt_try_malloc((size_t)numVals * sizeof(*pProperties));
         if(pProperties)
         {
             for (loopCnt = 0; loopCnt < numVals; loopCnt++)
@@ -1622,7 +1623,7 @@ static void _set_callback_handler (rbusHandle_t handle, rbusMessage request, rbu
     }
     else
     {
-        RBUSLOG_WARN("Set Failed as %s did not send any input", pCompName);
+        RBUSLOG_WARN("Set Failed: invalid property count %d", numVals);
         rc = RBUS_ERROR_INVALID_INPUT;
         pFailedElement = pCompName;
     }
@@ -1990,16 +1991,17 @@ static void _get_callback_handler (rbusHandle_t handle, rbusMessage request, rbu
 
     memset(&options, 0, sizeof(options));
     rbusMessage_GetString(request, &pCompName);
-    rbusMessage_GetInt32(request, &paramSize);
+    if(rbusMessage_GetInt32(request, &paramSize) != RT_OK)
+        paramSize = 0;
 
     RBUSLOG_DEBUG("Param Size [%d]", paramSize);
 
-    if(paramSize > 0)
+    if(paramSize > 0 && sizeof(*properties) <= SIZE_MAX / (size_t)paramSize)
     {
         /* Update the Get Handler input options */
         options.requestingComponent = pCompName;
 
-        properties = rt_try_malloc(paramSize*sizeof(rbusProperty_t));
+        properties = rt_try_malloc((size_t)paramSize * sizeof(*properties));
         if(properties)
         {
             for(i = 0; i < paramSize; i++)
@@ -2090,7 +2092,7 @@ static void _get_callback_handler (rbusHandle_t handle, rbusMessage request, rbu
     }
     else
     {
-        RBUSLOG_WARN("Get Failed as %s did not send any input", pCompName);
+        RBUSLOG_WARN("Get Failed: invalid property count %d", paramSize);
         result = RBUS_ERROR_INVALID_INPUT;
         rbusMessage_Init(response);
         rbusMessage_SetInt32(*response, (int) result);
