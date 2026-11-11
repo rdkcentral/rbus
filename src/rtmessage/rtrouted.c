@@ -1763,15 +1763,18 @@ rtConnectedClient_Read(rtConnectedClient* clnt)
   return RT_OK;
 }
 
-static void
+static rtError
 rtRouted_PushFd(fd_set* fds, int fd, int* maxFd)
 {
-  if (fd != RTMSG_INVALID_FD)
+  if (fd < 0 || fd >= FD_SETSIZE)
   {
-    FD_SET(fd, fds);
-    if (maxFd && fd > *maxFd)
-      *maxFd = fd;
+    rtLog_Error("Descriptor %d is outside select range [0, %d)", fd, FD_SETSIZE);
+    return RT_ERROR_INVALID_ARG;
   }
+  FD_SET(fd, fds);
+  if (maxFd && fd > *maxFd)
+    *maxFd = fd;
+  return RT_OK;
 }
 
 static void
@@ -1809,6 +1812,13 @@ rtRouted_AcceptClientConnection(rtListener* listener)
   if (fd == -1)
   {
     rtLog_Warn("accept:%s", rtStrError(errno));
+    return;
+  }
+
+  if (fd >= FD_SETSIZE)
+  {
+    rtLog_Warn("Rejecting client descriptor %d: select limit is %d", fd, FD_SETSIZE);
+    close(fd);
     return;
   }
 
@@ -1853,6 +1863,7 @@ int main(int argc, char* argv[])
   char const* config_file;
   char const* temp;
   int num_listeners = 0;
+  int exit_status = EXIT_SUCCESS;
   rtRouteEntry* route;
 
   run_in_foreground = 0;
@@ -2050,8 +2061,12 @@ int main(int argc, char* argv[])
       rtListener* listener = (rtListener *) rtVector_At(gListeners, i);
       if (listener)
       {
-        rtRouted_PushFd(&read_fds, listener->fd, &max_fd);
-        rtRouted_PushFd(&err_fds, listener->fd, &max_fd);
+        if (rtRouted_PushFd(&read_fds, listener->fd, &max_fd) != RT_OK ||
+            rtRouted_PushFd(&err_fds, listener->fd, &max_fd) != RT_OK)
+        {
+          exit_status = EXIT_FAILURE;
+          goto cleanup;
+        }
       }
     }
 
@@ -2060,8 +2075,12 @@ int main(int argc, char* argv[])
       rtConnectedClient* clnt = (rtConnectedClient *) rtVector_At(gClients, i);
       if (clnt)
       {
-        rtRouted_PushFd(&read_fds, clnt->fd, &max_fd);
-        rtRouted_PushFd(&err_fds, clnt->fd, &max_fd);
+        if (rtRouted_PushFd(&read_fds, clnt->fd, &max_fd) != RT_OK ||
+            rtRouted_PushFd(&err_fds, clnt->fd, &max_fd) != RT_OK)
+        {
+          exit_status = EXIT_FAILURE;
+          goto cleanup;
+        }
       }
     }
 
@@ -2101,6 +2120,7 @@ int main(int argc, char* argv[])
     }
   }
 
+cleanup:
   rtVector_Destroy(gListeners, freeListener);
   rtVector_Destroy(gClients, freeClient);
   rtVector_Destroy(gRoutes, freeRoute);
@@ -2114,5 +2134,5 @@ int main(int argc, char* argv[])
     free(g_spake2_w0);
 #endif
 
-  return 0;
+  return exit_status;
 }
