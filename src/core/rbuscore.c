@@ -485,7 +485,10 @@ static void dispatch_method_call(rbusMessage msg, const rtMessageHeader *hdr, se
     _rbusMessage_GetMetaInfo(msg, &method_name, &traceParent, &traceState);
     if((NULL == method_name) || ('\0' == method_name[0]))
     {
-        RBUSCORELOG_DEBUG("Dropping method call with missing method name");
+        RBUSCORELOG_DEBUG("Rejecting method call with missing method name");
+        rbusMessage_Init(&response);
+        rbusMessage_SetInt32(response, RBUSCORE_ERROR_INVALID_PARAM);
+        rbus_sendResponse(hdr, response);
         return;
     }
     rbus_setOpenTelemetryContext(traceParent, traceState);
