@@ -404,7 +404,7 @@ rbusError_t setHandler2(rbusHandle_t handle, rbusProperty_t property, rbusSetHan
     {
         strncpy(t2->data, rbusValue_GetString(value, NULL), MAX_LENGTH-1);
         t2->data[MAX_LENGTH-1] = '\0';
-    printDataModel();
+        printDataModel();
         return RBUS_ERROR_SUCCESS;
     }
     else
