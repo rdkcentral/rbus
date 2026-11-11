@@ -1012,7 +1012,7 @@ void execute_discover_elements_cmd(int argc, char *argv[])
     int numOfInputParams = argc - 2;
     bool nextLevel = true;
     int numElements = 0;
-    char** pElementNames; // FIXME: every component will have more than RBUS_CLI_MAX_PARAM elements right?
+    char** pElementNames = NULL;
 
     if (!verify_rbus_open())
         return;
@@ -1043,6 +1043,7 @@ void execute_discover_elements_cmd(int argc, char *argv[])
         else
         {
             printf("No elements discovered!\r\n");
+            free(pElementNames);
         }
     }
     else
@@ -1055,7 +1056,7 @@ void execute_discover_wildcard_dests_cmd(int argc, char* argv[])
 {
     rbusCoreError_t rc = RBUSCORE_SUCCESS;
     int numDestinations = 0;
-    char** destinations;
+    char** destinations = NULL;
 
     (void)argc;
     (void)argv;
@@ -1071,7 +1072,7 @@ void execute_discover_wildcard_dests_cmd(int argc, char* argv[])
 
     runSteps = __LINE__;
     rc = rbus_discoverWildcardDestinations(argv[2], &numDestinations, &destinations);
-    
+
     if(RBUSCORE_SUCCESS == rc)
     {
         if (numDestinations)
@@ -1087,6 +1088,7 @@ void execute_discover_wildcard_dests_cmd(int argc, char* argv[])
         else
         {
             printf("No destinations discovered.\r\n");
+            free(destinations);
         }
     }
     else
@@ -2074,6 +2076,10 @@ void validate_and_execute_subscribe_cmd (int argc, char *argv[], bool add, bool 
 exit_error:
         runSteps = __LINE__;
         printf ("Invalid arguments. Please see the help\r\n");
+        if(filterValue)
+            rbusValue_Release(filterValue);
+        if(filter)
+            rbusFilter_Release(filter);
         rt_free(userData);
         return;
     }
