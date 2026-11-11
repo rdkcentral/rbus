@@ -677,14 +677,8 @@ rtRouted_ForwardMessage(rtConnectedClient* sender, rtMessageHeader* hdr, uint8_t
 #endif
 
 #ifdef WITH_SPAKE2
-  if (strcmp(hdr->topic, RTROUTED_KEY_EXCHANGE) != 0)
+  if (strcmp(hdr->topic, RTROUTED_KEY_EXCHANGE) != 0 && sender && sender->cipher && sender->encryption_key)
   {
-    if (!sender || !sender->cipher || !sender->encryption_key)
-    {
-      rtLog_Info("rejecting message from unauthenticated client on topic %s", hdr->topic);
-      return RT_FAIL;
-    }
-
     if (!(hdr->flags & rtMessageFlags_Encrypted))
     {
       rtLog_Info("rejecting unencrypted message after key exchange on topic %s", hdr->topic);
