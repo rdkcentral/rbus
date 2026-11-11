@@ -967,7 +967,7 @@ void execute_discover_component_cmd(int argc, char* argv[])
     int index = 0;
     int i;
     int componentCnt = 0;
-    char **pComponentNames;
+    char **pComponentNames = NULL;
     char const* pElementNames[RBUS_CLI_MAX_PARAM] = {0, 0};
 
     if (!verify_rbus_open())
@@ -995,10 +995,13 @@ void execute_discover_component_cmd(int argc, char* argv[])
         else
         {
             printf ("\tNone\r\n");
+            free(pComponentNames);
         }
     }
     else
     {
+        if(pComponentNames)
+            free(pComponentNames);
         printf ("Failed to discover components. Error Code = %d\r\n", rc);
     }
 }
