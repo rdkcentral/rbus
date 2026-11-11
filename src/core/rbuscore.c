@@ -511,6 +511,12 @@ static void dispatch_method_call(rbusMessage msg, const rtMessageHeader *hdr, se
         if(obj->callback(hdr->topic, method_name, msg, obj->data, &response, hdr) == RBUSCORE_SUCCESS_ASYNC) //FIXME: potential for race
             return;/*provider will send response async later on*/
     }
+    if(NULL == response)
+    {
+        RBUSCORELOG_DEBUG("No response generated for method %s on object %s; sending unsupported method error.", method_name, obj->name);
+        rbusMessage_Init(&response);
+        rbusMessage_SetInt32(response, RBUSCORE_ERROR_UNSUPPORTED_METHOD);
+    }
     /* Clear the context for next method */
     rbus_clearOpenTelemetryContext();
 
@@ -1285,12 +1291,12 @@ static int subscription_handler(const char *not_used, const char * method_name, 
         (RT_OK == rbusMessage_GetString(in, &message_sender)))
     {
         /*Extract arguments*/
-        if((NULL == sender) || (NULL == event_name))
+        if((NULL == sender) || (NULL == event_name) || (NULL == message_sender))
         {
-            RBUSCORELOG_DEBUG("Malformed subscription request. Sender: %s. Event: %s.", sender, event_name);
+            RBUSCORELOG_DEBUG("Malformed subscription request. Sender: %s. Event: %s. Message sender: %s.", sender, event_name, message_sender);
             rbusMessage_SetInt32(*out, RBUSCORE_ERROR_INVALID_PARAM);
         }
-        else if(message_sender && strcmp(message_sender, sender) != 0)
+        else if(strcmp(message_sender, sender) != 0)
         {
             RBUSCORELOG_DEBUG("Rejected subscription request with mismatched sender. Header sender: %s. Message sender: %s.", sender, message_sender);
             rbusMessage_SetInt32(*out, RBUSCORE_ERROR_INVALID_PARAM);
