@@ -4976,7 +4976,7 @@ rbusError_t rbusElementInfo_get(
                     if (RBUSCORE_SUCCESS != rbusMessage_GetString(response, &name) || NULL == name)
                     {
                         RBUSLOG_ERROR("missing element name in response for %s from %s", elemName, destinations[d]);
-                        errorcode = RBUS_ERROR_INVALID_MESSAGE;
+                        errorcode = RBUS_ERROR_INVALID_RESPONSE_FROM_DESTINATION;
                         break;
                     }
 
