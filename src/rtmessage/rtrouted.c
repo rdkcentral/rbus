@@ -538,7 +538,7 @@ rtRouted_SendMessage(rtMessageHeader * request_hdr, rtMessage message, rtConnect
       rtListItem_GetData(item, (void**)&treeRoute);
       rtListItem_GetNext(item, &item);
       route = treeRoute->route;
-      if(route)
+      if(route && route->subscription && route->subscription->client)
       {
         rtLog_Debug("SendMessage topic=%s expression=%s", request_hdr->topic, route->expression);
         found_dest = 1;
