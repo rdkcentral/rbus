@@ -1,9 +1,9 @@
 name: unit_tests_valgrind
 on:
   push:
-     branches: [ main, develop, release, support/*, hotfix/*, topic/* ]
+     branches: [ main, develop, release, support/*, hotfix/*, topic/*, feature_coverity_rbus ]
   pull_request:
-     branches: [ main, develop, release, support/*, hotfix/*, topic/* ]
+     branches: [ main, develop, release, support/*, hotfix/*, topic/*, feature_coverity_rbus ]
      types: [opened,synchronize]
 
 jobs:

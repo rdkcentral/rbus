@@ -2,9 +2,9 @@
 name: unit_tests_adress_sanitizer
 on:
   push:
-     branches: [ main, develop, release, support/*, hotfix/*, topic/* ]
+     branches: [ main, develop, release, support/*, hotfix/*, topic/*, feature_coverity_rbus ]
   pull_request:
-     branches: [ main, develop, release, support/*, hotfix/*, topic/* ]
+     branches: [ main, develop, release, support/*, hotfix/*, topic/*, feature_coverity_rbus ]
 jobs:
   all:
     runs-on: ubuntu-22.04
