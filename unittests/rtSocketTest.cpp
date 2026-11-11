@@ -4,6 +4,10 @@
 #include <string>
 #include <sys/un.h>
 
+extern "C" {
+#include "rtrouteBase.h"
+}
+
 class rtSocketHostLengthTest : public ::testing::TestWithParam<size_t>
 {
 };
@@ -45,4 +49,16 @@ TEST(rtSocketTest, preserves_unix_address_parsing)
 
   const struct sockaddr_un* unixEndpoint = reinterpret_cast<const struct sockaddr_un*>(&endpoint);
   EXPECT_STREQ(unixEndpoint->sun_path, "/tmp/rbus-socket-test");
+}
+
+TEST(rtSocketTest, rejects_disabled_direct_unix_listener)
+{
+  EXPECT_EQ(rtRouteDirect_StartInstance("unix:///tmp/rbus-disabled-direct-test", NULL),
+            RT_ERROR_INVALID_OPERATION);
+}
+
+TEST(rtSocketTest, rejects_disabled_direct_tcp_listener)
+{
+  EXPECT_EQ(rtRouteDirect_StartInstance("tcp://127.0.0.1:0", NULL),
+            RT_ERROR_INVALID_OPERATION);
 }
