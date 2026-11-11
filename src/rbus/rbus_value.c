@@ -666,43 +666,10 @@ uint32_t rbusValue_GetL(rbusValue_t v)
     }
 }
 
-static int rbusValue_GetTypeSize(rbusValueType_t type)
-{
-    switch(type)
-    {
-        case RBUS_BOOLEAN:  return sizeof(bool);
-        case RBUS_CHAR:     return sizeof(char);
-        case RBUS_BYTE:     return sizeof(unsigned char);
-        case RBUS_INT8:     return sizeof(int8_t);
-        case RBUS_UINT8:    return sizeof(uint8_t);
-        case RBUS_INT16:    return sizeof(int16_t);
-        case RBUS_UINT16:   return sizeof(uint16_t);
-        case RBUS_INT32:    return sizeof(int32_t);
-        case RBUS_UINT32:   return sizeof(uint32_t);
-        case RBUS_INT64:    return sizeof(int64_t);
-        case RBUS_UINT64:   return sizeof(uint64_t);
-        case RBUS_SINGLE:   return sizeof(float);
-        case RBUS_DOUBLE:   return sizeof(double);
-        case RBUS_DATETIME: return sizeof(rbusDateTime_t);
-        default:            return -1;
-    }
-}
-
 void rbusValue_SetTLV(rbusValue_t v, rbusValueType_t type, uint32_t length, void const* value)
 {
     VERIFY_NULL(v);
     VERIFY_NULL(value);
-    int expected_length = 0;
-    
-    if(type != RBUS_STRING && type != RBUS_BYTES)
-    {
-        expected_length = rbusValue_GetTypeSize(type);
-        if(expected_length < 0 || (uint32_t)expected_length != length)
-        {
-            RBUSLOG_WARN("rbusValue_SetTLV rejected invalid length %u for type %s", length, rbusValueType_ToDebugString(type));
-            return;
-        }
-    }
 
     switch(type)
     {
