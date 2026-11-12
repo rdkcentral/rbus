@@ -668,7 +668,8 @@ void rbusPropertyList_initFromMessage(rbusProperty_t* prop, rbusMessage msg)
     if((NULL == prop) || (numProps < 0) || (numProps > MAX_PROPERTY_LIST_COUNT))
     {
         RBUSLOG_WARN("Discarding malformed property list with invalid property count %d", numProps);
-        *prop = NULL;
+        if(prop != NULL)
+            *prop = NULL;
         return;
     }
     while(--numProps >= 0)

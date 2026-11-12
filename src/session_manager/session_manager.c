@@ -34,13 +34,17 @@ rbusHandle_t   g_busHandle = 0;
 
 static int sessionManager_generateSessionId(void)
 {
-    int session_id;
+    uint64_t session_id = 0;
+    time_t now = time(NULL);
 
-    session_id = (int)((getpid() ^ (int)time(NULL) ^ (++g_counter)) & 0x7fffffff);
+    if (now == (time_t)-1)
+        now = 0;
+
+    session_id = ((uint64_t)getpid() ^ (uint64_t)now ^ (uint64_t)(++g_counter)) & 0x7fffffffULL;
     if (session_id == 0)
         session_id = 1;
 
-    return session_id;
+    return (int)session_id;
 }
 
 /* MethodHandler */
