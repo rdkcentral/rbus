@@ -31,14 +31,6 @@ add_executable(rbusSampleConsumer consumer/rbusSampleConsumer.c)
 add_dependencies(rbusSampleConsumer rbus)
 target_link_libraries(rbusSampleConsumer rbus)
 
-add_executable(rbusCSIProvider provider/rbusCSIEventProvider.c)
-add_dependencies(rbusCSIProvider rbus)
-target_link_libraries(rbusCSIProvider rbus)
-
-add_executable(rbusCSIConsumer consumer/rbusCSIEventConsumer.c)
-add_dependencies(rbusCSIConsumer rbus)
-target_link_libraries(rbusCSIConsumer rbus)
-
 add_executable(rbusTableProvider provider/rbusTableProvider.c provider/utilities.c)
 add_dependencies(rbusTableProvider rbus)
 target_link_libraries(rbusTableProvider rbus)
@@ -140,8 +132,6 @@ install (TARGETS
     rbusOpenTelemetry
     rbusIntervalConsumer
     rbusIntervalProvider
-    rbusCSIProvider
-    rbusCSIConsumer
     rbusRawDataConsumer
     rbusRawDataProvider
     rbusBlockingConsumer
