@@ -46,6 +46,63 @@ static void testEncodeDecode(rbusFilter_t f1)
     free(stream_buf);
 }
 
+TEST(rbusFilterEncDecTest, rejectsUnknownFilterType)
+{
+    rbusBuffer_t buff;
+    rbusFilter_t filter = NULL;
+    rbusBuffer_Create(&buff);
+    rbusBuffer_WriteUInt32TLV(buff, UINT32_MAX);
+
+    EXPECT_EQ(rbusFilter_Decode(&filter, buff), -1);
+    EXPECT_EQ(filter, nullptr);
+
+    rbusBuffer_Destroy(buff);
+}
+
+TEST(rbusFilterEncDecTest, rejectsUnknownRightChildType)
+{
+    rbusBuffer_t buff;
+    rbusFilter_t filter = NULL;
+    rbusFilter_t left;
+    rbusValue_t value;
+    rbusValue_Init(&value);
+    rbusValue_SetInt32(value, 1);
+    rbusFilter_InitRelation(&left, RBUS_FILTER_OPERATOR_EQUAL, value);
+
+    rbusBuffer_Create(&buff);
+    rbusBuffer_WriteUInt32TLV(buff, RBUS_FILTER_EXPRESSION_LOGIC);
+    rbusBuffer_WriteUInt32TLV(buff, RBUS_FILTER_OPERATOR_AND);
+    rbusFilter_Encode(left, buff);
+    rbusBuffer_WriteUInt32TLV(buff, UINT32_MAX);
+
+    EXPECT_EQ(rbusFilter_Decode(&filter, buff), -1);
+    EXPECT_EQ(filter, nullptr);
+
+    rbusBuffer_Destroy(buff);
+    rbusFilter_Release(left);
+    rbusValue_Release(value);
+}
+
+TEST(rbusFilterEncDecTest, decodeFailureClearsOutput)
+{
+    rbusBuffer_t buff;
+    rbusFilter_t original;
+    rbusValue_t value;
+    rbusValue_Init(&value);
+    rbusValue_SetInt32(value, 1);
+    rbusFilter_InitRelation(&original, RBUS_FILTER_OPERATOR_EQUAL, value);
+    rbusFilter_t filter = original;
+    rbusBuffer_Create(&buff);
+    rbusBuffer_WriteUInt32TLV(buff, UINT32_MAX);
+
+    EXPECT_EQ(rbusFilter_Decode(&filter, buff), -1);
+    EXPECT_EQ(filter, nullptr);
+
+    rbusBuffer_Destroy(buff);
+    rbusFilter_Release(original);
+    rbusValue_Release(value);
+}
+
 TEST(rbusFilterEncDecTest, testFilterEncDec1)
 {
   rbusFilter_t filter = NULL;

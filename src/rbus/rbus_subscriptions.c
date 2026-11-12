@@ -23,6 +23,8 @@
 #include <rtMemory.h>
 #include <string.h>
 #include <assert.h>
+#include <errno.h>
+#include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <signal.h>
@@ -129,6 +131,11 @@ rbusSubscription_t* rbusSubscriptions_addSubscription(rbusSubscriptions_t subscr
 
     RBUSLOG_DEBUG("adding %s %s", listener, eventName);
 
+    if(interval && subscriptions)
+    {
+        /* Retained interval subscriptions must not reference deletable row instances. */
+        registryElem = retrieveElement(subscriptions->root, eventName);
+    }
     tokens = TokenChain_create(eventName, registryElem);
     if(tokens == NULL)
     {
@@ -318,7 +325,6 @@ void rbusSubscriptions_onElementDeleted(rbusSubscriptions_t subscriptions, eleme
             {
                 rtListItem item, tempitem;
                 rbusSubscription_t* sub;
-                bool val=false;
                 rbusSubscription_t* subscription = NULL;
 
                 rtList_GetFront(subscriptions->subList, &item);
@@ -326,6 +332,7 @@ void rbusSubscriptions_onElementDeleted(rbusSubscriptions_t subscriptions, eleme
                 /* go through all subscriptions */
                 while(item)
                 {
+                    bool val = false;
                     rtListItem item2;
                     elementNode* inst;
 
@@ -349,8 +356,8 @@ void rbusSubscriptions_onElementDeleted(rbusSubscriptions_t subscriptions, eleme
                         rtListItem_GetNext(item2, &item2);
                     }
 
-                    /* RDKB-38389 : Removing the instance of the row to be removed from the subscriptions->subList linked list */
-                    if(val)
+                    /* Interval publishers own this subscription until unsubscribe or duration completion. */
+                    if(val && !sub->interval)
                     {
                         subscription = rbusSubscriptions_getSubscription(subscriptions, sub->listener, sub->eventName,
                                 sub->componentId, sub->filter, sub->interval, sub->duration, sub->rawData);
@@ -431,6 +438,49 @@ static bool rbusSubscriptions_isListenerRunning(char const* listener)
     return true;
 }
 
+static FILE* rbusSubscriptions_openCache(char const* path, bool writing)
+{
+    int flags = O_NOFOLLOW | O_CLOEXEC | O_NONBLOCK;
+    int fd = open(path, flags | (writing ? O_WRONLY | O_CREAT : O_RDONLY),
+                  S_IRUSR | S_IWUSR);
+    if(fd < 0)
+    {
+        if(writing || errno != ENOENT)
+            RBUSLOG_ERROR("failed to open cache %s: %s", path, strerror(errno));
+        return NULL;
+    }
+
+    struct stat status;
+    if(fstat(fd, &status) < 0)
+    {
+        RBUSLOG_ERROR("failed to inspect cache %s: %s", path, strerror(errno));
+        close(fd);
+        return NULL;
+    }
+    if(!S_ISREG(status.st_mode) || status.st_uid != geteuid() ||
+       status.st_nlink != 1 || (status.st_mode & (S_IWGRP | S_IWOTH)))
+    {
+        RBUSLOG_ERROR("rejected untrusted subscription cache %s", path);
+        close(fd);
+        return NULL;
+    }
+    /* Never truncate a pre-existing file before validating its ownership. */
+    if(writing && ftruncate(fd, 0) < 0)
+    {
+        RBUSLOG_ERROR("failed to truncate cache %s: %s", path, strerror(errno));
+        close(fd);
+        return NULL;
+    }
+
+    FILE* file = fdopen(fd, writing ? "wb" : "rb");
+    if(!file)
+    {
+        RBUSLOG_ERROR("failed to create cache stream %s: %s", path, strerror(errno));
+        close(fd);
+    }
+    return file;
+}
+
 static void rbusSubscriptions_loadCache(rbusSubscriptions_t subscriptions)
 {
     long size;
@@ -447,12 +497,9 @@ static void rbusSubscriptions_loadCache(rbusSubscriptions_t subscriptions)
 
     RBUSLOG_INFO("file %s", filePath);
 
-    file = fopen(filePath, "rb");
+    file = rbusSubscriptions_openCache(filePath, false);
     if(!file)
-    {
-        RBUSLOG_ERROR("failed to open file %s", filePath);
-        goto remove_bad_file;
-    }
+        return;
 
     fseek(file, 0, SEEK_END);
     size = ftell(file);
@@ -646,7 +693,7 @@ static void rbusSubscriptions_saveCache(rbusSubscriptions_t subscriptions)
         return;
     }
 
-    file = fopen(filePath, "wb");
+    file = rbusSubscriptions_openCache(filePath, true);
 
     if(!file)
     {
@@ -800,7 +847,8 @@ void rbusSubscriptions_resubscribeRowElementCache(rbusHandle_t handle, rbusSubsc
         {
             rtListItem next = NULL;
             rtListItem_GetNext(item, &next);
-            if(strncmp(sub->eventName, rowNode->fullName, strlen(rowNode->fullName)) == 0)
+            if(sub->element == NULL && sub->tokens == NULL &&
+               strncmp(sub->eventName, rowNode->fullName, strlen(rowNode->fullName)) == 0)
             {
                 el = retrieveInstanceElement(handleInfo->elementRoot, sub->eventName);
                 if(el)
@@ -975,4 +1023,3 @@ rbusSubscription_t* rbusSubscriptions_updateExisting(rbusSubscriptions_t subscri
     return NULL;
 }
 #endif
-

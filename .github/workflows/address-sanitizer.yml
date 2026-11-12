@@ -170,7 +170,7 @@ jobs:
           cd install/usr
           export PREFIX=$PWD
           export LD_LIBRARY_PATH=$PREFIX/lib
-          nohup ./bin/rtrouted_diag shutdown
+          sudo env LD_LIBRARY_PATH="$LD_LIBRARY_PATH" ./bin/rtrouted_diag shutdown
           rm -rf /tmp/rtrouted*
           ls -lt
           if ls /tmp/asan_logs/asan_log_rtrouted.* 1> /dev/null 2>&1; then

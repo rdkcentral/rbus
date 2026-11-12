@@ -112,11 +112,23 @@ static void freeTreeRoute(void* p)
     free(route);
 }
 
+static void removeChildTopic(rtTreeTopic* parent, rtListItem item)
+{
+    rtTreeTopic* child;
+    rtListItem_GetData(item, (void**)&child);
+    if(child->name[0] == '{')
+        parent->isTable = 0;
+    rtList_RemoveItem(parent->childList, item, freeTreeTopic);
+}
+
 static int validateExpression(const char* expr)
 {
     int token_count = 0;
     int token_length = 0;
     int result = 0;
+
+    if(!expr)
+        return -1;
 
     while(*expr)
     {
@@ -141,26 +153,46 @@ static int validateExpression(const char* expr)
     return result;
 }
 
-static void tokenizeExpression(const char* expression)
+static int tokenizeExpression(const char* expression)
 {
     int i = 0;
     const char* from = expression;
     char* to = workBuffer;
     workTokenCount = 0;
+    if(!expression)
+        goto invalidExpression;
+
     while(*from)
     {
+        if(i >= MAX_TOKENS)
+            goto invalidExpression;
         workTokens[i].name = to;
         
         while(*from && *from != '.')
+        {
+            /* Reserve space for this token's terminating NUL. */
+            if(to >= workBuffer + sizeof(workBuffer) - 1)
+                goto invalidExpression;
             *to++ = *from++;
+        }
         workTokens[i].length = to - workTokens[i].name;
+        if(to >= workBuffer + sizeof(workBuffer))
+            goto invalidExpression;
         *to++ = 0;
         if(*from == '.')
             from++;
         i++;
     }
     workTokenCount = i;
+    return 0;
+
+invalidExpression:
+    rtLog_Warn("Rejecting routing expression: NULL input or tokenizer capacity exceeded");
+    return -1;
 }
+
+static rtError removeTopicRoute(rtRoutingTree rt, const char* topic, const void* route);
+static void removeRouteFromTopicTree(rtRoutingTree rt, rtTreeTopic* treeTopic, rtTreeRoute* route);
 
 static void removeTopicFromRoutes(rtRoutingTree rt, rtTreeTopic* topic)
 {
@@ -169,18 +201,19 @@ static void removeTopicFromRoutes(rtRoutingTree rt, rtTreeTopic* topic)
     rtListItem routeItem;
     rtTreeRoute* route;
     size_t size;
-    rtList_GetFront(topic->routeList, &routeItem);
-    while(routeItem)
+    while(topic->routeList)
     {
+        rtList_GetFront(topic->routeList, &routeItem);
+        if(!routeItem)
+            break;
         rtListItem_GetData(routeItem, (void**)&route);
 
-        rtList_RemoveItemByCompare(route->topicList, topic, rtList_ComparePointer, NULL);
+        /* Remove ancestor caches before freeing the route, but keep nodes alive for this traversal. */
+        removeTopicRoute(rt, topic->fullName, route->route);
         /*if the route's topicList has become empty, then remove the whole route*/
         rtList_GetSize(route->topicList, &size);
         if(size == 0)
             rtList_RemoveItemByCompare(rt->routeList, route, rtList_ComparePointer, freeTreeRoute);
-
-        rtListItem_GetNext(routeItem, &routeItem);
     }
 
     rtList_GetFront(topic->childList, &childItem);
@@ -210,7 +243,8 @@ static rtTreeTopic* getChildByName(rtRoutingTree rt, rtTreeTopic* parent, const 
             if(remove)
             {
               removeTopicFromRoutes(rt, treeTopic);
-              rtList_RemoveItem(parent->childList, item, freeTreeTopic);
+              removeChildTopic(parent, item);
+              removeRouteFromTopicTree(rt, rt->topicRoot, NULL);
               return NULL;
             }
             return treeTopic;
@@ -310,6 +344,7 @@ static void optimizeTopicsBackpropagate(rtTreeTopic* topic, rtTreeRoute* route)
     If a treeTopic's route list is empty and the treeTopic's child list is empty we remove the treeTopic.
     We use a depth first search so we can remove treeTopic whose child and route lists
     become empty, in the correct order (deep up).
+    A NULL route only prunes empty nodes without changing route associations.
  */
 static void removeRouteFromTopicTree(rtRoutingTree rt, rtTreeTopic* treeTopic, rtTreeRoute* route)
 {
@@ -334,19 +369,21 @@ static void removeRouteFromTopicTree(rtRoutingTree rt, rtTreeTopic* treeTopic, r
 
         if(child->routeList)
         {
-          rtList_RemoveItemByCompare(child->routeList, route, rtList_ComparePointer, NULL);
+          if(route)
+            rtList_RemoveItemByCompare(child->routeList, route, rtList_ComparePointer, NULL);
           rtList_GetSize(child->routeList, &numRoutes);
         }
         if(child->routeList2)
         {
-          rtList_RemoveItemByCompare(child->routeList2, route, rtList_ComparePointer, NULL);
+          if(route)
+            rtList_RemoveItemByCompare(child->routeList2, route, rtList_ComparePointer, NULL);
           rtList_GetSize(child->routeList2, &numRoutes2);
         }
         rtList_GetSize(child->childList, &numChildren);
         rtListItem_GetNext(childItem, &next);
         if(numChildren == 0 && numRoutes == 0)
         {
-            rtList_RemoveItem(treeTopic->childList, childItem, freeTreeTopic);
+            removeChildTopic(treeTopic, childItem);
         }/*
         else if(numRoutes == 0 && numRoutes2 > 0)
         {
@@ -490,7 +527,8 @@ rtError rtRoutingTree_AddTopicRoute(rtRoutingTree rt, const char* topicPath, con
         return RT_ERROR_INVALID_EXPRESSION;
     }
 
-    tokenizeExpression(topicPath);
+    if(tokenizeExpression(topicPath) < 0)
+        return RT_ERROR_INVALID_EXPRESSION;
 
     if(workTokenCount == 0)
         return rc;
@@ -543,7 +581,8 @@ void rtRoutingTree_GetTopicRoutes(rtRoutingTree rt, const char* topic, rtList* r
 
     rtLog_Debug("%s: %s", __FUNCTION__, topic);
 
-    tokenizeExpression(topic);
+    if(tokenizeExpression(topic) < 0)
+        return;
     if(workTokenCount == 0)
         return;
 
@@ -657,6 +696,67 @@ void rtRoutingTree_RemoveRoute(rtRoutingTree rt, const void* route)
     rtList_RemoveItem(rt->routeList, routeItem, freeTreeRoute);
 }
 
+static rtError removeTopicRoute(rtRoutingTree rt, const char* topic, const void* route)
+{
+    rtTreeRoute* entry = getTreeRoute(rt, route, NULL);
+    rtListItem item;
+
+    if(!entry || !topic)
+        return RT_ERROR_INVALID_ARG;
+
+    size_t topicLength = strlen(topic);
+    if(topicLength > 0 && topic[topicLength - 1] == '.')
+        --topicLength;
+
+    rtList_GetFront(entry->topicList, &item);
+    while(item)
+    {
+        rtTreeTopic* treeTopic;
+        rtListItem_GetData(item, (void**)&treeTopic);
+        if(strlen(treeTopic->fullName) == topicLength &&
+           strncmp(treeTopic->fullName, topic, topicLength) == 0)
+        {
+            rtTreeTopic* parent = treeTopic->parent;
+            rtList_RemoveItemByCompare(treeTopic->routeList, entry, rtList_ComparePointer, NULL);
+            size_t routeCount = 0;
+            rtList_GetSize(treeTopic->routeList, &routeCount);
+            if(routeCount == 0)
+            {
+                rtList_Destroy(treeTopic->routeList, NULL);
+                treeTopic->routeList = NULL;
+            }
+            rtList_RemoveItem(entry->topicList, item, NULL);
+
+            /* Rebuild this route's descendant caches after removing one association. */
+            while(parent && parent->parent)
+            {
+                if(parent->routeList2)
+                    rtList_RemoveItemByCompare(parent->routeList2, entry, rtList_ComparePointer, NULL);
+                parent = parent->parent;
+            }
+            rtList_GetFront(entry->topicList, &item);
+            while(item)
+            {
+                rtListItem_GetData(item, (void**)&treeTopic);
+                if(treeTopic->parent->parent)
+                    optimizeTopicsBackpropagate(treeTopic->parent, entry);
+                rtListItem_GetNext(item, &item);
+            }
+            return RT_OK;
+        }
+        rtListItem_GetNext(item, &item);
+    }
+    return RT_ERROR_INVALID_ARG;
+}
+
+rtError rtRoutingTree_RemoveTopicRoute(rtRoutingTree rt, const char* topic, const void* route)
+{
+    rtError err = removeTopicRoute(rt, topic, route);
+    if(err == RT_OK)
+        removeRouteFromTopicTree(rt, rt->topicRoot, NULL);
+    return err;
+}
+
 void rtRoutingTree_RemoveTopic(rtRoutingTree rt, const char* topic)
 {
     int i;
@@ -664,7 +764,8 @@ void rtRoutingTree_RemoveTopic(rtRoutingTree rt, const char* topic)
 
     rtLog_Debug("%s topic=%s", __FUNCTION__, topic);
 
-    tokenizeExpression(topic);
+    if(tokenizeExpression(topic) < 0)
+        return;
     if(workTokenCount == 0)
         return;
 
@@ -682,7 +783,8 @@ void rtRoutingTree_ResolvePartialPath(rtRoutingTree rt, const char* partialPath,
     int i;
     rtTreeTopic* treeTopic = rt->topicRoot;
 
-    tokenizeExpression(partialPath);
+    if(tokenizeExpression(partialPath) < 0)
+        return;
     if(workTokenCount == 0)
         return;
 

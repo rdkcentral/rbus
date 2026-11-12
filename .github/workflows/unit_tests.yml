@@ -128,7 +128,7 @@ jobs:
           cd build/rbus
           export RT_LOG_LEVEL=info
           nohup ./src/session_manager/rbus_session_mgr &
-          ./unittests/rbus_gtest.bin > /tmp/log_gtestlogs.txt
+          ./unittests/rbus_gtest.bin
       - name: Stop SessionManager
         run: |
           killall -15 rbus_session_mgr || true
@@ -137,7 +137,7 @@ jobs:
           cd install/usr
           export PREFIX=$PWD
           export LD_LIBRARY_PATH=$PREFIX/lib
-          ./bin/rtrouted_diag shutdown
+          sudo env LD_LIBRARY_PATH="$LD_LIBRARY_PATH" ./bin/rtrouted_diag shutdown
       - name:  Run CodeCoverage
         run: |
             rm -rf /tmp/rtrouted*

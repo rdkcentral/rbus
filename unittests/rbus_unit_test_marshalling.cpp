@@ -76,6 +76,60 @@ TEST_F(TestMarshallingAPIs, sample_test)
     EXPECT_EQ(1, 1);
 }
 
+TEST_F(TestMarshallingAPIs, GetString_rejects_unterminated_string_before_next_token)
+{
+    const uint8_t bytes[] = {0xA3, 'a', 'b', 'c', 0xA3, 'd', 'e', '\0'};
+    rbusMessage message;
+    rbusMessage_FromBytes(&message, bytes, sizeof(bytes));
+    const char* first = NULL;
+    const char* second = NULL;
+    EXPECT_EQ(rbusMessage_GetString(message, &first), RT_FAIL);
+    EXPECT_EQ(first, nullptr);
+    EXPECT_EQ(rbusMessage_GetString(message, &second), RT_OK);
+    EXPECT_STREQ(second, "de");
+
+    rbusMessage_Release(message);
+}
+
+TEST_F(TestMarshallingAPIs, GetString_rejects_unterminated_string_at_end_of_message)
+{
+    const uint8_t bytes[] = {0xA3, 'e', 'n', 'd'};
+    rbusMessage message;
+    rbusMessage_FromBytes(&message, bytes, sizeof(bytes));
+    const char* value = NULL;
+
+    EXPECT_EQ(rbusMessage_GetString(message, &value), RT_FAIL);
+    EXPECT_EQ(value, nullptr);
+
+    rbusMessage_Release(message);
+}
+
+TEST_F(TestMarshallingAPIs, GetString_rejects_zero_length_string)
+{
+    const uint8_t bytes[] = {0xA0};
+    rbusMessage message;
+    rbusMessage_FromBytes(&message, bytes, sizeof(bytes));
+    const char* value = "previous";
+
+    EXPECT_EQ(rbusMessage_GetString(message, &value), RT_FAIL);
+    EXPECT_EQ(value, nullptr);
+
+    rbusMessage_Release(message);
+}
+
+TEST_F(TestMarshallingAPIs, GetString_accepts_terminated_empty_string)
+{
+    const uint8_t bytes[] = {0xA1, '\0'};
+    rbusMessage message;
+    rbusMessage_FromBytes(&message, bytes, sizeof(bytes));
+    const char* value = NULL;
+
+    EXPECT_EQ(rbusMessage_GetString(message, &value), RT_OK);
+    EXPECT_STREQ(value, "");
+
+    rbusMessage_Release(message);
+}
+
 TEST_F(TestMarshallingAPIs, rbusMessage_SetString_test1)
 {
     rbusMessage testMessage;
