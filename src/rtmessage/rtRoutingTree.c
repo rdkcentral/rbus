@@ -121,38 +121,6 @@ static void removeChildTopic(rtTreeTopic* parent, rtListItem item)
     rtList_RemoveItem(parent->childList, item, freeTreeTopic);
 }
 
-static void pruneEmptyTopics(rtTreeTopic* topic)
-{
-    while(topic->parent)
-    {
-        size_t numRoutes = 0;
-        size_t numChildren = 0;
-        rtTreeTopic* parent = topic->parent;
-        rtListItem item;
-
-        if(topic->routeList)
-            rtList_GetSize(topic->routeList, &numRoutes);
-        if(topic->childList)
-            rtList_GetSize(topic->childList, &numChildren);
-        if(numRoutes || numChildren)
-            break;
-
-        rtList_GetFront(parent->childList, &item);
-        while(item)
-        {
-            rtTreeTopic* child;
-            rtListItem_GetData(item, (void**)&child);
-            if(child == topic)
-            {
-                removeChildTopic(parent, item);
-                break;
-            }
-            rtListItem_GetNext(item, &item);
-        }
-        topic = parent;
-    }
-}
-
 static int validateExpression(const char* expr)
 {
     int token_count = 0;
@@ -223,7 +191,8 @@ invalidExpression:
     return -1;
 }
 
-static rtError removeTopicRoute(rtRoutingTree rt, const char* topic, const void* route, int prune);
+static rtError removeTopicRoute(rtRoutingTree rt, const char* topic, const void* route);
+static void removeRouteFromTopicTree(rtRoutingTree rt, rtTreeTopic* treeTopic, rtTreeRoute* route);
 
 static void removeTopicFromRoutes(rtRoutingTree rt, rtTreeTopic* topic)
 {
@@ -240,7 +209,7 @@ static void removeTopicFromRoutes(rtRoutingTree rt, rtTreeTopic* topic)
         rtListItem_GetData(routeItem, (void**)&route);
 
         /* Remove ancestor caches before freeing the route, but keep nodes alive for this traversal. */
-        removeTopicRoute(rt, topic->fullName, route->route, 0);
+        removeTopicRoute(rt, topic->fullName, route->route);
         /*if the route's topicList has become empty, then remove the whole route*/
         rtList_GetSize(route->topicList, &size);
         if(size == 0)
@@ -275,7 +244,7 @@ static rtTreeTopic* getChildByName(rtRoutingTree rt, rtTreeTopic* parent, const 
             {
               removeTopicFromRoutes(rt, treeTopic);
               removeChildTopic(parent, item);
-              pruneEmptyTopics(parent);
+              removeRouteFromTopicTree(rt, rt->topicRoot, NULL);
               return NULL;
             }
             return treeTopic;
@@ -375,6 +344,7 @@ static void optimizeTopicsBackpropagate(rtTreeTopic* topic, rtTreeRoute* route)
     If a treeTopic's route list is empty and the treeTopic's child list is empty we remove the treeTopic.
     We use a depth first search so we can remove treeTopic whose child and route lists
     become empty, in the correct order (deep up).
+    A NULL route only prunes empty nodes without changing route associations.
  */
 static void removeRouteFromTopicTree(rtRoutingTree rt, rtTreeTopic* treeTopic, rtTreeRoute* route)
 {
@@ -399,12 +369,14 @@ static void removeRouteFromTopicTree(rtRoutingTree rt, rtTreeTopic* treeTopic, r
 
         if(child->routeList)
         {
-          rtList_RemoveItemByCompare(child->routeList, route, rtList_ComparePointer, NULL);
+          if(route)
+            rtList_RemoveItemByCompare(child->routeList, route, rtList_ComparePointer, NULL);
           rtList_GetSize(child->routeList, &numRoutes);
         }
         if(child->routeList2)
         {
-          rtList_RemoveItemByCompare(child->routeList2, route, rtList_ComparePointer, NULL);
+          if(route)
+            rtList_RemoveItemByCompare(child->routeList2, route, rtList_ComparePointer, NULL);
           rtList_GetSize(child->routeList2, &numRoutes2);
         }
         rtList_GetSize(child->childList, &numChildren);
@@ -724,7 +696,7 @@ void rtRoutingTree_RemoveRoute(rtRoutingTree rt, const void* route)
     rtList_RemoveItem(rt->routeList, routeItem, freeTreeRoute);
 }
 
-static rtError removeTopicRoute(rtRoutingTree rt, const char* topic, const void* route, int prune)
+static rtError removeTopicRoute(rtRoutingTree rt, const char* topic, const void* route)
 {
     rtTreeRoute* entry = getTreeRoute(rt, route, NULL);
     rtListItem item;
@@ -744,11 +716,8 @@ static rtError removeTopicRoute(rtRoutingTree rt, const char* topic, const void*
         if(strlen(treeTopic->fullName) == topicLength &&
            strncmp(treeTopic->fullName, topic, topicLength) == 0)
         {
-            rtTreeTopic* removedTopic = treeTopic;
             rtTreeTopic* parent = treeTopic->parent;
-	    while(rtList_RemoveItemByCompare(treeTopic->routeList, entry, rtList_ComparePointer, NULL) == RT_OK)
-            {
-            }
+            rtList_RemoveItemByCompare(treeTopic->routeList, entry, rtList_ComparePointer, NULL);
             size_t routeCount = 0;
             rtList_GetSize(treeTopic->routeList, &routeCount);
             if(routeCount == 0)
@@ -773,8 +742,6 @@ static rtError removeTopicRoute(rtRoutingTree rt, const char* topic, const void*
                     optimizeTopicsBackpropagate(treeTopic->parent, entry);
                 rtListItem_GetNext(item, &item);
             }
-            if(prune)
-                pruneEmptyTopics(removedTopic);
             return RT_OK;
         }
         rtListItem_GetNext(item, &item);
@@ -784,7 +751,10 @@ static rtError removeTopicRoute(rtRoutingTree rt, const char* topic, const void*
 
 rtError rtRoutingTree_RemoveTopicRoute(rtRoutingTree rt, const char* topic, const void* route)
 {
-    return removeTopicRoute(rt, topic, route, 1);
+    rtError err = removeTopicRoute(rt, topic, route);
+    if(err == RT_OK)
+        removeRouteFromTopicTree(rt, rt->topicRoot, NULL);
+    return err;
 }
 
 void rtRoutingTree_RemoveTopic(rtRoutingTree rt, const char* topic)
