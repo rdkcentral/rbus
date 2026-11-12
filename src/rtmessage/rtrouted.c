@@ -1764,12 +1764,18 @@ rtConnectedClient_Read(rtConnectedClient* clnt)
 static void
 rtRouted_PushFd(fd_set* fds, int fd, int* maxFd)
 {
-  if (fd != RTMSG_INVALID_FD)
+  if (fd == RTMSG_INVALID_FD)
+    return;
+
+  if (fd >= FD_SETSIZE)
   {
-    FD_SET(fd, fds);
-    if (maxFd && fd > *maxFd)
-      *maxFd = fd;
+    rtLog_Warn("ignoring fd %d beyond FD_SETSIZE (%d) to avoid fd_set overflow", fd, FD_SETSIZE);
+    return;
   }
+
+  FD_SET(fd, fds);
+  if (maxFd && fd > *maxFd)
+    *maxFd = fd;
 }
 
 static void
