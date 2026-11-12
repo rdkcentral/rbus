@@ -878,9 +878,23 @@ rtRouted_OnMessageHello(rtConnectedClient* sender, rtMessageHeader* hdr, uint8_t
     rtLog_Warn("Sender %s", sender->ident);
     return;
   }
-  rtMessage_GetString(m, "inbox", &inbox);
+
+  if (RT_OK != rtMessage_GetString(m, "inbox", &inbox) || !inbox || inbox[0] == '\0' ||
+      validate_string(inbox, RTMSG_HEADER_MAX_TOPIC_LENGTH) != 0)
+  {
+    rtLog_Warn("Bad Hello message: invalid inbox from %s", sender ? sender->ident : "unknown");
+    rtMessage_Release(m);
+    return;
+  }
 
   rtSubscription* subscription = (rtSubscription *) rt_malloc(sizeof(rtSubscription));
+  if (!subscription)
+  {
+    rtLog_Warn("Failed to allocate subscription for inbox %s", inbox);
+    rtMessage_Release(m);
+    return;
+  }
+
   subscription->id = 0;
   subscription->client = sender;
   rtRouted_AddRoute(rtRouted_ForwardMessage, inbox, subscription);
