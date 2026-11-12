@@ -112,6 +112,47 @@ static void freeTreeRoute(void* p)
     free(route);
 }
 
+static void removeChildTopic(rtTreeTopic* parent, rtListItem item)
+{
+    rtTreeTopic* child;
+    rtListItem_GetData(item, (void**)&child);
+    if(child->name[0] == '{')
+        parent->isTable = 0;
+    rtList_RemoveItem(parent->childList, item, freeTreeTopic);
+}
+
+static void pruneEmptyTopics(rtTreeTopic* topic)
+{
+    while(topic->parent)
+    {
+        size_t numRoutes = 0;
+        size_t numChildren = 0;
+        rtTreeTopic* parent = topic->parent;
+        rtListItem item;
+
+        if(topic->routeList)
+            rtList_GetSize(topic->routeList, &numRoutes);
+        if(topic->childList)
+            rtList_GetSize(topic->childList, &numChildren);
+        if(numRoutes || numChildren)
+            break;
+
+        rtList_GetFront(parent->childList, &item);
+        while(item)
+        {
+            rtTreeTopic* child;
+            rtListItem_GetData(item, (void**)&child);
+            if(child == topic)
+            {
+                removeChildTopic(parent, item);
+                break;
+            }
+            rtListItem_GetNext(item, &item);
+        }
+        topic = parent;
+    }
+}
+
 static int validateExpression(const char* expr)
 {
     int token_count = 0;
@@ -182,6 +223,8 @@ invalidExpression:
     return -1;
 }
 
+static rtError removeTopicRoute(rtRoutingTree rt, const char* topic, const void* route, int prune);
+
 static void removeTopicFromRoutes(rtRoutingTree rt, rtTreeTopic* topic)
 {
     rtListItem childItem;
@@ -196,8 +239,8 @@ static void removeTopicFromRoutes(rtRoutingTree rt, rtTreeTopic* topic)
             break;
         rtListItem_GetData(routeItem, (void**)&route);
 
-        /* Remove ancestor cache entries before this route can be freed. */
-        rtRoutingTree_RemoveTopicRoute(rt, topic->fullName, route->route);
+        /* Remove ancestor caches before freeing the route, but keep nodes alive for this traversal. */
+        removeTopicRoute(rt, topic->fullName, route->route, 0);
         /*if the route's topicList has become empty, then remove the whole route*/
         rtList_GetSize(route->topicList, &size);
         if(size == 0)
@@ -231,7 +274,8 @@ static rtTreeTopic* getChildByName(rtRoutingTree rt, rtTreeTopic* parent, const 
             if(remove)
             {
               removeTopicFromRoutes(rt, treeTopic);
-              rtList_RemoveItem(parent->childList, item, freeTreeTopic);
+              removeChildTopic(parent, item);
+              pruneEmptyTopics(parent);
               return NULL;
             }
             return treeTopic;
@@ -367,7 +411,7 @@ static void removeRouteFromTopicTree(rtRoutingTree rt, rtTreeTopic* treeTopic, r
         rtListItem_GetNext(childItem, &next);
         if(numChildren == 0 && numRoutes == 0)
         {
-            rtList_RemoveItem(treeTopic->childList, childItem, freeTreeTopic);
+            removeChildTopic(treeTopic, childItem);
         }/*
         else if(numRoutes == 0 && numRoutes2 > 0)
         {
@@ -680,7 +724,7 @@ void rtRoutingTree_RemoveRoute(rtRoutingTree rt, const void* route)
     rtList_RemoveItem(rt->routeList, routeItem, freeTreeRoute);
 }
 
-rtError rtRoutingTree_RemoveTopicRoute(rtRoutingTree rt, const char* topic, const void* route)
+static rtError removeTopicRoute(rtRoutingTree rt, const char* topic, const void* route, int prune)
 {
     rtTreeRoute* entry = getTreeRoute(rt, route, NULL);
     rtListItem item;
@@ -688,15 +732,23 @@ rtError rtRoutingTree_RemoveTopicRoute(rtRoutingTree rt, const char* topic, cons
     if(!entry || !topic)
         return RT_ERROR_INVALID_ARG;
 
+    size_t topicLength = strlen(topic);
+    if(topicLength > 0 && topic[topicLength - 1] == '.')
+        --topicLength;
+
     rtList_GetFront(entry->topicList, &item);
     while(item)
     {
         rtTreeTopic* treeTopic;
         rtListItem_GetData(item, (void**)&treeTopic);
-        if(strcmp(treeTopic->fullName, topic) == 0)
+        if(strlen(treeTopic->fullName) == topicLength &&
+           strncmp(treeTopic->fullName, topic, topicLength) == 0)
         {
+            rtTreeTopic* removedTopic = treeTopic;
             rtTreeTopic* parent = treeTopic->parent;
-            rtList_RemoveItemByCompare(treeTopic->routeList, entry, rtList_ComparePointer, NULL);
+	    while(rtList_RemoveItemByCompare(treeTopic->routeList, entry, rtList_ComparePointer, NULL) == RT_OK)
+            {
+            }
             size_t routeCount = 0;
             rtList_GetSize(treeTopic->routeList, &routeCount);
             if(routeCount == 0)
@@ -721,11 +773,18 @@ rtError rtRoutingTree_RemoveTopicRoute(rtRoutingTree rt, const char* topic, cons
                     optimizeTopicsBackpropagate(treeTopic->parent, entry);
                 rtListItem_GetNext(item, &item);
             }
+            if(prune)
+                pruneEmptyTopics(removedTopic);
             return RT_OK;
         }
         rtListItem_GetNext(item, &item);
     }
     return RT_ERROR_INVALID_ARG;
+}
+
+rtError rtRoutingTree_RemoveTopicRoute(rtRoutingTree rt, const char* topic, const void* route)
+{
+    return removeTopicRoute(rt, topic, route, 1);
 }
 
 void rtRoutingTree_RemoveTopic(rtRoutingTree rt, const char* topic)

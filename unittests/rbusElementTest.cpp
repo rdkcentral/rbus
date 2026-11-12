@@ -20,6 +20,10 @@
 #include <rbus.h>
 #include "rbus_element.h"
 #include "rbus_filter.h"
+#include "rbus_handle.h"
+#include <cerrno>
+#include <cstdlib>
+#include <unistd.h>
 #include "gtest/gtest.h"
 
 static int isElementValid(elementNode* el, const char* expectedFullName)
@@ -71,6 +75,87 @@ static void delRow(elementNode* root, const char* path)
     deleteTableRow(node);
     EXPECT_EQ(testRetrieveInstanceElement(root, path, NULL),1);
 }
+
+class rbusIntervalRowReplayTest : public ::testing::TestWithParam<const char*>
+{
+protected:
+    char directory[64] = "/tmp/rbus-row-replay-XXXXXX";
+    struct _rbusHandle handle = {};
+    rbusSubscriptions_t subscriptions = NULL;
+
+    void SetUp() override
+    {
+        ASSERT_NE(mkdtemp(directory), nullptr);
+        handle.elementRoot = getEmptyElementNode();
+        handle.elementRoot->name = strdup("root");
+        handle.elementRoot->fullName = strdup("root");
+        insertElem(handle.elementRoot, "Device.Replay.Table.{i}.", RBUS_ELEMENT_TYPE_TABLE);
+        insertElem(handle.elementRoot, "Device.Replay.Table.{i}.Value", RBUS_ELEMENT_TYPE_PROPERTY);
+        rbusSubscriptions_create(&subscriptions, &handle, "RowReplayTest",
+                                 handle.elementRoot, directory);
+        handle.subscriptions = subscriptions;
+    }
+
+    void TearDown() override
+    {
+        if(subscriptions)
+            rbusSubscriptions_destroy(subscriptions);
+        if(handle.elementRoot)
+            freeElementNode(handle.elementRoot);
+        char cache[128];
+        snprintf(cache, sizeof(cache), "%s/rbus_subs_RowReplayTest", directory);
+        if(unlink(cache) != 0)
+            EXPECT_EQ(errno, ENOENT);
+        if(rmdir(directory) != 0)
+            EXPECT_EQ(errno, ENOENT);
+    }
+};
+
+TEST_P(rbusIntervalRowReplayTest, preserves_active_subscription_on_row_recreation)
+{
+    elementNode* table = retrieveInstanceElement(handle.elementRoot, "Device.Replay.Table.");
+    ASSERT_NE(table, nullptr);
+    elementNode* row = instantiateTableRow(table, 1, "row");
+    ASSERT_NE(row, nullptr);
+    elementNode* instance = retrieveInstanceElement(handle.elementRoot, "Device.Replay.Table.1.Value");
+    ASSERT_NE(instance, nullptr);
+    rbusSubscription_t* sub = rbusSubscriptions_addSubscription(
+        subscriptions, "RowReplayListener", GetParam(), 1, NULL, 1, 60, true, instance, false);
+    if(sub == nullptr)
+    {
+        ADD_FAILURE() << "Failed to create the row replay subscription";
+        return;
+    }
+    const uint32_t id = sub->subscriptionId;
+    EXPECT_EQ(sub->element, retrieveElement(handle.elementRoot, GetParam()));
+
+    for(int iteration = 0; iteration < 3; ++iteration)
+    {
+        rbusSubscriptions_onTableRowRemoved(subscriptions, row);
+        deleteTableRow(row);
+        size_t count = 0;
+        ASSERT_EQ(rtList_GetSize(sub->instances, &count), RT_OK);
+        EXPECT_EQ(count, 0u);
+
+        row = instantiateTableRow(table, 1, "row");
+        ASSERT_NE(row, nullptr);
+        rbusSubscriptions_onTableRowAdded(subscriptions, row);
+        rbusSubscriptions_resubscribeRowElementCache(&handle, subscriptions, row);
+        EXPECT_EQ(rbusSubscriptions_getSubscription(
+            subscriptions, "RowReplayListener", GetParam(), 1, NULL, 1, 60, false), sub);
+        EXPECT_EQ(sub->subscriptionId, id);
+        ASSERT_EQ(rtList_GetSize(sub->instances, &count), RT_OK);
+        EXPECT_EQ(count, 1u);
+        instance = retrieveInstanceElement(handle.elementRoot, "Device.Replay.Table.1.Value");
+        ASSERT_NE(instance, nullptr);
+        ASSERT_EQ(rtList_GetSize(instance->subscriptions, &count), RT_OK);
+        EXPECT_EQ(count, 1u);
+    }
+}
+
+INSTANTIATE_TEST_SUITE_P(IntervalSubscriptions, rbusIntervalRowReplayTest,
+    ::testing::Values("Device.Replay.Table.1.Value", "Device.Replay.Table.[row].Value",
+                      "Device.Replay.Table.*.Value"));
 
 static void printRow(elementNode* root)
 {

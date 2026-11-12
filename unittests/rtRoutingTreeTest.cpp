@@ -6,6 +6,7 @@ class rtRoutingTreeTest : public ::testing::Test
 {
 protected:
   rtRoutingTree tree = NULL;
+  rtList topics = NULL;
   int routeData = 0;
 
   void SetUp() override
@@ -15,6 +16,8 @@ protected:
 
   void TearDown() override
   {
+    if(topics)
+      rtList_Destroy(topics, NULL);
     rtRoutingTree_Destroy(tree);
   }
 
@@ -49,13 +52,11 @@ protected:
     rtRoutingTree_RemoveTopic(tree, expression.c_str());
     expectRoute(valid);
 
-    rtList topics = NULL;
     ASSERT_EQ(rtList_Create(&topics), RT_OK);
     rtRoutingTree_ResolvePartialPath(tree, expression.c_str(), topics);
     size_t count = 0;
     EXPECT_EQ(rtList_GetSize(topics, &count), RT_OK);
     EXPECT_EQ(count, 0u);
-    rtList_Destroy(topics, NULL);
     expectRoute(valid);
   }
 
@@ -197,12 +198,10 @@ TEST_F(rtRoutingTreeTest, removing_subtree_clears_freed_routes_from_ancestor_cac
     ASSERT_EQ(rtList_GetSize(routes, &count), RT_OK);
   EXPECT_EQ(count, 0u);
 
-  rtList topics = NULL;
   ASSERT_EQ(rtList_Create(&topics), RT_OK);
   rtRoutingTree_ResolvePartialPath(tree, "Device.A", topics);
   ASSERT_EQ(rtList_GetSize(topics, &count), RT_OK);
   EXPECT_EQ(count, 0u);
-  rtList_Destroy(topics, NULL);
 }
 
 TEST_F(rtRoutingTreeTest, removing_subtree_preserves_shared_route_elsewhere)

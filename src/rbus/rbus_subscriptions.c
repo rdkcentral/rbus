@@ -131,6 +131,11 @@ rbusSubscription_t* rbusSubscriptions_addSubscription(rbusSubscriptions_t subscr
 
     RBUSLOG_DEBUG("adding %s %s", listener, eventName);
 
+    if(interval && subscriptions)
+    {
+        /* Retained interval subscriptions must not reference deletable row instances. */
+        registryElem = retrieveElement(subscriptions->root, eventName);
+    }
     tokens = TokenChain_create(eventName, registryElem);
     if(tokens == NULL)
     {
@@ -842,7 +847,8 @@ void rbusSubscriptions_resubscribeRowElementCache(rbusHandle_t handle, rbusSubsc
         {
             rtListItem next = NULL;
             rtListItem_GetNext(item, &next);
-            if(strncmp(sub->eventName, rowNode->fullName, strlen(rowNode->fullName)) == 0)
+            if(sub->element == NULL && sub->tokens == NULL &&
+               strncmp(sub->eventName, rowNode->fullName, strlen(rowNode->fullName)) == 0)
             {
                 el = retrieveInstanceElement(handleInfo->elementRoot, sub->eventName);
                 if(el)
