@@ -1278,14 +1278,27 @@ static int subscription_handler(const char *not_used, const char * method_name, 
 
     rbusMessage_Init(out);
 
-    if(!hdr || !hdr->reply_topic || !hdr->reply_topic[0])
+    if(!hdr)
     {
-        RBUSCORELOG_DEBUG("Malformed subscription request: missing trusted sender in message header.");
+        RBUSCORELOG_DEBUG("Malformed subscription request: missing message header.");
         rbusMessage_SetInt32(*out, RBUSCORE_ERROR_INVALID_PARAM);
         return 0;
     }
 
-    sender = hdr->reply_topic;
+    sender = rtConnection_GetReturnAddress(g_connection);
+    if((NULL == sender) || (sender[0] == '\0'))
+    {
+        RBUSCORELOG_DEBUG("Malformed subscription request: missing authenticated broker sender identity.");
+        rbusMessage_SetInt32(*out, RBUSCORE_ERROR_INVALID_PARAM);
+        return 0;
+    }
+
+    if((hdr->reply_topic[0] != '\0') && (strcmp(hdr->reply_topic, sender) != 0))
+    {
+        RBUSCORELOG_DEBUG("Rejected subscription request with mismatched sender. Header sender: %s. Broker sender: %s.", hdr->reply_topic, sender);
+        rbusMessage_SetInt32(*out, RBUSCORE_ERROR_INVALID_PARAM);
+        return 0;
+    }
 
     if((RT_OK == rbusMessage_GetString(in, &event_name)) &&
         (RT_OK == rbusMessage_GetString(in, &message_sender)))
