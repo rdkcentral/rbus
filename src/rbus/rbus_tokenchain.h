@@ -47,6 +47,8 @@ typedef struct TokenChain
 {
     Token* first;       /* first token in chain */
     Token* last;        /* last token in chain -- if you want to go backwards through list */
+    char*  name;        /* original source string backing the token text pointers */
+
 } TokenChain;
 
 TokenChain* TokenChain_create(char const* sourceName, elementNode* regNode);

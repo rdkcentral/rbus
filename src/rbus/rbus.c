@@ -72,6 +72,8 @@
 
 #define RBUS_GET_DEFAULT_TIMEOUT_FOR_WILDCARD 120000  /* default timeout in miliseconds for GET API wildcard query*/
 #define MAX_PROPERTY_LIST_COUNT 1024
+#define MAX_ROW_NAME_COUNT 1024
+#define MAX_ELEMENT_INFO_COUNT 1024
 
 //********************************************************************************//
 
@@ -4819,10 +4821,18 @@ rbusError_t rbusTable_getRowNames(
             rbusMessage_GetInt32(response, &count);
 
             RBUSLOG_DEBUG("getparamnames %s got %d results", tableName, count);
+            
+            if((count < 0) || (count > MAX_ROW_NAME_COUNT))
+            {
+                RBUSLOG_ERROR("Rejected invalid row name response count %d for %s", count, tableName);
+                rbusMessage_Release(response);
+                return RBUS_ERROR_INVALID_INPUT;
+            }
 
             if(count > 0)
             {
-                tmpNames = rt_try_malloc(count * sizeof(struct _rbusRowName));
+                tmpNames = rt_try_malloc((size_t)count * sizeof(struct _rbusRowName));
+
                 if(!tmpNames)
                 {
                     RBUSLOG_ERROR("failed to malloc %d row names", count);
@@ -4960,13 +4970,18 @@ rbusError_t rbusElementInfo_get(
 
                 rbusMessage_GetInt32(response, &count);
                 RBUSLOG_DEBUG("invokeRemoteMethod %s %s success: count=%d", METHOD_GETPARAMETERNAMES, elemName, count);
+                if((count < 0) || (count > MAX_ELEMENT_INFO_COUNT) || (runningCount > MAX_ELEMENT_INFO_COUNT - count))
+                {
+                    RBUSLOG_ERROR("Rejected invalid element info count %d for %s (running=%d)", count, elemName, runningCount);
+                    return RBUS_ERROR_INVALID_INPUT;
+                }
                 if(count > 0)
                 {
                     runningCount += count;
                     if(*elemInfo == NULL)
-                        *elemInfo = rt_try_malloc(runningCount * sizeof(rbusElementInfo_t));
+                        *elemInfo = rt_try_malloc((size_t)runningCount * sizeof(rbusElementInfo_t));
                     else
-                        *elemInfo = rt_try_realloc(*elemInfo, runningCount * sizeof(rbusElementInfo_t));
+                        *elemInfo = rt_try_realloc(*elemInfo, (size_t)runningCount * sizeof(rbusElementInfo_t));
                     if(!*elemInfo)
                     {
                         RBUSLOG_ERROR("failed to malloc %d element infos", runningCount);
