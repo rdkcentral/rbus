@@ -1286,19 +1286,6 @@ static int subscription_handler(const char *not_used, const char * method_name, 
     }
 
     sender = rtConnection_GetReturnAddress(g_connection);
-    if((NULL == sender) || (sender[0] == '\0'))
-    {
-        RBUSCORELOG_DEBUG("Malformed subscription request: missing authenticated broker sender identity.");
-        rbusMessage_SetInt32(*out, RBUSCORE_ERROR_INVALID_PARAM);
-        return 0;
-    }
-
-    if((hdr->reply_topic[0] != '\0') && (strcmp(hdr->reply_topic, sender) != 0))
-    {
-        RBUSCORELOG_DEBUG("Rejected subscription request with mismatched sender. Header sender: %s. Broker sender: %s.", hdr->reply_topic, sender);
-        rbusMessage_SetInt32(*out, RBUSCORE_ERROR_INVALID_PARAM);
-        return 0;
-    }
 
     if((RT_OK == rbusMessage_GetString(in, &event_name)) &&
         (RT_OK == rbusMessage_GetString(in, &message_sender)))
@@ -1309,18 +1296,13 @@ static int subscription_handler(const char *not_used, const char * method_name, 
             RBUSCORELOG_DEBUG("Malformed subscription request. Sender: %s. Event: %s. Message sender: %s.", sender, event_name, message_sender);
             rbusMessage_SetInt32(*out, RBUSCORE_ERROR_INVALID_PARAM);
         }
-        else if(strcmp(message_sender, sender) != 0)
-        {
-            RBUSCORELOG_DEBUG("Rejected subscription request with mismatched sender. Header sender: %s. Message sender: %s.", sender, message_sender);
-            rbusMessage_SetInt32(*out, RBUSCORE_ERROR_INVALID_PARAM);
-        }
         else
         {
             rbusMessage_GetInt32(in, &has_payload);
             if(has_payload)
                 rbusMessage_GetMessage(in, &payload);
             int added = strncmp(method_name, METHOD_SUBSCRIBE, MAX_METHOD_NAME_LENGTH) == 0 ? 1 : 0;
-            rbusCoreError_t ret = server_object_subscription_handler(obj, event_name, sender, added, payload);
+            rbusCoreError_t ret = server_object_subscription_handler(obj, event_name, message_sender, added, payload);
             if(payload)
                 rbusMessage_Release(payload);
             rbusMessage_SetInt32(*out, ret);
