@@ -71,6 +71,7 @@
 }
 
 #define RBUS_GET_DEFAULT_TIMEOUT_FOR_WILDCARD 120000  /* default timeout in miliseconds for GET API wildcard query*/
+#define MAX_PROPERTY_LIST_COUNT 1024
 
 //********************************************************************************//
 
@@ -662,6 +663,12 @@ void rbusPropertyList_initFromMessage(rbusProperty_t* prop, rbusMessage msg)
 #if DEBUG_SERIALIZER
     RBUSLOG_INFO("> prop pop numProps=%d", numProps);
 #endif
+    if((NULL == prop) || (numProps < 0) || (numProps > MAX_PROPERTY_LIST_COUNT))
+    {
+        RBUSLOG_WARN("Discarding malformed property list with invalid property count %d", numProps);
+        *prop = NULL;
+        return;
+    }
     while(--numProps >= 0)
     {
         rbusProperty_t nextProp;

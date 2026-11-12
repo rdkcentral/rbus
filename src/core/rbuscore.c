@@ -483,6 +483,13 @@ static void dispatch_method_call(rbusMessage msg, const rtMessageHeader *hdr, se
 
     /* Fetch the context that was sent with the message */
     _rbusMessage_GetMetaInfo(msg, &method_name, &traceParent, &traceState);
+    if(NULL == method_name || '\0' == method_name[0])
+    {
+        RBUSCORELOG_DEBUG("Dropping malformed method call without a method name");
+        rbus_clearOpenTelemetryContext();
+        rbus_sendResponse(hdr, NULL);
+        return;
+    }
     rbus_setOpenTelemetryContext(traceParent, traceState);
 
     lock();
@@ -2843,19 +2850,28 @@ static rtError _onDirectMessage(uint8_t isClientRequest, rtMessageHeader* hdr, u
         /* Fetch the context that was sent with the message */
          _rbusMessage_GetMetaInfo(msg, &method_name, &traceParent, &traceState);
 
-        rbusMessage response;
-        directServerLock();
-        pSubObj = rtVector_Find(gListOfServerDirectDMLs, hdr->topic, _findPrivateServerDML);
-        directServerUnlock();
-        if(pSubObj)
+        rbusMessage response = NULL;
+        if(NULL == method_name || '\0' == method_name[0])
         {
-            pSubObj->m_fnCallbackHandler(hdr->topic, method_name, msg, pSubObj->m_fnCallbackuserData, &response, hdr);
+            RBUSCORELOG_DEBUG("Dropping malformed DML request without a method name");
+            rbusMessage_Init(&response);
+            rbusMessage_SetInt32(response, RBUSCORE_ERROR_UNSUPPORTED_METHOD);
         }
         else
         {
-            rbusMessage_Init(&response);
-            rbusMessage_SetInt32(response, RBUSCORE_ERROR_UNSUPPORTED_METHOD);
-            RBUSCORELOG_DEBUG("Could not find the DML in Private Connection List..");
+            directServerLock();
+            pSubObj = rtVector_Find(gListOfServerDirectDMLs, hdr->topic, _findPrivateServerDML);
+            directServerUnlock();
+            if(pSubObj)
+            {
+                pSubObj->m_fnCallbackHandler(hdr->topic, method_name, msg, pSubObj->m_fnCallbackuserData, &response, hdr);
+            }
+            else
+            {
+                rbusMessage_Init(&response);
+                rbusMessage_SetInt32(response, RBUSCORE_ERROR_UNSUPPORTED_METHOD);
+                RBUSCORELOG_DEBUG("Could not find the DML in Private Connection List..");
+            }
         }
         _rbusMessage_SetMetaInfo(response, METHOD_RESPONSE, NULL, NULL);
         uint8_t* pData = NULL;
