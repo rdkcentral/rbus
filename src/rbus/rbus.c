@@ -1595,7 +1595,7 @@ static void _set_callback_handler (rbusHandle_t handle, rbusMessage request, rbu
             * isCommit used to set only the last parameter in the list in order
             * to turn this into a bulk set operation: FIXME maybe we need a 'bulk' option
             */
-            if (strncasecmp("TRUE", pIsCommit, 4) == 0)
+            if (pIsCommit && (strncasecmp("TRUE", pIsCommit, 4) == 0))
                 isCommit = true;
 
             for (loopCnt = 0; loopCnt < numVals; loopCnt++)
