@@ -1845,6 +1845,48 @@ void freeRoute(void* p)
   free(route);
 }
 
+static FILE* rtrouted_open_pid_file(const char* path)
+{
+  int fd;
+  struct stat st;
+  int flags = O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC;
+
+#ifdef O_NOFOLLOW
+  flags |= O_NOFOLLOW;
+#endif
+
+  if(lstat(path, &st) == 0)
+  {
+    if(S_ISLNK(st.st_mode) || !S_ISREG(st.st_mode))
+    {
+      rtLog_Warn("refusing to use unsafe pid file path %s", path);
+      return NULL;
+    }
+  }
+
+  fd = open(path, flags, 0600);
+  if(fd < 0)
+  {
+    rtLog_Warn("failed to open pid file %s: %s", path, strerror(errno));
+    return NULL;
+  }
+
+  if(fstat(fd, &st) != 0 || !S_ISREG(st.st_mode))
+  {
+    rtLog_Warn("refusing to use non-regular pid file %s", path);
+    close(fd);
+    return NULL;
+  }
+
+  if(fchmod(fd, 0600) != 0)
+  {
+    rtLog_Warn("failed to secure pid file permissions %s: %s", path, strerror(errno));
+    close(fd);
+    return NULL;
+  }
+
+  return fdopen(fd, "w");
+}
 
 int main(int argc, char* argv[])
 {
@@ -1880,7 +1922,7 @@ int main(int argc, char* argv[])
   rtRoutingTree_Create(&gRoutingTree);
   rtList_Create(&g_discovery_result);
 
-  FILE* pid_file = fopen("/tmp/rtrouted.pid", "w");
+  FILE* pid_file = rtrouted_open_pid_file("/tmp/rtrouted.pid");
   if (!pid_file)
   {
     printf("failed to open pid file. %s\n", strerror(errno));
