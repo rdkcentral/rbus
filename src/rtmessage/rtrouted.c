@@ -688,6 +688,11 @@ rtRouted_ForwardMessage(rtConnectedClient* sender, rtMessageHeader* hdr, uint8_t
       rtLog_Info("no encryption key found, cannot decrypt message");
       return RT_FAIL;
     }
+    if(!buff || n <= 0)
+    {
+      rtLog_Warn("encrypted message has no payload");
+      return RT_FAIL;
+    }
 
     if(rtCipher_DecryptWithKey( sender->encryption_key,
                                 buff,
@@ -707,11 +712,17 @@ rtRouted_ForwardMessage(rtConnectedClient* sender, rtMessageHeader* hdr, uint8_t
   }
 
   /*since each client has a unique key we must re-encrypt using its key*/
-  if(subscription->client->encryption_key)
+  if(subscription->client && subscription->client->encryption_key)
   {
     uint32_t encryptedLength;
 
     rtLog_Debug("sending encrypted message");
+
+    if(!buff || n <= 0)
+    {
+      rtLog_Warn("refusing to encrypt empty payload");
+      return RT_FAIL;
+    }
 
     if(rtCipher_EncryptWithKey( subscription->client->encryption_key,
                                 buff,

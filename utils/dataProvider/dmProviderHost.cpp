@@ -113,21 +113,22 @@ private:
       return;
     }
 
-    rtMessage req;
+    rtMessage req = NULL;
     rtError e = rtMessage_FromBytes(&req, buff, n);
     rtLog_Debug("req: %s", buff);
 
-    if (e != RT_OK)
+    if (e != RT_OK || req == NULL)
     {
       rtLog_Warn("failed to decode datamodel request");
-      // TODO: return error
+      return;
     }
 
     dmProviderHostImpl* host = reinterpret_cast<dmProviderHostImpl *>(closure);
     if (!host)
     {
       rtLog_Error("dmProviderHost is null");
-      // TODO: return error
+      rtMessage_Release(req);
+      return;
     }
 
     dmQueryResult result;
@@ -160,7 +161,8 @@ private:
   dmProviderOperation decodeOperation(rtMessage req)
   {
     char const* operation = nullptr;
-    rtMessage_GetString(req, "method", &operation);
+    if (req == NULL || rtMessage_GetString(req, "method", &operation) != RT_OK || operation == nullptr)
+      return dmProviderOperation_Get;
     if ((strcmp(operation, "set") == 0))
       return dmProviderOperation_Set;
     else
@@ -172,15 +174,27 @@ private:
     char const* providerName = nullptr;
     dmPropertyInfo propertyInfo;
 
+    if (req == NULL)
+      return;
+
     rtMessage_GetString(req, "provider", &providerName);
     if (providerName)
       name = providerName;
 
-    rtMessage item;
-    rtMessage_GetMessage(req, "params", &item);
+    rtMessage item = NULL;
+    if (rtMessage_GetMessage(req, "params", &item) != RT_OK || item == NULL)
+    {
+      rtLog_Warn("missing params in get request");
+      return;
+    }
 
     char const* propertyName = nullptr;
-    rtMessage_GetString(item, "name", &propertyName);
+    if (rtMessage_GetString(item, "name", &propertyName) != RT_OK || propertyName == nullptr)
+    {
+      rtLog_Warn("missing property name in get request");
+      rtMessage_Release(item);
+      return;
+    }
 
     bool isWildcard = dmUtility::isWildcard(propertyName);
     std::string objectName = isWildcard ? dmUtility::trimWildcard(propertyName) : dmUtility::trimProperty(propertyName);
@@ -218,22 +232,33 @@ private:
   {
     char const* providerName = nullptr;
 
+    if (req == NULL)
+      return;
+
     rtMessage_GetString(req, "provider", &providerName);
     if (providerName)
       name = providerName;
 
-    rtMessage item;
-    rtMessage_GetMessage(req, "params", &item);
+    rtMessage item = NULL;
+    if (rtMessage_GetMessage(req, "params", &item) != RT_OK || item == NULL)
+    {
+      rtLog_Warn("missing params in set request");
+      return;
+    }
 
     char const* targetName = nullptr;
-    rtMessage_GetString(item, "name", &targetName);
+    if (rtMessage_GetString(item, "name", &targetName) != RT_OK || targetName == nullptr)
+    {
+      rtLog_Warn("missing target name in set request");
+      rtMessage_Release(item);
+      return;
+    }
 
     char const* value = nullptr;
-    rtMessage_GetString(item, "value", &value);
-
-    if(!value)
+    if (rtMessage_GetString(item, "value", &value) != RT_OK || value == nullptr)
     {
-      rtLog_Debug("decodeSetRequest value is null");
+      rtLog_Warn("missing value in set request");
+      rtMessage_Release(item);
       return;
     }
 
@@ -242,6 +267,7 @@ private:
     if(len == 0)
     {
       rtLog_Debug("decodeSetRequest value is empty");
+      rtMessage_Release(item);
       return;
     }
 
