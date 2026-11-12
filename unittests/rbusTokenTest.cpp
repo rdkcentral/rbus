@@ -90,3 +90,22 @@ TEST(rbusTokenTest, negtestToken5)
   free(registryElem);
   free(tokens);
 }
+
+TEST(rbusTokenTest, leadingDotTokenRejected)
+{
+  TokenChain* tokens;
+  char const* eventName=".Device.rbusProvider.Param1";
+  elementNode* registryElem = (elementNode *)calloc(1,sizeof(elementNode));
+
+  registryElem->parent = (elementNode *)calloc(1,sizeof(elementNode));
+  registryElem->parent->parent = (elementNode *)calloc(1,sizeof(elementNode));
+  registryElem->parent->parent->parent = (elementNode *)calloc(1,sizeof(elementNode));
+
+  tokens = TokenChain_create(eventName, registryElem);
+  EXPECT_EQ(tokens, nullptr);
+
+  free(registryElem->parent->parent->parent);
+  free(registryElem->parent->parent);
+  free(registryElem->parent);
+  free(registryElem);
+}

@@ -483,6 +483,13 @@ static void dispatch_method_call(rbusMessage msg, const rtMessageHeader *hdr, se
 
     /* Fetch the context that was sent with the message */
     _rbusMessage_GetMetaInfo(msg, &method_name, &traceParent, &traceState);
+    if(NULL == method_name || '\0' == method_name[0])
+    {
+        RBUSCORELOG_DEBUG("Dropping malformed method call without a method name");
+        rbus_clearOpenTelemetryContext();
+        rbus_sendResponse(hdr, NULL);
+        return;
+    }
     rbus_setOpenTelemetryContext(traceParent, traceState);
 
     lock();
@@ -1254,8 +1261,7 @@ static rbusCoreError_t rbus_sendMessage(rbusMessage msg, const char * destinatio
 
 static int subscription_handler(const char *not_used, const char * method_name, rbusMessage in, void * user_data, rbusMessage *out, const rtMessageHeader* hdr)
 {
-    (void) hdr;
-    /*using namespace rbus_server;*/
+    const char * request_sender = NULL;
     const char * sender = NULL;
     const char * event_name = NULL;
     int has_payload = 0;
@@ -1265,13 +1271,21 @@ static int subscription_handler(const char *not_used, const char * method_name, 
 
     rbusMessage_Init(out);
 
+    if (hdr && hdr->reply_topic[0] != '\0')
+        sender = hdr->reply_topic;
+
     if((RT_OK == rbusMessage_GetString(in, &event_name)) &&
-        (RT_OK == rbusMessage_GetString(in, &sender)))
+        (RT_OK == rbusMessage_GetString(in, &request_sender)))
     {
         /*Extract arguments*/
         if((NULL == sender) || (NULL == event_name))
         {
             RBUSCORELOG_DEBUG("Malformed subscription request. Sender: %s. Event: %s.", sender, event_name);
+            rbusMessage_SetInt32(*out, RBUSCORE_ERROR_INVALID_PARAM);
+        }
+        else if (request_sender && strcmp(request_sender, sender) != 0)
+        {
+            RBUSCORELOG_DEBUG("Rejecting subscription request with mismatched sender identity. Header sender: %s. Request sender: %s.", sender, request_sender);
             rbusMessage_SetInt32(*out, RBUSCORE_ERROR_INVALID_PARAM);
         }
         else
@@ -1285,6 +1299,11 @@ static int subscription_handler(const char *not_used, const char * method_name, 
                 rbusMessage_Release(payload);
             rbusMessage_SetInt32(*out, ret);
         }
+    }
+    else
+    {
+        RBUSCORELOG_DEBUG("Malformed subscription request. Missing event or sender metadata.");
+        rbusMessage_SetInt32(*out, RBUSCORE_ERROR_INVALID_PARAM);
     }
 
     return 0;
@@ -1926,24 +1945,26 @@ rbusCoreError_t rbus_discoverWildcardDestinations(const char * expression, int *
 
         if((RT_OK == rtMessage_GetInt32(msg, RTM_DISCOVERY_RESULT, &result)) && (RT_OK == result))
         {
-            int32_t size, length, i;
+            int32_t size = 0, length = 0, i;
 
-            rtMessage_GetInt32(msg, RTM_DISCOVERY_COUNT, &size);
-            rtMessage_GetArrayLength(msg, RTM_DISCOVERY_ITEMS, &length);
-
-            if(size != length)
+            if ((RT_OK != rtMessage_GetInt32(msg, RTM_DISCOVERY_COUNT, &size)) ||
+                (RT_OK != rtMessage_GetArrayLength(msg, RTM_DISCOVERY_ITEMS, &length)) ||
+                (size < 0) || (length < 0) || (size != length))
             {
-                RBUSCORELOG_DEBUG("rbus_resolveWildcardDestination size missmatch");
+                RBUSCORELOG_DEBUG("rbus_resolveWildcardDestination size mismatch: count=%d array_len=%d", size, length);
+                ret = RBUSCORE_ERROR_GENERAL;
+                rtMessage_Release(msg);
+                goto exit;
             }
 
-            if(size && length)
+            if(length > 0)
             {
-                char **array_ptr = (char **)rt_try_malloc(size * sizeof(char *));
-                *count = size;
+                char **array_ptr = (char **)rt_try_malloc((size_t)length * sizeof(char *));
+                *count = length;
                 if (NULL != array_ptr)
                 {
                     *destinations = array_ptr;
-                    memset(array_ptr, 0, (length * sizeof(char *)));
+                    memset(array_ptr, 0, (size_t)length * sizeof(char *));
                     for (i = 0; i < length; i++)
                     {
                         if ((RT_OK != rtMessage_GetStringItem(msg, RTM_DISCOVERY_ITEMS, i, &value)) || (NULL == (array_ptr[i] = strndup(value, MAX_OBJECT_NAME_LENGTH))))
@@ -1951,6 +1972,8 @@ rbusCoreError_t rbus_discoverWildcardDestinations(const char * expression, int *
                             for (int j = 0; j < i; j++)
                                 free(array_ptr[j]);
                             free(array_ptr);
+                            *destinations = NULL;
+                            *count = 0;
                             RBUSCORELOG_DEBUG("Read/Memory allocation failure");
                             ret = RBUSCORE_ERROR_GENERAL;
                             break;
@@ -1962,6 +1985,11 @@ rbusCoreError_t rbus_discoverWildcardDestinations(const char * expression, int *
                     RBUSCORELOG_DEBUG("Memory allocation failure");
                     ret = RBUSCORE_ERROR_INSUFFICIENT_MEMORY;
                 }
+            }
+            else
+            {
+                *count = 0;
+                *destinations = NULL;
             }
 
             rtMessage_Release(msg);
@@ -2017,7 +2045,7 @@ rbusCoreError_t rbus_discoverObjectElements(const char * object, int * count, ch
 
     if(RT_OK == err)
     {
-        int32_t size, length, i;
+        int32_t size = 0, length = 0, i;
         const char * value = NULL;
         char **array_ptr = NULL;
 
@@ -2031,14 +2059,21 @@ rbusCoreError_t rbus_discoverObjectElements(const char * object, int * count, ch
             RBUSCORELOG_DEBUG("rbus_GetElementsAddedByObject size missmatch");
         }
 
-        *count = size;
-        if(size && length)
+        if ((size < 0) || (length < 0) || (size != length))
         {
-            array_ptr = (char **)rt_try_malloc(size * sizeof(char *));
+            RBUSCORELOG_DEBUG("rbus_GetElementsAddedByObject size mismatch: count=%d array_len=%d", size, length);
+            ret = RBUSCORE_ERROR_GENERAL;
+            goto exit;
+        }
+
+        *count = size;
+        if(length > 0)
+        {
+            array_ptr = (char **)rt_try_malloc((size_t)length * sizeof(char *));
             if (NULL != array_ptr)
             {
                 *elements = array_ptr;
-                memset(array_ptr, 0, (length * sizeof(char *)));
+                memset(array_ptr, 0, (size_t)length * sizeof(char *));
                 for (i = 0; i < length; i++)
                 {
                     if ((RT_OK != rtMessage_GetStringItem(msg, RTM_DISCOVERY_ITEMS, i, &value)) || (NULL == (array_ptr[i] = strndup(value, MAX_OBJECT_NAME_LENGTH))))
@@ -2059,6 +2094,11 @@ rbusCoreError_t rbus_discoverObjectElements(const char * object, int * count, ch
                 RBUSCORELOG_DEBUG("Memory allocation failure");
                 ret = RBUSCORE_ERROR_INSUFFICIENT_MEMORY;
             }
+        }
+        else
+        {
+            *elements = NULL;
+            *count = 0;
         }
         rtMessage_Release(msg);
     }
@@ -2318,40 +2358,51 @@ rbusCoreError_t rbus_discoverRegisteredComponents(int * count, char *** componen
 
     if(RT_OK == err)
     {
-        int32_t size, length, i;
+        int32_t size = 0, length = 0, i;
         const char * value = NULL;
 
-        rtMessage_GetInt32(msg, RTM_DISCOVERY_COUNT, &size);
-        rtMessage_GetArrayLength(msg, RTM_DISCOVERY_ITEMS, &length);
-
-        if(size != length)
+        if ((RT_OK != rtMessage_GetInt32(msg, RTM_DISCOVERY_COUNT, &size)) ||
+            (RT_OK != rtMessage_GetArrayLength(msg, RTM_DISCOVERY_ITEMS, &length)) ||
+            (size < 0) || (length < 0) || (size != length))
         {
-            RBUSCORELOG_DEBUG("rbus_registeredComponents size missmatch");
+            RBUSCORELOG_DEBUG("rbus_registeredComponents size mismatch: count=%d array_len=%d", size, length);
+            ret = RBUSCORE_ERROR_GENERAL;
+            rtMessage_Release(msg);
+            goto exit;
         }
 
-        char **array_ptr = (char **)rt_try_malloc(size * sizeof(char *));
-        *count = size;
-        if (NULL != array_ptr)
+        if(length > 0)
         {
-            *components = array_ptr;
-            memset(array_ptr, 0, (length * sizeof(char *)));
-            for (i = 0; i < length; i++)
+            char **array_ptr = (char **)rt_try_malloc((size_t)length * sizeof(char *));
+            *count = length;
+            if (NULL != array_ptr)
             {
-                if ((RT_OK != rtMessage_GetStringItem(msg, RTM_DISCOVERY_ITEMS, i, &value)) || (NULL == (array_ptr[i] = strndup(value, MAX_OBJECT_NAME_LENGTH))))
+                *components = array_ptr;
+                memset(array_ptr, 0, (size_t)length * sizeof(char *));
+                for (i = 0; i < length; i++)
                 {
-                    for (int j = 0; j < i; j++)
-                        free(array_ptr[j]);
-                    free(array_ptr);
-                    RBUSCORELOG_DEBUG("Read/Memory allocation failure");
-                    ret = RBUSCORE_ERROR_GENERAL;
-                    break;
+                    if ((RT_OK != rtMessage_GetStringItem(msg, RTM_DISCOVERY_ITEMS, i, &value)) || (NULL == (array_ptr[i] = strndup(value, MAX_OBJECT_NAME_LENGTH))))
+                    {
+                        for (int j = 0; j < i; j++)
+                            free(array_ptr[j]);
+                        free(array_ptr);
+                        *components = NULL;
+                        RBUSCORELOG_DEBUG("Read/Memory allocation failure");
+                        ret = RBUSCORE_ERROR_GENERAL;
+                        break;
+                    }
                 }
+            }
+            else
+            {
+                RBUSCORELOG_DEBUG("Memory allocation failure");
+                ret = RBUSCORE_ERROR_INSUFFICIENT_MEMORY;
             }
         }
         else
         {
-            RBUSCORELOG_DEBUG("Memory allocation failure");
-            ret = RBUSCORE_ERROR_INSUFFICIENT_MEMORY;
+            *count = 0;
+            *components = NULL;
         }
         rtMessage_Release(msg);
     }
@@ -2799,19 +2850,28 @@ static rtError _onDirectMessage(uint8_t isClientRequest, rtMessageHeader* hdr, u
         /* Fetch the context that was sent with the message */
          _rbusMessage_GetMetaInfo(msg, &method_name, &traceParent, &traceState);
 
-        rbusMessage response;
-        directServerLock();
-        pSubObj = rtVector_Find(gListOfServerDirectDMLs, hdr->topic, _findPrivateServerDML);
-        directServerUnlock();
-        if(pSubObj)
+        rbusMessage response = NULL;
+        if(NULL == method_name || '\0' == method_name[0])
         {
-            pSubObj->m_fnCallbackHandler(hdr->topic, method_name, msg, pSubObj->m_fnCallbackuserData, &response, hdr);
+            RBUSCORELOG_DEBUG("Dropping malformed DML request without a method name");
+            rbusMessage_Init(&response);
+            rbusMessage_SetInt32(response, RBUSCORE_ERROR_UNSUPPORTED_METHOD);
         }
         else
         {
-            rbusMessage_Init(&response);
-            rbusMessage_SetInt32(response, RBUSCORE_ERROR_UNSUPPORTED_METHOD);
-            RBUSCORELOG_DEBUG("Could not find the DML in Private Connection List..");
+            directServerLock();
+            pSubObj = rtVector_Find(gListOfServerDirectDMLs, hdr->topic, _findPrivateServerDML);
+            directServerUnlock();
+            if(pSubObj)
+            {
+                pSubObj->m_fnCallbackHandler(hdr->topic, method_name, msg, pSubObj->m_fnCallbackuserData, &response, hdr);
+            }
+            else
+            {
+                rbusMessage_Init(&response);
+                rbusMessage_SetInt32(response, RBUSCORE_ERROR_UNSUPPORTED_METHOD);
+                RBUSCORELOG_DEBUG("Could not find the DML in Private Connection List..");
+            }
         }
         _rbusMessage_SetMetaInfo(response, METHOD_RESPONSE, NULL, NULL);
         uint8_t* pData = NULL;

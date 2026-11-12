@@ -129,10 +129,32 @@ rtError rtBase64_encode(const void * in, const unsigned int in_size, unsigned ch
 
 rtError rtBase64_decode(const unsigned char * in, const unsigned int in_size,  void ** out, unsigned int *out_size)
 {
+    if (out == NULL || out_size == NULL)
+    {
+        rtLog_Error("Null output pointer passed to rtBase64_decode.");
+        return RT_ERROR;
+    }
+    if (in == NULL)
+    {
+        if (in_size == 0)
+        {
+            *out = NULL;
+            *out_size = 0;
+            return RT_OK;
+        }
+        rtLog_Error("Null base64 input buffer passed to rtBase64_decode.");
+        return RT_ERROR;
+    }
     if(RBUS_BASE64_DATA_SIZE_LIMIT < in_size)
     {
         rtLog_Error("Cannot decode more than %d bytes. Request for %d bytes is denied.", RBUS_BASE64_DATA_SIZE_LIMIT, in_size);
         return RT_ERROR;
+    }
+    if (in_size == 0)
+    {
+        *out = NULL;
+        *out_size = 0;
+        return RT_OK;
     }
     int num_padding_bytes = 0;
     if(0 != (in_size % 4))

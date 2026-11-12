@@ -243,8 +243,8 @@ char* rbusValue_ToString(rbusValue_t v, char* buf, size_t buflen)
                 n = v->d.bytes->posWrite;
             break;
         case RBUS_BYTES:
-            if(n > v->d.bytes->posWrite + 1)
-                n = v->d.bytes->posWrite + 1;
+            if(n > (2 * v->d.bytes->posWrite) + 1)
+                n = (2 * v->d.bytes->posWrite) + 1;
             break;
         default:
             break;
@@ -316,10 +316,16 @@ char* rbusValue_ToString(rbusValue_t v, char* buf, size_t buflen)
         break;
     case RBUS_BYTES:
     {
-        int i = 0;
-        for (i = 0; i < v->d.bytes->posWrite; i++)
-            sprintf (&p[i * 2], "%02X", v->d.bytes->data[i]);
-        p[2 * v->d.bytes->posWrite] = 0;
+        size_t i = 0;
+        size_t outLen = 0;
+        size_t maxLen = (n > 0) ? (size_t)n - 1 : 0;
+
+        for (i = 0; i < (size_t)v->d.bytes->posWrite && (outLen + 2 <= maxLen); i++)
+        {
+            snprintf(&p[outLen], maxLen - outLen + 1, "%02X", v->d.bytes->data[i]);
+            outLen += 2;
+        }
+        p[outLen] = '\0';
         break;
     }
     case RBUS_BOOLEAN:

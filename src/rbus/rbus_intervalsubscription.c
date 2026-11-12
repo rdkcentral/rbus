@@ -41,6 +41,7 @@
   } \
 }
 #define VERIFY_NULL(T)      if(NULL == T){ return; }
+#define RBUS_INTERVAL_SUBSCRIPTION_MAX 256
 
 rtVector gRecord = NULL;
 static pthread_mutex_t gMutex = PTHREAD_MUTEX_INITIALIZER;
@@ -243,10 +244,23 @@ rbusError_t rbusInterval_AddSubscriptionRecord(
         rtVector_Create(&gRecord);
 
     sub_rec = sub_find(sub);
-    ERROR_CHECK(pthread_mutex_unlock(&gMutex));
     if(!sub_rec)
     {
+        if(rtVector_Size(gRecord) >= RBUS_INTERVAL_SUBSCRIPTION_MAX)
+        {
+            ERROR_CHECK(pthread_mutex_unlock(&gMutex));
+            RBUSLOG_ERROR("interval subscription limit reached: max=%d", RBUS_INTERVAL_SUBSCRIPTION_MAX);
+            return RBUS_ERROR_OUT_OF_RESOURCES;
+        }
+
         sub_rec = (sRecord*)rt_malloc(sizeof(sRecord));
+        if(!sub_rec)
+        {
+            ERROR_CHECK(pthread_mutex_unlock(&gMutex));
+            RBUSLOG_ERROR("failed to allocate interval subscription record");
+            return RBUS_ERROR_OUT_OF_RESOURCES;
+        }
+
         sub_rec->handle = handle;
         sub_rec->node = propNode;
         sub_rec->sub = sub;
@@ -255,10 +269,20 @@ rbusError_t rbusInterval_AddSubscriptionRecord(
 
         /* Thread create */
         sub_rec->running = 1;
-        pthread_create(&sub_rec->thread, NULL, PublishingThreadFunc, (void *)sub_rec);
+        if(pthread_create(&sub_rec->thread, NULL, PublishingThreadFunc, (void *)sub_rec) != 0)
+        {
+            ERROR_CHECK(pthread_mutex_unlock(&gMutex));
+            RBUSLOG_ERROR("pthread_create failed for interval subscription");
+            ERROR_CHECK(pthread_mutex_destroy(&sub_rec->mutex));
+            ERROR_CHECK(pthread_cond_destroy(&sub_rec->cond));
+            rbusProperty_Release(sub_rec->property);
+            free(sub_rec);
+            return RBUS_ERROR_OUT_OF_RESOURCES;
+        }
 
         rtVector_PushBack(gRecord, sub_rec);
     }
+    ERROR_CHECK(pthread_mutex_unlock(&gMutex));
     return RBUS_ERROR_SUCCESS; 
 }
 

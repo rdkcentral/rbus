@@ -79,6 +79,8 @@ static void freeElementRecurse(elementNode* node)
     VERIFY_NULL(node);
     elementNode* child = node->child;
 
+    ELM_PRIVATE_LOCK(node);
+
     while(child)
     {
         elementNode* tmp = child;
@@ -107,6 +109,7 @@ static void freeElementRecurse(elementNode* node)
         free(node->changeComp);
     }
 
+    ELM_PRIVATE_UNLOCK(node);
     free(node);
 
 }
@@ -116,6 +119,8 @@ void freeElementNode(elementNode* node)
     VERIFY_NULL(node);
     elementNode* parent = node->parent;
     elementNode* child = node->child;
+
+    ELM_PRIVATE_LOCK(node);
 
     while(child)
     {
@@ -165,6 +170,8 @@ void freeElementNode(elementNode* node)
     {
         free(node->changeComp);
     }
+
+    ELM_PRIVATE_UNLOCK(node);
     free(node);
 
     /*remove objects with no children
@@ -456,18 +463,17 @@ elementNode* retrieveElement(elementNode* root, const char* elmentName)
         }
     }
 
+    elementNode* retNode = NULL;
+    if(tokenFound)
+    {
+        retNode = currentNode;
+        RBUSLOG_DEBUG("Found Element with param name [%s]", currentNode->name);
+    }
+
     free(name);
     UNLOCK();
 
-    if(tokenFound)
-    {
-        RBUSLOG_DEBUG("Found Element with param name [%s]", currentNode->name);
-        return currentNode;
-    }
-    else
-    {
-        return NULL;
-    }
+    return retNode;
 }
 
 elementNode* retrieveInstanceElement(elementNode* root, const char* elmentName)
@@ -582,18 +588,17 @@ elementNode* retrieveInstanceElementEx(rbusHandle_t handle, elementNode* root, c
         }        
     }
 
+    elementNode* retNode = NULL;
+    if(tokenFound)
+    {
+        retNode = currentNode;
+        RBUSLOG_DEBUG("Found Element with param name [%s]", currentNode->name);
+    }
+
     free(name);
     UNLOCK();
 
-    if(tokenFound)
-    {
-        RBUSLOG_DEBUG("Found Element with param name [%s]", currentNode->name);
-        return currentNode;
-    }
-    else
-    {
-        return NULL;
-    }
+    return retNode;
 }
 
 static void removeElementInternal(elementNode* rowNode, elementNode** chain, int numChain)
@@ -1198,3 +1203,4 @@ void rbusElement_mutex_destroy(void)
       mutex_init = 0;
     }
 }
+
