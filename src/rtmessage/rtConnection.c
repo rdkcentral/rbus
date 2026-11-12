@@ -1157,11 +1157,9 @@ dequeue_and_continue:
     if(!request_lock_held)
     {
       pthread_mutex_lock(&con->mutex);
-      request_lock_held = true;
     }
     rtList_RemoveItem(con->pending_requests_list, listItem, NULL);
     pthread_mutex_unlock(&con->mutex);
-    request_lock_held = false;
     rtSemaphore_Destroy(queue_entry.sem);
 
     if(ret == RT_NO_CONNECTION)
