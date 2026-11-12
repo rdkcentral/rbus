@@ -1327,23 +1327,34 @@ static void
 rtRouted_OnMessageKeyExchange(rtConnectedClient* sender, rtMessageHeader* hdr, uint8_t const* buff, int n)
 {
   rtError err;
-  rtMessage msg;
+  rtMessage msg = NULL;
   const char * type = NULL;
   rtMessage response = NULL;
 
   (void)hdr;
 
-  rtMessage_FromBytes(&msg, buff, n);
+  if (RT_OK != rtMessage_FromBytes(&msg, buff, n))
+  {
+    rtLog_Warn("Bad key exchange message from %s", sender ? sender->ident : "unknown");
+    return;
+  }
+
   err = rtMessage_GetString(msg, "type", &type);
   if (err != RT_OK || !type)
+  {
+    rtMessage_Release(msg);
     return;
+  }
 
   if (strcmp(type, "spake2plus") == 0)
   {
     if (!sender->cipher)
     {
       if(rtRouted_CreateSpake2CipherInstance(&sender->cipher) != RT_OK)
+      {
+        rtMessage_Release(msg);
         return;/*TODO: send error message back to client*/
+      }
     }
 
     if(RT_OK == rtCipher_RunKeyExchangeServer(sender->cipher, msg, &response, &sender->encryption_key))
@@ -1355,6 +1366,7 @@ rtRouted_OnMessageKeyExchange(rtConnectedClient* sender, rtMessageHeader* hdr, u
         prep_reply_header_from_request(&new_header, hdr);
         if(rtRouted_SendMessage(&new_header, response, NULL) != RT_OK)
           rtLog_Error("key exchange response couldn't be sent.");
+        rtMessage_Release(response);
       }
 
       if(sender->encryption_key)
@@ -1368,6 +1380,8 @@ rtRouted_OnMessageKeyExchange(rtConnectedClient* sender, rtMessageHeader* hdr, u
       }
     }
   }
+
+  rtMessage_Release(msg);
 }
 #endif
 
