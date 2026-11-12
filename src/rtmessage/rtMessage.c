@@ -106,7 +106,7 @@ rtMessage_Clone(rtMessage const message, rtMessage* copy)
 rtError
 rtMessage_FromBytes(rtMessage* message, uint8_t const* bytes, int n)
 {
-  (void) n;
+  char* json_buf = NULL;
 
   #if 0
   printf("------------------------------------------\n")
@@ -121,10 +121,33 @@ rtMessage_FromBytes(rtMessage* message, uint8_t const* bytes, int n)
   printf("\n\n");
   #endif
 
+  if (!message)
+    return RT_ERROR_INVALID_ARG;
+
+  if (!bytes || n <= 0)
+  {
+    *message = NULL;
+    return RT_ERROR_INVALID_ARG;
+  }
+
   *message = (rtMessage) rt_try_malloc(sizeof(struct _rtMessage));
   if(!*message)
     return rtErrorFromErrno(ENOMEM);
-  (*message)->json = cJSON_Parse((char *) bytes);
+
+  json_buf = (char *) rt_try_malloc((size_t)n + 1U);
+  if (!json_buf)
+  {
+    free(*message);
+    *message = NULL;
+    return rtErrorFromErrno(ENOMEM);
+  }
+
+  memcpy(json_buf, bytes, (size_t)n);
+  json_buf[n] = '\0';
+
+  (*message)->json = cJSON_Parse(json_buf);
+  free(json_buf);
+
   if (!(*message)->json)
   {
     free(*message);
