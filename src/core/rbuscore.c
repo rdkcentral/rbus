@@ -2599,21 +2599,6 @@ static void _freePrivateServer(void* p)
 
 #define RBUS_DIRECT_FILE_CACHE "/tmp/.rbus_%s_direct.cache"
 #define RBUS_DIRECT_ROW_CACHE_LENGTH 512
-static bool _rbuscore_directconnection_cache_is_safe(const char* cacheFileName)
-{
-    struct stat statInfo;
-
-    if(!cacheFileName || !cacheFileName[0])
-        return false;
-
-    if(lstat(cacheFileName, &statInfo) == 0 && S_ISLNK(statInfo.st_mode))
-    {
-        RBUSCORELOG_ERROR("refusing to use symlinked direct cache %s", cacheFileName);
-        return false;
-    }
-
-    return true;
-}
 
 static void _rbuscore_directconnection_save_to_cache()
 {
@@ -2622,16 +2607,6 @@ static void _rbuscore_directconnection_save_to_cache()
     char cacheFileName[256] = "";
     snprintf(cacheFileName, 256, RBUS_DIRECT_FILE_CACHE, __progname);
     
-    if(!_rbuscore_directconnection_cache_is_safe(cacheFileName))
-    {
-        RBUSCORELOG_DEBUG("refusing to write unsafe direct cache %s", cacheFileName);
-        if(remove(cacheFileName) != 0)
-        {
-            RBUSCORELOG_DEBUG("failed to remove unsafe cache %s", cacheFileName);
-        }
-        return;
-    }
-
     sz = rtVector_Size(gListOfServerDirectDMLs);
     if(0 == sz)
     {
@@ -2686,12 +2661,6 @@ static void _rbuscore_directconnection_load_from_cache()
 
     RBUSCORELOG_DEBUG("Entry of %s", __FUNCTION__);
 
-    if(!_rbuscore_directconnection_cache_is_safe(cacheFileName))
-    {
-        RBUSCORELOG_DEBUG("unsafe cache path %s", cacheFileName);
-        goto invalidFile;
-    }
-
     file = fopen(cacheFileName, "rb");
     if(!file)
     {
@@ -2727,22 +2696,11 @@ static void _rbuscore_directconnection_load_from_cache()
             goto invalidFile;
         }
 
+        //
         rbusMessage msg = NULL;
         rbusMessage_FromBytes(&msg, pBuff, size);
         int numOfEntries = 0;
-        if(msg == NULL)
-        {
-            RBUSCORELOG_DEBUG("invalid message in cache %s", cacheFileName);
-            goto invalidFile;
-        }
-
-        rtError err = rbusMessage_GetInt32(msg, &numOfEntries);
-        if((RT_OK != err) || (numOfEntries < 0) || (numOfEntries > RBUS_DIRECT_ROW_CACHE_LENGTH))
-        {
-            RBUSCORELOG_DEBUG("invalid direct cache entry count %d in %s", numOfEntries, cacheFileName);
-            rbusMessage_Release(msg);
-            goto invalidFile;
-        }
+        rbusMessage_GetInt32(msg, &numOfEntries);
         RBUSCORELOG_DEBUG("Number of Entries...%d", numOfEntries);
 
         for (int i = 0; i < numOfEntries; i++)
@@ -2750,34 +2708,10 @@ static void _rbuscore_directconnection_load_from_cache()
             rbusMessage tmpMsg = NULL;
             const char* pDMLName = NULL;
             const char* pConsumerName = NULL;
-            err = rbusMessage_GetMessage(msg, &tmpMsg);
-            if((RT_OK != err) || (tmpMsg == NULL))
-            {
-                RBUSCORELOG_DEBUG("invalid direct cache entry %d in %s", i, cacheFileName);
-                rbusMessage_Release(msg);
-                goto invalidFile;
-            }
-
-            err = rbusMessage_GetString(tmpMsg, &pDMLName);
-            if((RT_OK != err) || (pDMLName == NULL))
-            {
-                RBUSCORELOG_DEBUG("invalid direct cache DML entry %d in %s", i, cacheFileName);
-                rbusMessage_Release(tmpMsg);
-                rbusMessage_Release(msg);
-                goto invalidFile;
-            }
-
-            err = rbusMessage_GetString(tmpMsg, &pConsumerName);
-            if((RT_OK != err) || (pConsumerName == NULL))
-            {
-                RBUSCORELOG_DEBUG("invalid direct cache consumer entry %d in %s", i, cacheFileName);
-                rbusMessage_Release(tmpMsg);
-                rbusMessage_Release(msg);
-                goto invalidFile;
-            }
-
+            rbusMessage_GetMessage(msg, &tmpMsg);
+            rbusMessage_GetString(tmpMsg, &pDMLName);
+            rbusMessage_GetString(tmpMsg, &pConsumerName);
             RBUSCORELOG_DEBUG("Direct Connection Existed for DML (%s) for this client(%s)", pDMLName, pConsumerName);
-            rbusMessage_Release(tmpMsg);
 
             //TODO
             /* Add it to vector and when add_element is called, start a listener */
