@@ -1254,8 +1254,7 @@ static rbusCoreError_t rbus_sendMessage(rbusMessage msg, const char * destinatio
 
 static int subscription_handler(const char *not_used, const char * method_name, rbusMessage in, void * user_data, rbusMessage *out, const rtMessageHeader* hdr)
 {
-    (void) hdr;
-    /*using namespace rbus_server;*/
+    const char * request_sender = NULL;
     const char * sender = NULL;
     const char * event_name = NULL;
     int has_payload = 0;
@@ -1265,13 +1264,21 @@ static int subscription_handler(const char *not_used, const char * method_name, 
 
     rbusMessage_Init(out);
 
+    if (hdr && hdr->reply_topic[0] != '\0')
+        sender = hdr->reply_topic;
+
     if((RT_OK == rbusMessage_GetString(in, &event_name)) &&
-        (RT_OK == rbusMessage_GetString(in, &sender)))
+        (RT_OK == rbusMessage_GetString(in, &request_sender)))
     {
         /*Extract arguments*/
         if((NULL == sender) || (NULL == event_name))
         {
             RBUSCORELOG_DEBUG("Malformed subscription request. Sender: %s. Event: %s.", sender, event_name);
+            rbusMessage_SetInt32(*out, RBUSCORE_ERROR_INVALID_PARAM);
+        }
+        else if (request_sender && strcmp(request_sender, sender) != 0)
+        {
+            RBUSCORELOG_DEBUG("Rejecting subscription request with mismatched sender identity. Header sender: %s. Request sender: %s.", sender, request_sender);
             rbusMessage_SetInt32(*out, RBUSCORE_ERROR_INVALID_PARAM);
         }
         else
@@ -1285,6 +1292,11 @@ static int subscription_handler(const char *not_used, const char * method_name, 
                 rbusMessage_Release(payload);
             rbusMessage_SetInt32(*out, ret);
         }
+    }
+    else
+    {
+        RBUSCORELOG_DEBUG("Malformed subscription request. Missing event or sender metadata.");
+        rbusMessage_SetInt32(*out, RBUSCORE_ERROR_INVALID_PARAM);
     }
 
     return 0;
