@@ -483,6 +483,14 @@ static void dispatch_method_call(rbusMessage msg, const rtMessageHeader *hdr, se
 
     /* Fetch the context that was sent with the message */
     _rbusMessage_GetMetaInfo(msg, &method_name, &traceParent, &traceState);
+    if((NULL == method_name) || ('\0' == method_name[0]))
+    {
+        RBUSCORELOG_DEBUG("Rejecting method call with missing method name");
+        rbusMessage_Init(&response);
+        rbusMessage_SetInt32(response, RBUSCORE_ERROR_INVALID_PARAM);
+        rbus_sendResponse(hdr, response);
+        return;
+    }
     rbus_setOpenTelemetryContext(traceParent, traceState);
 
     lock();
@@ -502,6 +510,12 @@ static void dispatch_method_call(rbusMessage msg, const rtMessageHeader *hdr, se
         unlock();
         if(obj->callback(hdr->topic, method_name, msg, obj->data, &response, hdr) == RBUSCORE_SUCCESS_ASYNC) //FIXME: potential for race
             return;/*provider will send response async later on*/
+    }
+    if(NULL == response)
+    {
+        RBUSCORELOG_DEBUG("No response generated for method %s on object %s; sending unsupported method error.", method_name, obj->name);
+        rbusMessage_Init(&response);
+        rbusMessage_SetInt32(response, RBUSCORE_ERROR_UNSUPPORTED_METHOD);
     }
     /* Clear the context for next method */
     rbus_clearOpenTelemetryContext();
@@ -1254,10 +1268,9 @@ static rbusCoreError_t rbus_sendMessage(rbusMessage msg, const char * destinatio
 
 static int subscription_handler(const char *not_used, const char * method_name, rbusMessage in, void * user_data, rbusMessage *out, const rtMessageHeader* hdr)
 {
-    (void) hdr;
-    /*using namespace rbus_server;*/
     const char * sender = NULL;
     const char * event_name = NULL;
+    const char * message_sender = NULL;
     int has_payload = 0;
     rbusMessage payload = NULL;
     server_object_t obj = (server_object_t)user_data;
@@ -1265,13 +1278,22 @@ static int subscription_handler(const char *not_used, const char * method_name, 
 
     rbusMessage_Init(out);
 
+    if(!hdr)
+    {
+        RBUSCORELOG_DEBUG("Malformed subscription request: missing message header.");
+        rbusMessage_SetInt32(*out, RBUSCORE_ERROR_INVALID_PARAM);
+        return 0;
+    }
+
+    sender = rtConnection_GetReturnAddress(g_connection);
+
     if((RT_OK == rbusMessage_GetString(in, &event_name)) &&
-        (RT_OK == rbusMessage_GetString(in, &sender)))
+        (RT_OK == rbusMessage_GetString(in, &message_sender)))
     {
         /*Extract arguments*/
-        if((NULL == sender) || (NULL == event_name))
+        if((NULL == sender) || (NULL == event_name) || (NULL == message_sender))
         {
-            RBUSCORELOG_DEBUG("Malformed subscription request. Sender: %s. Event: %s.", sender, event_name);
+            RBUSCORELOG_DEBUG("Malformed subscription request. Sender: %s. Event: %s. Message sender: %s.", sender, event_name, message_sender);
             rbusMessage_SetInt32(*out, RBUSCORE_ERROR_INVALID_PARAM);
         }
         else
@@ -1280,11 +1302,16 @@ static int subscription_handler(const char *not_used, const char * method_name, 
             if(has_payload)
                 rbusMessage_GetMessage(in, &payload);
             int added = strncmp(method_name, METHOD_SUBSCRIBE, MAX_METHOD_NAME_LENGTH) == 0 ? 1 : 0;
-            rbusCoreError_t ret = server_object_subscription_handler(obj, event_name, sender, added, payload);
+            rbusCoreError_t ret = server_object_subscription_handler(obj, event_name, message_sender, added, payload);
             if(payload)
                 rbusMessage_Release(payload);
             rbusMessage_SetInt32(*out, ret);
         }
+    }
+    else
+    {
+        RBUSCORELOG_DEBUG("Malformed subscription request: missing event or sender payload.");
+        rbusMessage_SetInt32(*out, RBUSCORE_ERROR_INVALID_PARAM);
     }
 
     return 0;
@@ -1931,9 +1958,12 @@ rbusCoreError_t rbus_discoverWildcardDestinations(const char * expression, int *
             rtMessage_GetInt32(msg, RTM_DISCOVERY_COUNT, &size);
             rtMessage_GetArrayLength(msg, RTM_DISCOVERY_ITEMS, &length);
 
-            if(size != length)
+            if((size < 0) || (length < 0) || (size != length))
             {
-                RBUSCORELOG_DEBUG("rbus_resolveWildcardDestination size missmatch");
+                RBUSCORELOG_DEBUG("rbus_resolveWildcardDestination invalid discovery response: count=%d length=%d", size, length);
+                ret = RBUSCORE_ERROR_MALFORMED_RESPONSE;
+                rtMessage_Release(msg);
+                goto exit;
             }
 
             if(size && length)
@@ -1962,6 +1992,11 @@ rbusCoreError_t rbus_discoverWildcardDestinations(const char * expression, int *
                     RBUSCORELOG_DEBUG("Memory allocation failure");
                     ret = RBUSCORE_ERROR_INSUFFICIENT_MEMORY;
                 }
+            }
+            else
+            {
+                *count = 0;
+                *destinations = NULL;
             }
 
             rtMessage_Release(msg);
@@ -2026,9 +2061,12 @@ rbusCoreError_t rbus_discoverObjectElements(const char * object, int * count, ch
         rtMessage_GetInt32(msg, RTM_DISCOVERY_COUNT, &size);
         rtMessage_GetArrayLength(msg, RTM_DISCOVERY_ITEMS, &length);
 
-        if(size != length)
+        if((size < 0) || (length < 0) || (size != length))
         {
-            RBUSCORELOG_DEBUG("rbus_GetElementsAddedByObject size missmatch");
+            RBUSCORELOG_DEBUG("rbus_GetElementsAddedByObject invalid discovery response: count=%d length=%d", size, length);
+            ret = RBUSCORE_ERROR_MALFORMED_RESPONSE;
+            rtMessage_Release(msg);
+            goto exit;
         }
 
         *count = size;
@@ -2059,6 +2097,11 @@ rbusCoreError_t rbus_discoverObjectElements(const char * object, int * count, ch
                 RBUSCORELOG_DEBUG("Memory allocation failure");
                 ret = RBUSCORE_ERROR_INSUFFICIENT_MEMORY;
             }
+        }
+        else
+        {
+            *count = 0;
+            *elements = NULL;
         }
         rtMessage_Release(msg);
     }
@@ -2324,9 +2367,12 @@ rbusCoreError_t rbus_discoverRegisteredComponents(int * count, char *** componen
         rtMessage_GetInt32(msg, RTM_DISCOVERY_COUNT, &size);
         rtMessage_GetArrayLength(msg, RTM_DISCOVERY_ITEMS, &length);
 
-        if(size != length)
+        if((size < 0) || (length < 0) || (size != length))
         {
-            RBUSCORELOG_DEBUG("rbus_registeredComponents size missmatch");
+            RBUSCORELOG_DEBUG("rbus_registeredComponents invalid discovery response: count=%d length=%d", size, length);
+            ret = RBUSCORE_ERROR_MALFORMED_RESPONSE;
+            rtMessage_Release(msg);
+            goto exit;
         }
 
         char **array_ptr = (char **)rt_try_malloc(size * sizeof(char *));
@@ -2548,13 +2594,14 @@ static void _freePrivateServer(void* p)
 
 #define RBUS_DIRECT_FILE_CACHE "/tmp/.rbus_%s_direct.cache"
 #define RBUS_DIRECT_ROW_CACHE_LENGTH 512
+
 static void _rbuscore_directconnection_save_to_cache()
 {
     FILE* file;
     size_t sz = 0, i = 0;
     char cacheFileName[256] = "";
     snprintf(cacheFileName, 256, RBUS_DIRECT_FILE_CACHE, __progname);
-
+    
     sz = rtVector_Size(gListOfServerDirectDMLs);
     if(0 == sz)
     {

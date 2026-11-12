@@ -230,22 +230,39 @@ char* rbusValue_ToString(rbusValue_t v, char* buf, size_t buflen)
         return NULL;
     if(v->type == RBUS_NONE)
         return NULL;
+    if ((v->type == RBUS_STRING || v->type == RBUS_BYTES) && !v->d.bytes)
+        return NULL;
 
     if (buf)
     {
-      p = buf;
-      n = (int)buflen;
+        if (buflen == 0)
+            return NULL;
 
+        p = buf;
+        n = (int)buflen;
         switch(v->type)
         {
         case RBUS_STRING:
-            if(n > v->d.bytes->posWrite)
-                n = v->d.bytes->posWrite;
-            break;
+            rtString_Copy(p, (char const* ) v->d.bytes->data, n);
+            return p;
         case RBUS_BYTES:
-            if(n > v->d.bytes->posWrite + 1)
-                n = v->d.bytes->posWrite + 1;
-            break;
+        {
+            size_t i = 0;
+            size_t written = 0;
+            if (!v->d.bytes)
+                return NULL;
+            
+	    while (i < (size_t)v->d.bytes->posWrite && written + 2 < (size_t)n)
+            {
+                int chars = snprintf(&p[written], n - written, "%02X", v->d.bytes->data[i]);
+                if (chars < 0)
+                    break;
+                written += (size_t)chars;
+                i++;
+            }
+            p[written] = 0;
+            return p;
+        }
         default:
             break;
         }
@@ -316,10 +333,17 @@ char* rbusValue_ToString(rbusValue_t v, char* buf, size_t buflen)
         break;
     case RBUS_BYTES:
     {
-        int i = 0;
-        for (i = 0; i < v->d.bytes->posWrite; i++)
-            sprintf (&p[i * 2], "%02X", v->d.bytes->data[i]);
-        p[2 * v->d.bytes->posWrite] = 0;
+        size_t i = 0;
+        size_t written = 0;
+        while (i < (size_t)v->d.bytes->posWrite && written + 2 < (size_t)n)
+        {
+            int chars = snprintf(&p[written], n - written, "%02X", v->d.bytes->data[i]);
+            if (chars < 0)
+                break;
+            written += (size_t)chars;
+            i++;
+        }
+        p[written] = 0;
         break;
     }
     case RBUS_BOOLEAN:
@@ -728,13 +752,18 @@ int rbusValue_Decode(rbusValue_t* value, rbusBuffer_t const buff)
     {
     /*Calling rbusValue_SetString/rbusValue_SetBytes so the value's internal buffer is created.*/
     case RBUS_STRING:
-        if(!(buff->posRead + length <= buff->lenAlloc))
+        if((length == 0) || !(buff->posRead + length <= buff->lenAlloc))
         {
-            RBUSLOG_WARN("rbusValue_Decode failed");
+            RBUSLOG_WARN("rbusValue_Decode failed: invalid string length");
             rbusValue_Release(*value);
             return -1;
         }
-        assert(strlen((char const*)buff->data + buff->posRead) + 1 == (size_t)length);/*length should captures null term*/
+        if(NULL == memchr(buff->data + buff->posRead, '\0', length))
+        {
+            RBUSLOG_WARN("rbusValue_Decode failed: missing string terminator");
+            rbusValue_Release(*value);
+            return -1;
+        }
         rbusValue_SetString(current, (char const*)buff->data + buff->posRead);
         buff->posRead += length;
         return length;

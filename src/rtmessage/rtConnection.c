@@ -1048,6 +1048,7 @@ rtConnection_SendRequestInternal(rtConnection con, uint8_t const* pReq, uint32_t
     rtError err;
     uint32_t sequence_number;
     rtListItem listItem;
+    bool request_lock_held = true;
 
     pid_t tid = syscall(__NR_gettid);
 
@@ -1071,6 +1072,7 @@ rtConnection_SendRequestInternal(rtConnection con, uint8_t const* pReq, uint32_t
       goto dequeue_and_continue;
     }
     pthread_mutex_unlock(&con->mutex);
+    request_lock_held = false;
 
     if(tid != con->read_tid)
     {
@@ -1127,6 +1129,7 @@ rtConnection_SendRequestInternal(rtConnection con, uint8_t const* pReq, uint32_t
     {
       /*Sem posted*/
       pthread_mutex_lock(&con->mutex);
+      request_lock_held = true;
 
       if(queue_entry.response)
       {
@@ -1151,6 +1154,10 @@ rtConnection_SendRequestInternal(rtConnection con, uint8_t const* pReq, uint32_t
     }
 
 dequeue_and_continue:
+    if(!request_lock_held)
+    {
+      pthread_mutex_lock(&con->mutex);
+    }
     rtList_RemoveItem(con->pending_requests_list, listItem, NULL);
     pthread_mutex_unlock(&con->mutex);
     rtSemaphore_Destroy(queue_entry.sem);

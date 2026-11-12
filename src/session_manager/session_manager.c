@@ -60,8 +60,8 @@ static rbusError_t sessionManager_methodHandler(rbusHandle_t handle,
     {
         if (0 == g_current_session_id)
         {
-            g_current_session_id = 1;
             ++g_counter;
+            g_current_session_id = g_counter;
             printf("Creating new session %d\n", g_current_session_id);
             rbusValue_t return_value, sessionid_value;
             rbusValue_Init(&return_value);
@@ -110,26 +110,39 @@ static rbusError_t sessionManager_methodHandler(rbusHandle_t handle,
     else if (strcmp(methodName, RBUS_SMGR_METHOD_END_SESSION) == 0)
     {
         rbusProperty_t prop = NULL;
+        rbusValue_t value = NULL;
         int sessionid = 0;
         int result = 0;
         prop = rbusObject_GetProperties(inParams);
-        if ((prop) && (sessionid = rbusValue_GetInt32(rbusProperty_GetValue(prop))))
+        if (prop)
+            value = rbusProperty_GetValue(prop);
+
+        if (prop && value && rbusValue_GetType(value) == RBUS_INT32)
         {
-            if(sessionid == g_current_session_id)
+            sessionid = rbusValue_GetInt32(value);
+            if (sessionid > 0)
             {
-                printf("End of session %d\n", g_current_session_id);
-                g_current_session_id = 0;
-                result = RBUS_ERROR_SUCCESS;
+                if(sessionid == g_current_session_id)
+                {
+                    printf("End of session %d\n", g_current_session_id);
+                    g_current_session_id = 0;
+                    result = RBUS_ERROR_SUCCESS;
+                }
+                else
+                {
+                    printf("Cannot end session %d. It doesn't match active session, which is %d.\n", sessionid, g_current_session_id);
+                    result = RBUS_ERROR_SESSION_ALREADY_EXIST;
+                }
             }
             else
             {
-                printf("Cannot end session %d. It doesn't match active session, which is %d.\n", sessionid, g_current_session_id);
-                result = RBUS_ERROR_SESSION_ALREADY_EXIST;
+                printf("Session id not found or invalid. Cannot process end of session.\n");
+                result = RBUS_ERROR_INVALID_INPUT;
             }
         }
         else
         {
-            printf("Session id not found. Cannot process end of session.\n");
+            printf("Session id not found or invalid. Cannot process end of session.\n");
             result = RBUS_ERROR_INVALID_INPUT;
         }
 

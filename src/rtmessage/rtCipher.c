@@ -227,16 +227,21 @@ rtCipher_Encrypt(rtCipher* cipher, uint8_t const* data, uint32_t data_length, ui
 rtError
 rtCipher_EncryptWithKey(uint8_t* key, uint8_t const* data, uint32_t data_length, uint8_t* encrypted, uint32_t encrypted_max_length, uint32_t* encrypted_length)
 {
-  if(!key)
+  size_t out_len;
+
+  if(!key || !data || !encrypted || !encrypted_length)
     return RT_FAIL;
 
-  *encrypted_length = (uint32_t)aes_encrypt(data, (size_t)data_length, encrypted, (size_t)encrypted_max_length, key);
+  out_len = aes_encrypt(data, (size_t)data_length, encrypted, (size_t)encrypted_max_length, key);
+  if((size_t)-1 == out_len || out_len > (size_t)encrypted_max_length)
+  {
+    rtLog_Error("rtCipher_EncryptWithKey: AES encrypt failed or produced oversized output (%zu > %u).", out_len, encrypted_max_length);
+    *encrypted_length = 0;
+    return RT_FAIL;
+  }
 
-  //assert(*encrypted_length == data_length);
-  //if(*encrypted_length == data_length)
-    return RT_OK;
-  //else
-    //return RT_FAIL;
+  *encrypted_length = (uint32_t)out_len;
+  return RT_OK;
 }
 
 rtError
@@ -250,16 +255,21 @@ rtCipher_Decrypt(rtCipher* cipher, uint8_t const* encrypted, uint32_t encrypted_
 rtError
 rtCipher_DecryptWithKey(uint8_t* key, uint8_t const* encrypted, uint32_t encrypted_length, uint8_t* decrypted, uint32_t decrypted_max_length, uint32_t* decrypted_length)
 {
-  if(!key)
+  size_t out_len;
+
+  if(!key || !encrypted || !decrypted || !decrypted_length)
     return RT_FAIL;
 
-  *decrypted_length = (uint32_t)aes_decrypt(encrypted, (size_t)encrypted_length, decrypted, (size_t)decrypted_max_length, key);
+  out_len = aes_decrypt(encrypted, (size_t)encrypted_length, decrypted, (size_t)decrypted_max_length, key);
+  if((size_t)-1 == out_len || out_len > (size_t)decrypted_max_length)
+  {
+    rtLog_Error("rtCipher_DecryptWithKey: AES decrypt failed or produced oversized output (%zu > %u).", out_len, decrypted_max_length);
+    *decrypted_length = 0;
+    return RT_FAIL;
+  }
 
-  //assert(*data_length == encrypted_length);
-  //if(*data_length == encrypted_length)
-    return RT_OK;
-  //else
-   // return RT_FAIL;
+  *decrypted_length = (uint32_t)out_len;
+  return RT_OK;
 }
 
 /*

@@ -47,6 +47,7 @@ typedef struct TokenChain
 {
     Token* first;       /* first token in chain */
     Token* last;        /* last token in chain -- if you want to go backwards through list */
+    char* sourceName;   /* ownership of the copied event-name buffer used to slice token pointers */
 } TokenChain;
 
 TokenChain* TokenChain_create(char const* sourceName, elementNode* regNode);

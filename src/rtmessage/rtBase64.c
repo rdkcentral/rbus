@@ -129,6 +129,27 @@ rtError rtBase64_encode(const void * in, const unsigned int in_size, unsigned ch
 
 rtError rtBase64_decode(const unsigned char * in, const unsigned int in_size,  void ** out, unsigned int *out_size)
 {
+    if(!out || !out_size)
+    {
+        rtLog_Error("Invalid output parameters for base64 decode.");
+        return RT_ERROR;
+    }
+
+    *out = NULL;
+    *out_size = 0;
+
+    if(!in)
+    {
+        rtLog_Error("Null base64 input is invalid.");
+        return RT_ERROR;
+    }
+
+    if(0 == in_size)
+    {
+        rtLog_Error("Empty base64 input is invalid.");
+        return RT_ERROR;
+    }
+
     if(RBUS_BASE64_DATA_SIZE_LIMIT < in_size)
     {
         rtLog_Error("Cannot decode more than %d bytes. Request for %d bytes is denied.", RBUS_BASE64_DATA_SIZE_LIMIT, in_size);

@@ -677,6 +677,14 @@ rtRouted_ForwardMessage(rtConnectedClient* sender, rtMessageHeader* hdr, uint8_t
 #endif
 
 #ifdef WITH_SPAKE2
+  if (strcmp(hdr->topic, RTROUTED_KEY_EXCHANGE) != 0 && sender && sender->cipher && sender->encryption_key)
+  {
+    if (!(hdr->flags & rtMessageFlags_Encrypted))
+    {
+      rtLog_Info("rejecting unencrypted message after key exchange on topic %s", hdr->topic);
+      return RT_FAIL;
+    }
+  }
   if(hdr->flags & rtMessageFlags_Encrypted)
   {
     uint32_t decryptedLength;
@@ -1191,11 +1199,16 @@ static void
 rtRouted_OnMessageDiagnostics(rtConnectedClient* sender, rtMessageHeader* hdr, uint8_t const* buff, int n)
 {
   rtMessage msg;
-  const char * cmd;
+  const char * cmd = NULL;
 
   rtMessage_FromBytes(&msg, buff, n);
 
-  rtMessage_GetString(msg, RTROUTER_DIAG_CMD_KEY, &cmd);
+  if (RT_OK != rtMessage_GetString(msg, RTROUTER_DIAG_CMD_KEY, &cmd) || NULL == cmd)
+  {
+    rtLog_Warn("Diagnostics request missing command field.");
+    rtMessage_Release(msg);
+    return;
+  }
 
   if(0 == strncmp(RTROUTER_DIAG_CMD_ENABLE_VERBOSE_LOGS, cmd, sizeof(RTROUTER_DIAG_CMD_ENABLE_VERBOSE_LOGS)))
     rtLog_SetLevel(RT_LOG_DEBUG);
@@ -1322,23 +1335,32 @@ static void
 rtRouted_OnMessageKeyExchange(rtConnectedClient* sender, rtMessageHeader* hdr, uint8_t const* buff, int n)
 {
   rtError err;
-  rtMessage msg;
+  rtMessage msg = NULL;
   const char * type = NULL;
   rtMessage response = NULL;
 
-  (void)hdr;
+  if(!sender || !hdr || !buff || n <= 0)
+    return;
 
-  rtMessage_FromBytes(&msg, buff, n);
+  if(RT_OK != rtMessage_FromBytes(&msg, buff, n))
+    return;
+
   err = rtMessage_GetString(msg, "type", &type);
   if (err != RT_OK || !type)
+  {
+    rtMessage_Release(msg);
     return;
+  }
 
   if (strcmp(type, "spake2plus") == 0)
   {
     if (!sender->cipher)
     {
       if(rtRouted_CreateSpake2CipherInstance(&sender->cipher) != RT_OK)
+      {
+        rtMessage_Release(msg);
         return;/*TODO: send error message back to client*/
+      }
     }
 
     if(RT_OK == rtCipher_RunKeyExchangeServer(sender->cipher, msg, &response, &sender->encryption_key))
@@ -1350,6 +1372,8 @@ rtRouted_OnMessageKeyExchange(rtConnectedClient* sender, rtMessageHeader* hdr, u
         prep_reply_header_from_request(&new_header, hdr);
         if(rtRouted_SendMessage(&new_header, response, NULL) != RT_OK)
           rtLog_Error("key exchange response couldn't be sent.");
+        rtMessage_Release(response);
+        response = NULL;
       }
 
       if(sender->encryption_key)
@@ -1363,6 +1387,8 @@ rtRouted_OnMessageKeyExchange(rtConnectedClient* sender, rtMessageHeader* hdr, u
       }
     }
   }
+
+  rtMessage_Release(msg);
 }
 #endif
 
@@ -1712,12 +1738,18 @@ rtConnectedClient_Read(rtConnectedClient* clnt)
 static void
 rtRouted_PushFd(fd_set* fds, int fd, int* maxFd)
 {
-  if (fd != RTMSG_INVALID_FD)
+  if (fd == RTMSG_INVALID_FD)
+    return;
+
+  if (fd >= FD_SETSIZE)
   {
-    FD_SET(fd, fds);
-    if (maxFd && fd > *maxFd)
-      *maxFd = fd;
+    rtLog_Warn("ignoring fd %d beyond FD_SETSIZE (%d) to avoid fd_set overflow", fd, FD_SETSIZE);
+    return;
   }
+
+  FD_SET(fd, fds);
+  if (maxFd && fd > *maxFd)
+    *maxFd = fd;
 }
 
 static void
@@ -1787,6 +1819,48 @@ void freeRoute(void* p)
   free(route);
 }
 
+static FILE* rtrouted_open_pid_file(const char* path)
+{
+  int fd;
+  struct stat st;
+  int flags = O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC;
+
+#ifdef O_NOFOLLOW
+  flags |= O_NOFOLLOW;
+#endif
+
+  if(lstat(path, &st) == 0)
+  {
+    if(S_ISLNK(st.st_mode) || !S_ISREG(st.st_mode))
+    {
+      rtLog_Warn("refusing to use unsafe pid file path %s", path);
+      return NULL;
+    }
+  }
+
+  fd = open(path, flags, 0600);
+  if(fd < 0)
+  {
+    rtLog_Warn("failed to open pid file %s: %s", path, strerror(errno));
+    return NULL;
+  }
+
+  if(fstat(fd, &st) != 0 || !S_ISREG(st.st_mode))
+  {
+    rtLog_Warn("refusing to use non-regular pid file %s", path);
+    close(fd);
+    return NULL;
+  }
+
+  if(fchmod(fd, 0600) != 0)
+  {
+    rtLog_Warn("failed to secure pid file permissions %s: %s", path, strerror(errno));
+    close(fd);
+    return NULL;
+  }
+
+  return fdopen(fd, "w");
+}
 
 int main(int argc, char* argv[])
 {
@@ -1822,7 +1896,7 @@ int main(int argc, char* argv[])
   rtRoutingTree_Create(&gRoutingTree);
   rtList_Create(&g_discovery_result);
 
-  FILE* pid_file = fopen("/tmp/rtrouted.pid", "w");
+  FILE* pid_file = rtrouted_open_pid_file("/tmp/rtrouted.pid");
   if (!pid_file)
   {
     printf("failed to open pid file. %s\n", strerror(errno));

@@ -71,6 +71,7 @@
 }
 
 #define RBUS_GET_DEFAULT_TIMEOUT_FOR_WILDCARD 120000  /* default timeout in miliseconds for GET API wildcard query*/
+#define RBUS_DECODE_MAX_DEPTH 128
 
 //********************************************************************************//
 
@@ -657,11 +658,26 @@ void rbusPropertyList_initFromMessage(rbusProperty_t* prop, rbusMessage msg)
 {
     rbusProperty_t previous = NULL, first = NULL;
     int numProps = 0;
+    const int max_prop_count = 1024;
+
+    if(prop == NULL)
+    {
+        RBUSLOG_ERROR("rbusPropertyList_initFromMessage: prop is NULL");
+        return;
+    }
     rbusMessage_GetInt32(msg, (int*) &numProps);
+
 #if DEBUG_SERIALIZER
     RBUSLOG_INFO("> prop pop numProps=%d", numProps);
 #endif
-    while(--numProps >= 0)
+    if((numProps < 0) || (numProps > max_prop_count))
+    {
+        RBUSLOG_WARN("rbusPropertyList_initFromMessage: malformed property count %d", numProps);
+        *prop = NULL;
+        return;
+    }
+
+    while(numProps-- > 0)
     {
         rbusProperty_t nextProp;
         rbusProperty_initFromMessage(&nextProp, msg);
@@ -713,13 +729,20 @@ void rbusObject_appendToMessage(rbusObject_t obj, rbusMessage msg)
     }
 }
 
-void rbusObject_initFromMessage(rbusObject_t* obj, rbusMessage msg)
+static void rbusObject_initFromMessageDepth(rbusObject_t* obj, rbusMessage msg, int depth)
 {
     char const* name = NULL;
     int type = 0;
     int numChild = 0;
     rbusProperty_t prop;
     rbusObject_t children=NULL, previous=NULL;
+
+    if(depth > RBUS_DECODE_MAX_DEPTH)
+    {
+        if(obj)
+            *obj = NULL;
+        return;
+    }
 
     rbusMessage_GetString(msg, &name);
     rbusMessage_GetInt32(msg, &type);
@@ -737,7 +760,8 @@ void rbusObject_initFromMessage(rbusObject_t* obj, rbusMessage msg)
     while(--numChild >= 0)
     {
         rbusObject_t next;
-        rbusObject_initFromMessage(&next, msg);/*object child object*/
+        rbusObject_initFromMessageDepth(&next, msg, depth + 1);/*object child object*/
+
         if(children == NULL)
             children = next;
         if(previous != NULL)
@@ -757,6 +781,11 @@ void rbusObject_initFromMessage(rbusObject_t* obj, rbusMessage msg)
     rbusProperty_Release(prop);
     rbusObject_SetChildren(*obj, children);
     rbusObject_Release(children);
+}
+
+void rbusObject_initFromMessage(rbusObject_t* obj, rbusMessage msg)
+{
+    rbusObject_initFromMessageDepth(obj, msg, 0);
 }
 
 void rbusValue_appendToMessage(char const* name, rbusValue_t value, rbusMessage msg)
@@ -856,10 +885,17 @@ void rbusFilter_AppendToMessage(rbusFilter_t filter, rbusMessage msg)
     }
 }
 
-void rbusFilter_InitFromMessage(rbusFilter_t* filter, rbusMessage msg)
+static void rbusFilter_InitFromMessageDepth(rbusFilter_t* filter, rbusMessage msg, int depth)
 {
     int32_t type;
     int32_t op;
+
+    if(depth > RBUS_DECODE_MAX_DEPTH)
+    {
+        if(filter)
+            *filter = NULL;
+        return;
+    }
 
     rbusMessage_GetInt32(msg, &type);
 
@@ -877,14 +913,19 @@ void rbusFilter_InitFromMessage(rbusFilter_t* filter, rbusMessage msg)
     {
         rbusFilter_t left = NULL, right = NULL;
         rbusMessage_GetInt32(msg, &op);
-        rbusFilter_InitFromMessage(&left, msg);
+        rbusFilter_InitFromMessageDepth(&left, msg, depth + 1);
         if(op != RBUS_FILTER_OPERATOR_NOT)
-            rbusFilter_InitFromMessage(&right, msg);
+            rbusFilter_InitFromMessageDepth(&right, msg, depth + 1);
         rbusFilter_InitLogic(filter, op, left, right);
         rbusFilter_Release(left);
         if(right)
             rbusFilter_Release(right);
     }
+}
+
+void rbusFilter_InitFromMessage(rbusFilter_t* filter, rbusMessage msg)
+{
+    rbusFilter_InitFromMessageDepth(filter, msg, 0);
 }
 
 void rbusEventData_updateFromMessage(rbusEvent_t* event, rbusFilter_t* filter,
@@ -1552,7 +1593,7 @@ static void _set_callback_handler (rbusHandle_t handle, rbusMessage request, rbu
             * isCommit used to set only the last parameter in the list in order
             * to turn this into a bulk set operation: FIXME maybe we need a 'bulk' option
             */
-            if (strncasecmp("TRUE", pIsCommit, 4) == 0)
+            if (pIsCommit && strncasecmp("TRUE", pIsCommit, 4) == 0)
                 isCommit = true;
 
             for (loopCnt = 0; loopCnt < numVals; loopCnt++)
@@ -1691,31 +1732,35 @@ exit:
  */
 static char const* _convert_reg_name_to_instance_name(char const* registrationName, char const* query, char* buffer)
 {
-    int idx = 0;
+    size_t idx = 0;
+    size_t const max_len = RBUS_MAX_NAME_LENGTH - 1;
     char const* preg = registrationName;
-    char const* pinst= query;
+    char const* pinst = query;
 
-    while(*preg != 0 && *pinst != 0)
+    if (!registrationName || !query || !buffer)
+        return NULL;
+
+    while(*preg != 0 && *pinst != 0 && idx < max_len)
     {
-        while(*preg == *pinst)
+        while(*preg == *pinst && idx < max_len)
         {
             buffer[idx++] = *preg;
             preg++;
             pinst++;
         }
 
-        if(*preg == '{')
+        if(*preg == '{' && idx < max_len)
         {
-            while(*pinst && *pinst != '.')
+            while(*pinst && *pinst != '.' && idx < max_len)
                 buffer[idx++] = *pinst++;
 
-            while(*preg && *preg != '.')
+            while(*preg && *preg != '.' && idx < max_len)
                 preg++;
         }
 
-        if(*pinst == 0) /*end of partial path but continue to write out the full name of child*/
+        if(*pinst == 0 && idx < max_len) /*end of partial path but continue to write out the full name of child*/
         {
-            while(*preg)
+            while(*preg && idx < max_len)
             {
                 buffer[idx++] = *preg++;
             }
@@ -1745,7 +1790,8 @@ static char const* _convert_reg_name_to_instance_name(char const* registrationNa
         }
 #endif
     }
-    buffer[idx++] = 0;
+
+    buffer[idx < max_len ? idx : max_len] = 0;
 
     RBUSLOG_DEBUG(" _convert_reg_name_to_instance_name");
     RBUSLOG_DEBUG("   reg: %s", registrationName);
@@ -4769,10 +4815,17 @@ rbusError_t rbusTable_getRowNames(
             rbusMessage_GetInt32(response, &count);
 
             RBUSLOG_DEBUG("getparamnames %s got %d results", tableName, count);
+            
+            if((count < 0) || ((size_t)count > (SIZE_MAX / sizeof(rbusRowName_t))))
+            {
+                RBUSLOG_ERROR("Malformed provider response: invalid row-name count %d", count);
+                rbusMessage_Release(response);
+                return RBUS_ERROR_INVALID_RESPONSE_FROM_DESTINATION;
+            }
 
             if(count > 0)
             {
-                tmpNames = rt_try_malloc(count * sizeof(struct _rbusRowName));
+                tmpNames = rt_try_malloc((size_t)count * sizeof(rbusRowName_t));
                 if(!tmpNames)
                 {
                     RBUSLOG_ERROR("failed to malloc %d row names", count);
@@ -4912,11 +4965,17 @@ rbusError_t rbusElementInfo_get(
                 RBUSLOG_DEBUG("invokeRemoteMethod %s %s success: count=%d", METHOD_GETPARAMETERNAMES, elemName, count);
                 if(count > 0)
                 {
+                    size_t total_count = (size_t)runningCount + (size_t)count;
+                    if((count < 0) || (total_count > (SIZE_MAX / sizeof(rbusElementInfo_t))))
+                    {
+                        RBUSLOG_ERROR("Malformed provider response: invalid element-info count %d", count);
+                        return RBUS_ERROR_INVALID_RESPONSE_FROM_DESTINATION;
+                    }
                     runningCount += count;
                     if(*elemInfo == NULL)
-                        *elemInfo = rt_try_malloc(runningCount * sizeof(rbusElementInfo_t));
+                        *elemInfo = rt_try_malloc((size_t)runningCount * sizeof(rbusElementInfo_t));
                     else
-                        *elemInfo = rt_try_realloc(*elemInfo, runningCount * sizeof(rbusElementInfo_t));
+                        *elemInfo = rt_try_realloc(*elemInfo, (size_t)runningCount * sizeof(rbusElementInfo_t));
                     if(!*elemInfo)
                     {
                         RBUSLOG_ERROR("failed to malloc %d element infos", runningCount);
@@ -4929,11 +4988,85 @@ rbusError_t rbusElementInfo_get(
 
                 for(i = startIndex; i < runningCount; ++i)
                 {
-                    rbusMessage_GetString(response, (char const**)&(*elemInfo)[i].name);
-                    rbusMessage_GetInt32(response, (int32_t*)&(*elemInfo)[i].type);
-                    rbusMessage_GetInt32(response, (int32_t*)&(*elemInfo)[i].access);
-                    (*elemInfo)[i].name = strdup((*elemInfo)[i].name);
+                    char const* name = NULL;
+                    int32_t type = 0;
+                    int32_t access = 0;
+                    int j;
+
+                    if (RT_OK != rbusMessage_GetString(response, &name) || !name)
+                    {
+                        RBUSLOG_ERROR("Malformed provider response for %s: missing element name at index %d", elemName, i - startIndex);
+                        for(j = startIndex; j < i; ++j)
+                        {
+                            if((*elemInfo)[j].name)
+                                free((char*)(*elemInfo)[j].name);
+                            if((*elemInfo)[j].component)
+                                free((char*)(*elemInfo)[j].component);
+                            (*elemInfo)[j].name = NULL;
+                            (*elemInfo)[j].component = NULL;
+                        }
+                        free(*elemInfo);
+                        *elemInfo = NULL;
+                        return RBUS_ERROR_INVALID_RESPONSE_FROM_DESTINATION;
+                    }
+
+                    if (RT_OK != rbusMessage_GetInt32(response, &type) ||
+                        RT_OK != rbusMessage_GetInt32(response, &access))
+                    {
+                        RBUSLOG_ERROR("Malformed provider response for %s: missing type/access at index %d", elemName, i - startIndex);
+                        for(j = startIndex; j < i; ++j)
+                        {
+                            if((*elemInfo)[j].name)
+                                free((char*)(*elemInfo)[j].name);
+                            if((*elemInfo)[j].component)
+                                free((char*)(*elemInfo)[j].component);
+                            (*elemInfo)[j].name = NULL;
+                            (*elemInfo)[j].component = NULL;
+                        }
+                        free(*elemInfo);
+                        *elemInfo = NULL;
+                        return RBUS_ERROR_INVALID_RESPONSE_FROM_DESTINATION;
+                    }
+
+                    (*elemInfo)[i].name = strdup(name);
+                    if(!(*elemInfo)[i].name)
+                    {
+                        RBUSLOG_ERROR("failed to allocate element name for %s", elemName);
+                        for(j = startIndex; j <= i; ++j)
+                        {
+                            if((*elemInfo)[j].name)
+                                free((char*)(*elemInfo)[j].name);
+                            if((*elemInfo)[j].component)
+                                free((char*)(*elemInfo)[j].component);
+                            (*elemInfo)[j].name = NULL;
+                            (*elemInfo)[j].component = NULL;
+                        }
+                        free(*elemInfo);
+                        *elemInfo = NULL;
+                        return RBUS_ERROR_OUT_OF_RESOURCES;
+                    }
+
+		    (*elemInfo)[i].type = (rbusElementType_t)type;
+                    (*elemInfo)[i].access = access;
                     (*elemInfo)[i].component = strdup(destinations[d]);
+                    if(!(*elemInfo)[i].component)
+                    {
+                        RBUSLOG_ERROR("failed to allocate component for %s", elemName);
+                        free((char*)(*elemInfo)[i].name);
+                        (*elemInfo)[i].name = NULL;
+                        for(j = startIndex; j < i; ++j)
+                        {
+                            if((*elemInfo)[j].name)
+                                free((char*)(*elemInfo)[j].name);
+                            if((*elemInfo)[j].component)
+                                free((char*)(*elemInfo)[j].component);
+                            (*elemInfo)[j].name = NULL;
+                            (*elemInfo)[j].component = NULL;
+                        }
+                        free(*elemInfo);
+                        *elemInfo = NULL;
+                        return RBUS_ERROR_OUT_OF_RESOURCES;
+                    }
                     RBUSLOG_DEBUG("adding name %s", (*elemInfo)[i].name);
                 }
             }
