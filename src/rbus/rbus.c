@@ -1580,9 +1580,13 @@ static void _set_callback_handler (rbusHandle_t handle, rbusMessage request, rbu
                         if(isCommit && loopCnt == numVals -1)
                             opts.commit = true;
 
+                        rbusProperty_t tmpProperty;
+                        rbusProperty_Init(&tmpProperty, el->fullName, rbusProperty_GetValue(pProperties[loopCnt]));
+
                         ELM_PRIVATE_LOCK(el);
-                        rc = el->cbTable.setHandler(handle, pProperties[loopCnt], &opts);
+                        rc = el->cbTable.setHandler(handle, tmpProperty, &opts);
                         ELM_PRIVATE_UNLOCK(el);
+                        rbusProperty_Release(tmpProperty);
                         if (rc != RBUS_ERROR_SUCCESS)
                         {
                             RBUSLOG_WARN("Set Failed for %s; Component Owner returned Error", paramName);
@@ -1987,9 +1991,14 @@ static rbusError_t _get_single_dml_handler (rbusHandle_t handle, char const *par
         {
             RBUSLOG_DEBUG("Table and CB exists for [%s], call the CB!", parameterName);
 
+            rbusProperty_t tmpProperty;
+            rbusProperty_Init(&tmpProperty, el->fullName, NULL);
+
             ELM_PRIVATE_LOCK(el);
-            result = el->cbTable.getHandler(handle, properties, &options);
+            result = el->cbTable.getHandler(handle, tmpProperty, &options);
             ELM_PRIVATE_UNLOCK(el);
+            rbusProperty_SetValue(properties, rbusProperty_GetValue(tmpProperty));
+            rbusProperty_Release(tmpProperty);
 
             if (result != RBUS_ERROR_SUCCESS)
             {
@@ -2373,10 +2382,13 @@ static void _table_add_row_callback_handler (rbusHandle_t handle, rbusMessage re
     {
         if(tableRegElem->cbTable.tableAddRowHandler)
         {
+            char fullName[RBUS_MAX_NAME_LENGTH] = {0};
+            snprintf(fullName, RBUS_MAX_NAME_LENGTH, "%s%s", tableInstElem->fullName, ".");
+
             RBUSLOG_DEBUG("calling tableAddRowHandler table [%s] alias [%s]", tableName, aliasName);
 
             ELM_PRIVATE_LOCK(tableRegElem);
-            result = tableRegElem->cbTable.tableAddRowHandler(handle, tableName, aliasName, &instNum);
+            result = tableRegElem->cbTable.tableAddRowHandler(handle, fullName, aliasName, &instNum);
             ELM_PRIVATE_UNLOCK(tableRegElem);
 
             if (result == RBUS_ERROR_SUCCESS)
@@ -2431,10 +2443,13 @@ static void _table_remove_row_callback_handler (rbusHandle_t handle, rbusMessage
         {
             if(tableRegElem->cbTable.tableRemoveRowHandler)
             {
+                char fullName[RBUS_MAX_NAME_LENGTH] = {0};
+                snprintf(fullName, RBUS_MAX_NAME_LENGTH, "%s%s", rowInstElem->fullName, ".");
+
                 RBUSLOG_DEBUG("calling tableRemoveRowHandler row [%s]", rowName);
 
                 ELM_PRIVATE_LOCK(tableRegElem);
-                result = tableRegElem->cbTable.tableRemoveRowHandler(handle, rowName);
+                result = tableRegElem->cbTable.tableRemoveRowHandler(handle, fullName);
                 ELM_PRIVATE_UNLOCK(tableRegElem);
 
                 if (result == RBUS_ERROR_SUCCESS)
