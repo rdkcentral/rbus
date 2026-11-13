@@ -127,10 +127,16 @@ int rbusObject_Compare(rbusObject_t object1, rbusObject_t object2, bool recursiv
     if((object1!=NULL)&&(object2==NULL))
         return 1;
 
-    rc = strcmp(object1->name, object2->name);
+    if(object1->name == NULL && object2->name == NULL)
+        rc = 0;
+    else if(object1->name == NULL)
+        rc = -1;
+    else if(object2->name == NULL)
+        rc = 1;
+    else
+        rc = strcmp(object1->name, object2->name);
     if(rc != 0)
         return rc;
-
     /*verify each property in object1 has a matching property in object2*/
     prop1 = object1->properties;
     while(prop1)
