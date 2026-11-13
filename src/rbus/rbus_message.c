@@ -28,7 +28,7 @@
 #define RBUS_MESSAGE_MUTEX_LOCK()     \
 {                                                                         \
   int err;                                                                \
-  if((err = pthread_mutex_lock(&gMutex)) != 0)                            \
+  if((err = pthread_mutex_lock(&gMsgMutex)) != 0)                            \
   {                                                                       \
     RBUSLOG_ERROR("Error @ mutex lock.. Err=%d:%s ", err, strerror(err)); \
   }                                                                       \
@@ -37,13 +37,13 @@
 #define RBUS_MESSAGE_MUTEX_UNLOCK()   \
 {                                                                           \
   int err;                                                                  \
-  if((err = pthread_mutex_unlock(&gMutex)) != 0)                            \
+  if((err = pthread_mutex_unlock(&gMsgMutex)) != 0)                            \
   {                                                                         \
     RBUSLOG_ERROR("Error @ mutex unlock.. Err=%d:%s ", err, strerror(err)); \
   }                                                                         \
 }
 
-static pthread_mutex_t gMutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t gMsgMutex = PTHREAD_MUTEX_INITIALIZER;
 
 typedef struct
 {

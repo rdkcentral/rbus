@@ -2957,8 +2957,8 @@ rbusError_t rbus_close(rbusHandle_t handle)
     {
         HANDLE_SUBS_MUTEX_LOCK(handle);
         rbusSubscriptions_destroy(handleInfo->subscriptions);
-        HANDLE_SUBS_MUTEX_UNLOCK(handle);
         handleInfo->subscriptions = NULL;
+        HANDLE_SUBS_MUTEX_UNLOCK(handle);
     }
 
     rbusValueChange_CloseHandle(handle);//called before freeElementNode below
