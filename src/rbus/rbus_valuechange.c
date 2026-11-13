@@ -367,11 +367,15 @@ void rbusValueChange_RemovePropertyNode(rbusHandle_t handle, elementNode* propNo
     {
         RBUSLOG_WARN("value change param not found: %s", propNode->fullName);
     }
-    UNLOCK();//############ UNLOCK ############
     if(stopThread)
     {
+        UNLOCK();//############ UNLOCK ############
         ERROR_CHECK(pthread_cond_signal(&gVC->cond));
         ERROR_CHECK(pthread_join(gVC->thread, NULL));
+    }
+    else
+    {
+        UNLOCK();//############ UNLOCK ############
     }
 }
 
