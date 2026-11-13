@@ -1580,8 +1580,15 @@ rtConnection_Read(rtConnection con, int32_t timeout)
     {
       itr = &con->recv_buffer[RTMESSAGEHEADER_HDR_LENGTH_OFFSET];
       rtEncoder_DecodeUInt16(&itr, &msginfo->header.header_length);
+      if (msginfo->header.header_length < RTMESSAGEHEADER_PREAMBLE_LENGTH ||
+          msginfo->header.header_length > (uint16_t)con->recv_buffer_capacity)
+      {
+      rtLog_Error("Invalid header length: %u", msginfo->header.header_length);
+      rtMessageInfo_Release(msginfo);
+      return RT_NO_CONNECTION;
+      }
       err = rtConnection_ReadUntil(con, con->recv_buffer + RTMESSAGEHEADER_PREAMBLE_LENGTH,
-          (msginfo->header.header_length-RTMESSAGEHEADER_PREAMBLE_LENGTH), timeout);
+      (msginfo->header.header_length-RTMESSAGEHEADER_PREAMBLE_LENGTH), timeout);
     }
     else
     {
