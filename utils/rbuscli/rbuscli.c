@@ -2003,13 +2003,17 @@ void validate_and_execute_subscribe_cmd (int argc, char *argv[], bool add, bool 
             }
 
             interval = atoi(argv[3]);
+            if (interval <= 0 || interval > 86400)
+            goto exit_error;
             strcat(userData, " ");
             strcat(userData, argv[3]);
-            if(argv[4] != NULL)
-            {
-                if( argc > 5 ) {
-                    /*duration*/
-                    duration = atoi(argv[4]);
+                if(argv[4] != NULL)
+                    {
+                    if( argc > 5 ) {
+            /*duration*/
+            duration = atoi(argv[4]);
+            if (duration < 0 || duration > 86400)
+            goto exit_error;
                     strcat(userData, " ");
                     strcat(userData, argv[4]);
 
@@ -2021,6 +2025,8 @@ void validate_and_execute_subscribe_cmd (int argc, char *argv[], bool add, bool 
                 {
                     if (atoi(argv[4])) {
                         duration = atoi(argv[4]);
+                    if (duration < 0 || duration > 86400)
+                    goto exit_error;
                         strcat(userData, " ");
                         strcat(userData, argv[4]);
                     }
@@ -2045,7 +2051,7 @@ void validate_and_execute_subscribe_cmd (int argc, char *argv[], bool add, bool 
             set_filter_value(argv[4], filterValue);
 
             rbusFilter_InitRelation(&filter, relOp, filterValue);
-            if(argv[5] != NULL)
+            if(argc > 5 && argv[5] != NULL)
             {
                 publishOnSubscribe = set_publishOnSubscribe(argc, argv);
                 if(publishOnSubscribe == -1)
