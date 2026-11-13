@@ -1160,6 +1160,7 @@ bool rbusValue_SetFromString(rbusValue_t value, rbusValueType_t type, const char
         break;
     case RBUS_INT64:
         tmpLL = strtoll (pStringInput, &endptr, 10);
+        /* coverity[constant_expression_result] INTENTIONAL: defensive check for platforms where sizeof(long long) > sizeof(int64_t) */
         if ((pStringInput == endptr) || (*endptr != 0) || (errno == ERANGE && (tmpLL == LLONG_MAX || tmpLL == LLONG_MIN)) ||  (tmpLL < INT64_MIN))
         {
             RBUSLOG_INFO ("Invalid input string");
@@ -1190,6 +1191,7 @@ bool rbusValue_SetFromString(rbusValue_t value, rbusValueType_t type, const char
         break;
     case RBUS_UINT64:
         tmpULL = strtoull (pStringInput, &endptr, 10);
+        /* coverity[constant_expression_result] INTENTIONAL: defensive check for platforms where sizeof(unsigned long long) > sizeof(uint64_t) */
         if ((pStringInput == endptr) || (*endptr != 0) || (sign == '-' && tmpULL != 0) || (errno == ERANGE && (tmpULL == ULLONG_MAX || tmpULL == 0)) || (tmpULL > UINT64_MAX))
         {
             RBUSLOG_INFO ("Invalid input string");
