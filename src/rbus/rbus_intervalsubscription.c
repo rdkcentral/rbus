@@ -284,10 +284,15 @@ void rbusInterval_RemoveSubscriptionRecord(
 
     if(rec)
     {
+        ERROR_CHECK(pthread_mutex_lock(&rec->mutex));
         if(rec->running)
         {
             rec->running = 0;
             ERROR_CHECK(pthread_cond_signal(&rec->cond));
+        }
+        ERROR_CHECK(pthread_mutex_unlock(&rec->mutex));
+        if(rec->thread)
+        {
             ERROR_CHECK(pthread_join(rec->thread, NULL));
         }
         ERROR_CHECK(pthread_mutex_lock(&gMutex));
