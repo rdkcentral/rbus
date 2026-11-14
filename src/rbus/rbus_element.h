@@ -71,7 +71,7 @@ typedef struct elementNode
     char*                   alias;          /* For table rows */
     char*                   changeComp;     /* For properties, the last component to set the value */
     rtTime_t                changeTime;     /* For properties, the time the value was last set*/
-    pthread_mutex_t         elmMutex;       /* To protect if there is a direct/private connection */
+    pthread_mutex_t         elmMutex;       /* Protects access to this element. */
 } elementNode;
 
 
