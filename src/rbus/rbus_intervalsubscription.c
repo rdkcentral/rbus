@@ -202,12 +202,12 @@ static void* PublishingThreadFunc(void* rec)
     }
     ERROR_CHECK(pthread_mutex_unlock(&sub_rec->mutex));
     if(duration_complete) {
-        ERROR_CHECK(pthread_mutex_lock(&gInternalSubMutex));
         ERROR_CHECK(pthread_mutex_lock(&handleInfo->handle_subsMutex));
+        ERROR_CHECK(pthread_mutex_lock(&gInternalSubMutex));
         rbusSubscriptions_removeSubscription(handleInfo->subscriptions, sub);
-        ERROR_CHECK(pthread_mutex_unlock(&handleInfo->handle_subsMutex));
         rtVector_RemoveItem(gRecord, sub_rec, sub_Free);
         ERROR_CHECK(pthread_mutex_unlock(&gInternalSubMutex));
+        ERROR_CHECK(pthread_mutex_unlock(&handleInfo->handle_subsMutex));
     }
     RBUSLOG_DEBUG("%s: stop\n", __FUNCTION__);
     return NULL;
