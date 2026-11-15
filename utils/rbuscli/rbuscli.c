@@ -60,7 +60,6 @@ rbusHandle_t   g_busHandle = 0;
 rtList g_registeredProps = NULL;
 rtList g_subsribeUserData = NULL;
 rtList g_messageUserData = NULL;
-rtHashMap gDirectHandlesHash = NULL;
 
 bool g_isInteractive = false;
 bool g_logEvents = true;
@@ -469,26 +468,6 @@ void show_menu(const char* command)
             printf ("\t\tlog debug\r\n");
             printf ("\tReturn logging to default/quiet:\r\n");
             printf ("\t\tlog fatal\r\n");
-            printf ("\r\n");
-        }
-        else if(matchCmd(command, 5, "opendirect"))
-        {
-            printf ("\e[1mopend\e[0mirect \e[4mpath\e[0m\r\n");
-            printf ("Opens direct connection to the DML.\r\n");
-            printf ("Args:\r\n");
-            printf ("\t%-20sThe name of a parameter \r\n", "path");
-            printf ("Examples:\r\n");
-            printf ("\topendirect Example.Prop1\r\n");
-            printf ("\r\n");
-        }
-        else if(matchCmd(command, 5, "closedirect"))
-        {
-            printf ("\e[1mclosed\e[0mirect \e[4mpath\e[0m\r\n");
-            printf ("closes direct connection to the DML.\r\n");
-            printf ("Args:\r\n");
-            printf ("\t%-20sThe name of a parameter \r\n", "path");
-            printf ("Examples:\r\n");
-            printf ("\tclosedirect Example.Prop1\r\n");
             printf ("\r\n");
         }
         else if(matchCmd(command, 4, "quit"))
@@ -1090,71 +1069,6 @@ void execute_discover_wildcard_dests_cmd(int argc, char* argv[])
     {
         printf ("Failed to discover components. Error Code = %d\r\n", rc);
     }
-}
-
-void validate_and_execute_open_n_close_direct_cmd(int argc, char *argv[], bool isOpen)
-{
-    rbusError_t rc = RBUS_ERROR_SUCCESS;
-    int numOfInputParams = argc - 2;
-    const char *pInputParam[RBUS_CLI_MAX_PARAM] = {0, 0};
-
-    if (numOfInputParams != 1)
-    {
-        printf ("Invalid arguments. Please see the help\r\n");
-        return;
-    }
-
-    if (!verify_rbus_open())
-        return;
-
-    runSteps = __LINE__;
-    pInputParam[0] = argv[2];
-
-    if(pInputParam[0][strlen(pInputParam[0])-1] == '.' || strchr(pInputParam[0], '*'))
-    {
-        printf ("Invalid arguments. Please see the help\r\n");
-        return;
-    }
-
-    rbusHandle_t directHandle = NULL;
-    if (isOpen)
-    {
-        if(!gDirectHandlesHash)
-            rtHashMap_Create(&gDirectHandlesHash);
-
-        rc = rbus_openDirect(g_busHandle, &directHandle, pInputParam[0]);
-        if (RBUS_ERROR_SUCCESS != rc)
-        {
-            printf ("Failed to open direct connection to %s\r\n", pInputParam[0]);
-        }
-        else
-        {
-            rtHashMap_Set(gDirectHandlesHash, pInputParam[0], directHandle);
-        }
-    }
-    else
-    {
-        if(gDirectHandlesHash)
-            directHandle = rtHashMap_Get(gDirectHandlesHash, pInputParam[0]);
-
-        if (directHandle)
-        {
-            rc = rbus_closeDirect(directHandle);
-            if (RBUS_ERROR_SUCCESS != rc)
-            {
-                printf ("Failed to close direct connection to %s\r\n", pInputParam[0]);
-            }
-            else
-            {
-                rtHashMap_Remove(gDirectHandlesHash, pInputParam[0]);
-            }
-        }
-        else
-        {
-            printf ("Failed to find direct connection to %s\r\n", pInputParam[0]);
-        }
-    }
-    return;
 }
 
 void validate_and_execute_get_cmd (int argc, char *argv[])
@@ -2571,14 +2485,6 @@ int handle_cmds (int argc, char *argv[])
             }
         }
     }
-    else if (matchCmd(command, 5, "opendirect"))
-    {
-        validate_and_execute_open_n_close_direct_cmd(argc, argv, true);
-    }
-    else if (matchCmd(command, 5, "closedirect"))
-    {
-        validate_and_execute_open_n_close_direct_cmd(argc, argv, false);
-    }
     else if (matchCmd(command, 4, "quit"))
     {
         return 1;
@@ -3076,12 +2982,6 @@ int main( int argc, char *argv[] )
         handle_cmds (argc, argv);
     }
 
-    /* Close the handle if it is not interative */
-    if (gDirectHandlesHash)
-    {
-        runSteps = __LINE__;
-        rtHashMap_Destroy(gDirectHandlesHash);
-    }
 
     if (g_busHandle)
     {
