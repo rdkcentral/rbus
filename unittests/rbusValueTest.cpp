@@ -34,6 +34,116 @@ TEST(rbusValueTest, validate_types)
   rbusValue_Release(val);
 }
 
+TEST(rbusValueTest, set_tlv_rejects_mismatched_fixed_size)
+{
+  rbusValue_t val;
+  uint8_t data[sizeof(rbusDateTime_t) + 1] = {0};
+  rbusValue_Init(&val);
+  rbusValue_SetBoolean(val, true);
+
+  rbusValue_SetTLV(val, RBUS_DATETIME, sizeof(data), data);
+  EXPECT_EQ(rbusValue_GetType(val), RBUS_BOOLEAN);
+  EXPECT_TRUE(rbusValue_GetBoolean(val));
+  rbusValue_SetTLV(val, RBUS_DATETIME, sizeof(rbusDateTime_t) - 1, data);
+  EXPECT_EQ(rbusValue_GetType(val), RBUS_BOOLEAN);
+  EXPECT_TRUE(rbusValue_GetBoolean(val));
+
+  rbusValue_Release(val);
+}
+
+TEST(rbusValueTest, set_tlv_accepts_zero_length_none)
+{
+  rbusValue_t val;
+  uint8_t data = 0;
+  rbusValue_Init(&val);
+  rbusValue_SetString(val, "previous value");
+
+  rbusValue_SetTLV(val, RBUS_NONE, 0, NULL);
+  EXPECT_EQ(rbusValue_GetType(val), RBUS_NONE);
+  EXPECT_EQ(rbusValue_GetL(val), 0u);
+
+  rbusValue_SetString(val, "another value");
+  rbusValue_SetTLV(val, RBUS_NONE, 0, &data);
+  EXPECT_EQ(rbusValue_GetType(val), RBUS_NONE);
+
+  rbusValue_Release(val);
+}
+
+TEST(rbusValueTest, set_tlv_rejects_invalid_lengths_and_types)
+{
+  rbusValue_t value = NULL;
+  uint32_t data = 0x12345678;
+  uint8_t oversizedDateTime[sizeof(rbusDateTime_t) + 16] = {0};
+  rbusValue_Init(&value);
+
+  rbusValue_SetTLV(value, RBUS_INT32, sizeof(data) - 1, &data);
+  EXPECT_EQ(rbusValue_GetType(value), RBUS_NONE);
+  rbusValue_SetTLV(value, RBUS_INT32, sizeof(data) + 1, &data);
+  EXPECT_EQ(rbusValue_GetType(value), RBUS_NONE);
+  rbusValue_SetTLV(value, RBUS_DATETIME, sizeof(oversizedDateTime), oversizedDateTime);
+  EXPECT_EQ(rbusValue_GetType(value), RBUS_NONE);
+  rbusValue_SetTLV(value, (rbusValueType_t)0xFFFF, sizeof(data), &data);
+  EXPECT_EQ(rbusValue_GetType(value), RBUS_NONE);
+
+  rbusValue_Release(value);
+}
+
+TEST(rbusValueTest, set_tlv_accepts_valid_datetime)
+{
+  rbusValue_t value;
+  rbusDateTime_t dateTime = {};
+  dateTime.m_time.tm_year = 126;
+  dateTime.m_time.tm_mon = 10;
+  dateTime.m_time.tm_mday = 6;
+  rbusValue_Init(&value);
+
+  rbusValue_SetTLV(value, RBUS_DATETIME, sizeof(dateTime), &dateTime);
+  EXPECT_EQ(rbusValue_GetType(value), RBUS_DATETIME);
+  EXPECT_EQ(memcmp(rbusValue_GetTime(value), &dateTime, sizeof(dateTime)), 0);
+
+  rbusValue_Release(value);
+}
+
+TEST(rbusValueTest, set_tlv_rejects_nonzero_length_none)
+{
+  rbusValue_t val;
+  uint8_t data = 0;
+  rbusValue_Init(&val);
+  rbusValue_SetString(val, "unchanged");
+
+  rbusValue_SetTLV(val, RBUS_NONE, sizeof(data), &data);
+  EXPECT_EQ(rbusValue_GetType(val), RBUS_STRING);
+  EXPECT_STREQ(rbusValue_GetString(val, NULL), "unchanged");
+  rbusValue_SetTLV(val, RBUS_NONE, sizeof(data), NULL);
+  EXPECT_EQ(rbusValue_GetType(val), RBUS_STRING);
+  EXPECT_STREQ(rbusValue_GetString(val, NULL), "unchanged");
+
+  rbusValue_Release(val);
+}
+
+TEST(rbusValueTest, set_tlv_preserves_void_api)
+{
+  void (*setTLV)(rbusValue_t, rbusValueType_t, uint32_t, void const*) = rbusValue_SetTLV;
+  rbusValue_t val;
+  int32_t data = 42;
+  uint8_t oversizedDateTime[sizeof(rbusDateTime_t) + 1] = {0};
+  rbusValue_Init(&val);
+  rbusValue_SetString(val, "unchanged");
+
+  setTLV(val, RBUS_DATETIME, sizeof(oversizedDateTime), oversizedDateTime);
+  EXPECT_EQ(rbusValue_GetType(val), RBUS_STRING);
+  EXPECT_STREQ(rbusValue_GetString(val, NULL), "unchanged");
+
+  setTLV(val, RBUS_INT32, sizeof(data), &data);
+  EXPECT_EQ(rbusValue_GetType(val), RBUS_INT32);
+  EXPECT_EQ(rbusValue_GetInt32(val), data);
+
+  setTLV(val, RBUS_NONE, 0, NULL);
+  EXPECT_EQ(rbusValue_GetType(val), RBUS_NONE);
+
+  rbusValue_Release(val);
+}
+
 TEST(rbusValueTest, validate_bool)
 {
   rbusValue_t val;
