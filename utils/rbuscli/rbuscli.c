@@ -990,20 +990,19 @@ void execute_discover_component_cmd(int argc, char* argv[])
                 printf ("\tComponent %d: %s\r\n", (i + 1), pComponentNames[i]);
                 free(pComponentNames[i]);
             }
-            free(pComponentNames);
         }
         else
         {
             printf ("\tNone\r\n");
-            free(pComponentNames);
         }
     }
     else
     {
-        if(pComponentNames)
-            free(pComponentNames);
         printf ("Failed to discover components. Error Code = %d\r\n", rc);
     }
+
+    if (pComponentNames)
+        free(pComponentNames);
 }
 
 void execute_discover_elements_cmd(int argc, char *argv[])
@@ -1038,18 +1037,19 @@ void execute_discover_elements_cmd(int argc, char *argv[])
                 printf ("\tElement %d: %s\r\n", (i + 1), pElementNames[i]);
                 free(pElementNames[i]);
             }
-            free(pElementNames);
         }
         else
         {
             printf("No elements discovered!\r\n");
-            free(pElementNames);
         }
     }
     else
     {
         printf ("Failed to discover elements. Error Code = %d\r\n", rc);
     }
+
+    if (pElementNames)
+        free(pElementNames);
 }
 
 void execute_discover_wildcard_dests_cmd(int argc, char* argv[])
@@ -1083,18 +1083,19 @@ void execute_discover_wildcard_dests_cmd(int argc, char* argv[])
                 printf ("\tComponent %d: %s\r\n", (i + 1), destinations[i]);
                 free(destinations[i]);
             }
-            free(destinations);
         }
         else
         {
             printf("No destinations discovered.\r\n");
-            free(destinations);
         }
     }
     else
     {
         printf ("Failed to discover components. Error Code = %d\r\n", rc);
     }
+
+    if (destinations)
+        free(destinations);
 }
 
 void validate_and_execute_open_n_close_direct_cmd(int argc, char *argv[], bool isOpen)
