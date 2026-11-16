@@ -77,6 +77,8 @@ target_link_libraries(rbus_event_server rbuscore)
 enable_testing()
 
 add_executable(rbus_gtest.bin
+  rtRoutingTreeTest.cpp
+  ${PROJECT_SOURCE_DIR}/src/rtmessage/rtRoutingTree.c
   rbusValueTest.cpp
   rbusTokenTest.cpp
   rbusElementTest.cpp

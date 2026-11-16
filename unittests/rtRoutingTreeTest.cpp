@@ -1,0 +1,115 @@
+#include "gtest/gtest.h"
+#include "rtRoutingTree.h"
+#include <string>
+
+class rtRoutingTreeTest : public ::testing::Test
+{
+protected:
+  rtRoutingTree tree = NULL;
+  int routeData = 0;
+
+  void SetUp() override
+  {
+    rtRoutingTree_Create(&tree);
+  }
+
+  void TearDown() override
+  {
+    rtRoutingTree_Destroy(tree);
+  }
+
+  void expectRoute(const std::string& expression)
+  {
+    rtList routes = NULL;
+    rtRoutingTree_GetTopicRoutes(tree, expression.c_str(), &routes);
+    ASSERT_NE(routes, nullptr);
+    size_t count = 0;
+    ASSERT_EQ(rtList_GetSize(routes, &count), RT_OK);
+    ASSERT_EQ(count, 1u);
+    rtListItem item = NULL;
+    void* data = NULL;
+    ASSERT_EQ(rtList_GetFront(routes, &item), RT_OK);
+    ASSERT_EQ(rtListItem_GetData(item, &data), RT_OK);
+    ASSERT_NE(data, nullptr);
+    EXPECT_EQ(static_cast<rtTreeRoute*>(data)->route, &routeData);
+  }
+
+  void expectRejected(const std::string& expression)
+  {
+    const std::string valid = "Device.Test.Value";
+    ASSERT_EQ(rtRoutingTree_AddTopicRoute(tree, valid.c_str(), &routeData, 0), RT_OK);
+    expectRoute(valid);
+
+    EXPECT_EQ(rtRoutingTree_AddTopicRoute(tree, expression.c_str(), &routeData, 0),
+              RT_ERROR_INVALID_EXPRESSION);
+    rtList routes = NULL;
+    rtRoutingTree_GetTopicRoutes(tree, expression.c_str(), &routes);
+    EXPECT_EQ(routes, nullptr);
+
+    rtRoutingTree_RemoveTopic(tree, expression.c_str());
+    expectRoute(valid);
+
+    rtList topics = NULL;
+    ASSERT_EQ(rtList_Create(&topics), RT_OK);
+    rtRoutingTree_ResolvePartialPath(tree, expression.c_str(), topics);
+    size_t count = 0;
+    EXPECT_EQ(rtList_GetSize(topics, &count), RT_OK);
+    EXPECT_EQ(count, 0u);
+    rtList_Destroy(topics, NULL);
+    expectRoute(valid);
+  }
+
+  std::string makeTokens(size_t count)
+  {
+    std::string expression = "A";
+    for(size_t i = 1; i < count; ++i)
+      expression += ".A";
+    return expression;
+  }
+};
+
+TEST_F(rtRoutingTreeTest, accepts_511_character_token)
+{
+  const std::string expression(511, 'A');
+  ASSERT_EQ(rtRoutingTree_AddTopicRoute(tree, expression.c_str(), &routeData, 0), RT_OK);
+  expectRoute(expression);
+}
+
+TEST_F(rtRoutingTreeTest, rejects_512_character_token)
+{
+  expectRejected(std::string(512, 'A'));
+}
+
+TEST_F(rtRoutingTreeTest, accepts_32_tokens)
+{
+  const std::string expression = makeTokens(32);
+  ASSERT_EQ(rtRoutingTree_AddTopicRoute(tree, expression.c_str(), &routeData, 0), RT_OK);
+  expectRoute(expression);
+}
+
+TEST_F(rtRoutingTreeTest, rejects_33_tokens)
+{
+  expectRejected(makeTokens(33));
+}
+
+TEST_F(rtRoutingTreeTest, accepts_exact_buffer_capacity_with_trailing_dot)
+{
+  const std::string expression = std::string(511, 'A') + ".";
+  ASSERT_EQ(rtRoutingTree_AddTopicRoute(tree, expression.c_str(), &routeData, 0), RT_OK);
+  expectRoute(expression.substr(0, expression.size() - 1));
+
+  // A trailing-dot lookup returns descendants, not the node's own route.
+  rtList routes = NULL;
+  rtRoutingTree_GetTopicRoutes(tree, expression.c_str(), &routes);
+  EXPECT_EQ(routes, nullptr);
+}
+
+TEST_F(rtRoutingTreeTest, rejects_extra_token_after_full_buffer)
+{
+  expectRejected(std::string(511, 'A') + ".B");
+}
+
+TEST_F(rtRoutingTreeTest, rejects_4999_character_expression)
+{
+  expectRejected(std::string(4999, 'A'));
+}
