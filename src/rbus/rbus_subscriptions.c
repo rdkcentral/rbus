@@ -20,6 +20,7 @@
 #include "rbus_subscriptions.h"
 #include "rbus_buffer.h"
 #include "rbus_handle.h"
+#include "rbus_intervalsubscription.h"
 #include <rtMemory.h>
 #include <string.h>
 #include <assert.h>
@@ -351,8 +352,12 @@ void rbusSubscriptions_onElementDeleted(rbusSubscriptions_t subscriptions, eleme
                         rtListItem_GetNext(item2, &item2);
                     }
 
-                    /* Interval publishers own this subscription until unsubscribe or duration completion. */
-                    if(val && !sub->interval)
+                    /* Keep interval wildcards only if their registration nodes survive. */
+                    elementNode* element = sub->element;
+                    while(element && element != node)
+                        element = element->parent;
+
+                    if(val && (!sub->interval || element))
                     {
                         subscription = rbusSubscriptions_getSubscription(subscriptions, sub->listener, sub->eventName,
                                 sub->componentId, sub->filter, sub->interval, sub->duration, sub->rawData);
@@ -362,6 +367,8 @@ void rbusSubscriptions_onElementDeleted(rbusSubscriptions_t subscriptions, eleme
                         }
                         else
                         {
+                            if(subscription->interval && subscription->autoPublish)
+                                rbusInterval_RemoveSubscriptionRecord(subscriptions->handle, child, subscription);
                             rbusSubscriptions_removeSubscription(subscriptions, subscription);
                         }
                     }

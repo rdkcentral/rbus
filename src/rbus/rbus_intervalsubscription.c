@@ -131,6 +131,9 @@ static void* PublishingThreadFunc(void* rec)
             RBUSLOG_ERROR("Error %d:%s running command pthread_cond_timedwait", err, strerror(err));
         }
 
+        if(!sub_rec->running)
+            break;
+
         rbusProperty_t properties = NULL;
         rbusObject_t data;
         rbusObject_Init(&data, NULL);
@@ -200,9 +203,26 @@ static void* PublishingThreadFunc(void* rec)
             count++;
         }
     }
+    /* Allow removal to stop this thread while holding handle_subsMutex. */
+    while(duration_complete && sub_rec->running)
+    {
+        int err = pthread_mutex_trylock(&handleInfo->handle_subsMutex);
+        if(err == 0)
+            break;
+        if(err != EBUSY)
+        {
+            RBUSLOG_ERROR("Error %d:%s running command pthread_mutex_trylock", err, strerror(err));
+            duration_complete = false;
+            break;
+        }
+        ERROR_CHECK(pthread_mutex_unlock(&sub_rec->mutex));
+        usleep(1000);
+        ERROR_CHECK(pthread_mutex_lock(&sub_rec->mutex));
+    }
+    if(!sub_rec->running)
+        duration_complete = false;
     ERROR_CHECK(pthread_mutex_unlock(&sub_rec->mutex));
     if(duration_complete) {
-        ERROR_CHECK(pthread_mutex_lock(&handleInfo->handle_subsMutex));
         ERROR_CHECK(pthread_mutex_lock(&gInternalSubMutex));
         rbusSubscriptions_removeSubscription(handleInfo->subscriptions, sub);
         rtVector_RemoveItem(gRecord, sub_rec, sub_Free);
@@ -284,12 +304,11 @@ void rbusInterval_RemoveSubscriptionRecord(
 
     if(rec)
     {
-        if(rec->running)
-        {
-            rec->running = 0;
-            ERROR_CHECK(pthread_cond_signal(&rec->cond));
-            ERROR_CHECK(pthread_join(rec->thread, NULL));
-        }
+        ERROR_CHECK(pthread_mutex_lock(&rec->mutex));
+        rec->running = 0;
+        ERROR_CHECK(pthread_cond_signal(&rec->cond));
+        ERROR_CHECK(pthread_mutex_unlock(&rec->mutex));
+        ERROR_CHECK(pthread_join(rec->thread, NULL));
         ERROR_CHECK(pthread_mutex_lock(&gInternalSubMutex));
         rtVector_RemoveItem(gRecord, rec, sub_Free);
         ERROR_CHECK(pthread_mutex_unlock(&gInternalSubMutex));

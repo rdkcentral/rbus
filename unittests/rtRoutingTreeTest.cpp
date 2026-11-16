@@ -1,5 +1,6 @@
 #include "gtest/gtest.h"
 #include "rtRoutingTree.h"
+#include <memory>
 #include <string>
 
 class rtRoutingTreeTest : public ::testing::Test
@@ -50,12 +51,15 @@ protected:
     expectRoute(valid);
 
     rtList topics = NULL;
-    ASSERT_EQ(rtList_Create(&topics), RT_OK);
+    rtError result = rtList_Create(&topics);
+    std::unique_ptr<_rtList, void (*)(rtList)> topicsGuard(topics, [](rtList list) {
+      rtList_Destroy(list, NULL);
+    });
+    ASSERT_EQ(result, RT_OK);
     rtRoutingTree_ResolvePartialPath(tree, expression.c_str(), topics);
     size_t count = 0;
     EXPECT_EQ(rtList_GetSize(topics, &count), RT_OK);
     EXPECT_EQ(count, 0u);
-    rtList_Destroy(topics, NULL);
     expectRoute(valid);
   }
 
@@ -143,6 +147,23 @@ TEST_F(rtRoutingTreeTest, removing_alias_preserves_other_owner_and_descendants)
             RT_ERROR_INVALID_ARG);
 }
 
+TEST_F(rtRoutingTreeTest, removing_table_alias_with_trailing_dot_preserves_ownership)
+{
+  int otherRoute = 0;
+  ASSERT_EQ(rtRoutingTree_AddTopicRoute(tree, "Device.Table.{i}.", &routeData, 1), RT_OK);
+  ASSERT_EQ(rtRoutingTree_AddTopicRoute(tree, "Device.Other", &otherRoute, 0), RT_OK);
+
+  EXPECT_EQ(rtRoutingTree_RemoveTopicRoute(tree, "Device.Table.{i}.", &otherRoute),
+            RT_ERROR_INVALID_ARG);
+  expectRoute("Device.Table.{i}");
+  ASSERT_EQ(rtRoutingTree_RemoveTopicRoute(tree, "Device.Table.{i}.", &routeData), RT_OK);
+
+  rtList routes = NULL;
+  rtRoutingTree_GetTopicRoutes(tree, "Device.Table.{i}", &routes);
+  EXPECT_EQ(routes, nullptr);
+  EXPECT_EQ(rtRoutingTree_AddTopicRoute(tree, "Device.Table.{i}.", &otherRoute, 1), RT_OK);
+}
+
 TEST_F(rtRoutingTreeTest, removing_alias_updates_descendant_caches)
 {
   ASSERT_EQ(rtRoutingTree_AddTopicRoute(tree, "Device.Alias.First", &routeData, 0), RT_OK);
@@ -198,11 +219,43 @@ TEST_F(rtRoutingTreeTest, removing_subtree_clears_freed_routes_from_ancestor_cac
   EXPECT_EQ(count, 0u);
 
   rtList topics = NULL;
-  ASSERT_EQ(rtList_Create(&topics), RT_OK);
+  rtError result = rtList_Create(&topics);
+  std::unique_ptr<_rtList, void (*)(rtList)> topicsGuard(topics, [](rtList list) {
+    rtList_Destroy(list, NULL);
+  });
+  ASSERT_EQ(result, RT_OK);
   rtRoutingTree_ResolvePartialPath(tree, "Device.A", topics);
   ASSERT_EQ(rtList_GetSize(topics, &count), RT_OK);
   EXPECT_EQ(count, 0u);
-  rtList_Destroy(topics, NULL);
+}
+
+TEST_F(rtRoutingTreeTest, removing_last_owner_allows_namespace_reuse)
+{
+  ASSERT_EQ(rtRoutingTree_AddTopicRoute(tree, "Device.Foo.Bar", &routeData, 1), RT_OK);
+  ASSERT_EQ(rtRoutingTree_RemoveTopicRoute(tree, "Device.Foo.Bar", &routeData), RT_OK);
+  ASSERT_EQ(rtRoutingTree_AddTopicRoute(tree, "Device.Foo", &routeData, 1), RT_OK);
+  ASSERT_EQ(rtRoutingTree_AddTopicRoute(tree, "Device.Foo.{i}.", &routeData, 1), RT_OK);
+  expectRoute("Device.Foo.1");
+
+  ASSERT_EQ(rtRoutingTree_RemoveTopicRoute(tree, "Device.Foo.{i}.", &routeData), RT_OK);
+  expectRoute("Device.Foo");
+  ASSERT_EQ(rtRoutingTree_AddTopicRoute(tree, "Device.Foo.Bar", &routeData, 1), RT_OK);
+  expectRoute("Device.Foo.Bar");
+}
+
+TEST_F(rtRoutingTreeTest, pruning_preserves_owned_ancestors_siblings_and_other_owners)
+{
+  int otherRoute = 0;
+  ASSERT_EQ(rtRoutingTree_AddTopicRoute(tree, "Device.Foo", &routeData, 0), RT_OK);
+  ASSERT_EQ(rtRoutingTree_AddTopicRoute(tree, "Device.Foo.Bar", &routeData, 0), RT_OK);
+  ASSERT_EQ(rtRoutingTree_AddTopicRoute(tree, "Device.Foo.Bar", &otherRoute, 0), RT_OK);
+  ASSERT_EQ(rtRoutingTree_AddTopicRoute(tree, "Device.Foo.Sibling", &routeData, 0), RT_OK);
+
+  ASSERT_EQ(rtRoutingTree_RemoveTopicRoute(tree, "Device.Foo.Bar", &otherRoute), RT_OK);
+  expectRoute("Device.Foo.Bar");
+  ASSERT_EQ(rtRoutingTree_RemoveTopicRoute(tree, "Device.Foo.Bar", &routeData), RT_OK);
+  expectRoute("Device.Foo");
+  expectRoute("Device.Foo.Sibling");
 }
 
 TEST_F(rtRoutingTreeTest, removing_subtree_preserves_shared_route_elsewhere)
