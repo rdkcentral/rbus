@@ -20,12 +20,9 @@
 #include "rbus_subscriptions.h"
 #include "rbus_buffer.h"
 #include "rbus_handle.h"
-#include "rbus_intervalsubscription.h"
 #include <rtMemory.h>
 #include <string.h>
 #include <assert.h>
-#include <errno.h>
-#include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <signal.h>
@@ -33,6 +30,14 @@
 
 #define VERIFY_NULL(T)         if(NULL == T){ return; }
 #define CACHE_FILE_PATH_FORMAT "%s/rbus_subs_%s"
+#define ERROR_CHECK(CMD) \
+{ \
+    int err = (CMD); \
+    if(err != 0) \
+        RBUSLOG_ERROR("Error %d:%s running command " #CMD, err, strerror(err)); \
+}
+
+static pthread_mutex_t gSubscriptionMutex = PTHREAD_MUTEX_INITIALIZER;
 
 struct _rbusSubscriptions
 {
@@ -72,6 +77,38 @@ static int subscriptionKeyCompare(rbusSubscription_t* subscription, char const* 
     return rc;
 }
 
+void rbusSubscriptions_retainSubscription(rbusSubscription_t* sub)
+{
+    ERROR_CHECK(pthread_mutex_lock(&gSubscriptionMutex));
+    assert(sub->references > 0);
+    ++sub->references;
+    ERROR_CHECK(pthread_mutex_unlock(&gSubscriptionMutex));
+}
+
+void rbusSubscriptions_releaseSubscription(rbusSubscription_t* sub)
+{
+    ERROR_CHECK(pthread_mutex_lock(&gSubscriptionMutex));
+    assert(sub->references > 0);
+    bool destroy = --sub->references == 0;
+    ERROR_CHECK(pthread_mutex_unlock(&gSubscriptionMutex));
+    if(destroy)
+    {
+        free(sub->eventName);
+        free(sub->listener);
+        if(sub->filter)
+            rbusFilter_Release(sub->filter);
+        free(sub);
+    }
+}
+
+bool rbusSubscriptions_isSubscriptionRemoved(rbusSubscription_t* sub)
+{
+    ERROR_CHECK(pthread_mutex_lock(&gSubscriptionMutex));
+    bool removed = sub->removed;
+    ERROR_CHECK(pthread_mutex_unlock(&gSubscriptionMutex));
+    return removed;
+}
+
 static void subscriptionFree(void* p)
 {
     rbusSubscription_t* sub = p;
@@ -90,11 +127,13 @@ static void subscriptionFree(void* p)
         TokenChain_destroy(sub->tokens);
     if(sub->instances)
         rtList_Destroy(sub->instances, NULL);
-    free(sub->eventName);
-    free(sub->listener);
-    if(sub->filter)
-        rbusFilter_Release(sub->filter);
-    free(sub);
+    sub->tokens = NULL;
+    sub->instances = NULL;
+    sub->element = NULL;
+    ERROR_CHECK(pthread_mutex_lock(&gSubscriptionMutex));
+    sub->removed = true;
+    ERROR_CHECK(pthread_mutex_unlock(&gSubscriptionMutex));
+    rbusSubscriptions_releaseSubscription(sub);
 }
 
 void rbusSubscriptions_create(rbusSubscriptions_t* subscriptions, rbusHandle_t handle, char const* componentName, elementNode* root, const char* tmpDir)
@@ -145,6 +184,8 @@ rbusSubscription_t* rbusSubscriptions_addSubscription(rbusSubscriptions_t subscr
     }
 
     sub = rt_malloc(sizeof(rbusSubscription_t));
+    sub->references = 1;
+    sub->removed = false;
 
     sub->listener = strdup(listener);
     sub->eventName = strdup(eventName);
@@ -352,12 +393,8 @@ void rbusSubscriptions_onElementDeleted(rbusSubscriptions_t subscriptions, eleme
                         rtListItem_GetNext(item2, &item2);
                     }
 
-                    /* Keep interval wildcards only if their registration nodes survive. */
-                    elementNode* element = sub->element;
-                    while(element && element != node)
-                        element = element->parent;
-
-                    if(val && (!sub->interval || element))
+                    /* RDKB-38389 : Removing the instance of the row to be removed from the subscriptions->subList linked list */
+                    if(val)
                     {
                         subscription = rbusSubscriptions_getSubscription(subscriptions, sub->listener, sub->eventName,
                                 sub->componentId, sub->filter, sub->interval, sub->duration, sub->rawData);
@@ -367,8 +404,6 @@ void rbusSubscriptions_onElementDeleted(rbusSubscriptions_t subscriptions, eleme
                         }
                         else
                         {
-                            if(subscription->interval && subscription->autoPublish)
-                                rbusInterval_RemoveSubscriptionRecord(subscriptions->handle, child, subscription);
                             rbusSubscriptions_removeSubscription(subscriptions, subscription);
                         }
                     }
@@ -440,49 +475,6 @@ static bool rbusSubscriptions_isListenerRunning(char const* listener)
     return true;
 }
 
-static FILE* rbusSubscriptions_openCache(char const* path, bool writing)
-{
-    int flags = O_NOFOLLOW | O_CLOEXEC | O_NONBLOCK;
-    int fd = open(path, flags | (writing ? O_WRONLY | O_CREAT : O_RDONLY),
-                  S_IRUSR | S_IWUSR);
-    if(fd < 0)
-    {
-        if(writing || errno != ENOENT)
-            RBUSLOG_ERROR("failed to open cache %s: %s", path, strerror(errno));
-        return NULL;
-    }
-
-    struct stat status;
-    if(fstat(fd, &status) < 0)
-    {
-        RBUSLOG_ERROR("failed to inspect cache %s: %s", path, strerror(errno));
-        close(fd);
-        return NULL;
-    }
-    if(!S_ISREG(status.st_mode) || status.st_uid != geteuid() ||
-       status.st_nlink != 1 || (status.st_mode & (S_IWGRP | S_IWOTH)))
-    {
-        RBUSLOG_ERROR("rejected untrusted subscription cache %s", path);
-        close(fd);
-        return NULL;
-    }
-    /* Never truncate a pre-existing file before validating its ownership. */
-    if(writing && ftruncate(fd, 0) < 0)
-    {
-        RBUSLOG_ERROR("failed to truncate cache %s: %s", path, strerror(errno));
-        close(fd);
-        return NULL;
-    }
-
-    FILE* file = fdopen(fd, writing ? "wb" : "rb");
-    if(!file)
-    {
-        RBUSLOG_ERROR("failed to create cache stream %s: %s", path, strerror(errno));
-        close(fd);
-    }
-    return file;
-}
-
 static void rbusSubscriptions_loadCache(rbusSubscriptions_t subscriptions)
 {
     long size;
@@ -499,9 +491,12 @@ static void rbusSubscriptions_loadCache(rbusSubscriptions_t subscriptions)
 
     RBUSLOG_INFO("file %s", filePath);
 
-    file = rbusSubscriptions_openCache(filePath, false);
+    file = fopen(filePath, "rb");
     if(!file)
-        return;
+    {
+        RBUSLOG_ERROR("failed to open file %s", filePath);
+        goto remove_bad_file;
+    }
 
     fseek(file, 0, SEEK_END);
     size = ftell(file);
@@ -535,6 +530,7 @@ static void rbusSubscriptions_loadCache(rbusSubscriptions_t subscriptions)
             RBUSLOG_ERROR("failed to malloc sub");
             goto remove_bad_file;
         }
+        sub->references = 1;
         //read listener
         if(rbusBuffer_ReadUInt16(buff, &type) < 0) goto remove_bad_file;
         if(rbusBuffer_ReadUInt16(buff, &length) < 0) goto remove_bad_file;
@@ -695,7 +691,7 @@ static void rbusSubscriptions_saveCache(rbusSubscriptions_t subscriptions)
         return;
     }
 
-    file = rbusSubscriptions_openCache(filePath, true);
+    file = fopen(filePath, "wb");
 
     if(!file)
     {

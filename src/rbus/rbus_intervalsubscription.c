@@ -83,6 +83,7 @@ static void sub_Free(void* p)
         ERROR_CHECK(pthread_mutex_destroy(&rec->mutex));
         ERROR_CHECK(pthread_cond_destroy(&rec->cond));
         rbusProperty_Release(rec->property);
+        rbusSubscriptions_releaseSubscription(rec->sub);
         rec->sub = NULL;
         free(rec);
     }
@@ -113,7 +114,7 @@ static void* PublishingThreadFunc(void* rec)
     rbusSubscription_t* sub = sub_rec->sub;
     struct _rbusHandle* handleInfo = (struct _rbusHandle*)sub_rec->handle;
     ERROR_CHECK(pthread_mutex_lock(&sub_rec->mutex));
-    while(sub_rec->running)
+    while(sub_rec->running && !rbusSubscriptions_isSubscriptionRemoved(sub))
     {
         int err;
         int actualCount = 0;
@@ -131,7 +132,7 @@ static void* PublishingThreadFunc(void* rec)
             RBUSLOG_ERROR("Error %d:%s running command pthread_cond_timedwait", err, strerror(err));
         }
 
-        if(!sub_rec->running)
+        if(!sub_rec->running || rbusSubscriptions_isSubscriptionRemoved(sub))
             break;
 
         rbusProperty_t properties = NULL;
@@ -151,6 +152,11 @@ static void* PublishingThreadFunc(void* rec)
             rbusObject_SetProperty(data, rbusProperty_GetNext(properties)); /*"numberOfEntries" property not requried for normal event*/
         }
         rbusProperty_Release(properties);
+        if(rbusSubscriptions_isSubscriptionRemoved(sub))
+        {
+            rbusObject_Release(data);
+            break;
+        }
         if(result != RBUS_ERROR_SUCCESS)
         {
             RBUSLOG_ERROR("failed to get details of %s", sub->eventName);
@@ -204,7 +210,7 @@ static void* PublishingThreadFunc(void* rec)
         }
     }
     /* Allow removal to stop this thread while holding handle_subsMutex. */
-    while(duration_complete && sub_rec->running)
+    while(duration_complete && sub_rec->running && !rbusSubscriptions_isSubscriptionRemoved(sub))
     {
         int err = pthread_mutex_trylock(&handleInfo->handle_subsMutex);
         if(err == 0)
@@ -219,7 +225,8 @@ static void* PublishingThreadFunc(void* rec)
         usleep(1000);
         ERROR_CHECK(pthread_mutex_lock(&sub_rec->mutex));
     }
-    if(!sub_rec->running)
+    bool removed = rbusSubscriptions_isSubscriptionRemoved(sub);
+    if(!sub_rec->running || removed)
         duration_complete = false;
     ERROR_CHECK(pthread_mutex_unlock(&sub_rec->mutex));
     if(duration_complete) {
@@ -228,6 +235,13 @@ static void* PublishingThreadFunc(void* rec)
         rtVector_RemoveItem(gRecord, sub_rec, sub_Free);
         ERROR_CHECK(pthread_mutex_unlock(&gInternalSubMutex));
         ERROR_CHECK(pthread_mutex_unlock(&handleInfo->handle_subsMutex));
+    }
+    else if(removed)
+    {
+        ERROR_CHECK(pthread_mutex_lock(&gInternalSubMutex));
+        ERROR_CHECK(pthread_detach(sub_rec->thread));
+        rtVector_RemoveItem(gRecord, sub_rec, sub_Free);
+        ERROR_CHECK(pthread_mutex_unlock(&gInternalSubMutex));
     }
     RBUSLOG_DEBUG("%s: stop\n", __FUNCTION__);
     return NULL;
@@ -263,7 +277,6 @@ rbusError_t rbusInterval_AddSubscriptionRecord(
         rtVector_Create(&gRecord);
 
     sub_rec = sub_find(sub);
-    ERROR_CHECK(pthread_mutex_unlock(&gInternalSubMutex));
     if(!sub_rec)
     {
         sub_rec = (sRecord*)rt_malloc(sizeof(sRecord));
@@ -275,10 +288,19 @@ rbusError_t rbusInterval_AddSubscriptionRecord(
 
         /* Thread create */
         sub_rec->running = 1;
-        pthread_create(&sub_rec->thread, NULL, PublishingThreadFunc, (void *)sub_rec);
+        rbusSubscriptions_retainSubscription(sub);
+        int err = pthread_create(&sub_rec->thread, NULL, PublishingThreadFunc, (void *)sub_rec);
+        if(err != 0)
+        {
+            RBUSLOG_ERROR("Error %d:%s running command pthread_create", err, strerror(err));
+            sub_Free(sub_rec);
+            ERROR_CHECK(pthread_mutex_unlock(&gInternalSubMutex));
+            return RBUS_ERROR_OUT_OF_RESOURCES;
+        }
 
         rtVector_PushBack(gRecord, sub_rec);
     }
+    ERROR_CHECK(pthread_mutex_unlock(&gInternalSubMutex));
     return RBUS_ERROR_SUCCESS; 
 }
 

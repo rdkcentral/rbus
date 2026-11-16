@@ -707,7 +707,9 @@ static rtError removeTopicRoute(rtRoutingTree rt, const char* topic, const void*
         {
             rtTreeTopic* removedTopic = treeTopic;
             rtTreeTopic* parent = treeTopic->parent;
-            rtList_RemoveItemByCompare(treeTopic->routeList, entry, rtList_ComparePointer, NULL);
+            while(rtList_RemoveItemByCompare(treeTopic->routeList, entry, rtList_ComparePointer, NULL) == RT_OK)
+            {
+            }
             size_t routeCount = 0;
             rtList_GetSize(treeTopic->routeList, &routeCount);
             if(routeCount == 0)
@@ -737,7 +739,10 @@ static rtError removeTopicRoute(rtRoutingTree rt, const char* topic, const void*
                 size_t childCount = 0;
                 if(removedTopic->childList)
                     rtList_GetSize(removedTopic->childList, &childCount);
-                if(removedTopic->routeList || childCount)
+                size_t remainingRoutes = 0;
+                if(removedTopic->routeList)
+                     rtList_GetSize(removedTopic->routeList, &remainingRoutes);
+                if(remainingRoutes || childCount)
                     break;
                 parent = removedTopic->parent;
                 if(removedTopic->name[0] == '{')
