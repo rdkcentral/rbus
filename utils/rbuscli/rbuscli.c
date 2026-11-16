@@ -988,7 +988,6 @@ void execute_discover_component_cmd(int argc, char* argv[])
             for (i = 0; i < componentCnt; i++)
             {
                 printf ("\tComponent %d: %s\r\n", (i + 1), pComponentNames[i]);
-                free(pComponentNames[i]);
             }
         }
         else
@@ -1002,7 +1001,11 @@ void execute_discover_component_cmd(int argc, char* argv[])
     }
 
     if (pComponentNames)
+    {
+        for (i = 0; i < componentCnt; i++)
+            free(pComponentNames[i]);
         free(pComponentNames);
+    }
 }
 
 void execute_discover_elements_cmd(int argc, char *argv[])
@@ -1011,6 +1014,7 @@ void execute_discover_elements_cmd(int argc, char *argv[])
     int numOfInputParams = argc - 2;
     bool nextLevel = true;
     int numElements = 0;
+    int i;
     char** pElementNames = NULL;
 
     if (!verify_rbus_open())
@@ -1030,12 +1034,10 @@ void execute_discover_elements_cmd(int argc, char *argv[])
     {
         if(numElements)
         {
-            int i;
             printf ("Discovered elements are:\r\n");
             for (i = 0; i < numElements; i++)
             {
                 printf ("\tElement %d: %s\r\n", (i + 1), pElementNames[i]);
-                free(pElementNames[i]);
             }
         }
         else
@@ -1049,13 +1051,18 @@ void execute_discover_elements_cmd(int argc, char *argv[])
     }
 
     if (pElementNames)
+    {
+        for (i = 0; i < numElements; i++)
+            free(pElementNames[i]);
         free(pElementNames);
+    }
 }
 
 void execute_discover_wildcard_dests_cmd(int argc, char* argv[])
 {
     rbusCoreError_t rc = RBUSCORE_SUCCESS;
     int numDestinations = 0;
+    int i;
     char** destinations = NULL;
 
     (void)argc;
@@ -1077,11 +1084,9 @@ void execute_discover_wildcard_dests_cmd(int argc, char* argv[])
     {
         if (numDestinations)
         {
-            int i;
             for(i = 0; i < numDestinations; i++)
             {
                 printf ("\tComponent %d: %s\r\n", (i + 1), destinations[i]);
-                free(destinations[i]);
             }
         }
         else
@@ -1095,7 +1100,11 @@ void execute_discover_wildcard_dests_cmd(int argc, char* argv[])
     }
 
     if (destinations)
+    {
+        for (i = 0; i < numDestinations; i++)
+            free(destinations[i]);
         free(destinations);
+    }
 }
 
 void validate_and_execute_open_n_close_direct_cmd(int argc, char *argv[], bool isOpen)
