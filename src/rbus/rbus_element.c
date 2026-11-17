@@ -151,6 +151,7 @@ static void detachElementNode(elementNode* node)
     }
 
     node->nextSibling = NULL;
+    node->parent = NULL;
     enqueuePruneParent(parent);
 }
 
@@ -741,7 +742,7 @@ void removeElement(elementNode* element)
         elementNode* tmp = deleteList;
         deleteList = deleteList->nextPrune;
         tmp->nextPrune = NULL;
-        freeElementNode(tmp);
+        freeElementRecurse(tmp);
     }
 }
 
@@ -1105,7 +1106,7 @@ void deleteTableRow(elementNode* rowNode)
 #endif
     pruneTree();
     UNLOCK();
-    freeElementNode(rowNode);
+    freeElementRecurse(rowNode);
 #if DEBUG_ELEMENTS
     if(parent)
     {
@@ -1236,4 +1237,3 @@ void rbusElement_mutex_destroy(void)
       mutex_init = 0;
     }
 }
-
