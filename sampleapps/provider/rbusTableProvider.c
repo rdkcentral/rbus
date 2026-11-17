@@ -160,7 +160,7 @@ rbusError_t tableAddRowHandler1(rbusHandle_t handle, char const* tableName, char
             t1->instNum = ++gDM.t1InstNum;
             ++g_count;
             if(aliasName)
-                strncpy(t1->alias, aliasName, MAX_LENGTH);
+                snprintf(t1->alias, sizeof(t1->alias), "%s", aliasName);
 
             *instNum = t1->instNum;
             printDataModel();
@@ -220,7 +220,7 @@ rbusError_t tableAddRowHandler2(rbusHandle_t handle, char const* tableName, char
                 t2->inUse = true;
                 t2->instNum = ++t1->t2InstNum;
                 if(aliasName)
-                    strncpy(t2->alias, aliasName, MAX_LENGTH);
+                    snprintf(t2->alias, sizeof(t2->alias), "%s", aliasName);
 
                 *instNum = t2->instNum;
                 printDataModel();
@@ -314,20 +314,29 @@ rbusError_t setHandler1(rbusHandle_t handle, rbusProperty_t property, rbusSetHan
 
     if(propertyNameEquals(name, "Alias"))
     {
-        strncpy(t1->alias, rbusValue_GetString(value, NULL), MAX_LENGTH-1);
+        char const* str = rbusValue_GetType(value) == RBUS_STRING
+            ? rbusValue_GetString(value, NULL) : NULL;
+        if(NULL == str)
+        {
+            printf("Invalid Input. Give string input\n");
+            return RBUS_ERROR_INVALID_INPUT;
+        }
+        snprintf(t1->alias, sizeof(t1->alias), "%s", str);
         printDataModel();
         return RBUS_ERROR_SUCCESS;
     }
     else if(propertyNameEquals(name, "Data"))
     {
-        if(rbusValue_GetType(value) != RBUS_STRING)
+        char const* str = rbusValue_GetType(value) == RBUS_STRING
+            ? rbusValue_GetString(value, NULL) : NULL;
+        if(NULL == str)
         {
             printf("Invalid Input. Give string input\n");
             return RBUS_ERROR_INVALID_INPUT;
         }
         else
         {
-            strncpy(t1->data, rbusValue_GetString(value, NULL), MAX_LENGTH-1);
+            snprintf(t1->data, sizeof(t1->data), "%s", str);
             printDataModel();
             return RBUS_ERROR_SUCCESS;
         }
@@ -396,7 +405,14 @@ rbusError_t setHandler2(rbusHandle_t handle, rbusProperty_t property, rbusSetHan
 
     if(propertyNameEquals(name, "Data"))
     {
-        strncpy(t2->data, rbusValue_GetString(value, NULL), MAX_LENGTH);
+        char const* str = rbusValue_GetType(value) == RBUS_STRING
+            ? rbusValue_GetString(value, NULL) : NULL;
+        if(NULL == str)
+        {
+            printf("Invalid Input. Give string input\n");
+            return RBUS_ERROR_INVALID_INPUT;
+        }
+        snprintf(t2->data, sizeof(t2->data), "%s", str);
         printDataModel();
         return RBUS_ERROR_SUCCESS;
     }
