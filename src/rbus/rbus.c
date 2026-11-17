@@ -1253,7 +1253,12 @@ int subscribeHandlerImpl(
                             added ? "Add" : "Remove", subscription->eventName, node->fullName);
                     if(added) {
                         if((error = rbusInterval_AddSubscriptionRecord(handle, node, subscription)) != RBUS_ERROR_SUCCESS)
+                        {
                             RBUSLOG_ERROR("rbusInterval_AddSubscriptionRecord failed with error : %d\n", error);
+                            rbusSubscriptions_removeSubscription(handleInfo->subscriptions, subscription);
+                            HANDLE_SUBS_MUTEX_UNLOCK(handle);
+                            return error;
+                        }
                         break;
                     }
                     else

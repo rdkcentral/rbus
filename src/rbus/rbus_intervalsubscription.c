@@ -261,6 +261,7 @@ rbusError_t rbusInterval_AddSubscriptionRecord(
             return RBUS_ERROR_OUT_OF_RESOURCES;
         }
 
+        memset(sub_rec, 0, sizeof(*sub_rec));
         sub_rec->handle = handle;
         sub_rec->node = propNode;
         sub_rec->sub = sub;

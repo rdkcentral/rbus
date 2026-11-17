@@ -114,6 +114,16 @@ static void freeElementRecurse(elementNode* node)
 
 }
 
+static void enqueuePruneParent(elementNode* parent)
+{
+    if(parent && parent->parent && parent->child == NULL && parent->parent->type != RBUS_ELEMENT_TYPE_TABLE)
+    {
+        if(pruneNode)
+            parent->nextPrune = pruneNode;
+        pruneNode = parent;
+    }
+}
+
 static void detachElementNode(elementNode* node)
 {
     elementNode* parent = node->parent;
@@ -140,14 +150,13 @@ static void detachElementNode(elementNode* node)
         }
     }
 
-    node->parent = NULL;
     node->nextSibling = NULL;
+    enqueuePruneParent(parent);
 }
 
 void freeElementNode(elementNode* node)
 {
     VERIFY_NULL(node);
-    elementNode* parent = node->parent;
     elementNode* child = node->child;
 
     detachElementNode(node);
@@ -182,18 +191,9 @@ void freeElementNode(elementNode* node)
     }
 
     ELM_PRIVATE_UNLOCK(node);
+    node->parent = NULL;
+    node->nextSibling = NULL;
     free(node);
-
-    /*remove objects with no children
-     could be an intermitent object added during insertElem
-     or it could be a table which no longer has the {i}
-     however don't remove rows which are allowed to exist without child) */
-    if(parent && parent->parent && parent->child == NULL && parent->parent->type != RBUS_ELEMENT_TYPE_TABLE)
-    {
-        if(pruneNode)
-            parent->nextPrune = pruneNode;
-        pruneNode = parent;
-    }
 }
 
 static void pruneTree()
@@ -734,8 +734,8 @@ void removeElement(elementNode* element)
         deleteList = chain[0];
     }
     free(chain);
-    UNLOCK();
     pruneTree();
+    UNLOCK();
     while(deleteList)
     {
         elementNode* tmp = deleteList;
@@ -1103,6 +1103,7 @@ void deleteTableRow(elementNode* rowNode)
         RBUSLOG_INFO("#####################################################");
     }
 #endif
+    pruneTree();
     UNLOCK();
     freeElementNode(rowNode);
 #if DEBUG_ELEMENTS
