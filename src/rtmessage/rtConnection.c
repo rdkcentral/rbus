@@ -1739,11 +1739,14 @@ rtConnection_Read(rtConnection con, int32_t timeout)
       rtListItem blockingItem;
       static bool printErrorLog = true;
 
-
       pthread_mutex_lock(&con->callback_message_mutex);
+      blockingData = NULL;
       rtList_GetSize(con->callback_message_list, &size);
       rtList_GetFront(con->callback_message_list, &blockingItem);
-      rtListItem_GetData(blockingItem, (void**)&blockingData);
+      if(blockingItem != NULL)
+      {
+          rtListItem_GetData(blockingItem, (void**)&blockingData);
+      }
       char* pBlockingTopic = "";
       if(blockingData)
           pBlockingTopic = blockingData->header.topic;
