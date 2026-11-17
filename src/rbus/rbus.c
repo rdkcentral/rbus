@@ -1162,9 +1162,6 @@ int subscribeHandlerImpl(
     {
         if(el->type == RBUS_ELEMENT_TYPE_PROPERTY && subscription->autoPublish)
         {
-            if(!added && subscription->interval)
-                rbusInterval_RemoveSubscriptionRecord(handle, el, subscription);
-
             rtListItem item;
             rtList_GetFront(subscription->instances, &item);
             while(item)
@@ -1515,7 +1512,12 @@ static void _set_callback_handler (rbusHandle_t handle, rbusMessage request, rbu
             }
             if(rc != RBUS_ERROR_SUCCESS)
                 goto exit;
-            rbusMessage_GetString(request, (char const**) &pIsCommit);
+            if(rbusMessage_GetString(request, (char const**) &pIsCommit) != RT_OK)
+            {
+                RBUSLOG_WARN("Set Failed: invalid commit string");
+                rc = RBUS_ERROR_INVALID_INPUT;
+                goto exit;
+            }
 
             /* Since we set as string, this needs to compared with string..
             * Otherwise, just the #define in the top for TRUE/FALSE should be used.
@@ -3287,6 +3289,8 @@ rbusError_t rbus_get(rbusHandle_t handle, char const* name, rbusValue_t* value)
     rbusError_t errorcode = RBUS_ERROR_SUCCESS;
     rbusCoreError_t err = RBUSCORE_SUCCESS;
     VERIFY_HANDLE(handle);
+    VERIFY_NULL(value);
+    *value = NULL;
     rbusMessage request, response;
     int ret = -1;
     struct _rbusHandle* handleInfo = (struct _rbusHandle*) handle;
@@ -3353,7 +3357,13 @@ rbusError_t rbus_get(rbusHandle_t handle, char const* name, rbusValue_t* value)
                 rbusMessage_GetString(response, &buff);
                 if(buff && (strcmp(name, buff) == 0))
                 {
-                    rbusValue_initFromMessage(value, response);
+                    if(rbusValue_initFromMessage(value, response) != RBUS_ERROR_SUCCESS)
+                    {
+                        RBUSLOG_WARN("Get Failed: invalid value in response for %s", name);
+                        rbusValue_Release(*value);
+                        *value = NULL;
+                        errorcode = RBUS_ERROR_INVALID_RESPONSE_FROM_DESTINATION;
+                    }
                 }
                 else
                 {
@@ -3384,42 +3394,59 @@ rbusError_t _getExt_response_parser(rbusMessage response, int *numValues, rbusPr
     int i = 0;
     RBUSLOG_DEBUG("Received response for remote method invocation!");
 
-    rbusMessage_GetInt32(response, &ret);
+    *numValues = 0;
+    *retProperties = NULL;
+    if(rbusMessage_GetInt32(response, &ret) != RT_OK)
+    {
+        RBUSLOG_WARN("Get Failed: invalid response status");
+        errorcode = RBUS_ERROR_INVALID_RESPONSE_FROM_DESTINATION;
+        goto exit;
+    }
     RBUSLOG_DEBUG("Response from the remote method is [%d]!",ret);
 
     errorcode = (rbusError_t) ret;
     legacyRetCode = (rbusLegacyReturn_t) ret;
 
-    *numValues = 0;
     if((errorcode == RBUS_ERROR_SUCCESS) || (legacyRetCode == RBUS_LEGACY_ERR_SUCCESS))
     {
         errorcode = RBUS_ERROR_SUCCESS;
         RBUSLOG_DEBUG("Received valid response!");
-        rbusMessage_GetInt32(response, &numOfVals);
-        *numValues = numOfVals;
+        if(rbusMessage_GetInt32(response, &numOfVals) != RT_OK || numOfVals < 0)
+        {
+            RBUSLOG_WARN("Get Failed: invalid response property count");
+            errorcode = RBUS_ERROR_INVALID_RESPONSE_FROM_DESTINATION;
+            goto exit;
+        }
         RBUSLOG_DEBUG("Number of return params = %d", numOfVals);
 
         if(numOfVals)
         {
-            rbusProperty_t last;
+            rbusProperty_t last = NULL;
             for(i = 0; i < numOfVals; i++)
             {
-                /* For the first instance, lets use the given pointer */
-                if (0 == i)
+                rbusProperty_t property = NULL;
+                if(rbusProperty_initFromMessage(&property, response) != RBUS_ERROR_SUCCESS)
                 {
-                    rbusProperty_initFromMessage(retProperties, response);
-                    last = *retProperties;
+                    RBUSLOG_WARN("Get Failed: invalid property in response at index %d", i);
+                    rbusProperty_Release(property);
+                    rbusProperty_Release(*retProperties);
+                    *retProperties = NULL;
+                    errorcode = RBUS_ERROR_INVALID_RESPONSE_FROM_DESTINATION;
+                    goto exit;
+                }
+                if(!last)
+                {
+                    *retProperties = property;
                 }
                 else
                 {
-                    rbusProperty_t tmpProperties;
-                    rbusProperty_initFromMessage(&tmpProperties, response);
-                    rbusProperty_SetNext(last, tmpProperties);
-                    rbusProperty_Release(tmpProperties);
-                    last = tmpProperties;
+                    rbusProperty_SetNext(last, property);
+                    rbusProperty_Release(property);
                 }
+                last = property;
             }
         }
+        *numValues = numOfVals;
     }
     else
     {
@@ -3428,6 +3455,7 @@ rbusError_t _getExt_response_parser(rbusMessage response, int *numValues, rbusPr
             errorcode = CCSPError_to_rbusError(legacyRetCode);
         }
     }
+exit:
     rbusMessage_Release(response);
 
     return errorcode;
@@ -3449,16 +3477,15 @@ rbusError_t rbus_getExt(rbusHandle_t handle, int paramCount, char const** pParam
     if (handleInfo->m_handleType != RBUS_HWDL_TYPE_REGULAR)
         return RBUS_ERROR_INVALID_HANDLE;
 
+    *retProperties = NULL;
+    *numValues = 0;
+
     if ((1 == paramCount))
     {
         if (!_is_wildcard_query(pParamNames[0]))
         {
             rbusProperty_t outputVals = NULL;
             rbusValue_t getVal = NULL;
-
-            /* Initialize */
-            *retProperties = NULL;
-            *numValues = 0;
 
             /*Do get the single param */
             errorcode = rbus_get(handle, pParamNames[0], &getVal);
@@ -3486,7 +3513,6 @@ rbusError_t rbus_getExt(rbusHandle_t handle, int paramCount, char const** pParam
             {
                 RBUSLOG_DEBUG("Query for expression %s was successful. See result below:", pParamNames[0]);
                 rbusProperty_t last = NULL;
-                *numValues = 0;
                 if (0 == numDestinations)
                 {
                     RBUSLOG_DEBUG("It is possibly a table entry from single component.");
@@ -3568,6 +3594,13 @@ rbusError_t rbus_getExt(rbusHandle_t handle, int paramCount, char const** pParam
                     for(i = 0; i < numDestinations; i++)
                         free(destinations[i]);
                     free(destinations);
+                    if(errorcode == RBUS_ERROR_INVALID_RESPONSE_FROM_DESTINATION)
+                    {
+                        rbusProperty_Release(*retProperties);
+                        *retProperties = NULL;
+                        *numValues = 0;
+                        return errorcode;
+                    }
                     if ((*retProperties != NULL) && (errorcode != RBUS_ERROR_SUCCESS))
                     {
                         RBUSLOG_WARN("Query for expression %s was partially successful", pParamNames[0]);
@@ -3617,9 +3650,6 @@ rbusError_t rbus_getExt(rbusHandle_t handle, int paramCount, char const** pParam
                 free(componentNames);
                 return RBUS_ERROR_INVALID_INPUT;
             }
-
-            *retProperties = NULL;/*NULL to mark first batch*/
-            *numValues = 0;
 
             /*batch by component*/
             for(;;)
@@ -3683,6 +3713,7 @@ rbusError_t rbus_getExt(rbusHandle_t handle, int paramCount, char const** pParam
                         if((errorcode = _getExt_response_parser(response, &batchNumVals, &batchResult)) != RBUS_ERROR_SUCCESS)
                         {
                             RBUSLOG_ERROR("error parsing response %d", errorcode);
+                            break;
                         }
                         else
                         {
@@ -3712,7 +3743,17 @@ rbusError_t rbus_getExt(rbusHandle_t handle, int paramCount, char const** pParam
             RBUSLOG_ERROR("Discover component names failed with error %d and counts %d/%d", errorcode, paramCount, numComponents);
         }
         if(componentNames)
+        {
+            for(i = 0; i < numComponents; ++i)
+                free(componentNames[i]);
             free(componentNames);
+        }
+    }
+    if(errorcode == RBUS_ERROR_INVALID_RESPONSE_FROM_DESTINATION)
+    {
+        rbusProperty_Release(*retProperties);
+        *retProperties = NULL;
+        *numValues = 0;
     }
     return errorcode;
 }

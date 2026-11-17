@@ -23,6 +23,7 @@ Test Case : Testing Marshalling APIs
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <rbus.h>
 #include "rbuscore_message.h"
 
 extern "C" {
@@ -70,6 +71,48 @@ static void TearDownTestCase()
 }
 
 };
+
+extern "C" rbusError_t _getExt_response_parser(rbusMessage response, int* numValues,
+                                               rbusProperty_t* properties);
+
+static void checkMalformedGetValue(int32_t type)
+{
+    for(int validPrefix = 0; validPrefix < 2; ++validPrefix)
+    {
+        rbusMessage response;
+        rbusMessage_Init(&response);
+        rbusMessage_SetInt32(response, RBUS_ERROR_SUCCESS);
+        rbusMessage_SetInt32(response, validPrefix + 1);
+        if(validPrefix)
+        {
+            rbusMessage_SetString(response, "Device.Test.Valid");
+            rbusMessage_SetInt32(response, RBUS_INT32);
+            rbusMessage_SetInt32(response, 42);
+        }
+        rbusMessage_SetString(response, "Device.Test.Invalid");
+        rbusMessage_SetInt32(response, type);
+        const uint8_t invalidData[] = {0};
+        rbusMessage_SetBytes(response, invalidData, sizeof(invalidData));
+
+        int count = -1;
+        rbusProperty_t properties = NULL;
+        EXPECT_EQ(_getExt_response_parser(response, &count, &properties),
+                  RBUS_ERROR_INVALID_RESPONSE_FROM_DESTINATION);
+        EXPECT_EQ(count, 0);
+        EXPECT_EQ(properties, nullptr);
+        rbusProperty_Release(properties);
+    }
+}
+
+TEST_F(TestMarshallingAPIs, GetExt_rejects_invalid_datetime_and_discards_partial_results)
+{
+    checkMalformedGetValue(RBUS_DATETIME);
+}
+
+TEST_F(TestMarshallingAPIs, GetExt_rejects_unsupported_type_and_discards_partial_results)
+{
+    checkMalformedGetValue(INT32_MAX);
+}
 
 TEST_F(TestMarshallingAPIs, sample_test)
 {

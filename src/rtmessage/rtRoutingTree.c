@@ -330,6 +330,27 @@ static void optimizeTopicsBackpropagate(rtTreeTopic* topic, rtTreeRoute* route)
         optimizeTopicsBackpropagate(topic->parent, route);
 }
 
+static void removeUnusedAncestorRoutes(rtTreeTopic* topic, rtTreeRoute* route)
+{
+    while(topic && topic->parent)
+    {
+        rtListItem item;
+        rtList_GetFront(topic->childList, &item);
+        while(item)
+        {
+            rtTreeTopic* child;
+            rtListItem_GetData(item, (void**)&child);
+            if(rtList_HasItem(child->routeList, route, rtList_ComparePointer) ||
+               rtList_HasItem(child->routeList2, route, rtList_ComparePointer))
+                return;
+            rtListItem_GetNext(item, &item);
+        }
+        if(topic->routeList2)
+            rtList_RemoveItemByCompare(topic->routeList2, route, rtList_ComparePointer, NULL);
+        topic = topic->parent;
+    }
+}
+
 /* 
     This does a depth first search for treeTopics having the route.
     If a treeTopic has the route, the route is removed from the treeTopic.
@@ -707,9 +728,7 @@ static rtError removeTopicRoute(rtRoutingTree rt, const char* topic, const void*
         {
             rtTreeTopic* removedTopic = treeTopic;
             rtTreeTopic* parent = treeTopic->parent;
-            while(rtList_RemoveItemByCompare(treeTopic->routeList, entry, rtList_ComparePointer, NULL) == RT_OK)
-            {
-            }
+            rtList_RemoveItemByCompare(treeTopic->routeList, entry, rtList_ComparePointer, NULL);
             size_t routeCount = 0;
             rtList_GetSize(treeTopic->routeList, &routeCount);
             if(routeCount == 0)
@@ -719,30 +738,13 @@ static rtError removeTopicRoute(rtRoutingTree rt, const char* topic, const void*
             }
             rtList_RemoveItem(entry->topicList, item, NULL);
 
-            /* Rebuild this route's descendant caches after removing one association. */
-            while(parent && parent->parent)
-            {
-                if(parent->routeList2)
-                    rtList_RemoveItemByCompare(parent->routeList2, entry, rtList_ComparePointer, NULL);
-                parent = parent->parent;
-            }
-            rtList_GetFront(entry->topicList, &item);
-            while(item)
-            {
-                rtListItem_GetData(item, (void**)&treeTopic);
-                if(treeTopic->parent->parent)
-                    optimizeTopicsBackpropagate(treeTopic->parent, entry);
-                rtListItem_GetNext(item, &item);
-            }
+            removeUnusedAncestorRoutes(parent, entry);
             while(prune && removedTopic->parent)
             {
                 size_t childCount = 0;
                 if(removedTopic->childList)
                     rtList_GetSize(removedTopic->childList, &childCount);
-                size_t remainingRoutes = 0;
-                if(removedTopic->routeList)
-                     rtList_GetSize(removedTopic->routeList, &remainingRoutes);
-                if(remainingRoutes || childCount)
+                if(removedTopic->routeList || childCount)
                     break;
                 parent = removedTopic->parent;
                 if(removedTopic->name[0] == '{')

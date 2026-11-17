@@ -596,11 +596,21 @@ rtError rtRouted_TrafficMonitorLog(rtConnectedClient* sender, rtMessageHeader* h
   if(!file)
   {
     int fd = open("/tmp/rtrouted_traffic_monitor",
-                  O_WRONLY | O_APPEND | O_CREAT | O_CLOEXEC | O_NOFOLLOW,
+                  O_WRONLY | O_APPEND | O_CREAT | O_CLOEXEC | O_NOFOLLOW | O_NONBLOCK,
                   S_IRUSR | S_IWUSR);
     if(fd < 0)
     {
       rtLog_Warn("Failed to open traffic monitor log: %s", strerror(errno));
+      return RT_FAIL;
+    }
+
+    struct stat status;
+    if(fstat(fd, &status) != 0 || !S_ISREG(status.st_mode) ||
+       status.st_uid != geteuid() || status.st_nlink != 1 ||
+       fchmod(fd, S_IRUSR | S_IWUSR) != 0)
+    {
+      rtLog_Warn("Refusing unsafe traffic monitor log file");
+      close(fd);
       return RT_FAIL;
     }
 
