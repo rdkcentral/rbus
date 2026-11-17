@@ -1503,15 +1503,18 @@ static void _set_callback_handler (rbusHandle_t handle, rbusMessage request, rbu
 
         elementNode* el = NULL;
 
-        pProperties = (rbusProperty_t*)rt_try_malloc((size_t)numVals * sizeof(*pProperties));
+        pProperties = (rbusProperty_t*)rt_try_calloc((size_t)numVals, sizeof(*pProperties));
         if(pProperties)
         {
             for (loopCnt = 0; loopCnt < numVals; loopCnt++)
             {
                 rc = rbusProperty_initFromMessage(&pProperties[loopCnt], request);
+                if(rc != RBUS_ERROR_SUCCESS)
+                {
+                    RBUSLOG_WARN("Set Failed: invalid property at index %d", loopCnt);
+                    goto exit;
+                }
             }
-            if(rc != RBUS_ERROR_SUCCESS)
-                goto exit;
             if(rbusMessage_GetString(request, (char const**) &pIsCommit) != RT_OK)
             {
                 RBUSLOG_WARN("Set Failed: invalid commit string");
