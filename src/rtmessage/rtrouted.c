@@ -1215,14 +1215,18 @@ rtRouted_OnMessageDiscoverElementObjects(rtConnectedClient* sender, rtMessageHea
 static void
 rtRouted_OnMessageDiagnostics(rtConnectedClient* sender, rtMessageHeader* hdr, uint8_t const* buff, int n)
 {
-  rtMessage msg;
+  rtMessage msg = NULL;
   const char * cmd = NULL;
 
-  rtMessage_FromBytes(&msg, buff, n);
-
-  if (RT_OK != rtMessage_GetString(msg, RTROUTER_DIAG_CMD_KEY, &cmd) || NULL == cmd)
+  if (RT_OK != rtMessage_FromBytes(&msg, buff, n))
   {
-    rtLog_Warn("Diagnostics request missing command field.");
+    rtLog_Warn("Invalid diagnostics message.");
+    return;
+  }
+
+  if (RT_OK != rtMessage_GetString(msg, RTROUTER_DIAG_CMD_KEY, &cmd) || !cmd)
+  {
+    rtLog_Warn("Invalid diagnostics message: missing command.");
     rtMessage_Release(msg);
     return;
   }
@@ -1603,7 +1607,7 @@ rtConnectedClient_Read(rtConnectedClient* clnt)
     rtLog_Warn("rtConnectedClient_Read: bytes_read=%zu > bytes_to_read=%zu, clamping to expected size",
                clnt->bytes_read, clnt->bytes_to_read);
     rtConnectedClient_Reset(clnt);
-    return RT_OK; 
+    return RT_OK;
   }
   size_t bytes_to_read = clnt->bytes_to_read - clnt->bytes_read;
   if (bytes_to_read == 0)
@@ -1685,27 +1689,24 @@ rtConnectedClient_Read(rtConnectedClient* clnt)
         size_t payload = (size_t)clnt->header.payload_length;
         if (payload > RTMSG_MAX_PAYLOAD_LENGTH)
         {
-          rtLog_Info("Requested payload_length (%u) exceeds maximum supported size (%zu). Message will be dropped.",
+          rtLog_Info("Requested payload_length (%u) exceeds maximum supported size (%zu). Rejecting and disconnecting client.",
                      clnt->header.payload_length, RTMSG_MAX_PAYLOAD_LENGTH);
-          _rtConnection_ReadAndDropBytes(clnt->fd, clnt->header.payload_length);
           rtConnectedClient_Reset(clnt);
-          break;
+          return RT_ERROR;
         }
         if (clnt->bytes_to_read > (SIZE_MAX - payload))
         {
-          rtLog_Info("Requested payload_length (%u) would overflow size_t. Message will be dropped.", clnt->header.payload_length);
-          _rtConnection_ReadAndDropBytes(clnt->fd, clnt->header.payload_length);
+          rtLog_Info("Requested payload_length (%u) would overflow size_t. Rejecting and disconnecting client.", clnt->header.payload_length);
           rtConnectedClient_Reset(clnt);
-          break;
+          return RT_ERROR;
         }
         clnt->bytes_to_read += payload;
         clnt->state = rtConnectionState_ReadPayload;
         if (clnt->bytes_to_read > (SIZE_MAX - clnt->bytes_read))
         {
-          rtLog_Info("Requested incoming data size would overflow size_t. Message will be dropped.");
-          _rtConnection_ReadAndDropBytes(clnt->fd, clnt->header.payload_length);
+          rtLog_Info("Requested incoming data size would overflow size_t. Rejecting and disconnecting client.");
           rtConnectedClient_Reset(clnt);
-          break;
+          return RT_ERROR;
         }
         size_t incoming_data_size = clnt->bytes_to_read + clnt->bytes_read;
         if(clnt->read_buffer_capacity < incoming_data_size)
@@ -1719,10 +1720,9 @@ rtConnectedClient_Read(rtConnectedClient* clnt)
           }
           else
           {
-            rtLog_Info("Couldn't reallocate read buffer to accommodate %zu bytes. Message will be dropped.", incoming_data_size);
-            _rtConnection_ReadAndDropBytes(clnt->fd, clnt->header.payload_length);
+            rtLog_Info("Couldn't reallocate read buffer to accommodate %zu bytes. Rejecting and disconnecting client.", incoming_data_size);
             rtConnectedClient_Reset(clnt);
-            break;
+            return RT_ERROR;
           }
         }
       }
@@ -1854,15 +1854,6 @@ static FILE* rtrouted_open_pid_file(const char* path)
 #ifdef O_NOFOLLOW
   flags |= O_NOFOLLOW;
 #endif
-
-  if(lstat(path, &st) == 0)
-  {
-    if(S_ISLNK(st.st_mode) || !S_ISREG(st.st_mode))
-    {
-      rtLog_Warn("refusing to use unsafe pid file path %s", path);
-      return NULL;
-    }
-  }
 
   fd = open(path, flags, 0600);
   if(fd < 0)
