@@ -72,9 +72,10 @@ TEST(rbusCloseNegTest, test1)
     EXPECT_EQ(rc,RBUS_ERROR_INVALID_INPUT);
 }
 
-TEST(rbusHandleUserDataTest, regularHandle)
+TEST(rbusHandleUserDataTest, regularAndDirectHandles)
 {
     struct _rbusHandle* regularHandle = (struct _rbusHandle*)calloc(1, sizeof(struct _rbusHandle));
+    struct _rbusHandle directHandle = {};
     struct _rbusHandle invalidHandle = {};
     int userData = 1;
 
@@ -85,6 +86,13 @@ TEST(rbusHandleUserDataTest, regularHandle)
     EXPECT_EQ(rbusHandle_SetUserData(regularHandle, &userData), RBUS_ERROR_SUCCESS);
     EXPECT_EQ(rbusHandle_GetUserData(regularHandle), static_cast<void*>(&userData));
     rbusHandleList_Remove(regularHandle);
+
+    directHandle.m_handleType = RBUS_HWDL_TYPE_DIRECT;
+    EXPECT_EQ(rbusHandle_GetUserData(&directHandle), nullptr);
+    EXPECT_EQ(rbusHandle_SetUserData(&directHandle, &userData), RBUS_ERROR_SUCCESS);
+    EXPECT_EQ(rbusHandle_GetUserData(&directHandle), static_cast<void*>(&userData));
+    EXPECT_EQ(rbusHandle_SetUserData(&directHandle, nullptr), RBUS_ERROR_SUCCESS);
+    EXPECT_EQ(rbusHandle_GetUserData(&directHandle), nullptr);
 
     invalidHandle.m_handleType = RBUS_HWDL_TYPE_UNKNOWN;
     EXPECT_EQ(rbusHandle_SetUserData(&invalidHandle, &userData), RBUS_ERROR_INVALID_HANDLE);
