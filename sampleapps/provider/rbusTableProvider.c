@@ -314,8 +314,9 @@ rbusError_t setHandler1(rbusHandle_t handle, rbusProperty_t property, rbusSetHan
 
     if(propertyNameEquals(name, "Alias"))
     {
-        char const* str = rbusValue_GetString(value, NULL);
-        if((rbusValue_GetType(value) != RBUS_STRING) || (NULL == str))
+        char const* str = rbusValue_GetType(value) == RBUS_STRING
+            ? rbusValue_GetString(value, NULL) : NULL;
+        if(NULL == str)
         {
             printf("Invalid Input. Give string input\n");
             return RBUS_ERROR_INVALID_INPUT;
@@ -326,8 +327,9 @@ rbusError_t setHandler1(rbusHandle_t handle, rbusProperty_t property, rbusSetHan
     }
     else if(propertyNameEquals(name, "Data"))
     {
-        char const* str = rbusValue_GetString(value, NULL);
-        if((rbusValue_GetType(value) != RBUS_STRING) || (NULL == str))
+        char const* str = rbusValue_GetType(value) == RBUS_STRING
+            ? rbusValue_GetString(value, NULL) : NULL;
+        if(NULL == str)
         {
             printf("Invalid Input. Give string input\n");
             return RBUS_ERROR_INVALID_INPUT;
@@ -403,8 +405,9 @@ rbusError_t setHandler2(rbusHandle_t handle, rbusProperty_t property, rbusSetHan
 
     if(propertyNameEquals(name, "Data"))
     {
-        char const* str = rbusValue_GetString(value, NULL);
-        if((rbusValue_GetType(value) != RBUS_STRING) || (NULL == str))
+        char const* str = rbusValue_GetType(value) == RBUS_STRING
+            ? rbusValue_GetString(value, NULL) : NULL;
+        if(NULL == str)
         {
             printf("Invalid Input. Give string input\n");
             return RBUS_ERROR_INVALID_INPUT;
