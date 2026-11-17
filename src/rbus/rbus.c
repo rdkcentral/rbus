@@ -3292,8 +3292,6 @@ rbusError_t rbus_get(rbusHandle_t handle, char const* name, rbusValue_t* value)
     rbusError_t errorcode = RBUS_ERROR_SUCCESS;
     rbusCoreError_t err = RBUSCORE_SUCCESS;
     VERIFY_HANDLE(handle);
-    VERIFY_NULL(value);
-    *value = NULL;
     rbusMessage request, response;
     int ret = -1;
     struct _rbusHandle* handleInfo = (struct _rbusHandle*) handle;
@@ -3315,6 +3313,9 @@ rbusError_t rbus_get(rbusHandle_t handle, char const* name, rbusValue_t* value)
         RBUSLOG_WARN("This method does not support wildcard query");
         return RBUS_ERROR_ACCESS_NOT_ALLOWED;
     }
+
+    VERIFY_NULL(value);
+    *value = NULL;
 
     rbusMessage_Init(&request);
     /* Set the Component name that invokes the set */
