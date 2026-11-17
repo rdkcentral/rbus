@@ -160,10 +160,7 @@ rbusError_t tableAddRowHandler1(rbusHandle_t handle, char const* tableName, char
             t1->instNum = ++gDM.t1InstNum;
             ++g_count;
             if(aliasName)
-                {
-                    strncpy(t1->alias, aliasName, MAX_LENGTH-1);
-                    t1->alias[MAX_LENGTH-1] = '\0';
-                }
+                snprintf(t1->alias, sizeof(t1->alias), "%s", aliasName);
 
             *instNum = t1->instNum;
             printDataModel();
@@ -223,10 +220,7 @@ rbusError_t tableAddRowHandler2(rbusHandle_t handle, char const* tableName, char
                 t2->inUse = true;
                 t2->instNum = ++t1->t2InstNum;
                 if(aliasName)
-                {
-                    strncpy(t2->alias, aliasName, MAX_LENGTH-1);
-                    t2->alias[MAX_LENGTH-1] = '\0';
-                }
+                    snprintf(t2->alias, sizeof(t2->alias), "%s", aliasName);
 
                 *instNum = t2->instNum;
                 printDataModel();
@@ -320,7 +314,7 @@ rbusError_t setHandler1(rbusHandle_t handle, rbusProperty_t property, rbusSetHan
 
     if(propertyNameEquals(name, "Alias"))
     {
-        strncpy(t1->alias, rbusValue_GetString(value, NULL), MAX_LENGTH-1);
+        snprintf(t1->alias, sizeof(t1->alias), "%s", rbusValue_GetString(value, NULL));
         printDataModel();
         return RBUS_ERROR_SUCCESS;
     }
@@ -333,7 +327,7 @@ rbusError_t setHandler1(rbusHandle_t handle, rbusProperty_t property, rbusSetHan
         }
         else
         {
-            strncpy(t1->data, rbusValue_GetString(value, NULL), MAX_LENGTH-1);
+            snprintf(t1->data, sizeof(t1->data), "%s", rbusValue_GetString(value, NULL));
             printDataModel();
             return RBUS_ERROR_SUCCESS;
         }
@@ -402,8 +396,7 @@ rbusError_t setHandler2(rbusHandle_t handle, rbusProperty_t property, rbusSetHan
 
     if(propertyNameEquals(name, "Data"))
     {
-        strncpy(t2->data, rbusValue_GetString(value, NULL), MAX_LENGTH-1);
-        t2->data[MAX_LENGTH-1] = '\0';
+        snprintf(t2->data, sizeof(t2->data), "%s", rbusValue_GetString(value, NULL));
         printDataModel();
         return RBUS_ERROR_SUCCESS;
     }
