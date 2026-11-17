@@ -238,7 +238,7 @@ void TokenChain_destroy(TokenChain* chain)
         return;
     Token* token = chain->first;
     if(token)
-        free(token->text);  /* frees the 'name' buffer allocated in TokenChain_create */
+        free(token->text);
     while(token)
     {
         Token* next = token->next;
