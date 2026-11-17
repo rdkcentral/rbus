@@ -688,11 +688,6 @@ rtRouted_ForwardMessage(rtConnectedClient* sender, rtMessageHeader* hdr, uint8_t
       rtLog_Info("no encryption key found, cannot decrypt message");
       return RT_FAIL;
     }
-    if(!buff || n <= 0)
-    {
-      rtLog_Warn("encrypted message has no payload");
-      return RT_FAIL;
-    }
 
     if(rtCipher_DecryptWithKey( sender->encryption_key,
                                 buff,
@@ -712,17 +707,11 @@ rtRouted_ForwardMessage(rtConnectedClient* sender, rtMessageHeader* hdr, uint8_t
   }
 
   /*since each client has a unique key we must re-encrypt using its key*/
-  if(subscription->client && subscription->client->encryption_key)
+  if(subscription->client->encryption_key)
   {
     uint32_t encryptedLength;
 
     rtLog_Debug("sending encrypted message");
-
-    if(!buff || n <= 0)
-    {
-      rtLog_Warn("refusing to encrypt empty payload");
-      return RT_FAIL;
-    }
 
     if(rtCipher_EncryptWithKey( subscription->client->encryption_key,
                                 buff,
@@ -1356,34 +1345,24 @@ static void
 rtRouted_OnMessageKeyExchange(rtConnectedClient* sender, rtMessageHeader* hdr, uint8_t const* buff, int n)
 {
   rtError err;
-  rtMessage msg = NULL;
+  rtMessage msg;
   const char * type = NULL;
   rtMessage response = NULL;
 
   (void)hdr;
 
-  if (RT_OK != rtMessage_FromBytes(&msg, buff, n))
-  {
-    rtLog_Warn("Bad key exchange message from %s", sender ? sender->ident : "unknown");
-    return;
-  }
+  rtMessage_FromBytes(&msg, buff, n);
 
   err = rtMessage_GetString(msg, "type", &type);
   if (err != RT_OK || !type)
-  {
-    rtMessage_Release(msg);
     return;
-  }
 
   if (strcmp(type, "spake2plus") == 0)
   {
     if (!sender->cipher)
     {
       if(rtRouted_CreateSpake2CipherInstance(&sender->cipher) != RT_OK)
-      {
-        rtMessage_Release(msg);
         return;/*TODO: send error message back to client*/
-      }
     }
 
     if(RT_OK == rtCipher_RunKeyExchangeServer(sender->cipher, msg, &response, &sender->encryption_key))
@@ -1764,18 +1743,12 @@ rtConnectedClient_Read(rtConnectedClient* clnt)
 static void
 rtRouted_PushFd(fd_set* fds, int fd, int* maxFd)
 {
-  if (fd == RTMSG_INVALID_FD)
-    return;
-
-  if (fd >= FD_SETSIZE)
+  if (fd != RTMSG_INVALID_FD)
   {
-    rtLog_Warn("ignoring fd %d beyond FD_SETSIZE (%d) to avoid fd_set overflow", fd, FD_SETSIZE);
-    return;
+    FD_SET(fd, fds);
+    if (maxFd && fd > *maxFd)
+      *maxFd = fd;
   }
-
-  FD_SET(fd, fds);
-  if (maxFd && fd > *maxFd)
-    *maxFd = fd;
 }
 
 static void
