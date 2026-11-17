@@ -29,6 +29,7 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <sys/un.h>
 #include <unistd.h>
 #include <sys/file.h>
 #include <sys/stat.h>
@@ -111,17 +112,7 @@ rtRouteBase_BindListener(char const* socket_name, int no_delay, int indefinite_r
 
   while(0 != num_retries)
   {
-    if (listener->local_endpoint.ss_family == AF_UNIX)
-    {
-      /* umask is process-wide; do not overlap this bind with other file creation. */
-      mode_t saved_umask = umask(S_IXUSR | S_IXGRP | S_IXOTH);
-      ret = bind(listener->fd, (struct sockaddr *)&listener->local_endpoint, socket_length);
-      int bind_errno = errno;
-      umask(saved_umask);
-      errno = bind_errno;
-    }
-    else
-      ret = bind(listener->fd, (struct sockaddr *)&listener->local_endpoint, socket_length);
+    ret = bind(listener->fd, (struct sockaddr *)&listener->local_endpoint, socket_length);
     if (ret == -1)
     {
       rtError err = rtErrorFromErrno(errno);
@@ -138,6 +129,22 @@ rtRouteBase_BindListener(char const* socket_name, int no_delay, int indefinite_r
     }
     else
       break;
+  }
+
+  if (listener->local_endpoint.ss_family == AF_UNIX)
+  {
+    struct sockaddr_un* endpoint = (struct sockaddr_un *)&listener->local_endpoint;
+    /* Set this socket's permissions without changing the process-wide umask. */
+    if (endpoint->sun_path[0] != '\0' &&
+        chmod(endpoint->sun_path, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH) == -1)
+    {
+      rtLog_Warn("failed to set socket permissions. %s", rtStrError(errno));
+      rtRouteBase_CloseListener(listener);
+      if (unlink(endpoint->sun_path) == -1)
+        rtLog_Warn("failed to remove socket. %s", rtStrError(errno));
+      free(listener);
+      return RT_FAIL;
+    }
   }
 
   ret = listen(listener->fd, 4);

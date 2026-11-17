@@ -209,40 +209,20 @@ static void* PublishingThreadFunc(void* rec)
             count++;
         }
     }
-    /* Allow removal to stop this thread while holding handle_subsMutex. */
-    while(duration_complete && sub_rec->running && !rbusSubscriptions_isSubscriptionRemoved(sub))
-    {
-        int err = pthread_mutex_trylock(&handleInfo->handle_subsMutex);
-        if(err == 0)
-            break;
-        if(err != EBUSY)
-        {
-            RBUSLOG_ERROR("Error %d:%s running command pthread_mutex_trylock", err, strerror(err));
-            duration_complete = false;
-            break;
-        }
-        ERROR_CHECK(pthread_mutex_unlock(&sub_rec->mutex));
-        usleep(1000);
-        ERROR_CHECK(pthread_mutex_lock(&sub_rec->mutex));
-    }
-    bool removed = rbusSubscriptions_isSubscriptionRemoved(sub);
-    if(!sub_rec->running || removed)
-        duration_complete = false;
     ERROR_CHECK(pthread_mutex_unlock(&sub_rec->mutex));
     if(duration_complete) {
-        ERROR_CHECK(pthread_mutex_lock(&gInternalSubMutex));
+        ERROR_CHECK(pthread_mutex_lock(&handleInfo->handle_subsMutex));
         rbusSubscriptions_removeSubscription(handleInfo->subscriptions, sub);
-        rtVector_RemoveItem(gRecord, sub_rec, sub_Free);
-        ERROR_CHECK(pthread_mutex_unlock(&gInternalSubMutex));
         ERROR_CHECK(pthread_mutex_unlock(&handleInfo->handle_subsMutex));
     }
-    else if(removed)
+    ERROR_CHECK(pthread_mutex_lock(&gInternalSubMutex));
+    /* Explicit removal claims the record before joining this worker. */
+    if(sub_find(sub) == sub_rec)
     {
-        ERROR_CHECK(pthread_mutex_lock(&gInternalSubMutex));
-        ERROR_CHECK(pthread_detach(sub_rec->thread));
+        ERROR_CHECK(pthread_detach(pthread_self()));
         rtVector_RemoveItem(gRecord, sub_rec, sub_Free);
-        ERROR_CHECK(pthread_mutex_unlock(&gInternalSubMutex));
     }
+    ERROR_CHECK(pthread_mutex_unlock(&gInternalSubMutex));
     RBUSLOG_DEBUG("%s: stop\n", __FUNCTION__);
     return NULL;
 }
@@ -314,26 +294,28 @@ void rbusInterval_RemoveSubscriptionRecord(
     (void)(propNode);
     VERIFY_NULL(sub);
 
+    ERROR_CHECK(pthread_mutex_lock(&gInternalSubMutex));
     if (!gRecord)
     {
+        ERROR_CHECK(pthread_mutex_unlock(&gInternalSubMutex));
         return;
     }
 
     sRecord* rec;
-    ERROR_CHECK(pthread_mutex_lock(&gInternalSubMutex));
     rec = sub_find(sub);
+    if(rec)
+        rtVector_RemoveItem(gRecord, rec, NULL);
     ERROR_CHECK(pthread_mutex_unlock(&gInternalSubMutex));
 
     if(rec)
     {
-        ERROR_CHECK(pthread_mutex_lock(&rec->mutex));
-        rec->running = 0;
-        ERROR_CHECK(pthread_cond_signal(&rec->cond));
-        ERROR_CHECK(pthread_mutex_unlock(&rec->mutex));
-        ERROR_CHECK(pthread_join(rec->thread, NULL));
-        ERROR_CHECK(pthread_mutex_lock(&gInternalSubMutex));
-        rtVector_RemoveItem(gRecord, rec, sub_Free);
-        ERROR_CHECK(pthread_mutex_unlock(&gInternalSubMutex));
+        if(rec->running)
+        {
+            rec->running = 0;
+            ERROR_CHECK(pthread_cond_signal(&rec->cond));
+            ERROR_CHECK(pthread_join(rec->thread, NULL));
+        }
+        sub_Free(rec);
     }
     else
     {

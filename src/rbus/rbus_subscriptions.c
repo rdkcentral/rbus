@@ -115,6 +115,10 @@ static void subscriptionFree(void* p)
     rtListItem item;
     VERIFY_NULL(sub);
 
+    ERROR_CHECK(pthread_mutex_lock(&gSubscriptionMutex));
+    sub->removed = true;
+    ERROR_CHECK(pthread_mutex_unlock(&gSubscriptionMutex));
+
     rtList_GetFront(sub->instances, &item);
     while(item)
     {
@@ -130,9 +134,6 @@ static void subscriptionFree(void* p)
     sub->tokens = NULL;
     sub->instances = NULL;
     sub->element = NULL;
-    ERROR_CHECK(pthread_mutex_lock(&gSubscriptionMutex));
-    sub->removed = true;
-    ERROR_CHECK(pthread_mutex_unlock(&gSubscriptionMutex));
     rbusSubscriptions_releaseSubscription(sub);
 }
 
@@ -362,6 +363,7 @@ void rbusSubscriptions_onElementDeleted(rbusSubscriptions_t subscriptions, eleme
             {
                 rtListItem item, tempitem;
                 rbusSubscription_t* sub;
+                bool val=false;
                 rbusSubscription_t* subscription = NULL;
 
                 rtList_GetFront(subscriptions->subList, &item);
@@ -369,7 +371,6 @@ void rbusSubscriptions_onElementDeleted(rbusSubscriptions_t subscriptions, eleme
                 /* go through all subscriptions */
                 while(item)
                 {
-                    bool val = false;
                     rtListItem item2;
                     elementNode* inst;
 
@@ -531,6 +532,7 @@ static void rbusSubscriptions_loadCache(rbusSubscriptions_t subscriptions)
             goto remove_bad_file;
         }
         sub->references = 1;
+        sub->removed = false;
         //read listener
         if(rbusBuffer_ReadUInt16(buff, &type) < 0) goto remove_bad_file;
         if(rbusBuffer_ReadUInt16(buff, &length) < 0) goto remove_bad_file;

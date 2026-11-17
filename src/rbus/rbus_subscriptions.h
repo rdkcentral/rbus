@@ -67,7 +67,7 @@ rbusSubscription_t* rbusSubscriptions_getSubscription(rbusSubscriptions_t subscr
 /*remove an existing subscription*/
 void rbusSubscriptions_removeSubscription(rbusSubscriptions_t subscriptions, rbusSubscription_t* sub);
 
-/* Worker references preserve publishing data; registry removal detaches element links. */
+/* Worker references preserve publishing data after registry removal. */
 void rbusSubscriptions_retainSubscription(rbusSubscription_t* sub);
 void rbusSubscriptions_releaseSubscription(rbusSubscription_t* sub);
 bool rbusSubscriptions_isSubscriptionRemoved(rbusSubscription_t* sub);
