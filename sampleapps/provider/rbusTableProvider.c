@@ -314,20 +314,27 @@ rbusError_t setHandler1(rbusHandle_t handle, rbusProperty_t property, rbusSetHan
 
     if(propertyNameEquals(name, "Alias"))
     {
-        snprintf(t1->alias, sizeof(t1->alias), "%s", rbusValue_GetString(value, NULL));
+        char const* str = rbusValue_GetString(value, NULL);
+        if((rbusValue_GetType(value) != RBUS_STRING) || (NULL == str))
+        {
+            printf("Invalid Input. Give string input\n");
+            return RBUS_ERROR_INVALID_INPUT;
+        }
+        snprintf(t1->alias, sizeof(t1->alias), "%s", str);
         printDataModel();
         return RBUS_ERROR_SUCCESS;
     }
     else if(propertyNameEquals(name, "Data"))
     {
-        if(rbusValue_GetType(value) != RBUS_STRING)
+        char const* str = rbusValue_GetString(value, NULL);
+        if((rbusValue_GetType(value) != RBUS_STRING) || (NULL == str))
         {
             printf("Invalid Input. Give string input\n");
             return RBUS_ERROR_INVALID_INPUT;
         }
         else
         {
-            snprintf(t1->data, sizeof(t1->data), "%s", rbusValue_GetString(value, NULL));
+            snprintf(t1->data, sizeof(t1->data), "%s", str);
             printDataModel();
             return RBUS_ERROR_SUCCESS;
         }
@@ -396,7 +403,13 @@ rbusError_t setHandler2(rbusHandle_t handle, rbusProperty_t property, rbusSetHan
 
     if(propertyNameEquals(name, "Data"))
     {
-        snprintf(t2->data, sizeof(t2->data), "%s", rbusValue_GetString(value, NULL));
+        char const* str = rbusValue_GetString(value, NULL);
+        if((rbusValue_GetType(value) != RBUS_STRING) || (NULL == str))
+        {
+            printf("Invalid Input. Give string input\n");
+            return RBUS_ERROR_INVALID_INPUT;
+        }
+        snprintf(t2->data, sizeof(t2->data), "%s", str);
         printDataModel();
         return RBUS_ERROR_SUCCESS;
     }
