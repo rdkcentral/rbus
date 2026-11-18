@@ -118,20 +118,24 @@ static void* PublishingThreadFunc(void* rec)
     ERROR_CHECK(pthread_mutex_lock(&sub_rec->mutex));
     while(sub_rec->running && !rbusSubscriptions_isSubscriptionRemoved(sub))
     {
-        int err;
+        int err = 0;
         int actualCount = 0;
         int result = 0;
         char *tmpptr = NULL;
         rtTime_t timeout;
         rtTimespec_t ts;
         rtTime_Later(NULL, (sub->interval*1000), &timeout);
-        err = pthread_cond_timedwait(&sub_rec->cond,
-                &sub_rec->mutex,
-                rtTime_ToTimespec(&timeout, &ts));
+        rtTime_ToTimespec(&timeout, &ts);
+        while(err == 0 && sub_rec->running && !rbusSubscriptions_isSubscriptionRemoved(sub))
+        {
+            err = pthread_cond_timedwait(&sub_rec->cond,
+                    &sub_rec->mutex, &ts);
+        }
 
         if(err != 0 && err != ETIMEDOUT)
         {
             RBUSLOG_ERROR("Error %d:%s running command pthread_cond_timedwait", err, strerror(err));
+            break;
         }
 
         if(!sub_rec->running || rbusSubscriptions_isSubscriptionRemoved(sub))
