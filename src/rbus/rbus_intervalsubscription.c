@@ -304,19 +304,37 @@ void rbusInterval_RemoveSubscriptionRecord(
         elementNode* propNode,
         rbusSubscription_t* sub)
 {
+    int err;
+    sRecord* rec;
+
     (void)(handle);
     (void)(propNode);
     VERIFY_NULL(sub);
 
-    if (!gRecord)
+    err = pthread_mutex_lock(&gInternalSubMutex);
+    if(err != 0)
     {
+        RBUSLOG_ERROR("Error %d:%s running command pthread_mutex_lock", err, strerror(err));
         return;
     }
 
-    sRecord* rec;
-    ERROR_CHECK(pthread_mutex_lock(&gInternalSubMutex));
+    if (!gRecord)
+    {
+        err = pthread_mutex_unlock(&gInternalSubMutex);
+        if(err != 0)
+        {
+            RBUSLOG_ERROR("Error %d:%s running command pthread_mutex_unlock", err, strerror(err));
+        }
+        return;
+    }
+
     rec = sub_find(sub);
-    ERROR_CHECK(pthread_mutex_unlock(&gInternalSubMutex));
+    err = pthread_mutex_unlock(&gInternalSubMutex);
+    if(err != 0)
+    {
+        RBUSLOG_ERROR("Error %d:%s running command pthread_mutex_unlock", err, strerror(err));
+        return;
+    }
 
     if(rec)
     {
@@ -326,9 +344,19 @@ void rbusInterval_RemoveSubscriptionRecord(
             ERROR_CHECK(pthread_cond_signal(&rec->cond));
             ERROR_CHECK(pthread_join(rec->thread, NULL));
         }
-        ERROR_CHECK(pthread_mutex_lock(&gInternalSubMutex));
+        err = pthread_mutex_lock(&gInternalSubMutex);
+        if(err != 0)
+        {
+            RBUSLOG_ERROR("Error %d:%s running command pthread_mutex_lock", err, strerror(err));
+            return;
+        }
         rtVector_RemoveItem(gRecord, rec, sub_Free);
-        ERROR_CHECK(pthread_mutex_unlock(&gInternalSubMutex));
+        err = pthread_mutex_unlock(&gInternalSubMutex);
+        if(err != 0)
+        {
+            RBUSLOG_ERROR("Error %d:%s running command pthread_mutex_unlock", err, strerror(err));
+            return;
+        }
     }
     else
     {
