@@ -4767,7 +4767,12 @@ rbusError_t rbusElementInfo_get(
             RBUSLOG_DEBUG("invokeRemoteMethod %s destination=%s object=%s success", METHOD_GETPARAMETERNAMES, destinations[d], elemName);
 
             rbusMessage_GetInt32(response, &providerErr);
-            errorcode = providerErr < (int)RBUS_LEGACY_ERR_SUCCESS ? (rbusError_t)providerErr :CCSPError_to_rbusError((rbusLegacyReturn_t)providerErr);
+            {
+                rbusError_t providerStatus = providerErr < (int)RBUS_LEGACY_ERR_SUCCESS ?
+                    (rbusError_t)providerErr : CCSPError_to_rbusError((rbusLegacyReturn_t)providerErr);
+                if(errorcode == RBUS_ERROR_SUCCESS || providerStatus != RBUS_ERROR_SUCCESS)
+                    errorcode = providerStatus;
+            }
             if(errorcode == RBUS_ERROR_SUCCESS)
             {
                 int startIndex = runningCount;
@@ -4785,12 +4790,13 @@ rbusError_t rbusElementInfo_get(
                 }
                 if(count > 0)
                 {
+                    rbusElementInfo_t* resizedElemInfo = NULL;
                     runningCount += count;
                     if(*elemInfo == NULL)
-                        *elemInfo = rt_try_malloc((size_t)runningCount * sizeof(rbusElementInfo_t));
+                        resizedElemInfo = rt_try_malloc((size_t)runningCount * sizeof(rbusElementInfo_t));
                     else
-                        *elemInfo = rt_try_realloc(*elemInfo, (size_t)runningCount * sizeof(rbusElementInfo_t));
-                    if(!*elemInfo)
+                        resizedElemInfo = rt_try_realloc(*elemInfo, (size_t)runningCount * sizeof(rbusElementInfo_t));
+                    if(!resizedElemInfo)
                     {
                         RBUSLOG_ERROR("failed to malloc %d element infos", runningCount);
                         runningCount = startIndex;
@@ -4799,6 +4805,7 @@ rbusError_t rbusElementInfo_get(
                     }
                     else
                     {
+                        *elemInfo = resizedElemInfo;
                         memset(&(*elemInfo)[startIndex], 0, (size_t)count * sizeof(rbusElementInfo_t));
                         for(i = 0; i < runningCount-1; ++i)
                            (*elemInfo)[i].next = &(*elemInfo)[i+1];
@@ -4808,6 +4815,9 @@ rbusError_t rbusElementInfo_get(
                 for(i = startIndex; !abortDecodeError && i < runningCount; ++i)
                 {
                     char const* name = NULL;
+
+                    (*elemInfo)[i].name = NULL;
+                    (*elemInfo)[i].component = NULL;
 
                     if (RBUSCORE_SUCCESS != rbusMessage_GetString(response, &name) || NULL == name)
                     {
