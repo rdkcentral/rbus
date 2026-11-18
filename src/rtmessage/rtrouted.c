@@ -650,8 +650,6 @@ rtRouted_ForwardMessage(rtConnectedClient* sender, rtMessageHeader* hdr, uint8_t
 {
   ssize_t bytes_sent;
 
-  (void) sender;
-
   if(1 == g_enable_traffic_monitor)
     rtRouted_TrafficMonitorLog(sender, hdr, buff, n, subscription);
 
@@ -665,8 +663,13 @@ rtRouted_ForwardMessage(rtConnectedClient* sender, rtMessageHeader* hdr, uint8_t
   new_header.topic_length = hdr->topic_length;
   new_header.flags = hdr->flags;
   rtString_Copy(new_header.topic, hdr->topic, RTMSG_HEADER_MAX_TOPIC_LENGTH);
-  if((hdr->flags & rtMessageFlags_Request) && sender && sender->inbox[0] != '\0')
+  if(hdr->flags & rtMessageFlags_Request)
   {
+    if(!sender || sender->inbox[0] == '\0')
+    {
+      rtLog_Warn("Rejecting request forward without bound sender inbox");
+      return RT_FAIL;
+    }
     new_header.reply_topic_length = rtString_Copy(new_header.reply_topic, sender->inbox, RTMSG_HEADER_MAX_TOPIC_LENGTH);
   }
   else

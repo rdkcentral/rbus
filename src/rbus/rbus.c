@@ -582,6 +582,7 @@ static rbusError_t rbusProperty_initFromMessageInternal(rbusProperty_t* property
     err= rbusValue_initFromMessageInternal(&value, msg, depth + 1);
     if(err != RBUS_ERROR_SUCCESS)
     {
+        rbusValue_Release(value);
         rbusProperty_Release(*property);
         *property = NULL;
         return err;
@@ -911,6 +912,7 @@ static rbusError_t rbusFilter_InitFromMessageInternal(rbusFilter_t* filter, rbus
         err = rbusValue_initFromMessageInternal(&val, msg, depth + 1);
         if(err != RBUS_ERROR_SUCCESS)
         {
+            rbusValue_Release(val);
             *filter = NULL;
             return err;
         }
