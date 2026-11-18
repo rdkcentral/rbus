@@ -18,6 +18,7 @@
 */
 
 #include "rbus_subscriptions.h"
+#include "rbus_intervalsubscription.h"
 #include "rbus_buffer.h"
 #include "rbus_handle.h"
 #include <rtMemory.h>
@@ -118,6 +119,8 @@ static void subscriptionFree(void* p)
     ERROR_CHECK(pthread_mutex_lock(&gSubscriptionMutex));
     sub->removed = true;
     ERROR_CHECK(pthread_mutex_unlock(&gSubscriptionMutex));
+    if(sub->interval)
+        rbusInterval_RemoveSubscriptionRecord(NULL, NULL, sub);
 
     rtList_GetFront(sub->instances, &item);
     while(item)

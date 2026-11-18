@@ -44,6 +44,7 @@
 
 rtVector gRecord = NULL;
 static pthread_mutex_t gInternalSubMutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t gWorkersChanged = PTHREAD_COND_INITIALIZER;
 typedef struct sRecord
 {
     int running;
@@ -68,6 +69,7 @@ static void init_thread(sRecord* sub_rec)
     ERROR_CHECK(pthread_mutexattr_init(&attrib));
     ERROR_CHECK(pthread_mutexattr_settype(&attrib, PTHREAD_MUTEX_ERRORCHECK));
     ERROR_CHECK(pthread_mutex_init(&sub_rec->mutex, &attrib));
+    ERROR_CHECK(pthread_mutexattr_destroy(&attrib));
 
     ERROR_CHECK(pthread_condattr_init(&cattrib));
     ERROR_CHECK(pthread_condattr_setclock(&cattrib, CLOCK_MONOTONIC));
@@ -135,6 +137,7 @@ static void* PublishingThreadFunc(void* rec)
         if(!sub_rec->running || rbusSubscriptions_isSubscriptionRemoved(sub))
             break;
 
+        ERROR_CHECK(pthread_mutex_unlock(&sub_rec->mutex));
         rbusProperty_t properties = NULL;
         rbusObject_t data;
         rbusObject_Init(&data, NULL);
@@ -155,12 +158,14 @@ static void* PublishingThreadFunc(void* rec)
         if(rbusSubscriptions_isSubscriptionRemoved(sub))
         {
             rbusObject_Release(data);
+            ERROR_CHECK(pthread_mutex_lock(&sub_rec->mutex));
             break;
         }
         if(result != RBUS_ERROR_SUCCESS)
         {
             RBUSLOG_ERROR("failed to get details of %s", sub->eventName);
             rbusObject_Release(data);
+            ERROR_CHECK(pthread_mutex_lock(&sub_rec->mutex));
             continue;
         }
 
@@ -200,6 +205,7 @@ static void* PublishingThreadFunc(void* rec)
             RBUSLOG_ERROR("Event_Publish failed with result=%d", result);
         }
 
+        ERROR_CHECK(pthread_mutex_lock(&sub_rec->mutex));
         if (duration_complete)
         {
             break;
@@ -212,18 +218,17 @@ static void* PublishingThreadFunc(void* rec)
     ERROR_CHECK(pthread_mutex_unlock(&sub_rec->mutex));
     if(duration_complete) {
         ERROR_CHECK(pthread_mutex_lock(&handleInfo->handle_subsMutex));
-        rbusSubscriptions_removeSubscription(handleInfo->subscriptions, sub);
+        if(!rbusSubscriptions_isSubscriptionRemoved(sub))
+            rbusSubscriptions_removeSubscription(handleInfo->subscriptions, sub);
         ERROR_CHECK(pthread_mutex_unlock(&handleInfo->handle_subsMutex));
     }
-    ERROR_CHECK(pthread_mutex_lock(&gInternalSubMutex));
-    /* Explicit removal claims the record before joining this worker. */
-    if(sub_find(sub) == sub_rec)
-    {
-        ERROR_CHECK(pthread_detach(pthread_self()));
-        rtVector_RemoveItem(gRecord, sub_rec, sub_Free);
-    }
-    ERROR_CHECK(pthread_mutex_unlock(&gInternalSubMutex));
     RBUSLOG_DEBUG("%s: stop\n", __FUNCTION__);
+    /* Close waits for this record to disappear; do not use provider state afterwards. */
+    ERROR_CHECK(pthread_mutex_lock(&gInternalSubMutex));
+    ERROR_CHECK(pthread_detach(pthread_self()));
+    rtVector_RemoveItem(gRecord, sub_rec, sub_Free);
+    ERROR_CHECK(pthread_cond_broadcast(&gWorkersChanged));
+    ERROR_CHECK(pthread_mutex_unlock(&gInternalSubMutex));
     return NULL;
 }
 
@@ -253,6 +258,12 @@ rbusError_t rbusInterval_AddSubscriptionRecord(
     }
 
     ERROR_CHECK(pthread_mutex_lock(&gInternalSubMutex));
+    if(((struct _rbusHandle*)handle)->intervalClosing)
+    {
+        RBUSLOG_WARN("Cannot start an interval worker while its handle is closing");
+        ERROR_CHECK(pthread_mutex_unlock(&gInternalSubMutex));
+        return RBUS_ERROR_INVALID_OPERATION;
+    }
     if (!gRecord)
         rtVector_Create(&gRecord);
 
@@ -284,7 +295,7 @@ rbusError_t rbusInterval_AddSubscriptionRecord(
     return RBUS_ERROR_SUCCESS; 
 }
 
-/* Delete Subscription Record from global record and stop it's running thread */
+/* Signal only: removal may hold handle_subsMutex, which workers need to exit. */
 void rbusInterval_RemoveSubscriptionRecord(
         rbusHandle_t handle,
         elementNode* propNode,
@@ -304,21 +315,68 @@ void rbusInterval_RemoveSubscriptionRecord(
     sRecord* rec;
     rec = sub_find(sub);
     if(rec)
-        rtVector_RemoveItem(gRecord, rec, NULL);
-    ERROR_CHECK(pthread_mutex_unlock(&gInternalSubMutex));
-
-    if(rec)
     {
-        if(rec->running)
+        ERROR_CHECK(pthread_mutex_lock(&rec->mutex));
+        rec->running = 0;
+        ERROR_CHECK(pthread_cond_signal(&rec->cond));
+        ERROR_CHECK(pthread_mutex_unlock(&rec->mutex));
+    }
+    ERROR_CHECK(pthread_mutex_unlock(&gInternalSubMutex));
+}
+
+rbusError_t rbusInterval_CloseHandle(rbusHandle_t handle)
+{
+    struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
+    size_t i;
+
+    ERROR_CHECK(pthread_mutex_lock(&gInternalSubMutex));
+    for(i = 0; i < rtVector_Size(gRecord); ++i)
+    {
+        sRecord* rec = rtVector_At(gRecord, i);
+        if(rec->handle == handle && pthread_equal(rec->thread, pthread_self()))
         {
+            RBUSLOG_WARN("Cannot close a handle from its interval callback");
+            ERROR_CHECK(pthread_mutex_unlock(&gInternalSubMutex));
+            return RBUS_ERROR_INVALID_OPERATION;
+        }
+    }
+    if(handleInfo->intervalClosing)
+    {
+        RBUSLOG_WARN("Handle is already closing");
+        ERROR_CHECK(pthread_mutex_unlock(&gInternalSubMutex));
+        return RBUS_ERROR_INVALID_OPERATION;
+    }
+    handleInfo->intervalClosing = true;
+    for(i = 0; i < rtVector_Size(gRecord); ++i)
+    {
+        sRecord* rec = rtVector_At(gRecord, i);
+        if(rec->handle == handle)
+        {
+            ERROR_CHECK(pthread_mutex_lock(&rec->mutex));
             rec->running = 0;
             ERROR_CHECK(pthread_cond_signal(&rec->cond));
-            ERROR_CHECK(pthread_join(rec->thread, NULL));
+            ERROR_CHECK(pthread_mutex_unlock(&rec->mutex));
         }
-        sub_Free(rec);
     }
-    else
+    for(;;)
     {
-        RBUSLOG_ERROR("value not found\n");
+        for(i = 0; i < rtVector_Size(gRecord); ++i)
+        {
+            sRecord* rec = rtVector_At(gRecord, i);
+            if(rec->handle == handle)
+                break;
+        }
+        if(i == rtVector_Size(gRecord))
+            break;
+        int err = pthread_cond_wait(&gWorkersChanged, &gInternalSubMutex);
+        if(err != 0)
+        {
+            RBUSLOG_ERROR("Error %d:%s waiting for interval workers", err, strerror(err));
+            handleInfo->intervalClosing = false;
+            ERROR_CHECK(pthread_mutex_unlock(&gInternalSubMutex));
+            return RBUS_ERROR_BUS_ERROR;
+        }
     }
+    ERROR_CHECK(pthread_mutex_unlock(&gInternalSubMutex));
+    return RBUS_ERROR_SUCCESS;
 }

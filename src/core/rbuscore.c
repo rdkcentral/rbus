@@ -440,15 +440,18 @@ void _rbusMessage_SetMetaInfo(rbusMessage m,
   #endif
 }
 
-void _rbusMessage_GetMetaInfo(rbusMessage m,
+rtError _rbusMessage_GetMetaInfo(rbusMessage m,
   char const **method_name,
   char const **ot_parent,
   char const **ot_state)
 {
+  rtError err;
   rbusMessage_BeginMetaSectionRead(m);
-  rbusMessage_GetString(m, method_name);
-  rbusMessage_GetString(m, ot_parent);
-  rbusMessage_GetString(m, ot_state);
+  err = rbusMessage_GetString(m, method_name);
+  if(RT_OK == err)
+    err = rbusMessage_GetString(m, ot_parent);
+  if(RT_OK == err)
+    err = rbusMessage_GetString(m, ot_state);
   rbusMessage_EndMetaSectionRead(m);
 
   #if 0
@@ -457,6 +460,7 @@ void _rbusMessage_GetMetaInfo(rbusMessage m,
   printf("\tot_parent  :%s\n", *ot_parent);
   printf("\tot_state   :%s\n", *ot_state);
   #endif
+  return err;
 }
 
 static server_object_t get_object(const char * object_name)
@@ -482,7 +486,18 @@ static void dispatch_method_call(rbusMessage msg, const rtMessageHeader *hdr, se
     bool handler_invoked = false;
 
     /* Fetch the context that was sent with the message */
-    _rbusMessage_GetMetaInfo(msg, &method_name, &traceParent, &traceState);
+    err = _rbusMessage_GetMetaInfo(msg, &method_name, &traceParent, &traceState);
+    if(RT_OK != err || !method_name)
+    {
+        RBUSCORELOG_ERROR("Method request contains invalid or missing metadata.");
+        if(rtMessageHeader_IsRequest(hdr))
+        {
+            rbusMessage_Init(&response);
+            rbusMessage_SetInt32(response, RBUSCORE_ERROR_INVALID_PARAM);
+            rbus_sendResponse(hdr, response);
+        }
+        return;
+    }
     rbus_setOpenTelemetryContext(traceParent, traceState);
 
     lock();
