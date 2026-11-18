@@ -18,6 +18,7 @@
 */
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <unistd.h>
 #include <string.h>
 #include <signal.h>
@@ -28,19 +29,26 @@
 #include "rbus_session_mgr.h"
 #define CCSP_CURRENT_SESSION_ID_SIGNAL      "currentSessionIDSignal"
 
-static int g_counter;
+static uint32_t g_counter;
+static uint32_t g_session_seed;
 static int g_current_session_id;
 rbusHandle_t   g_busHandle = 0;
 
 static int sessionManager_generateSessionId(void)
 {
-    uint64_t session_id = 0;
-    time_t now = time(NULL);
+    uint32_t session_id = 0;
+    time_t now;
 
-    if (now == (time_t)-1)
-        now = 0;
+    if (g_session_seed == 0)
+    {
+        now = time(NULL);
+        if (now == (time_t)-1)
+            now = 0;
+        g_session_seed = ((uint32_t)getpid() * 1103515245u) ^ (uint32_t)now;
+    }
 
-    session_id = ((uint64_t)getpid() ^ (uint64_t)now ^ (uint64_t)(++g_counter)) & 0x7fffffffULL;
+    ++g_counter;
+    session_id = (g_session_seed + g_counter) & 0x7fffffffU;
     if (session_id == 0)
         session_id = 1;
 

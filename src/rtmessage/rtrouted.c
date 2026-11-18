@@ -663,10 +663,17 @@ rtRouted_ForwardMessage(rtConnectedClient* sender, rtMessageHeader* hdr, uint8_t
   new_header.control_data = subscription->id;
   new_header.payload_length = hdr->payload_length;
   new_header.topic_length = hdr->topic_length;
-  new_header.reply_topic_length = hdr->reply_topic_length;
   new_header.flags = hdr->flags;
   rtString_Copy(new_header.topic, hdr->topic, RTMSG_HEADER_MAX_TOPIC_LENGTH);
-  rtString_Copy(new_header.reply_topic, hdr->reply_topic, RTMSG_HEADER_MAX_TOPIC_LENGTH);
+  if((hdr->flags & rtMessageFlags_Request) && sender && sender->inbox[0] != '\0')
+  {
+    new_header.reply_topic_length = rtString_Copy(new_header.reply_topic, sender->inbox, RTMSG_HEADER_MAX_TOPIC_LENGTH);
+  }
+  else
+  {
+    new_header.reply_topic_length = hdr->reply_topic_length;
+    rtString_Copy(new_header.reply_topic, hdr->reply_topic, RTMSG_HEADER_MAX_TOPIC_LENGTH);
+  }
 
 #ifdef MSG_ROUNDTRIP_TIME
   new_header.T1 = hdr->T1;

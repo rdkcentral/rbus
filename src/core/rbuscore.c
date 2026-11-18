@@ -1271,19 +1271,24 @@ static int subscription_handler(const char *not_used, const char * method_name, 
 
     rbusMessage_Init(out);
 
-    if (hdr && hdr->reply_topic[0] != '\0')
-        sender = hdr->reply_topic;
-
     if((RT_OK == rbusMessage_GetString(in, &event_name)) &&
         (RT_OK == rbusMessage_GetString(in, &request_sender)))
     {
+        if (hdr && hdr->reply_topic[0] != '\0')
+            sender = hdr->reply_topic;
+
         /*Extract arguments*/
         if((NULL == sender) || (NULL == event_name))
         {
             RBUSCORELOG_DEBUG("Malformed subscription request. Sender: %s. Event: %s.", sender, event_name);
             rbusMessage_SetInt32(*out, RBUSCORE_ERROR_INVALID_PARAM);
         }
-        else if (request_sender && strcmp(request_sender, sender) != 0)
+        else if ((request_sender == NULL) || (request_sender[0] == '\0'))
+        {
+            RBUSCORELOG_DEBUG("Rejecting subscription request without sender metadata.");
+            rbusMessage_SetInt32(*out, RBUSCORE_ERROR_INVALID_PARAM);
+        }
+        else if (strcmp(request_sender, sender) != 0)
         {
             RBUSCORELOG_DEBUG("Rejecting subscription request with mismatched sender identity. Header sender: %s. Request sender: %s.", sender, request_sender);
             rbusMessage_SetInt32(*out, RBUSCORE_ERROR_INVALID_PARAM);
