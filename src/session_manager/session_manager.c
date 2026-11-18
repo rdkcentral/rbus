@@ -38,13 +38,17 @@ static int sessionManager_generateSessionId(void)
 {
     uint32_t session_id = 0;
     time_t now;
+    uint64_t now_seed = 0;
 
     if (g_session_seed == 0)
     {
         now = time(NULL);
-        if (now == (time_t)-1)
-            now = 0;
-        g_session_seed = ((uint32_t)getpid() * 1103515245u) ^ (uint32_t)now;
+        if (now != (time_t)-1)
+        {
+            now_seed = (uint64_t)now;
+            now_seed ^= (now_seed >> 32);
+        }
+        g_session_seed = ((uint32_t)getpid() * 1103515245u) ^ (uint32_t)now_seed;
     }
 
     ++g_counter;
