@@ -289,7 +289,12 @@ rbusError_t rbusInterval_AddSubscriptionRecord(
 
         rtVector_PushBack(gRecord, sub_rec);
     }
-    ERROR_CHECK(pthread_mutex_unlock(&gInternalSubMutex));
+	    err = pthread_mutex_unlock(&gInternalSubMutex);
+    if(err != 0)
+    {
+        RBUSLOG_ERROR("Error %d:%s running command pthread_mutex_unlock", err, strerror(err));
+        return RBUS_ERROR_BUS_ERROR;
+    }   
     return RBUS_ERROR_SUCCESS;
 }
 
