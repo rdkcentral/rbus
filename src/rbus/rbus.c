@@ -2017,7 +2017,12 @@ static void _get_callback_handler (rbusHandle_t handle, rbusMessage request, rbu
             for(i = 0; i < paramSize; i++)
             {
                 parameterName = NULL;
-                rbusMessage_GetString(request, &parameterName);
+                if(rbusMessage_GetString(request, &parameterName) != RT_OK || !parameterName)
+                {
+                    RBUSLOG_WARN("Get Failed: invalid parameter name at index %d", i);
+                    result = RBUS_ERROR_INVALID_INPUT;
+                    break;
+                }
 
                 RBUSLOG_DEBUG("Param Name [%d]:[%s]", i, parameterName);
 

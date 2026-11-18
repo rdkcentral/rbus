@@ -59,6 +59,7 @@ jobs:
           export PREFIX=$PWD
           export LD_LIBRARY_PATH=$PREFIX/lib
           nohup ./bin/rtrouted -f -l DEBUG > /tmp/rtrouted_log.txt &
+          echo "RTROUTED_PID=$!" >> "$GITHUB_ENV"
       - name: Run drop test with inactive provider
         continue-on-error: true
         run: |
@@ -128,7 +129,7 @@ jobs:
           cd build/rbus
           export RT_LOG_LEVEL=info
           nohup ./src/session_manager/rbus_session_mgr &
-          ./unittests/rbus_gtest.bin
+          ./unittests/rbus_gtest.bin > /tmp/log_gtestlogs.txt
       - name: Stop SessionManager
         run: |
           killall -15 rbus_session_mgr || true
@@ -137,7 +138,17 @@ jobs:
           cd install/usr
           export PREFIX=$PWD
           export LD_LIBRARY_PATH=$PREFIX/lib
-          ./bin/rtrouted_diag shutdown
+          sudo env LD_LIBRARY_PATH="$LD_LIBRARY_PATH" ./bin/rtrouted_diag shutdown
+          for attempt in {1..30}; do
+            if ! kill -0 "$RTROUTED_PID" 2>/dev/null; then
+              break
+            fi
+            sleep 1
+          done
+          if kill -0 "$RTROUTED_PID" 2>/dev/null; then
+            echo "::error::rtrouted did not exit within 30 seconds; refusing to collect incomplete coverage."
+            exit 1
+          fi
       - name:  Run CodeCoverage
         run: |
             rm -rf /tmp/rtrouted*

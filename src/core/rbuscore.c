@@ -1474,15 +1474,19 @@ static void master_event_callback(rtMessageHeader const* hdr, uint8_t const* dat
 
     rbusMessage_BeginMetaSectionRead(msg);
     err = rbusMessage_GetString(msg, &event_name);
-    err = rbusMessage_GetString(msg, &object_name);
-    err = rbusMessage_GetInt32(msg, &is_rbus_flag);
-    err = rbusMessage_GetString(msg, &trace_parent);
-    err = rbusMessage_GetString(msg, &trace_state);
+    if(RT_OK == err)
+        err = rbusMessage_GetString(msg, &object_name);
+    if(RT_OK == err)
+        err = rbusMessage_GetInt32(msg, &is_rbus_flag);
+    if(RT_OK == err)
+        err = rbusMessage_GetString(msg, &trace_parent);
+    if(RT_OK == err)
+        err = rbusMessage_GetString(msg, &trace_state);
 
     rbusMessage_EndMetaSectionRead(msg);
     if(RT_OK != err)
     {
-        RBUSCORELOG_DEBUG("Event message doesn't contain an event name.");
+        RBUSCORELOG_DEBUG("Event message contains invalid or missing metadata.");
         rbusMessage_Release(msg);
         return;
     }
