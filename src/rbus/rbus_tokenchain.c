@@ -97,11 +97,18 @@ TokenChain* TokenChain_create(char const* sourceName, elementNode* regNode)
         return NULL;
     }
 
+    if(sourceName[0] == '.')
+    {
+        RBUSLOG_ERROR("ERROR: sourceName leading dot: %s", sourceName);
+        return NULL;
+    }
+
     chain = rt_malloc(sizeof(TokenChain));
 
     chain->first = chain->last = NULL;
+    chain->name = strdup(sourceName);
 
-    name = strdup(sourceName);
+    name = chain->name;
 
     node = regNode;
 
@@ -227,8 +234,8 @@ tokenChainError:
         next = next->next;
         free(last);
     }
+    free(chain->name);
     free(chain);
-    free(name);
     return NULL;
 };
 
@@ -236,9 +243,11 @@ void TokenChain_destroy(TokenChain* chain)
 {
     if(!chain)
         return;
+
+    if(chain->name)
+        free(chain->name);
+
     Token* token = chain->first;
-    if(token)
-        free(token->text);
     while(token)
     {
         Token* next = token->next;

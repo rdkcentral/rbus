@@ -1068,6 +1068,7 @@ rtConnection_SendRequestInternal(rtConnection con, uint8_t const* pReq, uint32_t
     if (err != RT_OK)
     {
       ret = err;
+      pthread_mutex_unlock(&con->mutex);
       goto dequeue_and_continue;
     }
     pthread_mutex_unlock(&con->mutex);
@@ -1149,9 +1150,12 @@ rtConnection_SendRequestInternal(rtConnection con, uint8_t const* pReq, uint32_t
         /*For some reason, we unblocked, but there's no data.*/
         ret = RT_ERROR;
       }
+
+      pthread_mutex_unlock(&con->mutex);
     }
 
 dequeue_and_continue:
+    pthread_mutex_lock(&con->mutex);
     rtList_RemoveItem(con->pending_requests_list, listItem, NULL);
     /* reply may have arrived after we stopped waiting; we still own it */
     if(ret != RT_OK && queue_entry.response)
@@ -1739,11 +1743,14 @@ rtConnection_Read(rtConnection con, int32_t timeout)
       rtListItem blockingItem;
       static bool printErrorLog = true;
 
-
       pthread_mutex_lock(&con->callback_message_mutex);
+      blockingData = NULL;
       rtList_GetSize(con->callback_message_list, &size);
       rtList_GetFront(con->callback_message_list, &blockingItem);
-      rtListItem_GetData(blockingItem, (void**)&blockingData);
+      if(blockingItem != NULL)
+      {
+          rtListItem_GetData(blockingItem, (void**)&blockingData);
+      }
       char* pBlockingTopic = "";
       if(blockingData)
           pBlockingTopic = blockingData->header.topic;
