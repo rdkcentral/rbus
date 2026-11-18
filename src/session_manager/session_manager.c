@@ -51,10 +51,11 @@ static int sessionManager_generateSessionId(void)
         g_session_seed = ((uint32_t)getpid() * 1103515245u) ^ (uint32_t)now_seed;
     }
 
-    ++g_counter;
-    session_id = (g_session_seed + g_counter) & 0x7fffffffU;
-    if (session_id == 0)
-        session_id = 1;
+    do
+    {
+        ++g_counter;
+        session_id = (g_session_seed + g_counter) & 0x7fffffffU;
+    } while (session_id == 0);
 
     return (int)session_id;
 }
