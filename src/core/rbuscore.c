@@ -2042,6 +2042,7 @@ rbusCoreError_t rbus_discoverObjectElements(const char * object, int * count, ch
         if ((size < 0) || (length < 0) || (size != length))
         {
             RBUSCORELOG_DEBUG("rbus_GetElementsAddedByObject size mismatch: count=%d array_len=%d", size, length);
+            rtMessage_Release(msg);
             ret = RBUSCORE_ERROR_GENERAL;
             goto exit;
         }
