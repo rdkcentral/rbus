@@ -1114,7 +1114,6 @@ rtConnection_SendRequestInternal(rtConnection con, uint8_t const* pReq, uint32_t
         else if(err == RT_NO_CONNECTION)
         {
           ret = err;
-          pthread_mutex_lock(&con->mutex);
           goto dequeue_and_continue;
         }
         else
@@ -1150,9 +1149,9 @@ rtConnection_SendRequestInternal(rtConnection con, uint8_t const* pReq, uint32_t
         /*For some reason, we unblocked, but there's no data.*/
         ret = RT_ERROR;
       }
-
-      pthread_mutex_unlock(&con->mutex);
+    
     }
+    pthread_mutex_unlock(&con->mutex);
 
 dequeue_and_continue:
     pthread_mutex_lock(&con->mutex);
