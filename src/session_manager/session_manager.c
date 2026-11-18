@@ -37,22 +37,21 @@ rbusHandle_t   g_busHandle = 0;
 static int sessionManager_generateSessionId(void)
 {
     uint32_t session_id = 0;
-    time_t now;
-    uint64_t now_seed = 0;
 
     if (g_session_seed == 0)
     {
-        now = time(NULL);
+        uint32_t seed = (uint32_t)getpid() * 1103515245u;
+
+        time_t now = time(NULL);
         if (now != (time_t)-1)
         {
-            now_seed = (uint64_t)now;
-            now_seed ^= (now_seed >> 32);
+            uint64_t t = (uint64_t)now;
+            seed ^= (uint32_t)(t ^ (t >> 32));
         }
-        g_session_seed = ((uint32_t)getpid() * 1103515245u) ^ (uint32_t)now_seed;
+        g_session_seed = seed;
     }
 
-    do
-    {
+    do {
         ++g_counter;
         session_id = (g_session_seed + g_counter) & 0x7fffffffU;
     } while (session_id == 0);
