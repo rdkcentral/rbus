@@ -2003,17 +2003,13 @@ void validate_and_execute_subscribe_cmd (int argc, char *argv[], bool add, bool 
             }
 
             interval = atoi(argv[3]);
-            if (interval <= 0 || interval > 86400)
-            goto exit_error;
             strcat(userData, " ");
             strcat(userData, argv[3]);
-                if(argv[4] != NULL)
-                    {
-                    if( argc > 5 ) {
-            /*duration*/
-            duration = atoi(argv[4]);
-            if (duration < 0 || duration > 86400)
-            goto exit_error;
+            if(argv[4] != NULL)
+            {
+                if( argc > 5 ) {
+                    /*duration*/
+                    duration = atoi(argv[4]);
                     strcat(userData, " ");
                     strcat(userData, argv[4]);
 
@@ -2025,8 +2021,6 @@ void validate_and_execute_subscribe_cmd (int argc, char *argv[], bool add, bool 
                 {
                     if (atoi(argv[4])) {
                         duration = atoi(argv[4]);
-                    if (duration < 0 || duration > 86400)
-                    goto exit_error;
                         strcat(userData, " ");
                         strcat(userData, argv[4]);
                     }
@@ -2051,7 +2045,7 @@ void validate_and_execute_subscribe_cmd (int argc, char *argv[], bool add, bool 
             set_filter_value(argv[4], filterValue);
 
             rbusFilter_InitRelation(&filter, relOp, filterValue);
-            if(argc > 5 && argv[5] != NULL)
+            if(argv[5] != NULL)
             {
                 publishOnSubscribe = set_publishOnSubscribe(argc, argv);
                 if(publishOnSubscribe == -1)
@@ -2611,6 +2605,12 @@ static int construct_input_into_cmds(char* buff, int* pargc, char** argv)
             ++i;
         if(i == len)
             break;
+        /* keep the last slot NULL; handlers rely on argv[argc] == NULL */
+        if(argc >= RBUS_CLI_MAX_CMD_ARG - 1)
+        {
+            printf("Too many arguments (max %d)\r\n", RBUS_CLI_MAX_CMD_ARG - 2);
+            goto parse_error;
+        }
         if(buff[i] == '\'')
             quote = 1;
         else if(buff[i] == '"')
@@ -2630,18 +2630,23 @@ static int construct_input_into_cmds(char* buff, int* pargc, char** argv)
               ( (quote == 1 && buff[i-1] != '\'') ||
                 (quote == 2 && buff[i-1] != '"' ) ) )
         {
-            argc = 0;
-            return 1;
+            printf("Command missing quotes\r\n");
+            goto parse_error;
         }
-        if(argv)
-        {
-            buff[i] = 0;
-            argv[argc] = strdup(buff+j);
-        }
+        buff[i] = 0;
+        argv[argc] = strdup(buff+j);
         argc++;
     }
     *pargc = argc;
     return 0;
+
+parse_error:
+    for(j = 1; j < argc; ++j)
+    {
+        free(argv[j]);
+        argv[j] = NULL;
+    }
+    return 1;
 }
 
 static char* find_completion(char* token, int count, ...)
@@ -3065,8 +3070,6 @@ int main( int argc, char *argv[] )
                         if(interArgv[i])
                             free(interArgv[i]);
                 }
-                else
-                    printf("Command missing quotes\r\n");
             }
             runSteps = __LINE__;
             linenoiseFree(line);
