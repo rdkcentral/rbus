@@ -337,7 +337,9 @@ void rbusValueChange_RemovePropertyNode(rbusHandle_t handle, elementNode* propNo
 {
     ValueChangeRecord* rec;
     bool stopThread = false;
+    pthread_t pollingThread;
 
+    memset(&pollingThread, 0, sizeof(pollingThread));
     (void)(handle);
     VERIFY_NULL(propNode);
     RBUSLOG_DEBUG("RemovePropertyNode %s", propNode->fullName);
@@ -357,6 +359,8 @@ void rbusValueChange_RemovePropertyNode(rbusHandle_t handle, elementNode* propNo
         {
             stopThread = true;
             gVC->running = 0;
+            /* read under the lock: AddPropertyNode may start a new thread once we unlock */
+            pollingThread = gVC->thread;
         }
         else 
         {
@@ -367,15 +371,11 @@ void rbusValueChange_RemovePropertyNode(rbusHandle_t handle, elementNode* propNo
     {
         RBUSLOG_WARN("value change param not found: %s", propNode->fullName);
     }
+    UNLOCK();//############ UNLOCK ############
     if(stopThread)
     {
-        UNLOCK();//############ UNLOCK ############
         ERROR_CHECK(pthread_cond_signal(&gVC->cond));
-        ERROR_CHECK(pthread_join(gVC->thread, NULL));
-    }
-    else
-    {
-        UNLOCK();//############ UNLOCK ############
+        ERROR_CHECK(pthread_join(pollingThread, NULL));
     }
 }
 
