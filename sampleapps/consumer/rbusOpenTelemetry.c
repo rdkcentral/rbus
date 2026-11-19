@@ -77,9 +77,15 @@ void run_client()
 {
   char          buff[256];
   rbusValue_t   val;
-  rbusHandle_t  rbus;
+  rbusHandle_t  rbus = NULL;
+  rbusError_t   rc;
 
-  rbus_open(&rbus, "test-client");
+  rc = rbus_open(&rbus, "test-client");
+  if (rc != RBUS_ERROR_SUCCESS)
+  {
+    printf("run_client: rbus_open failed: %d\n", rc);
+    return;
+  }
 
   // sample get
   rbusHandle_SetTraceContextFromString(rbus, "traceparent: 00-foo-bar-012345",
@@ -119,9 +125,15 @@ void run_manual_client()
   char traceparent[RBUS_OPEN_TELEMETRY_DATA_MAX];
   char tracestate[RBUS_OPEN_TELEMETRY_DATA_MAX];
   rbusValue_t   val;
-  rbusHandle_t  rbus;
+  rbusHandle_t  rbus = NULL;
+  rbusError_t   rc;
 
-  rbus_open(&rbus, "test-client");
+  rc = rbus_open(&rbus, "test-client");
+  if (rc != RBUS_ERROR_SUCCESS)
+  {
+    printf("run_manual_client: rbus_open failed: %d\n", rc);
+    return;
+  }
 
   // sample get
   printf("\n ======================================================== \n");
@@ -164,7 +176,8 @@ void run_manual_client()
 }
 void run_server()
 {
-  rbusHandle_t rbus;
+  rbusHandle_t rbus = NULL;
+  rbusError_t rc;
   rbusDataElement_t dataElements[1] = {
     {kElementName, RBUS_ELEMENT_TYPE_PROPERTY, {
       get_handler,
@@ -173,7 +186,12 @@ void run_server()
       method_handler}}
   };
 
-  rbus_open(&rbus, "test-server");
+  rc = rbus_open(&rbus, "test-server");
+  if (rc != RBUS_ERROR_SUCCESS)
+  {
+    printf("run_server: rbus_open failed: %d\n", rc);
+    return;
+  }
   rbus_regDataElements(rbus, 1, dataElements);
 
   // XXX: wasted thread
