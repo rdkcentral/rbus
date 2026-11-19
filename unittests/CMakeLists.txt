@@ -77,6 +77,9 @@ target_link_libraries(rbus_event_server rbuscore)
 enable_testing()
 
 add_executable(rbus_gtest.bin
+  rtSocketTest.cpp
+  rtRoutingTreeTest.cpp
+  ${PROJECT_SOURCE_DIR}/src/rtmessage/rtRoutingTree.c
   rbusValueTest.cpp
   rbusTokenTest.cpp
   rbusElementTest.cpp
@@ -101,6 +104,7 @@ add_executable(rbus_gtest.bin
   util.cpp
   main.cpp)
 add_dependencies(rbus_gtest.bin rbus)
+target_link_libraries(rbus_gtest.bin rtMessage)
 
 if (NOT GTEST_LIBRARIES)
     target_link_libraries(rbus_gtest.bin rbus libgtest libgmock gcov)

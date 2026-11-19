@@ -245,6 +245,13 @@ int rbusFilter_Decode(rbusFilter_t* filterOut, rbusBuffer_t const buff)
     rbusValue_t val;
     rbusFilter_t left, right;
 
+    if(!filterOut)
+    {
+        RBUSLOG_WARN("rbusFilter_Decode: NULL output");
+        return -1;
+    }
+    *filterOut = NULL;
+
     if(rbusBuffer_ReadUInt16(buff, &type) < 0)
         return -1;
     if(rbusBuffer_ReadUInt16(buff, &length) < 0)
@@ -292,11 +299,19 @@ int rbusFilter_Decode(rbusFilter_t* filterOut, rbusBuffer_t const buff)
         if(rbusFilter_Decode(&left, buff) < 0)
             return -1;
         if(rbusFilter_Decode(&right, buff) < 0)
+        {
+            rbusFilter_Release(left);
             return -1;
+        }
 
         rbusFilter_InitLogic(&filter, logOp, left, right);
         rbusFilter_Release(left);
         rbusFilter_Release(right);
+    }
+    else
+    {
+        RBUSLOG_WARN("rbusFilter_Decode: unsupported filter type %u", (unsigned int)filterType);
+        return -1;
     }
     *filterOut = filter;
     return 0;
@@ -396,4 +411,3 @@ void rbusFilter_fwrite(rbusFilter_t filter, FILE* fout, rbusValue_t value)
         fwrite(")", 1, 1, fout);
     }
 }
-

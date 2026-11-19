@@ -18,6 +18,7 @@
 */
 
 #include "rbus_subscriptions.h"
+#include "rbus_intervalsubscription.h"
 #include "rbus_buffer.h"
 #include "rbus_handle.h"
 #include <rtMemory.h>
@@ -30,6 +31,14 @@
 
 #define VERIFY_NULL(T)         if(NULL == T){ return; }
 #define CACHE_FILE_PATH_FORMAT "%s/rbus_subs_%s"
+#define ERROR_CHECK(CMD) \
+{ \
+    int err = (CMD); \
+    if(err != 0) \
+        RBUSLOG_ERROR("Error %d:%s running command " #CMD, err, strerror(err)); \
+}
+
+static pthread_mutex_t gSubscriptionMutex = PTHREAD_MUTEX_INITIALIZER;
 
 struct _rbusSubscriptions
 {
@@ -69,11 +78,49 @@ static int subscriptionKeyCompare(rbusSubscription_t* subscription, char const* 
     return rc;
 }
 
+void rbusSubscriptions_retainSubscription(rbusSubscription_t* sub)
+{
+    ERROR_CHECK(pthread_mutex_lock(&gSubscriptionMutex));
+    assert(sub->references > 0);
+    ++sub->references;
+    ERROR_CHECK(pthread_mutex_unlock(&gSubscriptionMutex));
+}
+
+void rbusSubscriptions_releaseSubscription(rbusSubscription_t* sub)
+{
+    ERROR_CHECK(pthread_mutex_lock(&gSubscriptionMutex));
+    assert(sub->references > 0);
+    bool destroy = --sub->references == 0;
+    ERROR_CHECK(pthread_mutex_unlock(&gSubscriptionMutex));
+    if(destroy)
+    {
+        free(sub->eventName);
+        free(sub->listener);
+        if(sub->filter)
+            rbusFilter_Release(sub->filter);
+        free(sub);
+    }
+}
+
+bool rbusSubscriptions_isSubscriptionRemoved(rbusSubscription_t* sub)
+{
+    ERROR_CHECK(pthread_mutex_lock(&gSubscriptionMutex));
+    bool removed = sub->removed;
+    ERROR_CHECK(pthread_mutex_unlock(&gSubscriptionMutex));
+    return removed;
+}
+
 static void subscriptionFree(void* p)
 {
     rbusSubscription_t* sub = p;
     rtListItem item;
     VERIFY_NULL(sub);
+
+    ERROR_CHECK(pthread_mutex_lock(&gSubscriptionMutex));
+    sub->removed = true;
+    ERROR_CHECK(pthread_mutex_unlock(&gSubscriptionMutex));
+    if(sub->interval)
+        rbusInterval_RemoveSubscriptionRecord(NULL, NULL, sub);
 
     rtList_GetFront(sub->instances, &item);
     while(item)
@@ -87,11 +134,10 @@ static void subscriptionFree(void* p)
         TokenChain_destroy(sub->tokens);
     if(sub->instances)
         rtList_Destroy(sub->instances, NULL);
-    free(sub->eventName);
-    free(sub->listener);
-    if(sub->filter)
-        rbusFilter_Release(sub->filter);
-    free(sub);
+    sub->tokens = NULL;
+    sub->instances = NULL;
+    sub->element = NULL;
+    rbusSubscriptions_releaseSubscription(sub);
 }
 
 void rbusSubscriptions_create(rbusSubscriptions_t* subscriptions, rbusHandle_t handle, char const* componentName, elementNode* root, const char* tmpDir)
@@ -142,6 +188,8 @@ rbusSubscription_t* rbusSubscriptions_addSubscription(rbusSubscriptions_t subscr
     }
 
     sub = rt_malloc(sizeof(rbusSubscription_t));
+    sub->references = 1;
+    sub->removed = false;
 
     sub->listener = strdup(listener);
     sub->eventName = strdup(eventName);
@@ -486,6 +534,8 @@ static void rbusSubscriptions_loadCache(rbusSubscriptions_t subscriptions)
             RBUSLOG_ERROR("failed to malloc sub");
             goto remove_bad_file;
         }
+        sub->references = 1;
+        sub->removed = false;
         //read listener
         if(rbusBuffer_ReadUInt16(buff, &type) < 0) goto remove_bad_file;
         if(rbusBuffer_ReadUInt16(buff, &length) < 0) goto remove_bad_file;
@@ -975,4 +1025,3 @@ rbusSubscription_t* rbusSubscriptions_updateExisting(rbusSubscriptions_t subscri
     return NULL;
 }
 #endif
-

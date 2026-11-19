@@ -118,6 +118,7 @@ struct _rbusHandle
   rtVector              messageCallbacks;
   rtConnection          m_connection;
   rbusHandleType_t      m_handleType;
+  bool                  intervalClosing; /* Protected by the interval registry mutex. */
   pthread_mutex_t       handle_eventSubsMutex;
   pthread_mutex_t       handle_subsMutex;
   rbusTimeoutValues_t   timeoutValues;
