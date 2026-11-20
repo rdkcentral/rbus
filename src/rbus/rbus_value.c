@@ -1238,10 +1238,10 @@ bool rbusValue_SetFromString(rbusValue_t value, rbusValueType_t type, const char
                 }
                 rbusValue_MarshallTMtoRBUS(&tvm, &tv);
                 if((RBUS_TIMEZONE_LEN == strlen(pRet)) &&
-                        (isdigit((int)pRet[1]) &&
-                         isdigit((int)pRet[2]) &&
-                         isdigit((int)pRet[4]) &&
-                         isdigit((int)pRet[5]))
+                        (isdigit((unsigned char)pRet[1]) &&
+                         isdigit((unsigned char)pRet[2]) &&
+                         isdigit((unsigned char)pRet[4]) &&
+                         isdigit((unsigned char)pRet[5]))
                   ) {
                     tvm.m_tz.m_isWest = ('-' == pRet[0]);
                     sscanf(pRet+1,"%02d:%02d",&(tvm.m_tz.m_tzhour), &(tvm.m_tz.m_tzmin));

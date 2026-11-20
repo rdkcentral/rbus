@@ -336,77 +336,6 @@ rbusError_t rbusHandle_ConfigTimeoutValues(rbusHandle_t handle, rbusTimeoutValue
     return RBUS_ERROR_SUCCESS;
 }
 
-rbusError_t rbusOpenDirect_SubAdd(rbusHandle_t handle, rtVector eventSubs, char const* eventName)
-{
-    size_t i;
-    char rawDataTopic[RBUS_MAX_NAME_LENGTH] = {0};
-    rbusEventSubscriptionInternal_t* subInternal = NULL;
-    rbusError_t errorcode = RBUS_ERROR_SUCCESS;
-
-    for(i=0; i < rtVector_Size(eventSubs); ++i)
-    {
-        subInternal = (rbusEventSubscriptionInternal_t*)rtVector_At(eventSubs, i);
-        if(subInternal && !strcmp(subInternal->sub->eventName, eventName))
-        {
-            if(subInternal->rawData)
-                snprintf(rawDataTopic, RBUS_MAX_NAME_LENGTH, "rawdata.%s", subInternal->sub->eventName);
-            else
-                snprintf(rawDataTopic, RBUS_MAX_NAME_LENGTH, "%d.%s", subInternal->subscriptionId, subInternal->sub->eventName);
-
-            if(rbusMessage_HasListener(handle, rawDataTopic))
-            {
-                errorcode = rbusMessage_RemoveListener(handle, rawDataTopic, subInternal->subscriptionId);
-                if (errorcode != RBUS_ERROR_SUCCESS)
-                {
-                    RBUSLOG_WARN("rbusMessage_RemoveListener failed err:%d", errorcode);
-                }
-            }
-            memset(rawDataTopic, '\0', strlen(rawDataTopic));
-            snprintf(rawDataTopic, RBUS_MAX_NAME_LENGTH, "%s", subInternal->sub->eventName);
-            if(subInternal->rawData)
-            {
-                errorcode = rbusMessage_AddPrivateListener(handle, rawDataTopic, _subscribe_rawdata_handler, (void *)(subInternal->sub), subInternal->subscriptionId);
-            }
-            if(errorcode != RBUS_ERROR_SUCCESS)
-            {
-                RBUSLOG_ERROR("rbusMessage_AddPrivateListener failed err: %d", errorcode);
-            }
-        }
-    }
-    return errorcode;
-}
-
-rbusError_t rbusCloseDirect_SubRemove(rbusHandle_t handle, rtVector eventSubs, char const* eventName)
-{
-    size_t i;
-    rbusError_t errorcode = RBUS_ERROR_SUCCESS;
-    rbusEventSubscriptionInternal_t* subInternal = NULL;
-    char rawDataTopic[RBUS_MAX_NAME_LENGTH] = {0};
-
-    for(i=0; i < rtVector_Size(eventSubs); ++i)
-    {
-        subInternal = (rbusEventSubscriptionInternal_t*)rtVector_At(eventSubs, i);
-        if(subInternal && !strcmp(subInternal->sub->eventName, eventName) && subInternal->rawData)
-        {
-            snprintf(rawDataTopic, RBUS_MAX_NAME_LENGTH, "%s", subInternal->sub->eventName);
-            errorcode = rbusMessage_RemovePrivateListener(handle, rawDataTopic, subInternal->subscriptionId);
-            if (errorcode != RBUS_ERROR_SUCCESS)
-            {
-                RBUSLOG_WARN("rbusMessage_RemovePrivateListener failed err:%d", errorcode);
-            }
-            handle->m_connection = handle->m_connectionParent; /* changed the handle m_connection of direct connection to use normal m_connection and used the same to add the rawdatatopic for normal connection*/
-            memset(rawDataTopic, '\0', strlen(rawDataTopic));
-            snprintf(rawDataTopic, RBUS_MAX_NAME_LENGTH, "rawdata.%s", subInternal->sub->eventName);
-            errorcode = rbusMessage_AddListener(handle, rawDataTopic, _subscribe_rawdata_handler, (void *)(subInternal->sub), subInternal->subscriptionId);
-            if(errorcode != RBUS_ERROR_SUCCESS)
-            {
-                RBUSLOG_ERROR("rbusMessage_AddListener failed err: %d", errorcode);
-            }
-        }
-    }
-    return errorcode;
-}
-
 static bool _parse_rbusData_to_value (char const* pBuff, rbusLegacyDataType_t legacyType, rbusValue_t value)
 {
     bool rc = false;
@@ -1353,13 +1282,6 @@ static void unregisterTableRow (rbusHandle_t handle, elementNode* rowInstElem)
     }
 }
 //******************************* CALLBACKS *************************************//
-
-static void _client_disconnect_callback_handler(const char * listener)
-{
-    LockMutex();
-    rbusHandleList_ClientDisconnect(listener);
-    UnlockMutex();
-}
 
 void _subscribe_async_callback_handler(rbusHandle_t handle, rbusEventSubscription_t* subscription, rbusError_t error, uint32_t subscriptionId)
 {
@@ -2751,111 +2673,6 @@ static void _subscribe_callback_handler (rbusHandle_t handle, rbusMessage reques
     }
 }
 
-#define RBUS_DAEMON_CONF_LENGTH     256
-static void _create_direct_connection_callback_handler (rbusHandle_t handle, rbusMessage request, rbusMessage *response)
-{
-    rbusCoreError_t ret = RBUSCORE_SUCCESS;
-    struct _rbusHandle* handleInfo = handle;
-    elementNode* el = NULL;
-    char const* consumerName = NULL;
-    char const* paramName = NULL;
-    char const* consumerToBrokerConf = NULL;
-    int32_t consumerPID = 0;
-    char daemonAddress[RBUS_DAEMON_CONF_LENGTH] = "";
-
-
-    rbusMessage_GetString(request, &consumerName);
-    rbusMessage_GetInt32(request, &consumerPID);
-    rbusMessage_GetString(request, &paramName);
-    rbusMessage_GetString(request, &consumerToBrokerConf);
-
-    rbusMessage_Init(response);
-
-    el = retrieveInstanceElementEx(handle, handleInfo->elementRoot, paramName, true);
-
-    if (el)
-    {
-        if (0 == strncmp(consumerToBrokerConf, "unix", 4))
-        {
-            snprintf (daemonAddress, RBUS_DAEMON_CONF_LENGTH, "unix:///tmp/.direct_%s_%s", __progname, consumerName);
-        }
-        else
-        {
-            char ip[128];
-            // the length of 6 for "tcp://"
-            char const* p = strrchr(consumerToBrokerConf + 6, ':');
-            if (!p)
-            {
-                RBUSLOG_WARN("invalid address string:%s", consumerToBrokerConf);
-                ret = RBUSCORE_ERROR_INVALID_PARAM;
-            }
-            else
-            {
-                rtString_Copy(ip, consumerToBrokerConf, (p - consumerToBrokerConf));
-                RBUSLOG_DEBUG ("parsing ip address:%s", ip);
-
-                //FIXME :: The port must be within 65535 and unique to the consumer.
-                // PID is something unique  but the same client can have direct connection to two different providers and that could lead to failure.
-
-                // ex: if the consumer pid is 12345;
-                //          Provider1 may open a private session on 127.0.0.1:12345
-                //          Provider2 should not (could not) open private session on same address as 127.0.0.1:12345.
-                // Provider 2 have to come up with some other logic
-
-                // Note: On 32 Bit Linux, the max pid is 32768
-                // Note: On 64 Bit Linux, the max pid is 4194303
-                // Also, unique number free of 20, 21, 22, 80, 53, 123, 443, 8080, 10001(or actual rbus daemon port has to be arrived.
-                // May be we must engage session manager to generate
-                srand(time(NULL));
-                uint32_t port = 0;
-                do {
-                    port =  rand() % 65535;
-                } while (port < 8080);
-
-                snprintf (daemonAddress, RBUS_DAEMON_CONF_LENGTH, "%s:%u", ip, port);
-            }
-        }
-    }
-    else
-    {
-        ret = RBUSCORE_ERROR_ENTRY_NOT_FOUND;
-        RBUSLOG_WARN("invalid parameter name :%s", paramName);
-    }
-
-    rbusMessage_SetInt32(*response, ret);
-    if (RBUSCORE_SUCCESS == ret)
-    {
-        rbuscore_startPrivateListener(daemonAddress, consumerName, paramName, _callback_handler, handle);
-
-        rbusMessage_SetString(*response, rtConnection_GetReturnAddress(handleInfo->m_connection));
-        rbusMessage_SetString(*response, daemonAddress);
-    }
-}
-
-static void _close_direct_connection_callback_handler (rbusHandle_t handle, rbusMessage request, rbusMessage *response)
-{
-    elementNode* el = NULL;
-    struct _rbusHandle* handleInfo = handle;
-    char const* consumerName = NULL;
-    char const* paramName = NULL;
-
-    rbusMessage_GetString(request, &consumerName);
-    rbusMessage_GetString(request, &paramName);
-
-    rbusMessage_Init(response);
-
-    el = retrieveInstanceElement(handleInfo->elementRoot, paramName);
-    if (el)
-    {
-        rbusMessage_SetInt32(*response, RBUSCORE_SUCCESS);
-        rbuscore_updatePrivateListener(consumerName, paramName);
-    }
-    else
-        rbusMessage_SetInt32(*response, RBUSCORE_ERROR_INVALID_PARAM);
-
-    RBUSLOG_DEBUG("Handled the disconnect request from %s for DML(%s)", consumerName, paramName);
-}
-
 static int _callback_handler(char const* destination, char const* method, rbusMessage request, void* userData, rbusMessage* response, const rtMessageHeader* hdr)
 {
     rbusHandle_t handle = (rbusHandle_t)userData;
@@ -2904,14 +2721,6 @@ static int _callback_handler(char const* destination, char const* method, rbusMe
     else if(!strcmp(method, METHOD_SUBSCRIBE) || !strcmp(method, METHOD_UNSUBSCRIBE))
     {
         _subscribe_callback_handler (handle, request, response, method);
-    }
-    else if(!strcmp(method, METHOD_OPENDIRECT_CONN))
-    {
-        _create_direct_connection_callback_handler(handle, request, response);
-    }
-    else if(!strcmp(method, METHOD_CLOSEDIRECT_CONN))
-    {
-        _close_direct_connection_callback_handler(handle, request, response);
     }
     else if(!strcmp(method, METHOD_RPC))
     {
@@ -3090,96 +2899,6 @@ exit_error0:
     return ret;
 }
 
-static uint32_t sDisConnHandler;
-
-rbusError_t rbus_openDirect(rbusHandle_t handle, rbusHandle_t* myDirectHandle, char const* pParameterName)
-{
-    rtConnection myDirectCon = NULL;
-    rbusError_t ret = RBUS_ERROR_SUCCESS;
-    rbusCoreError_t err = RBUSCORE_SUCCESS;
-    struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
-
-    if ((handle) && (myDirectHandle) && (pParameterName))
-    {
-        if (rbuscore_FindClientPrivateConnection(pParameterName))
-        {
-            RBUSLOG_ERROR("Private Connection Already Exist for this Parameter(%s) for this consumer(%s)", pParameterName, handleInfo->componentName);
-            return RBUS_ERROR_ELEMENT_NAME_DUPLICATE;
-        }
-        else
-        {
-            err = rbuscore_createPrivateConnection(pParameterName, &myDirectCon);
-            if (RBUSCORE_SUCCESS == err)
-            {
-                ret = RBUS_ERROR_SUCCESS;
-                rbusHandle_t tmpHandle = NULL;
-                tmpHandle = rt_calloc(1, sizeof(struct _rbusHandle));
-                tmpHandle->componentName = strdup(pParameterName);
-                tmpHandle->m_connection = myDirectCon;
-                tmpHandle->eventSubs = handleInfo->eventSubs;
-                tmpHandle->m_connectionParent = handleInfo->m_connection;
-                tmpHandle->messageCallbacks = handleInfo->messageCallbacks;
-                tmpHandle->m_handleType = RBUS_HWDL_TYPE_DIRECT;
-                *myDirectHandle = tmpHandle;
-                rbusOpenDirect_SubAdd(handle, handle->eventSubs, pParameterName);
-                if (!sDisConnHandler)
-                {
-                    rbus_registerClientDisconnectHandler(_client_disconnect_callback_handler);
-                }
-                sDisConnHandler++;
-            }
-            else
-            {
-                *myDirectHandle = NULL;
-                ret = RBUS_ERROR_COMPONENT_DOES_NOT_EXIST;
-            }
-        }
-    }
-    else
-    {
-        ret = RBUS_ERROR_INVALID_INPUT;
-    }
-
-
-    return ret;
-}
-
-rbusError_t rbus_closeDirect(rbusHandle_t handle)
-{
-    rbusError_t ret = RBUS_ERROR_SUCCESS;
-    rbusCoreError_t err = RBUSCORE_SUCCESS;
-    struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
-
-    VERIFY_NULL(handle);
-    if (RBUS_HWDL_TYPE_DIRECT == handleInfo->m_handleType)
-    {
-        if (sDisConnHandler == 1)
-        {
-            if((err = rbus_unregisterClientDisconnectHandler()) != RBUSCORE_SUCCESS)
-            {
-                RBUSLOG_ERROR("(%s): rbus_unregisterClientDisconnectHandler error %d", handleInfo->componentName, err);
-                ret = RBUS_ERROR_BUS_ERROR;
-            }
-        }
-        --sDisConnHandler;
-        rbusError_t subRemoveRet = rbusCloseDirect_SubRemove(handle, handleInfo->eventSubs, handleInfo->componentName);
-	    if(subRemoveRet != RBUS_ERROR_SUCCESS)
-	        RBUSLOG_WARN("rbusCloseDirect_subRemove failed");
-
-        rbuscore_closePrivateConnection(handleInfo->componentName);
-        free(handleInfo->componentName);
-        handleInfo->componentName = NULL;
-        handleInfo->m_handleType = RBUS_HWDL_TYPE_UNKNOWN;
-        free(handleInfo);
-
-    }
-    else
-    {
-        ret = RBUS_ERROR_INVALID_INPUT;
-    }
-    return ret;
-}
-
 rbusError_t rbus_close(rbusHandle_t handle)
 {
     VERIFY_HANDLE(handle);
@@ -3238,8 +2957,8 @@ rbusError_t rbus_close(rbusHandle_t handle)
     {
         HANDLE_SUBS_MUTEX_LOCK(handle);
         rbusSubscriptions_destroy(handleInfo->subscriptions);
-        HANDLE_SUBS_MUTEX_UNLOCK(handle);
         handleInfo->subscriptions = NULL;
+        HANDLE_SUBS_MUTEX_UNLOCK(handle);
     }
 
     rbusValueChange_CloseHandle(handle);//called before freeElementNode below
@@ -3300,10 +3019,6 @@ static struct _rbusHandle* _rbusHandle_GetValidUserDataHandle(rbusHandle_t handl
     struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
     if(!handleInfo)
         return NULL;
-
-    // Unsure why direct handles are not part of the handle list. rbus_open uses rbusHandleList_Add, rbus_openDirect does not.
-    if(handleInfo->m_handleType == RBUS_HWDL_TYPE_DIRECT)
-        return handleInfo;
 
     return handleInfo->m_handleType == RBUS_HWDL_TYPE_REGULAR &&
         rbusHandleList_IsValidHandle(handleInfo) ? handleInfo : NULL;
@@ -3554,11 +3269,7 @@ rbusError_t rbus_get(rbusHandle_t handle, char const* name, rbusValue_t* value)
 
     RBUSLOG_DEBUG("Calling rbus_invokeRemoteMethod2 for [%s]", name);
 
-    /* Find direct connection status */
-    rtConnection myConn = rbuscore_FindClientPrivateConnection(name);
-
-    if (NULL == myConn)
-        myConn = handleInfo->m_connection;
+    rtConnection myConn = handleInfo->m_connection;
 
     err = rbus_invokeRemoteMethod2(myConn, name, METHOD_GETPARAMETERVALUES, request, rbusHandle_FetchGetTimeout(handle), &response);
 
@@ -4065,11 +3776,7 @@ rbusError_t _setInternal(rbusHandle_t handle, char const* name, rbusValue_t valu
 
     /* Set the Commit value; FIXME: Should we use string? */
     rbusMessage_SetString(setRequest, (!opts || opts->commit) ? "TRUE" : "FALSE");
-    /* Find direct connection status */
-    rtConnection myConn = rbuscore_FindClientPrivateConnection(name);
-
-    if (NULL == myConn)
-        myConn = handleInfo->m_connection;
+    rtConnection myConn = handleInfo->m_connection;
 
     if (timeout == 0)
         timeout = rbusHandle_FetchSetTimeout(handle);
@@ -4143,10 +3850,7 @@ rbusError_t rbus_setCommit(rbusHandle_t handle, char const* name, rbusSetOptions
     /* Set the Commit value */
     rbusMessage_SetString(setRequest, (!opts || opts->commit) ? "TRUE" : "FALSE");
 
-    /* Find direct connection status */
-    rtConnection myConn = rbuscore_FindClientPrivateConnection(name);
-    if (NULL == myConn)
-        myConn = handleInfo->m_connection;
+    rtConnection myConn = handleInfo->m_connection;
     if((err = rbus_invokeRemoteMethod2(myConn, name, METHOD_COMMIT, setRequest, rbusHandle_FetchSetTimeout(handle),  &setResponse)) != RBUSCORE_SUCCESS)
     {
         RBUSLOG_ERROR("%s for %s failed with error: %s", __FUNCTION__, name, rbusCoreErrorToString(err));
@@ -4544,11 +4248,7 @@ rbusError_t rbusTable_addRow(
     else
         rbusMessage_SetString(request, "");
 
-    /* Find direct connection status */
-    rtConnection myConn = rbuscore_FindClientPrivateConnection(tableName);
-
-    if (NULL == myConn)
-        myConn = handleInfo->m_connection;
+    rtConnection myConn = handleInfo->m_connection;
 
     if((err = rbus_invokeRemoteMethod2(myConn,
         tableName, /*as taken from ccsp_base_api.c, this was the destination component ID, but to locate the route, the table name can be used
@@ -4611,11 +4311,7 @@ rbusError_t rbusTable_removeRow(
     rbusMessage_Init(&request);
     rbusMessage_SetInt32(request, 0);/*TODO: this should be the session ID*/
     rbusMessage_SetString(request, rowName);/*TODO: do we need to append the name as well as pass the name as the 1st arg to rbus_invokeRemoteMethod2 ?*/
-    /* Find direct connection status */
-    rtConnection myConn = rbuscore_FindClientPrivateConnection(rowName);
-
-    if (NULL == myConn)
-        myConn = handleInfo->m_connection;
+    rtConnection myConn = handleInfo->m_connection;
 
     if((err = rbus_invokeRemoteMethod2(myConn,
         rowName,
@@ -4743,11 +4439,7 @@ rbusError_t rbusTable_getRowNames(
 
     RBUSLOG_DEBUG("Get row: %s", tableName);
 
-    /* Find direct connection status */
-    rtConnection myConn = rbuscore_FindClientPrivateConnection(tableName);
-
-    if (NULL == myConn)
-        myConn = handleInfo->m_connection;
+    rtConnection myConn = handleInfo->m_connection;
 
     if((err = rbus_invokeRemoteMethod2(myConn, tableName, METHOD_GETPARAMETERNAMES, request, rbusHandle_FetchGetTimeout(handle), &response)) == RBUSCORE_SUCCESS)
     {
@@ -5021,24 +4713,12 @@ static rbusError_t _rbus_event_unsubscribe(
 
     if(subInternal->rawData)
     {
-        rtConnection myConn = rbuscore_FindClientPrivateConnection(subInternal->sub->eventName);
-        if(myConn)
+        snprintf(rawDataTopic, RBUS_MAX_NAME_LENGTH, "rawdata.%s", subInternal->sub->eventName);
+        if(rbusMessage_HasListener(handle, rawDataTopic))
         {
-            errorcode = rbusMessage_RemovePrivateListener(handle, subInternal->sub->eventName, subInternal->subscriptionId);
-            if (errorcode != RBUS_ERROR_SUCCESS)
+            if(RBUS_ERROR_SUCCESS != rbusMessage_RemoveListener(handle, rawDataTopic, subInternal->subscriptionId))
             {
-                RBUSLOG_WARN("rtConnection_RemovePrivateListener failed err:%d", errorcode);
-            }
-        }
-        else
-        {
-            snprintf(rawDataTopic, RBUS_MAX_NAME_LENGTH, "rawdata.%s", subInternal->sub->eventName);
-            if(rbusMessage_HasListener(handle, rawDataTopic))
-            {
-                if(RBUS_ERROR_SUCCESS != rbusMessage_RemoveListener(handle, rawDataTopic, subInternal->subscriptionId))
-                {
-                    RBUSLOG_WARN("%s: Remove listener failed err: %d", __FUNCTION__, errorcode);
-                }
+                RBUSLOG_WARN("%s: Remove listener failed err: %d", __FUNCTION__, errorcode);
             }
         }
     }
@@ -5354,30 +5034,12 @@ rbusError_t  rbusEvent_SubscribeRawData(
         return errorcode;
     }
 
-    rtConnection myConn = rbuscore_FindClientPrivateConnection(eventName);
-    if(myConn)
+    subInternal = rbusEventSubscription_find(handleInfo->eventSubs, eventName, NULL, 0, 0, true);
+    snprintf(rawDataTopic, RBUS_MAX_NAME_LENGTH, "rawdata.%s", eventName);
+    if(subInternal)
     {
-        snprintf(rawDataTopic, RBUS_MAX_NAME_LENGTH, "rawdata.%s", eventName);
-        subInternal = rbusEventSubscription_find(handleInfo->eventSubs, eventName, NULL, 0, 0, true);
-        if(subInternal && rbusMessage_HasListener(handle,rawDataTopic))
-        {
-            errorcode = rbusMessage_RemoveListener(handle, rawDataTopic, subInternal->subscriptionId);
-            if (errorcode != RT_OK)
-            {
-                RBUSLOG_WARN("rbusMessage_RemoveListener:%d", errorcode);
-            }
-        }
-        memset(rawDataTopic, '\0', strlen(rawDataTopic));
-        snprintf(rawDataTopic, RBUS_MAX_NAME_LENGTH, "%s", eventName);
-        if(subInternal)
-        {
-            errorcode = rbusMessage_AddPrivateListener(handle, rawDataTopic, _subscribe_rawdata_handler, (void *)(subInternal->sub), subInternal->subscriptionId);
-        }
-        else
-        {
-            RBUSLOG_ERROR("SubscribeRawData: subInternal is NULL for %s", eventName);
-            errorcode = RBUS_ERROR_INVALID_INPUT;
-        }
+        errorcode = rbusMessage_AddListener(handle, rawDataTopic,
+                _subscribe_rawdata_handler, (void *)(subInternal->sub), subInternal->subscriptionId);
         if(errorcode != RBUS_ERROR_SUCCESS)
         {
             RBUSLOG_ERROR("%s: Listener failed err: %d", __FUNCTION__, errorcode);
@@ -5385,22 +5047,8 @@ rbusError_t  rbusEvent_SubscribeRawData(
     }
     else
     {
-        subInternal = rbusEventSubscription_find(handleInfo->eventSubs, eventName, NULL, 0, 0, true);
-        snprintf(rawDataTopic, RBUS_MAX_NAME_LENGTH, "rawdata.%s", eventName);
-        if(subInternal)
-        {
-            errorcode = rbusMessage_AddListener(handle, rawDataTopic,
-                    _subscribe_rawdata_handler, (void *)(subInternal->sub), subInternal->subscriptionId);
-        }
-        else
-        {
-            RBUSLOG_ERROR("SubscribeRawData: subInternal is NULL for %s", eventName);
-            errorcode = RBUS_ERROR_INVALID_INPUT;
-        }
-        if(errorcode != RBUS_ERROR_SUCCESS)
-        {
-            RBUSLOG_ERROR("%s: Listener failed err: %d", __FUNCTION__, errorcode);
-        }
+        RBUSLOG_ERROR("SubscribeRawData: subInternal is NULL for %s", eventName);
+        errorcode = RBUS_ERROR_INVALID_INPUT;
     }
     return errorcode;
 }
@@ -5657,22 +5305,12 @@ rbusError_t rbusEvent_SubscribeExRawData(
         else
         {
             HANDLE_EVENTSUBS_MUTEX_LOCK(handle);
-            rtConnection myConn = rbuscore_FindClientPrivateConnection(subscription[i].eventName);
-            if(myConn)
+            subInternal = rbusEventSubscription_find(handleInfo->eventSubs, subscription[i].eventName, subscription[i].filter, subscription[i].interval, subscription[i].duration, true);
+            snprintf(rawDataTopic, RBUS_MAX_NAME_LENGTH, "rawdata.%s", subscription[i].eventName);
+            if(subInternal)
             {
-                snprintf(rawDataTopic, RBUS_MAX_NAME_LENGTH, "rawdata.%s", subscription[i].eventName);
-                subInternal = rbusEventSubscription_find(handleInfo->eventSubs, subscription[i].eventName, subscription[i].filter, subscription[i].interval, subscription[i].duration, true);
-                if(subInternal && rbusMessage_HasListener(handle,rawDataTopic))
-                {
-                    errorcode = rbusMessage_RemoveListener(handle, rawDataTopic, subInternal->subscriptionId);
-                    if (errorcode != RT_OK)
-                    {
-                        RBUSLOG_WARN("rbusMessage_RemoveListener:%d", errorcode);
-                    }
-                }
-                memset(rawDataTopic, '\0', strlen(rawDataTopic));
-                snprintf(rawDataTopic, RBUS_MAX_NAME_LENGTH, "%s", subscription[i].eventName);
-                errorcode = rbusMessage_AddPrivateListener(handle, rawDataTopic, _subscribe_rawdata_handler, (void *)(subInternal->sub), subInternal->subscriptionId);
+                errorcode = rbusMessage_AddListener(handle, rawDataTopic,
+                        _subscribe_rawdata_handler, (void *)(subInternal->sub), subInternal->subscriptionId);
                 if(errorcode != RBUS_ERROR_SUCCESS)
                 {
                     RBUSLOG_ERROR("%s: Listener failed err: %d", __FUNCTION__, errorcode);
@@ -5680,14 +5318,8 @@ rbusError_t rbusEvent_SubscribeExRawData(
             }
             else
             {
-                subInternal = rbusEventSubscription_find(handleInfo->eventSubs, subscription[i].eventName, subscription[i].filter, subscription[i].interval, subscription[i].duration, true);
-                snprintf(rawDataTopic, RBUS_MAX_NAME_LENGTH, "rawdata.%s", subscription[i].eventName);
-                errorcode = rbusMessage_AddListener(handle, rawDataTopic,
-                        _subscribe_rawdata_handler, (void *)(subInternal->sub), subInternal->subscriptionId);
-                if(errorcode != RBUS_ERROR_SUCCESS)
-                {
-                    RBUSLOG_ERROR("%s: Listener failed err: %d", __FUNCTION__, errorcode);
-                }
+                RBUSLOG_ERROR("SubscribeRawData: subInternal is NULL for %s", subscription[i].eventName);
+                errorcode = RBUS_ERROR_INVALID_INPUT;
             }
             HANDLE_EVENTSUBS_MUTEX_UNLOCK(handle);
         }
@@ -5925,8 +5557,6 @@ rbusError_t  rbusEvent_PublishRawData(
 {
     struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
     rbusError_t rc = RBUS_ERROR_SUCCESS;
-    rtListItem listItem;
-    rbusSubscription_t* subscription;
     rbusCoreError_t err = RBUSCORE_SUCCESS;
     char rawDataTopic[RBUS_MAX_NAME_LENGTH] = {0};
 
@@ -5953,28 +5583,6 @@ rbusError_t  rbusEvent_PublishRawData(
         return RBUS_ERROR_NOSUBSCRIBERS;
     }
 
-    HANDLE_SUBS_MUTEX_LOCK(handle);
-    rtList_GetFront(el->subscriptions, &listItem);
-    while(listItem)
-    {
-        rtListItem_GetData(listItem, (void**)&subscription);
-        if(!subscription || !subscription->eventName || !subscription->listener)
-        {
-            RBUSLOG_INFO("rbusEvent_Publish failed: null subscriber data");
-            if(rc == RBUS_ERROR_SUCCESS)
-                rc = RBUS_ERROR_BUS_ERROR;
-            rtListItem_GetNext(listItem, &listItem);
-        }
-        if(subscription->rawData)
-		{
-            err = rbuscore_publishDirectSubscriberEvent(subscription->eventName, subscription->listener, eventData->rawData, eventData->rawDataLen, subscription->subscriptionId, subscription->rawData);
-            rbusError_t rcTmp = rbusCoreError_to_rbusError(err);
-	        if( rcTmp != RBUS_ERROR_SUCCESS)
-		       RBUSLOG_WARN("rbuscore_publishDirectSubscriberEvent failed");	
-		}
-        rtListItem_GetNext(listItem, &listItem);
-    }
-    HANDLE_SUBS_MUTEX_UNLOCK(handle);
     snprintf(rawDataTopic, RBUS_MAX_NAME_LENGTH, "rawdata.%s", eventData->name);
     err = rbus_sendData(eventData->rawData, eventData->rawDataLen, rawDataTopic);
     rbusError_t rcTmp = rbusCoreError_to_rbusError(err);
@@ -6147,11 +5755,7 @@ rbusError_t rbusMethod_InvokeInternal(
         rbusMessage_SetInt32(request, 0);
     }
 
-    /* Find direct connection status */
-    rtConnection myConn = rbuscore_FindClientPrivateConnection(methodName);
-
-    if (NULL == myConn)
-        myConn = handleInfo->m_connection;
+    rtConnection myConn = handleInfo->m_connection;
 
     if((err = rbus_invokeRemoteMethod2(myConn,
         methodName,
