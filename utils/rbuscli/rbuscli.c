@@ -2532,6 +2532,9 @@ static int construct_input_into_cmds(char* buff, int* pargc, char** argv)
             ++i;
         if(i == len)
             break;
+        /* keep the last slot NULL; handlers rely on argv[argc] == NULL */
+        if(argc >= RBUS_CLI_MAX_CMD_ARG - 1)
+            return 1;
         if(buff[i] == '\'')
             quote = 1;
         else if(buff[i] == '"')
