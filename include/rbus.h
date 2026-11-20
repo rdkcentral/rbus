@@ -129,7 +129,7 @@ typedef enum _rbusError
     RBUS_ERROR_SUBSCRIPTION_ALREADY_EXIST,      /**< The subscription already exists*/
     RBUS_ERROR_INVALID_NAMESPACE,               /**< Invalid namespace as per standard */
     RBUS_ERROR_DIRECT_CON_NOT_EXIST,            /**< Direct connection not exist */
-    RBUS_ERROR_NOT_WRITABLE,                    /**< Set to the requested data element was not permitted by the provider component.*/
+    RBUS_ERROR_NOT_WRITABLE,               /**< Set to the requested data element was not permitted by the provider component.*/
     RBUS_ERROR_NOT_READABLE,                    /**< Get to the requested data element was not permitted by the provider component.*/
     RBUS_ERROR_INVALID_PARAMETER_TYPE,          /**< Invalid parameter type.*/
     RBUS_ERROR_INVALID_PARAMETER_VALUE          /**< Invalid parameter value.*/
@@ -760,7 +760,7 @@ rbusError_t rbus_close(
     rbusHandle_t handle);
 
 /**
- * @brief Associates borrowed application data with a regular or direct handle.
+ * @brief Associates borrowed application data with a handle.
  * Set this before callbacks may run and keep the pointer stable while callbacks
  * may access it. Synchronize access to mutable data referenced by the pointer.
  * RBUS does not take ownership of the pointer or its contents.
@@ -770,7 +770,7 @@ rbusError_t rbusHandle_SetUserData(
     void* userData);
 
 /**
- * @brief Returns application data associated with a regular or direct handle.
+ * @brief Returns application data associated with a handle.
  * Returns NULL for a NULL or invalid handle, or when no data has been set.
  */
 void* rbusHandle_GetUserData(
@@ -1972,40 +1972,6 @@ rbusError_t rbus_registerLogHandler(
  */
 
 rbusError_t rbus_setLogLevel(rbusLogLevel_t level);
-
-/** @fn rbusError_t rbus_openDirect(
- *          rbusHandle_t handle,
- *          rbusHandle_t* myDirectHandle,
- *          char const* parameterName)
- *
- *  @brief  Component use this API to open direct connection to the provider
- *
- *  Rbus supports a mode that optimizes performance for very frequent, high data rate transfers or rbus operations that need extremely low latency.
- *  This is known as rbus_direct mode.   While this mode improves performance, reduces CPU usage and improves latency, it also uses more memory and
- *  resources compared with normal rbus operation.   Rbus_direct mode should only be used where it's needed and avoided where its not needed.
- *  Developers should use normal rbus operation modes unless there are special circumstances that require rbus_direct mode.  Developers should 
- *  NOT use rbus_direct mode for all operations.   For more information on rbus_direct see the instructions for rbus_openDirect() in rbus.h.
- *
- *  Used by: Component that wants to use private connection to provider and avoid RBUS Daemon.
- *
- *  @param handle           Current active rbus handle
- *  @param myDirectHandle   Direct handle that is created
- *  @param parameterName    Direct connection for the given parameter
- *  @return RBus error code as defined by rbusError_t.
- */
-rbusError_t rbus_openDirect(rbusHandle_t handle, rbusHandle_t* myDirectHandle, char const* parameterName);
-
-/** @fn rbusError_t rbus_closeDirect(
- *          rbusHandle_t myDirectHandle)
- *
- *  @brief  Component use this API to close existing direct connection to the provider for the given DML
- *
- *  Used by: Component that is no more need the direct connection and wants to switch to RBUS Daemon
- *
- *  @param myDirectHandle   Direct handle that is created
- *  @return RBus error code as defined by rbusError_t.
- */
-rbusError_t rbus_closeDirect(rbusHandle_t handle);
 
 /** @fn rbusError_t rbus_registerDynamicTableSyncHandler(
  *          rbusHandle_t handle,
