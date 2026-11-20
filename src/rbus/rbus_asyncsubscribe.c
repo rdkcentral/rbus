@@ -164,7 +164,9 @@ static void rbusAsyncSubscribeRetrier_SendSubscriptionRequests()
 
     rtTime_Now(&now);
 
+    LOCK();
     rtList_GetFront(gRetrier->items, &li);
+    UNLOCK();
 
     while(li)
     {
@@ -267,7 +269,9 @@ static void rbusAsyncSubscribeRetrier_SendSubscriptionRequests()
                 continue;//li is already the next item so avoid GetNext below
             }
         }
-        rtListItem_GetNext(li, &li);    
+        LOCK();
+        rtListItem_GetNext(li, &li);
+        UNLOCK();
     }
     RBUSLOG_DEBUG("%s exit", __FUNCTION__);
 }
