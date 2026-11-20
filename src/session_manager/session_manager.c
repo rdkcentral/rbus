@@ -18,18 +18,46 @@
 */
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <unistd.h>
 #include <string.h>
 #include <signal.h>
+#include <time.h>
 #include "rbus.h"
 #include "rbuscore.h"
 #include "rtLog.h"
 #include "rbus_session_mgr.h"
 #define CCSP_CURRENT_SESSION_ID_SIGNAL      "currentSessionIDSignal"
 
-static int g_counter;
+static uint32_t g_counter;
+static uint32_t g_session_seed;
 static int g_current_session_id;
 rbusHandle_t   g_busHandle = 0;
+
+static int sessionManager_generateSessionId(void)
+{
+    uint32_t session_id = 0;
+
+    if (g_session_seed == 0)
+    {
+        uint32_t seed = (uint32_t)getpid() * 1103515245u;
+
+        time_t now = time(NULL);
+        if (now != (time_t)-1)
+        {
+            uint64_t t = (uint64_t)now;
+            seed ^= (uint32_t)(t ^ (t >> 32));
+        }
+        g_session_seed = seed;
+    }
+
+    do {
+        ++g_counter;
+        session_id = (g_session_seed + g_counter) & 0x7fffffffU;
+    } while (session_id == 0);
+
+    return (int)session_id;
+}
 
 /* MethodHandler */
 static rbusError_t sessionManager_methodHandler(rbusHandle_t handle,
@@ -60,8 +88,7 @@ static rbusError_t sessionManager_methodHandler(rbusHandle_t handle,
     {
         if (0 == g_current_session_id)
         {
-            g_current_session_id = 1;
-            ++g_counter;
+            g_current_session_id = sessionManager_generateSessionId();
             printf("Creating new session %d\n", g_current_session_id);
             rbusValue_t return_value, sessionid_value;
             rbusValue_Init(&return_value);
@@ -110,27 +137,46 @@ static rbusError_t sessionManager_methodHandler(rbusHandle_t handle,
     else if (strcmp(methodName, RBUS_SMGR_METHOD_END_SESSION) == 0)
     {
         rbusProperty_t prop = NULL;
+        rbusValue_t value = NULL;
         int sessionid = 0;
         int result = 0;
         prop = rbusObject_GetProperties(inParams);
-        if ((prop) && (sessionid = rbusValue_GetInt32(rbusProperty_GetValue(prop))))
-        {
-            if(sessionid == g_current_session_id)
-            {
-                printf("End of session %d\n", g_current_session_id);
-                g_current_session_id = 0;
-                result = RBUS_ERROR_SUCCESS;
-            }
-            else
-            {
-                printf("Cannot end session %d. It doesn't match active session, which is %d.\n", sessionid, g_current_session_id);
-                result = RBUS_ERROR_SESSION_ALREADY_EXIST;
-            }
-        }
-        else
+        if (inParams == NULL || prop == NULL)
         {
             printf("Session id not found. Cannot process end of session.\n");
             result = RBUS_ERROR_INVALID_INPUT;
+        }
+        else
+        {
+            value = rbusProperty_GetValue(prop);
+            if (value == NULL || rbusValue_GetType(value) != RBUS_INT32)
+            {
+                printf("Invalid session id type. Cannot process end of session.\n");
+                result = RBUS_ERROR_INVALID_INPUT;
+            }
+            else
+            {
+                sessionid = rbusValue_GetInt32(value);
+                if (sessionid > 0)
+                {
+                    if(sessionid == g_current_session_id)
+                    {
+                        printf("End of session %d\n", g_current_session_id);
+                        g_current_session_id = 0;
+                        result = RBUS_ERROR_SUCCESS;
+                    }
+                    else
+                    {
+                        printf("Cannot end session %d. It doesn't match active session, which is %d.\n", sessionid, g_current_session_id);
+                        result = RBUS_ERROR_SESSION_ALREADY_EXIST;
+                    }
+                }
+                else
+                {
+                    printf("Session id not found. Cannot process end of session.\n");
+                    result = RBUS_ERROR_INVALID_INPUT;
+                }
+            }
         }
 
         rbusValue_t resultValue;

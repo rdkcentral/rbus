@@ -79,6 +79,8 @@ static void freeElementRecurse(elementNode* node)
     VERIFY_NULL(node);
     elementNode* child = node->child;
 
+    ELM_PRIVATE_LOCK(node);
+
     while(child)
     {
         elementNode* tmp = child;
@@ -107,76 +109,92 @@ static void freeElementRecurse(elementNode* node)
         free(node->changeComp);
     }
 
+    ELM_PRIVATE_UNLOCK(node);
     free(node);
 
 }
 
-void freeElementNode(elementNode* node)
+static void enqueuePruneParent(elementNode* parent)
 {
-    VERIFY_NULL(node);
-    elementNode* parent = node->parent;
-    elementNode* child = node->child;
-
-    while(child)
-    {
-        elementNode* tmp = child;
-        child = child->nextSibling;
-        freeElementRecurse(tmp);
-    }
-
-    if(parent)
-    {
-        if(parent->child == node)
-        {
-            parent->child = node->nextSibling;
-        }
-        else
-        {
-            child = parent->child;
-            while(child)
-            {
-                if(child->nextSibling == node)
-                {
-                    child->nextSibling = node->nextSibling;
-                    break;
-                }
-                child = child->nextSibling;
-            }
-        }
-    }
-
-    if (node->name)
-    {
-        free(node->name);
-    }
-    if (node->fullName)
-    {
-        free(node->fullName);
-    }
-    if (node->alias)
-    {
-        free(node->alias);
-    }
-    if (node->subscriptions)
-    {
-        rtList_Destroy(node->subscriptions, NULL);
-    }
-    if (node->changeComp)
-    {
-        free(node->changeComp);
-    }
-    free(node);
-
-    /*remove objects with no children
-     could be an intermitent object added during insertElem
-     or it could be a table which no longer has the {i}
-     however don't remove rows which are allowed to exist without child) */
     if(parent && parent->parent && parent->child == NULL && parent->parent->type != RBUS_ELEMENT_TYPE_TABLE)
     {
         if(pruneNode)
             parent->nextPrune = pruneNode;
         pruneNode = parent;
     }
+}
+
+static void detachElementNode(elementNode* node)
+{
+    elementNode* parent = node->parent;
+    elementNode* child = NULL;
+
+    if(!parent)
+        return;
+
+    if(parent->child == node)
+    {
+        parent->child = node->nextSibling;
+    }
+    else
+    {
+        child = parent->child;
+        while(child)
+        {
+            if(child->nextSibling == node)
+            {
+                child->nextSibling = node->nextSibling;
+                break;
+            }
+            child = child->nextSibling;
+        }
+    }
+
+    node->nextSibling = NULL;
+    node->parent = NULL;
+    enqueuePruneParent(parent);
+}
+
+void freeElementNode(elementNode* node)
+{
+    VERIFY_NULL(node);
+    elementNode* child = node->child;
+
+    detachElementNode(node);
+    ELM_PRIVATE_LOCK(node);
+
+    while(child)
+    {
+        elementNode* tmp = child;
+        child = child->nextSibling;
+        freeElementRecurse(tmp);
+    }
+
+    if (node->name)
+    {
+        free(node->name);
+    }
+    if (node->fullName)
+    {
+        free(node->fullName);
+    }
+    if (node->alias)
+    {
+        free(node->alias);
+    }
+    if (node->subscriptions)
+    {
+        rtList_Destroy(node->subscriptions, NULL);
+    }
+    if (node->changeComp)
+    {
+        free(node->changeComp);
+    }
+
+    ELM_PRIVATE_UNLOCK(node);
+    node->parent = NULL;
+    node->nextSibling = NULL;
+    free(node);
 }
 
 static void pruneTree()
@@ -456,18 +474,17 @@ elementNode* retrieveElement(elementNode* root, const char* elmentName)
         }
     }
 
+    elementNode* retNode = NULL;
+    if(tokenFound)
+    {
+        retNode = currentNode;
+        RBUSLOG_DEBUG("Found Element with param name [%s]", currentNode->name);
+    }
+
     free(name);
     UNLOCK();
 
-    if(tokenFound)
-    {
-        RBUSLOG_DEBUG("Found Element with param name [%s]", currentNode->name);
-        return currentNode;
-    }
-    else
-    {
-        return NULL;
-    }
+    return retNode;
 }
 
 elementNode* retrieveInstanceElement(elementNode* root, const char* elmentName)
@@ -582,21 +599,20 @@ elementNode* retrieveInstanceElementEx(rbusHandle_t handle, elementNode* root, c
         }        
     }
 
+    elementNode* retNode = NULL;
+    if(tokenFound)
+    {
+        retNode = currentNode;
+        RBUSLOG_DEBUG("Found Element with param name [%s]", currentNode->name);
+    }
+
     free(name);
     UNLOCK();
 
-    if(tokenFound)
-    {
-        RBUSLOG_DEBUG("Found Element with param name [%s]", currentNode->name);
-        return currentNode;
-    }
-    else
-    {
-        return NULL;
-    }
+    return retNode;
 }
 
-static void removeElementInternal(elementNode* rowNode, elementNode** chain, int numChain)
+static void removeElementInternal(elementNode* rowNode, elementNode** chain, int numChain, elementNode** deleteList)
 {
     VERIFY_NULL(rowNode);
     elementNode* currentNode = rowNode;
@@ -629,12 +645,14 @@ static void removeElementInternal(elementNode* rowNode, elementNode** chain, int
                     {
                         if(numChain-i-1 > 0)
                         {
-                            removeElementInternal(childNode, &chain[i+1], numChain-i-1);
+                            removeElementInternal(childNode, &chain[i+1], numChain-i-1, deleteList);
                         }
                         else
                         {
-                            freeElementNode(childNode);
-                        }                            
+                            detachElementNode(childNode);
+                            childNode->nextPrune = *deleteList;
+                            *deleteList = childNode;
+                        }
                     }
                     childNode = nextNode;
                 }
@@ -649,11 +667,13 @@ static void removeElementInternal(elementNode* rowNode, elementNode** chain, int
                 {
                     if(numChain-i-1 > 0)
                     {
-                        removeElementInternal(childNode, &chain[i+1], numChain-i-1);
+                        removeElementInternal(childNode, &chain[i+1], numChain-i-1, deleteList);
                     }
                     else
                     {
-                        freeElementNode(childNode);
+                        detachElementNode(childNode);
+                        childNode->nextPrune = *deleteList;
+                        *deleteList = childNode;
                     }
                     break;
                 }
@@ -672,7 +692,9 @@ static void removeElementInternal(elementNode* rowNode, elementNode** chain, int
                 {
                     if(i == numChain-1)
                     {
-                        freeElementNode(childNode);
+                        detachElementNode(childNode);
+                        childNode->nextPrune = *deleteList;
+                        *deleteList = childNode;
                         return;
                     }
                     else
@@ -698,18 +720,30 @@ static void removeElementInternal(elementNode* rowNode, elementNode** chain, int
 void removeElement(elementNode* element)
 {
     elementNode** chain = NULL;
+    elementNode* deleteList = NULL;
     int numChain = 0;
     VERIFY_NULL(element);
     RBUSLOG_DEBUG("removeElement %s\n", element->fullName);
     LOCK();
     createElementChain(element, &chain, &numChain);
     if(numChain > 1)
-        removeElementInternal(chain[0], &chain[1], numChain-1);
+        removeElementInternal(chain[0], &chain[1], numChain-1, &deleteList);
     else
-        freeElementNode(chain[0]);
+    {
+        detachElementNode(chain[0]);
+        chain[0]->nextPrune = deleteList;
+        deleteList = chain[0];
+    }
     free(chain);
-    pruneTree();    
+    pruneTree();
     UNLOCK();
+    while(deleteList)
+    {
+        elementNode* tmp = deleteList;
+        deleteList = deleteList->nextPrune;
+        tmp->nextPrune = NULL;
+        freeElementRecurse(tmp);
+    }
 }
 
 static void printElement(elementNode* node, int level)
@@ -1046,12 +1080,16 @@ elementNode* instantiateTableRow(elementNode* tableNode, uint32_t instNum, char 
 void deleteTableRow(elementNode* rowNode)
 {
     VERIFY_NULL(rowNode);
-    LOCK();
     elementNode* parent = rowNode->parent;
-    
+
+    LOCK();
     if(!parent)
     {
         RBUSLOG_INFO("row doesn't have a parent");
+    }
+    else
+    {
+        detachElementNode(rowNode);
     }
 #if DEBUG_ELEMENTS
     RBUSLOG_INFO("%s: row=%s", __FUNCTION__, rowNode->fullName);
@@ -1066,7 +1104,9 @@ void deleteTableRow(elementNode* rowNode)
         RBUSLOG_INFO("#####################################################");
     }
 #endif
-    freeElementNode(rowNode);
+    pruneTree();
+    UNLOCK();
+    freeElementRecurse(rowNode);
 #if DEBUG_ELEMENTS
     if(parent)
     {
@@ -1078,7 +1118,6 @@ void deleteTableRow(elementNode* rowNode)
         RBUSLOG_INFO("#####################################################");
     }
 #endif
-    UNLOCK();
 }
 
 void replicateAcrossTableRowInstancesInternal(elementNode* rowNode, elementNode* chain[], int numChain)
