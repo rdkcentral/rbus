@@ -18,6 +18,7 @@
 */
 
 #include "rbus_subscriptions.h"
+#include "rbus_intervalsubscription.h"
 #include "rbus_buffer.h"
 #include "rbus_handle.h"
 #include <rtMemory.h>
@@ -360,6 +361,8 @@ void rbusSubscriptions_onElementDeleted(rbusSubscriptions_t subscriptions, eleme
                         }
                         else
                         {
+                            if(sub->interval)
+                                rbusInterval_RemoveSubscriptionRecord(subscriptions->handle, child, subscription);
                             rbusSubscriptions_removeSubscription(subscriptions, subscription);
                         }
                     }
