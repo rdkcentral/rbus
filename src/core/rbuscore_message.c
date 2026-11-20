@@ -189,8 +189,21 @@ rtError rbusMessage_SetString(rbusMessage message, char const* value)
 
 rtError rbusMessage_GetString(rbusMessage const message, char const** value)
 {
+    if(!message || !value)
+    {
+        RBUSCORELOG_ERROR("%s: NULL message or output", __FUNCTION__);
+        return RT_ERROR_INVALID_ARG;
+    }
+    *value = NULL;
     VERIFY_UNPACK(MSGPACK_OBJECT_STR);
-    *value = message->upk.data.via.str.ptr;
+    size_t length = message->upk.data.via.str.size;
+    char const* data = message->upk.data.via.str.ptr;
+    if(length == 0 || !memchr(data, '\0', length))
+    {
+        RBUSCORELOG_ERROR("%s: string is not NUL-terminated", __FUNCTION__);
+        return RT_FAIL;
+    }
+    *value = data;
     return RT_OK;
 }
 
