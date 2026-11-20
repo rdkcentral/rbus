@@ -166,8 +166,12 @@ rtError rtThreadPool_CreateWorkerThread(rtThreadPool pool)
   thread->pool = pool;
   pthread_attr_init(&attr);
   if(pool->stackSize > 0)
-    pthread_attr_setstacksize(&attr, pool->stackSize);
-  pthread_create(&thread->threadId, &attr, rtThread_WorkerThreadFunc, thread);
+  {
+    if(pthread_attr_setstacksize(&attr, pool->stackSize) != 0)
+      rtLog_Warn("%s pthread_attr_setstacksize failed", __FUNCTION__);
+  }
+  if(pthread_create(&thread->threadId, &attr, rtThread_WorkerThreadFunc, thread) != 0)
+    rtLog_Warn("%s pthread_create failed: %s", __FUNCTION__, strerror(errno));
   pthread_attr_destroy(&attr);
   rtList_PushBack(pool->threadList, thread, NULL);
   rtLog_Debug("%s exit", __FUNCTION__);
