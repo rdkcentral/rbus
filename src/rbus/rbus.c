@@ -1765,37 +1765,31 @@ exit:
  */
 static char const* _convert_reg_name_to_instance_name(char const* registrationName, char const* query, char* buffer)
 {
-    size_t idx = 0;
-    size_t maxLen = RBUS_MAX_NAME_LENGTH - 1;
+    int idx = 0;
     char const* preg = registrationName;
-    char const* pinst = query;
+    char const* pinst= query;
 
-    if((NULL == registrationName) || (NULL == query) || (NULL == buffer))
+    while(*preg != 0 && *pinst != 0)
     {
-        return NULL;
-    }
-
-    while((*preg != 0) && (*pinst != 0) && (idx < maxLen))
-    {
-        while((*preg == *pinst) && (idx < maxLen))
+        while(*preg == *pinst)
         {
             buffer[idx++] = *preg;
             preg++;
             pinst++;
         }
 
-        if((*preg == '{') && (idx < maxLen))
+        if(*preg == '{')
         {
-            while((*pinst != 0) && (*pinst != '.') && (idx < maxLen))
+            while(*pinst && *pinst != '.')
                 buffer[idx++] = *pinst++;
 
-            while((*preg != 0) && (*preg != '.') && (idx < maxLen))
+            while(*preg && *preg != '.')
                 preg++;
         }
 
-        if((*pinst == 0) && (idx < maxLen)) /*end of partial path but continue to write out the full name of child*/
+        if(*pinst == 0) /*end of partial path but continue to write out the full name of child*/
         {
-            while((*preg != 0) && (idx < maxLen))
+            while(*preg)
             {
                 buffer[idx++] = *preg++;
             }
@@ -1820,15 +1814,12 @@ static char const* _convert_reg_name_to_instance_name(char const* registrationNa
         {
             while(*pinst)
             {
-                if (idx < maxLen)
-                    buffer[idx++] = *pinst++;
-                else
-                    break;
+                buffer[idx++] = *pinst++;
             }
         }
 #endif
     }
-    buffer[idx < maxLen ? idx : maxLen] = 0;
+    buffer[idx++] = 0;
 
     RBUSLOG_DEBUG(" _convert_reg_name_to_instance_name");
     RBUSLOG_DEBUG("   reg: %s", registrationName);
