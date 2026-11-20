@@ -499,8 +499,6 @@ void show_menu(const char* command)
             printf ("\r\n");
             printf ("Commands:\r\n");
         }
-        printf ("\t\e[1mopen\e[0mdirect \e[4mpath\e[0m\r\n");
-        printf ("\t\e[1mclose\e[0mdirect \e[4mpath\e[0m\r\n");
         printf ("\t\e[1mget\e[0mvalues \e[4mpath\e[0m [\e[4mpath\e[0m \e[4m...\e[0m]\r\n");
         printf ("\t\e[1mset\e[0mvalues \e[4mparameter\e[0m \e[4mtype\e[0m \e[4mvalue\e[0m [[\e[4mparameter\e[0m \e[4mtype\e[0m \e[4mvalue\e[0m] \e[4m...\e[0m] [commit]\r\n");
         printf ("\t\e[1msetc\e[0mommit \e[4mcomponents\e[0m  [sessionid]\r\n");
