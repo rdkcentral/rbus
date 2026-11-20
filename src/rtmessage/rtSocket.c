@@ -169,6 +169,7 @@ rtSocketStorage_FromString(struct sockaddr_storage* ss, char const* addr)
   rtError err;
   struct sockaddr_in* v4;
   struct sockaddr_in6* v6;
+  size_t ipLength;
 
   memset(ip, 0, sizeof(ip));
 
@@ -196,7 +197,15 @@ rtSocketStorage_FromString(struct sockaddr_storage* ss, char const* addr)
     return RT_ERROR_INVALID_ARG;
   }
 
-  rtString_Copy(ip, addr + 6, (uint32_t)(p - addr - 6 + 1));
+  ipLength = (size_t)(p - (addr + 6));
+  if (ipLength >= sizeof(ip))
+  {
+    rtLog_Warn("invalid address string: host is too long");
+    return RT_ERROR_INVALID_ARG;
+  }
+
+  memcpy(ip, addr + 6, ipLength);
+  ip[ipLength] = '\0';
   rtLog_Debug("parsing ip address:%s", ip);
   if (!rtSocket_IsNumeric(ip))
   {

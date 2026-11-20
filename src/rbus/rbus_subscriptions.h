@@ -48,6 +48,8 @@ typedef struct _rbusSubscription
                                                                 Device.WiFi.AccessPoint.2.AssociatedDevice.1.SignalStrength */
     bool rawData;
     uint32_t subscriptionId;
+    unsigned int references;
+    bool removed;
 } rbusSubscription_t;
 
 /*create a new subscriptions registry for an rbus handle*/
@@ -64,6 +66,11 @@ rbusSubscription_t* rbusSubscriptions_getSubscription(rbusSubscriptions_t subscr
 
 /*remove an existing subscription*/
 void rbusSubscriptions_removeSubscription(rbusSubscriptions_t subscriptions, rbusSubscription_t* sub);
+
+/* Worker references preserve publishing data after registry removal. */
+void rbusSubscriptions_retainSubscription(rbusSubscription_t* sub);
+void rbusSubscriptions_releaseSubscription(rbusSubscription_t* sub);
+bool rbusSubscriptions_isSubscriptionRemoved(rbusSubscription_t* sub);
 
 /*call right after a new row is added*/
 void rbusSubscriptions_onTableRowAdded(rbusSubscriptions_t subscriptions, elementNode* node);
