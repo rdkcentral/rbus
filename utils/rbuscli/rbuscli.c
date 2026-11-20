@@ -60,7 +60,6 @@ rbusHandle_t   g_busHandle = 0;
 rtList g_registeredProps = NULL;
 rtList g_subsribeUserData = NULL;
 rtList g_messageUserData = NULL;
-rtHashMap gDirectHandlesHash = NULL;
 
 bool g_isInteractive = false;
 bool g_logEvents = true;
@@ -469,26 +468,6 @@ void show_menu(const char* command)
             printf ("\t\tlog debug\r\n");
             printf ("\tReturn logging to default/quiet:\r\n");
             printf ("\t\tlog fatal\r\n");
-            printf ("\r\n");
-        }
-        else if(matchCmd(command, 5, "opendirect"))
-        {
-            printf ("\e[1mopend\e[0mirect \e[4mpath\e[0m\r\n");
-            printf ("Opens direct connection to the DML.\r\n");
-            printf ("Args:\r\n");
-            printf ("\t%-20sThe name of a parameter \r\n", "path");
-            printf ("Examples:\r\n");
-            printf ("\topendirect Example.Prop1\r\n");
-            printf ("\r\n");
-        }
-        else if(matchCmd(command, 5, "closedirect"))
-        {
-            printf ("\e[1mclosed\e[0mirect \e[4mpath\e[0m\r\n");
-            printf ("closes direct connection to the DML.\r\n");
-            printf ("Args:\r\n");
-            printf ("\t%-20sThe name of a parameter \r\n", "path");
-            printf ("Examples:\r\n");
-            printf ("\tclosedirect Example.Prop1\r\n");
             printf ("\r\n");
         }
         else if(matchCmd(command, 4, "quit"))
@@ -967,7 +946,7 @@ void execute_discover_component_cmd(int argc, char* argv[])
     int index = 0;
     int i;
     int componentCnt = 0;
-    char **pComponentNames;
+    char **pComponentNames = NULL;
     char const* pElementNames[RBUS_CLI_MAX_PARAM] = {0, 0};
 
     if (!verify_rbus_open())
@@ -988,9 +967,7 @@ void execute_discover_component_cmd(int argc, char* argv[])
             for (i = 0; i < componentCnt; i++)
             {
                 printf ("\tComponent %d: %s\r\n", (i + 1), pComponentNames[i]);
-                free(pComponentNames[i]);
             }
-            free(pComponentNames);
         }
         else
         {
@@ -1001,6 +978,13 @@ void execute_discover_component_cmd(int argc, char* argv[])
     {
         printf ("Failed to discover components. Error Code = %d\r\n", rc);
     }
+
+    if (pComponentNames)
+    {
+        for (i = 0; i < componentCnt; i++)
+            free(pComponentNames[i]);
+        free(pComponentNames);
+    }
 }
 
 void execute_discover_elements_cmd(int argc, char *argv[])
@@ -1009,7 +993,8 @@ void execute_discover_elements_cmd(int argc, char *argv[])
     int numOfInputParams = argc - 2;
     bool nextLevel = true;
     int numElements = 0;
-    char** pElementNames; // FIXME: every component will have more than RBUS_CLI_MAX_PARAM elements right?
+    int i;
+    char** pElementNames = NULL;
 
     if (!verify_rbus_open())
         return;
@@ -1028,14 +1013,11 @@ void execute_discover_elements_cmd(int argc, char *argv[])
     {
         if(numElements)
         {
-            int i;
             printf ("Discovered elements are:\r\n");
             for (i = 0; i < numElements; i++)
             {
                 printf ("\tElement %d: %s\r\n", (i + 1), pElementNames[i]);
-                free(pElementNames[i]);
             }
-            free(pElementNames);
         }
         else
         {
@@ -1046,13 +1028,21 @@ void execute_discover_elements_cmd(int argc, char *argv[])
     {
         printf ("Failed to discover elements. Error Code = %d\r\n", rc);
     }
+
+    if (pElementNames)
+    {
+        for (i = 0; i < numElements; i++)
+            free(pElementNames[i]);
+        free(pElementNames);
+    }
 }
 
 void execute_discover_wildcard_dests_cmd(int argc, char* argv[])
 {
     rbusCoreError_t rc = RBUSCORE_SUCCESS;
     int numDestinations = 0;
-    char** destinations;
+    int i;
+    char** destinations = NULL;
 
     (void)argc;
     (void)argv;
@@ -1068,18 +1058,15 @@ void execute_discover_wildcard_dests_cmd(int argc, char* argv[])
 
     runSteps = __LINE__;
     rc = rbus_discoverWildcardDestinations(argv[2], &numDestinations, &destinations);
-    
+
     if(RBUSCORE_SUCCESS == rc)
     {
         if (numDestinations)
         {
-            int i;
             for(i = 0; i < numDestinations; i++)
             {
                 printf ("\tComponent %d: %s\r\n", (i + 1), destinations[i]);
-                free(destinations[i]);
             }
-            free(destinations);
         }
         else
         {
@@ -1090,71 +1077,13 @@ void execute_discover_wildcard_dests_cmd(int argc, char* argv[])
     {
         printf ("Failed to discover components. Error Code = %d\r\n", rc);
     }
-}
 
-void validate_and_execute_open_n_close_direct_cmd(int argc, char *argv[], bool isOpen)
-{
-    rbusError_t rc = RBUS_ERROR_SUCCESS;
-    int numOfInputParams = argc - 2;
-    const char *pInputParam[RBUS_CLI_MAX_PARAM] = {0, 0};
-
-    if (numOfInputParams != 1)
+    if (destinations)
     {
-        printf ("Invalid arguments. Please see the help\r\n");
-        return;
+        for (i = 0; i < numDestinations; i++)
+            free(destinations[i]);
+        free(destinations);
     }
-
-    if (!verify_rbus_open())
-        return;
-
-    runSteps = __LINE__;
-    pInputParam[0] = argv[2];
-
-    if(pInputParam[0][strlen(pInputParam[0])-1] == '.' || strchr(pInputParam[0], '*'))
-    {
-        printf ("Invalid arguments. Please see the help\r\n");
-        return;
-    }
-
-    rbusHandle_t directHandle = NULL;
-    if (isOpen)
-    {
-        if(!gDirectHandlesHash)
-            rtHashMap_Create(&gDirectHandlesHash);
-
-        rc = rbus_openDirect(g_busHandle, &directHandle, pInputParam[0]);
-        if (RBUS_ERROR_SUCCESS != rc)
-        {
-            printf ("Failed to open direct connection to %s\r\n", pInputParam[0]);
-        }
-        else
-        {
-            rtHashMap_Set(gDirectHandlesHash, pInputParam[0], directHandle);
-        }
-    }
-    else
-    {
-        if(gDirectHandlesHash)
-            directHandle = rtHashMap_Get(gDirectHandlesHash, pInputParam[0]);
-
-        if (directHandle)
-        {
-            rc = rbus_closeDirect(directHandle);
-            if (RBUS_ERROR_SUCCESS != rc)
-            {
-                printf ("Failed to close direct connection to %s\r\n", pInputParam[0]);
-            }
-            else
-            {
-                rtHashMap_Remove(gDirectHandlesHash, pInputParam[0]);
-            }
-        }
-        else
-        {
-            printf ("Failed to find direct connection to %s\r\n", pInputParam[0]);
-        }
-    }
-    return;
 }
 
 void validate_and_execute_get_cmd (int argc, char *argv[])
@@ -2071,6 +2000,10 @@ void validate_and_execute_subscribe_cmd (int argc, char *argv[], bool add, bool 
 exit_error:
         runSteps = __LINE__;
         printf ("Invalid arguments. Please see the help\r\n");
+        if(filterValue)
+            rbusValue_Release(filterValue);
+        if(filter)
+            rbusFilter_Release(filter);
         rt_free(userData);
         return;
     }
@@ -2571,14 +2504,6 @@ int handle_cmds (int argc, char *argv[])
             }
         }
     }
-    else if (matchCmd(command, 5, "opendirect"))
-    {
-        validate_and_execute_open_n_close_direct_cmd(argc, argv, true);
-    }
-    else if (matchCmd(command, 5, "closedirect"))
-    {
-        validate_and_execute_open_n_close_direct_cmd(argc, argv, false);
-    }
     else if (matchCmd(command, 4, "quit"))
     {
         return 1;
@@ -3076,12 +3001,6 @@ int main( int argc, char *argv[] )
         handle_cmds (argc, argv);
     }
 
-    /* Close the handle if it is not interative */
-    if (gDirectHandlesHash)
-    {
-        runSteps = __LINE__;
-        rtHashMap_Destroy(gDirectHandlesHash);
-    }
 
     if (g_busHandle)
     {

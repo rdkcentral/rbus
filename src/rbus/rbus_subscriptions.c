@@ -489,9 +489,10 @@ static void rbusSubscriptions_loadCache(rbusSubscriptions_t subscriptions)
         //read listener
         if(rbusBuffer_ReadUInt16(buff, &type) < 0) goto remove_bad_file;
         if(rbusBuffer_ReadUInt16(buff, &length) < 0) goto remove_bad_file;
-        if(type != RBUS_STRING || length >= RBUS_MAX_NAME_LENGTH) goto remove_bad_file;
+        if(type != RBUS_STRING || length == 0 || length >= RBUS_MAX_NAME_LENGTH) goto remove_bad_file;
+        if(buff->posRead + length > buff->posWrite) goto remove_bad_file;
 
-        sub->listener = rt_calloc(1, length);
+        sub->listener = rt_calloc(1, length + 1);
         if(!sub->listener)
         {
             RBUSLOG_ERROR("failed to malloc %d bytes for listener", length);
@@ -503,9 +504,10 @@ static void rbusSubscriptions_loadCache(rbusSubscriptions_t subscriptions)
         //read eventName
         if(rbusBuffer_ReadUInt16(buff, &type) < 0) goto remove_bad_file;
         if(rbusBuffer_ReadUInt16(buff, &length) < 0) goto remove_bad_file;
-        if(type != RBUS_STRING || length >= RBUS_MAX_NAME_LENGTH) goto remove_bad_file;
+        if(type != RBUS_STRING || length == 0 || length >= RBUS_MAX_NAME_LENGTH) goto remove_bad_file;
+        if(buff->posRead + length > buff->posWrite) goto remove_bad_file;
 
-        sub->eventName = rt_try_calloc(1, length);
+        sub->eventName = rt_try_calloc(1, length + 1);
         if(!sub->eventName)
         {
             RBUSLOG_ERROR("failed to malloc %d bytes for eventName", length);
