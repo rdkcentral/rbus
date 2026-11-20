@@ -234,7 +234,8 @@ void rtHashMap_Set(rtHashMap hashmap, const void* key, const void* value)
     }
     if(!node)
     {
-        if((hashmap->size+1) / (float)rtVector_Size(hashmap->buckets) > hashmap->load_factor)
+        size_t nbuckets = rtVector_Size(hashmap->buckets);
+        if(nbuckets == 0 || (hashmap->size+1) / (float)nbuckets > hashmap->load_factor)
         {
             rtHashMap_Resize(hashmap, 1);
             bucket = rtHashMap_GetBucket(hashmap, key);
