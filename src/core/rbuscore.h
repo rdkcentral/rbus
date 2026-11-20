@@ -162,8 +162,6 @@ rbusCoreError_t rbus_unregisterClientDisconnectHandler();
 /* Send an event message directly to a specific subscribe(e.g. listener) */
 rbusCoreError_t rbus_publishSubscriberEvent(const char* object_name,  const char * event_name, const char* listener, rbusMessage out, uint32_t subscriptionId, bool rawData);
 
-rbusCoreError_t rbuscore_publishDirectSubscriberEvent(const char * event_name, const char* listener, const void* data, uint32_t dataLength, uint32_t subscriptionId, bool rawData);
-
 /*------ Convenience functions built on top of base functions above. ------*/
 
 
@@ -210,24 +208,6 @@ rbuscore_bus_status_t rbuscore_checkBusStatus(void);
 rbusCoreError_t rbus_sendResponse(const rtMessageHeader* hdr, rbusMessage response);
 
 
-
-/* The Consumer application to identify whether any private connection exist for the given DML */
-rtConnection rbuscore_FindClientPrivateConnection(const char *pParameterName);
-
-/* The Consumer application to request to create a private connection to the Provider for the given DML */
-rbusCoreError_t rbuscore_createPrivateConnection(const char *pParameterName, rtConnection *pPrivateConn);
-
-/* The Consumer application to request to close the private connection to the Provider for the given DML */
-rbusCoreError_t rbuscore_closePrivateConnection(const char *pParameterName);
-
-/* The Consumer application to request to terminate the private connection to the Provider for ALL the DMLs of the provider */
-rbusCoreError_t rbuscore_terminatePrivateConnection(const char *pProviderName);
-
-/* The Provider application to request to start the instance of rtrouted in the given socket name; for the given DML */
-rbusCoreError_t rbuscore_startPrivateListener(const char* pPrivateConnAddress, const char* pConsumerName, const char *pDMLName, rbus_callback_t handler, void * user_data);
-
-/* The Provider application to request to remove/close the instance of rtrouted in the given DML */
-rbusCoreError_t rbuscore_updatePrivateListener(const char* pConsumerName, const char *pDMLName);
 
 rbusCoreError_t rbus_sendData(const void* data, uint32_t dataLength, const char * topic);
 
