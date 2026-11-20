@@ -41,7 +41,7 @@
 
 #define RBUS_CLI_COMPONENT_NAME "rbuscli"
 #define RBUS_CLI_MAX_PARAM      25
-#define RBUS_CLI_MAX_CMD_ARG    (RBUS_CLI_MAX_PARAM * 3 + 4)
+#define RBUS_CLI_MAX_CMD_ARG    (RBUS_CLI_MAX_PARAM * 3)
 #define BT_BUF_SIZE 512
 
 
@@ -2596,6 +2596,8 @@ static int construct_input_into_cmds(char* buff, int* pargc, char** argv)
     int len = (int)strlen(buff);
     int i, j, quote;
     int argc = 0;
+    if(argv == NULL)
+        return 1;
     argv[argc++] = "rbuscli";
     runSteps = __LINE__;
     for(i = 0; i < len; ++i)
@@ -2605,12 +2607,6 @@ static int construct_input_into_cmds(char* buff, int* pargc, char** argv)
             ++i;
         if(i == len)
             break;
-        /* keep the last slot NULL; handlers rely on argv[argc] == NULL */
-        if(argc >= RBUS_CLI_MAX_CMD_ARG - 1)
-        {
-            printf("Too many arguments (max %d)\r\n", RBUS_CLI_MAX_CMD_ARG - 2);
-            goto parse_error;
-        }
         if(buff[i] == '\'')
             quote = 1;
         else if(buff[i] == '"')
@@ -2630,8 +2626,8 @@ static int construct_input_into_cmds(char* buff, int* pargc, char** argv)
               ( (quote == 1 && buff[i-1] != '\'') ||
                 (quote == 2 && buff[i-1] != '"' ) ) )
         {
-            printf("Command missing quotes\r\n");
-            goto parse_error;
+            argc = 0;
+            return 1;
         }
         buff[i] = 0;
         argv[argc] = strdup(buff+j);
@@ -2639,14 +2635,6 @@ static int construct_input_into_cmds(char* buff, int* pargc, char** argv)
     }
     *pargc = argc;
     return 0;
-
-parse_error:
-    for(j = 1; j < argc; ++j)
-    {
-        free(argv[j]);
-        argv[j] = NULL;
-    }
-    return 1;
 }
 
 static char* find_completion(char* token, int count, ...)
@@ -3070,6 +3058,8 @@ int main( int argc, char *argv[] )
                         if(interArgv[i])
                             free(interArgv[i]);
                 }
+                else
+                    printf("Command missing quotes\r\n");
             }
             runSteps = __LINE__;
             linenoiseFree(line);
