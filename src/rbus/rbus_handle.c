@@ -124,6 +124,8 @@ void rbusHandleList_ClientDisconnect(char const* clientListener)
             HANDLE_SUBS_MUTEX_UNLOCK(handle);
         }
 
+        /* Update the Direct Connection */
+        rbuscore_terminatePrivateConnection(clientListener);
     }
 }
 
