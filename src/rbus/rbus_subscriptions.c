@@ -318,7 +318,6 @@ void rbusSubscriptions_onElementDeleted(rbusSubscriptions_t subscriptions, eleme
             {
                 rtListItem item, tempitem;
                 rbusSubscription_t* sub;
-                bool val=false;
                 rbusSubscription_t* subscription = NULL;
 
                 rtList_GetFront(subscriptions->subList, &item);
@@ -327,6 +326,7 @@ void rbusSubscriptions_onElementDeleted(rbusSubscriptions_t subscriptions, eleme
                 while(item)
                 {
                     rtListItem item2;
+                    bool val = false;
                     elementNode* inst;
 
                     rtListItem_GetNext(item, &tempitem);
