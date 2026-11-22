@@ -196,7 +196,7 @@ static void rtHashMap_Resize(rtHashMap hashmap, int grow)
     size_t next_size; 
     size_t i;
     if(grow)
-        next_size = old_size * 2;
+        next_size = old_size ? old_size * 2 : RTHASHMAP_INITSIZE;
     else
         next_size = old_size / 2;
     rtVector_Create(&new_buckets);
@@ -224,8 +224,19 @@ static void rtHashMap_Resize(rtHashMap hashmap, int grow)
 
 void rtHashMap_Set(rtHashMap hashmap, const void* key, const void* value)
 {
-    rtVector bucket = rtHashMap_GetBucket(hashmap, key);
-    rtHashMapNode* node = rtVector_Find(bucket, key, rtHashMap_Compare_Node);
+    rtVector bucket;
+    rtHashMapNode* node;
+
+    if(rtVector_Size(hashmap->buckets) == 0)
+        rtHashMap_Resize(hashmap, 1);
+
+    bucket = rtHashMap_GetBucket(hashmap, key);
+    if(!bucket)
+    {
+        rtLog_Error("rtHashMap_Set: no bucket available, insertion rejected");
+        return;
+    }
+    node = rtVector_Find(bucket, key, rtHashMap_Compare_Node);
     if(node)
     {
         rtLog_Debug("Overwritting exist value\n");
@@ -239,10 +250,21 @@ void rtHashMap_Set(rtHashMap hashmap, const void* key, const void* value)
         {
             rtHashMap_Resize(hashmap, 1);
             bucket = rtHashMap_GetBucket(hashmap, key);
+            if(!bucket)
+            {
+                rtLog_Error("rtHashMap_Set: resize failed, insertion rejected");
+                return;
+            }
         }
         node = rt_try_malloc(sizeof(struct rtHashMapNode));
+        if(!node)
+            return;
         node->hashmap = hashmap;
-        rtVector_PushBack(bucket, node);
+        if(rtVector_PushBack(bucket, node) != RT_OK)
+        {
+            free(node);
+            return;
+        }
         hashmap->size++;
     }
     node->key = hashmap->key_copier(key);
