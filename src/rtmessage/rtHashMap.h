@@ -47,8 +47,7 @@ void rtHashMap_CreateEx(
   rtHashMap_Copy_Func val_copier,
   rtHashMap_Destroy_Func val_destroyer);
 void rtHashMap_Destroy(rtHashMap hashmap);
-/* On failure the map does not take ownership of value; the caller must release it. */
-rtError rtHashMap_Set(rtHashMap hashmap, const void* key, const void* value);
+void rtHashMap_Set(rtHashMap hashmap, const void* key, const void* value);
 void* rtHashMap_Get(rtHashMap hashmap, const void* key);
 size_t rtHashMap_GetSize(rtHashMap hashmap);
 int rtHashMap_Contains(rtHashMap hashmap, const void* key);

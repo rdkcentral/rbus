@@ -23,7 +23,6 @@
 #include "rtLog.h"
 #include "rtMemory.h"
 #include <string.h>
-#include <errno.h>
 
 #define RTHASHMAP_INITSIZE 16
 #define RTHASHMAP_LOAD_FACTOR 0.75f
@@ -223,13 +222,10 @@ static void rtHashMap_Resize(rtHashMap hashmap, int grow)
     rtLog_Debug("Hashmap resize %zu", rtVector_Size(hashmap->buckets));
 }
 
-rtError rtHashMap_Set(rtHashMap hashmap, const void* key, const void* value)
+void rtHashMap_Set(rtHashMap hashmap, const void* key, const void* value)
 {
     rtVector bucket;
     rtHashMapNode* node;
-
-    if(!hashmap || !key)
-        return RT_ERROR_INVALID_ARG;
 
     if(rtVector_Size(hashmap->buckets) == 0)
         rtHashMap_Resize(hashmap, 1);
@@ -238,7 +234,7 @@ rtError rtHashMap_Set(rtHashMap hashmap, const void* key, const void* value)
     if(!bucket)
     {
         rtLog_Error("rtHashMap_Set: no bucket available, insertion rejected");
-        return rtErrorFromErrno(ENOMEM);
+        return;
     }
     node = rtVector_Find(bucket, key, rtHashMap_Compare_Node);
     if(node)
@@ -257,27 +253,16 @@ rtError rtHashMap_Set(rtHashMap hashmap, const void* key, const void* value)
             if(!bucket)
             {
                 rtLog_Error("rtHashMap_Set: resize failed, insertion rejected");
-                return rtErrorFromErrno(ENOMEM);
+                return;
             }
         }
-        node = rt_try_malloc(sizeof(struct rtHashMapNode));
-        if(!node)
-        {
-            rtLog_Error("rtHashMap_Set: node allocation failed, insertion rejected");
-            return rtErrorFromErrno(ENOMEM);
-        }
+        node = rt_malloc(sizeof(struct rtHashMapNode));
         node->hashmap = hashmap;
-        if(rtVector_PushBack(bucket, node) != RT_OK)
-        {
-            rtLog_Error("rtHashMap_Set: bucket insert failed, insertion rejected");
-            free(node);
-            return rtErrorFromErrno(ENOMEM);
-        }
+        rtVector_PushBack(bucket, node);
         hashmap->size++;
     }
     node->key = hashmap->key_copier(key);
     node->value = hashmap->val_copier(value);
-    return RT_OK;
 }
 
 void* rtHashMap_Get(rtHashMap hashmap, const void* key)

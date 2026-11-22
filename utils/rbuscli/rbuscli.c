@@ -1127,10 +1127,9 @@ void validate_and_execute_open_n_close_direct_cmd(int argc, char *argv[], bool i
         {
             printf ("Failed to open direct connection to %s\r\n", pInputParam[0]);
         }
-        else if(rtHashMap_Set(gDirectHandlesHash, pInputParam[0], directHandle) != RT_OK)
+        else
         {
-            printf ("Failed to store direct connection to %s\r\n", pInputParam[0]);
-            rbus_closeDirect(directHandle);
+            rtHashMap_Set(gDirectHandlesHash, pInputParam[0], directHandle);
         }
     }
     else

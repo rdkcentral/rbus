@@ -121,24 +121,13 @@ void SetRowContext(char const* tableName, uint32_t instNum, char const* alias, v
 {
     char path[RBUS_MAX_NAME_LENGTH];
     sprintf(path, "%s%u", tableName, instNum);
-    if(rtHashMap_Set(gContextMaps.row, path, context) != RT_OK)
-    {
-        printf("%s failed to store row context %s\n", __FUNCTION__, path);
-        return;
-    }
+    rtHashMap_Set(gContextMaps.row, path, context);
     if(alias)
     {
         char aliasPath[RBUS_MAX_NAME_LENGTH];
         sprintf(aliasPath, "%s[%s]", tableName, alias);
-        if(rtHashMap_Set(gContextMaps.alias, aliasPath, path) != RT_OK)
-        {
-            printf("%s failed to store alias %s\n", __FUNCTION__, aliasPath);
-        }
-        else if(rtHashMap_Set(gContextMaps.inst, path, aliasPath) != RT_OK)
-        {
-            printf("%s failed to store alias %s\n", __FUNCTION__, aliasPath);
-            rtHashMap_Remove(gContextMaps.alias, aliasPath);
-        }
+        rtHashMap_Set(gContextMaps.alias, aliasPath, path);
+        rtHashMap_Set(gContextMaps.inst, path, aliasPath);
     }
 }
 
@@ -214,8 +203,7 @@ bool IsTimeToSyncDynamicTable(char const* path)
     if(!ptime || now > (time_t)ptime + 5)
     {
         printf("%s %s YES\\n", __FUNCTION__, parent);
-        if(rtHashMap_Set(gContextMaps.dyntime, parent, (void*)now) != RT_OK)
-            printf("%s failed to store sync time for %s\\n", __FUNCTION__, parent);
+        rtHashMap_Set(gContextMaps.dyntime, parent, (void*)now);
         return true;
     }
 
