@@ -615,11 +615,36 @@ rbusCoreError_t rbus_openBrokerConnection2(const char * component_name, const ch
     if(!g_mutex_init)
     {
         pthread_mutexattr_t attr;
-        pthread_mutexattr_init(&attr);
-        pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_ERRORCHECK);
-        pthread_mutex_init(&g_mutex, &attr);
-        pthread_mutex_init(&g_directServMutex, &attr);
-        pthread_mutex_init(&g_directCliMutex, &attr);
+        int rc = pthread_mutexattr_init(&attr);
+        if(rc != 0)
+        {
+            RBUSCORELOG_ERROR("pthread_mutexattr_init failed: %s", strerror(rc));
+            return RBUSCORE_ERROR_GENERAL;
+        }
+        rc = pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_ERRORCHECK);
+        if(rc == 0)
+            rc = pthread_mutex_init(&g_mutex, &attr);
+        if(rc == 0)
+        {
+            rc = pthread_mutex_init(&g_directServMutex, &attr);
+            if(rc != 0)
+                pthread_mutex_destroy(&g_mutex);
+        }
+        if(rc == 0)
+        {
+            rc = pthread_mutex_init(&g_directCliMutex, &attr);
+            if(rc != 0)
+            {
+                pthread_mutex_destroy(&g_directServMutex);
+                pthread_mutex_destroy(&g_mutex);
+            }
+        }
+        pthread_mutexattr_destroy(&attr);
+        if(rc != 0)
+        {
+            RBUSCORELOG_ERROR("Failed to initialize mutexes: %s", strerror(rc));
+            return RBUSCORE_ERROR_GENERAL;
+        }
         g_mutex_init = 1;
     }
 
