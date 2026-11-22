@@ -162,7 +162,12 @@ rbusError_t setHandler(rbusHandle_t handle, rbusProperty_t property, rbusSetHand
         {
             TEST_BOOL(1);
             sVal=rbusValue_ToString(value, 0,0);
-            rtHashMap_Set(paramValues, hashName, sVal);
+            if(rtHashMap_Set(paramValues, hashName, sVal) != RT_OK)
+            {
+                free(sVal);
+                printf("failed to store value %s\n", name);
+                return RBUS_ERROR_OUT_OF_RESOURCES;
+            }
             return RBUS_ERROR_SUCCESS;
         }
         else
@@ -225,7 +230,15 @@ void* run_provider(void* p)
 
     sprintf(hashName, "Device.MultiProvider%d", id);
     sprintf(defaultValue, "Default Value %d", id);
-    rtHashMap_Set(paramValues, hashName, strdup(defaultValue));
+    {
+        char* defaultCopy = strdup(defaultValue);
+        if(!defaultCopy || rtHashMap_Set(paramValues, hashName, defaultCopy) != RT_OK)
+        {
+            free(defaultCopy);
+            printf("provider %s: failed to store default value\n", componentName);
+            return NULL;
+        }
+    }
 
     TEST_EXEC_RC(rbus_open(&handle, componentName), rc)
     if(rc)
