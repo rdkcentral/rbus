@@ -166,12 +166,8 @@ rtError rtThreadPool_CreateWorkerThread(rtThreadPool pool)
   thread->pool = pool;
   pthread_attr_init(&attr);
   if(pool->stackSize > 0)
-  {
-    if(pthread_attr_setstacksize(&attr, pool->stackSize) != 0)
-      rtLog_Warn("%s pthread_attr_setstacksize failed", __FUNCTION__);
-  }
-  if(pthread_create(&thread->threadId, &attr, rtThread_WorkerThreadFunc, thread) != 0)
-    rtLog_Warn("%s pthread_create failed: %s", __FUNCTION__, strerror(errno));
+    pthread_attr_setstacksize(&attr, pool->stackSize);
+  pthread_create(&thread->threadId, &attr, rtThread_WorkerThreadFunc, thread);
   pthread_attr_destroy(&attr);
   rtList_PushBack(pool->threadList, thread, NULL);
   rtLog_Debug("%s exit", __FUNCTION__);
@@ -197,15 +193,34 @@ rtError rtThreadPool_Create(rtThreadPool* ppool, size_t maxThreadCount, size_t s
   pool->isRunning = 1;
   pool->isShutdown = 0;
   pthread_mutexattr_t mutAttr;
-  pthread_mutexattr_init(&mutAttr);
+  int rc = pthread_mutexattr_init(&mutAttr);
+  if(rc != 0)
+  {
+    rtLog_Error("%s pthread_mutexattr_init failed: %s", __FUNCTION__, strerror(rc));
+    rtList_Destroy(pool->threadList, NULL);
+    rtList_Destroy(pool->taskList, NULL);
+    free(pool);
+    return rtErrorFromErrno(rc);
+  }
   pthread_mutexattr_settype(&mutAttr, PTHREAD_MUTEX_NORMAL);
   pthread_mutex_init(&pool->poolLock, &mutAttr);
   pthread_mutexattr_destroy(&mutAttr);
   pthread_condattr_t condAttr;
-  pthread_condattr_init(&condAttr);
+  rc = pthread_condattr_init(&condAttr);
+  if(rc != 0)
+  {
+    rtLog_Error("%s pthread_condattr_init failed: %s", __FUNCTION__, strerror(rc));
+    pthread_mutex_destroy(&pool->poolLock);
+    rtList_Destroy(pool->threadList, NULL);
+    rtList_Destroy(pool->taskList, NULL);
+    free(pool);
+    return rtErrorFromErrno(rc);
+  }
   pthread_cond_init(&pool->taskCond, &condAttr);
   pthread_cond_init(&pool->idleCond, &condAttr);
-  pthread_condattr_destroy(&condAttr);
+  rc = pthread_condattr_destroy(&condAttr);
+  if(rc != 0)
+    rtLog_Warn("%s pthread_condattr_destroy failed: %s", __FUNCTION__, strerror(rc));
   *ppool = pool;
   rtLog_Debug("%s exit", __FUNCTION__);
   return RT_OK;
