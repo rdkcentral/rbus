@@ -1734,7 +1734,8 @@ rtRouted_RegisterNewClient(int fd, struct sockaddr_storage* remote_endpoint)
   new_client->inbox[0] = '\0';
 
   rtConnectedClient_Init(new_client, fd, remote_endpoint);
-  rtSocketStorage_ToString(&new_client->endpoint, remote_address, sizeof(remote_address), &remote_port);
+  if (rtSocketStorage_ToString(&new_client->endpoint, remote_address, sizeof(remote_address), &remote_port) != RT_OK)
+    rtLog_Warn("failed to get remote endpoint string");
   snprintf(new_client->ident, RTMSG_ADDR_MAX, "%s:%d/%d", remote_address, remote_port, fd);
   rtVector_PushBack(gClients, new_client);
 
