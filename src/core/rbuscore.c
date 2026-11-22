@@ -327,6 +327,10 @@ static pthread_mutex_t g_directCliMutex;
 static pthread_mutex_t g_directServMutex;
 static int g_mutex_init = 0;
 static bool g_run_event_client_dispatch = false;
+static pthread_mutex_t g_eventCallbackMutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t g_eventCallbacksDone = PTHREAD_COND_INITIALIZER;
+static size_t g_eventCallbackCount = 0;
+static bool g_eventCallbacksClosing = false;
 static rtVector g_event_subscriptions_for_client; /*client_subscription_t list. Used by the subscriber to track all active subscriptions. */
 static rtVector g_queued_requests; /*list of queued_request */
 
@@ -643,6 +647,9 @@ rbusCoreError_t rbus_openBrokerConnection2(const char * component_name, const ch
     RBUSCORELOG_DEBUG("Broker address: %s", broker_address);
 
     perform_init();
+    pthread_mutex_lock(&g_eventCallbackMutex);
+    g_eventCallbacksClosing = false;
+    pthread_mutex_unlock(&g_eventCallbackMutex);
     result = rtConnection_Create(&g_connection, "rbus", broker_address);
     if(RT_OK != result)
     {
@@ -665,12 +672,46 @@ rbusCoreError_t rbus_closeBrokerConnection()
     if(NULL == g_connection)
     {
         RBUSCORELOG_DEBUG("No connection exist to close.");
+        unlock();
         return RBUSCORE_ERROR_INVALID_STATE;
     }
     if(1 < rtVector_Size(g_server_objects))
     {
         RBUSCORELOG_DEBUG("Should not destroy/close connection when one or more active connection exits.");
         unlock();
+        return RBUSCORE_SUCCESS;
+    }
+    unlock();
+
+    /* Drain the complete dispatch, including fallback, before joining its thread. */
+    pthread_mutex_lock(&g_eventCallbackMutex);
+    g_eventCallbacksClosing = true;
+    while(g_eventCallbackCount)
+    {
+        int waitErr = pthread_cond_wait(&g_eventCallbacksDone, &g_eventCallbackMutex);
+        if(waitErr != 0)
+        {
+            g_eventCallbacksClosing = false;
+            pthread_mutex_unlock(&g_eventCallbackMutex);
+            RBUSCORELOG_ERROR("Waiting for event dispatch failed: %s", strerror(waitErr));
+            return RBUSCORE_ERROR_GENERAL;
+        }
+    }
+    pthread_mutex_unlock(&g_eventCallbackMutex);
+    lock();
+    if(NULL == g_connection)
+    {
+        RBUSCORELOG_DEBUG("No connection exist to close.");
+        unlock();
+        return RBUSCORE_ERROR_INVALID_STATE;
+    }
+    if(1 < rtVector_Size(g_server_objects))
+    {
+        RBUSCORELOG_DEBUG("Should not destroy/close connection when one or more active connection exits.");
+        unlock();
+        pthread_mutex_lock(&g_eventCallbackMutex);
+        g_eventCallbacksClosing = false;
+        pthread_mutex_unlock(&g_eventCallbackMutex);
         return RBUSCORE_SUCCESS;
     }
     rbus_releaseOpenTelemetryContext();
@@ -1463,11 +1504,20 @@ static void master_event_callback(rtMessageHeader const* hdr, uint8_t const* dat
     size_t i;
     (void)closure;
 
+    pthread_mutex_lock(&g_eventCallbackMutex);
+    if(g_eventCallbacksClosing)
+    {
+        pthread_mutex_unlock(&g_eventCallbackMutex);
+        return;
+    }
+    ++g_eventCallbackCount;
+    pthread_mutex_unlock(&g_eventCallbackMutex);
+
    /*Sanitize the incoming data.*/
     if(MAX_OBJECT_NAME_LENGTH <= strlen(sender))
     {
         RBUSCORELOG_DEBUG("Object name length exceeds limits.");
-        return;
+        goto dispatch_done;
     }
 
     rbusMessage_FromBytes(&msg, data, dataLen);
@@ -1484,7 +1534,7 @@ static void master_event_callback(rtMessageHeader const* hdr, uint8_t const* dat
     {
         RBUSCORELOG_DEBUG("Event message doesn't contain an event name.");
         rbusMessage_Release(msg);
-        return;
+        goto dispatch_done;
     }
 
     rbus_setOpenTelemetryContext(trace_parent, trace_state);
@@ -1498,7 +1548,7 @@ static void master_event_callback(rtMessageHeader const* hdr, uint8_t const* dat
             {
                 rbus_clearOpenTelemetryContext();
                 rbusMessage_Release(msg);
-                return;
+                goto dispatch_done;
             }
         }
         else
@@ -1524,7 +1574,7 @@ static void master_event_callback(rtMessageHeader const* hdr, uint8_t const* dat
                 evt->callback(sender, event_name, msg, evt->data);
                 rbus_clearOpenTelemetryContext();
                 rbusMessage_Release(msg);
-                return;
+                goto dispatch_done;
             }
             /* support rbus events being elements : keep searching */
         }
@@ -1534,6 +1584,15 @@ static void master_event_callback(rtMessageHeader const* hdr, uint8_t const* dat
     RBUSCORELOG_DEBUG("Received event %s::%s for which no subscription exists.", sender, event_name);
     rbus_clearOpenTelemetryContext();
     rbusMessage_Release(msg);
+dispatch_done:
+    pthread_mutex_lock(&g_eventCallbackMutex);
+    if(--g_eventCallbackCount == 0)
+    {
+        int signalErr = pthread_cond_broadcast(&g_eventCallbacksDone);
+        if(signalErr != 0)
+            RBUSCORELOG_ERROR("Signalling event dispatch completion failed: %s", strerror(signalErr));
+    }
+    pthread_mutex_unlock(&g_eventCallbackMutex);
     return;
 }
 

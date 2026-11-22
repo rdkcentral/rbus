@@ -120,6 +120,9 @@ struct _rbusHandle
   rbusHandleType_t      m_handleType;
   pthread_mutex_t       handle_eventSubsMutex;
   pthread_mutex_t       handle_subsMutex;
+  /* Protected by the process-wide rbus lifecycle mutex. */
+  size_t                eventUsers;
+  bool                  closing;
   rbusTimeoutValues_t   timeoutValues;
   void*                 userData;
 };
