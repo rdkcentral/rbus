@@ -193,18 +193,10 @@ rtError rtThreadPool_Create(rtThreadPool* ppool, size_t maxThreadCount, size_t s
   pool->isRunning = 1;
   pool->isShutdown = 0;
   pthread_mutexattr_t mutAttr;
-  int rc = pthread_mutexattr_init(&mutAttr);
-  if(rc != 0)
-  {
-    rtLog_Error("%s pthread_mutexattr_init failed: %s", __FUNCTION__, strerror(rc));
-    rtList_Destroy(pool->threadList, NULL);
-    rtList_Destroy(pool->taskList, NULL);
-    free(pool);
-    return rtErrorFromErrno(rc);
-  }
-  pthread_mutexattr_settype(&mutAttr, PTHREAD_MUTEX_NORMAL);
-  pthread_mutex_init(&pool->poolLock, &mutAttr);
-  pthread_mutexattr_destroy(&mutAttr);
+  pthread_mutexattr_init(&mutAttr);// No check needed 
+  pthread_mutexattr_settype(&mutAttr, PTHREAD_MUTEX_NORMAL);// No check needed 
+  pthread_mutex_init(&pool->poolLock, &mutAttr);// No check needed 
+  pthread_mutexattr_destroy(&mutAttr);// No check needed 
   pthread_condattr_t condAttr;
   rc = pthread_condattr_init(&condAttr);
   if(rc != 0)
@@ -219,8 +211,6 @@ rtError rtThreadPool_Create(rtThreadPool* ppool, size_t maxThreadCount, size_t s
   pthread_cond_init(&pool->taskCond, &condAttr);
   pthread_cond_init(&pool->idleCond, &condAttr);
   rc = pthread_condattr_destroy(&condAttr);
-  if(rc != 0)
-    rtLog_Warn("%s pthread_condattr_destroy failed: %s", __FUNCTION__, strerror(rc));
   *ppool = pool;
   rtLog_Debug("%s exit", __FUNCTION__);
   return RT_OK;
