@@ -257,10 +257,10 @@ typedef struct _queued_request
     server_object_t obj;
 } *queued_request_t;
 
-void queued_request_create(queued_request_t* req, const rtMessageHeader* hdr, rbusMessage msg, server_object_t obj)
+void queued_request_create(queued_request_t* req, const rtMessageHeader hdr, rbusMessage msg, server_object_t obj)
 {
     (*req) = rt_malloc(sizeof(struct _queued_request));
-    (*req)->hdr = *hdr;
+    (*req)->hdr = hdr;
     (*req)->msg = msg;
     (*req)->obj = obj;
 }
@@ -472,7 +472,7 @@ static rbusCoreError_t translate_rt_error(rtError err)
         return RBUSCORE_ERROR_GENERAL;
 }
 
-static void dispatch_method_call(rbusMessage msg, const rtMessageHeader *hdr, server_object_t obj)
+static void dispatch_method_call(rbusMessage msg, const rtMessageHeader hdr, server_object_t obj)
 {
     rtError err = RT_OK;
     const char* method_name = NULL;
