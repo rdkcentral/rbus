@@ -179,7 +179,7 @@ jobs:
             sleep 1
           done
           if kill -0 "$RTROUTED_PID" 2>/dev/null; then
-            echo "::error::rtrouted did not exit within 30 seconds; refusing to collect incomplete coverage."
+            echo "::error::rtrouted did not exit within 30 seconds; refusing to collect incomplete sanitizer output."
             exit 1
           fi
           rm -rf /tmp/rtrouted*

@@ -18,6 +18,7 @@
 #include "local_benchmarking.h"
 #include <arpa/inet.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <getopt.h>
 #include <sys/select.h>
 #include <sys/wait.h>
@@ -134,16 +135,34 @@ rtRouteBase_BindListener(char const* socket_name, int no_delay, int indefinite_r
   if (listener->local_endpoint.ss_family == AF_UNIX)
   {
     struct sockaddr_un* endpoint = (struct sockaddr_un *)&listener->local_endpoint;
-    /* Set this socket's permissions without changing the process-wide umask. */
-    if (endpoint->sun_path[0] != '\0' &&
-        chmod(endpoint->sun_path, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP) == -1)
+    if (endpoint->sun_path[0] != '\0')
     {
-      rtLog_Warn("failed to set socket permissions. %s", rtStrError(errno));
-      rtRouteBase_CloseListener(listener);
-      if (unlink(endpoint->sun_path) == -1)
-        rtLog_Warn("failed to remove socket. %s", rtStrError(errno));
-      free(listener);
-      return RT_FAIL;
+      int path_fd = open(endpoint->sun_path, O_PATH | O_NOFOLLOW | O_CLOEXEC);
+      struct stat status;
+      ret = -1;
+      if (path_fd != -1)
+      {
+        if (fstat(path_fd, &status) == -1)
+          ret = -1;
+        else if (!S_ISSOCK(status.st_mode))
+          errno = EINVAL;
+        else
+        {
+          char fd_path[64];
+          snprintf(fd_path, sizeof(fd_path), "/proc/self/fd/%d", path_fd);
+          ret = chmod(fd_path, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
+        }
+        int saved_errno = errno;
+        close(path_fd);
+        errno = saved_errno;
+      }
+      if (ret == -1)
+      {
+        rtLog_Warn("failed to set socket permissions. %s", rtStrError(errno));
+        rtRouteBase_CloseListener(listener);
+        free(listener);
+        return RT_FAIL;
+      }
     }
   }
 
