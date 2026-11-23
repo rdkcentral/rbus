@@ -257,10 +257,10 @@ typedef struct _queued_request
     server_object_t obj;
 } *queued_request_t;
 
-void queued_request_create(queued_request_t* req, rtMessageHeader hdr, rbusMessage msg, server_object_t obj)
+void queued_request_create(queued_request_t* req, const rtMessageHeader* hdr, rbusMessage msg, server_object_t obj)
 {
     (*req) = rt_malloc(sizeof(struct _queued_request));
-    (*req)->hdr = hdr;
+    (*req)->hdr = *hdr;
     (*req)->msg = msg;
     (*req)->obj = obj;
 }
@@ -523,7 +523,7 @@ static void onMessage(rtMessageHeader const* hdr, uint8_t const* data, uint32_t 
     {
         //We're in the midst of handling another request. Queue this one for later.
         queued_request_t req;
-        queued_request_create(&req, *hdr, msg, obj);
+        queued_request_create(&req, hdr, msg, obj);
         rtVector_PushBack(g_queued_requests, req);
     }
     else

@@ -1495,6 +1495,13 @@ static void _set_callback_handler (rbusHandle_t handle, rbusMessage request, rbu
                                 ELM_PRIVATE_LOCK(el);
                                 rc = el->cbTable.getHandler(handle, currentData, &options);
                                 ELM_PRIVATE_UNLOCK(el);
+                                if (rc != RBUS_ERROR_SUCCESS)
+                                {
+                                    /* Without the current value there is nothing valid to roll back to. */
+                                    RBUSLOG_WARN("Get failed for %s (err %d); value will not be rolled back", paramName, rc);
+                                    rbusProperty_Release(currentData);
+                                    currentData = NULL;
+                                }
                            }
                            else
                                 RBUSLOG_INFO("%s is a write only parameter",paramName);

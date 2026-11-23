@@ -60,14 +60,14 @@ void GetTraceContextFromUser(char *traceparent, char *tracestate)
 
     memset(buff, '\0', 256);
     printf("Enter traceparent:");
-    if (scanf("%s", buff) == 1)
+    if (scanf("%255s", buff) == 1)
         snprintf(traceparent, RBUS_OPEN_TELEMETRY_DATA_MAX, "traceparent:%s", buff);
     else
         memset(traceparent, '\0', RBUS_OPEN_TELEMETRY_DATA_MAX);
 
     memset(buff, '\0', 256);
     printf("Enter tracestate:");
-    if (scanf("%s", buff) == 1)
+    if (scanf("%255s", buff) == 1)
         snprintf(tracestate, RBUS_OPEN_TELEMETRY_DATA_MAX, "tracestate:%s", buff);
     else
         memset(tracestate, '\0', RBUS_OPEN_TELEMETRY_DATA_MAX);
