@@ -303,13 +303,13 @@ void rbusInterval_RemoveSubscriptionRecord(
     (void)(propNode);
     VERIFY_NULL(sub);
 
-    if (!gRecord)
-    {
-        return;
-    }
-
     sRecord* rec;
     ERROR_CHECK(pthread_mutex_lock(&gInternalSubMutex));
+    if (!gRecord)
+    {
+        ERROR_CHECK(pthread_mutex_unlock(&gInternalSubMutex));
+        return;
+    }
     rec = sub_find(sub);
     ERROR_CHECK(pthread_mutex_unlock(&gInternalSubMutex));
 
