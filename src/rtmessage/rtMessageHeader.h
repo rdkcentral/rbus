@@ -29,7 +29,6 @@
 #endif
 
 #define RTMSG_HEADER_MAX_TOPIC_LENGTH 256
-#define RTMSG_HEADER_REPLY_TOPIC_LENGTH 64
 
 // size of all fields in 
 // #define RTMSG_HEADER_SIZE (24 + (2 * RTMSG_HEADER_MAX_TOPIC_LENGTH))
@@ -63,7 +62,7 @@ typedef struct
   uint32_t topic_length;
   char     topic[RTMSG_HEADER_MAX_TOPIC_LENGTH];
   uint32_t reply_topic_length;
-  char     reply_topic[RTMSG_HEADER_REPLY_TOPIC_LENGTH];
+  char     reply_topic[RTMSG_HEADER_MAX_TOPIC_LENGTH];
 #ifdef MSG_ROUNDTRIP_TIME
   uint64_t   T1; /* Timestamp in nanoseconds since boot (CLOCK_MONOTONIC): time at which consumer sends the request to daemon */
   uint64_t  T2; /* Timestamp in nanoseconds since boot (CLOCK_MONOTONIC): time at which daemon receives the message from consumer */
