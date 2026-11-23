@@ -193,10 +193,19 @@ rtError rtThreadPool_Create(rtThreadPool* ppool, size_t maxThreadCount, size_t s
   pool->isRunning = 1;
   pool->isShutdown = 0;
   pthread_mutexattr_t mutAttr;
+  int rc;
   pthread_mutexattr_init(&mutAttr);// No check needed 
   pthread_mutexattr_settype(&mutAttr, PTHREAD_MUTEX_NORMAL);// No check needed 
-  pthread_mutex_init(&pool->poolLock, &mutAttr);// No check needed 
+  rc = pthread_mutex_init(&pool->poolLock, &mutAttr);
   pthread_mutexattr_destroy(&mutAttr);// No check needed 
+  if(rc != 0)
+  {
+    rtLog_Error("%s pthread_mutex_init failed: %s", __FUNCTION__, strerror(rc));
+    rtList_Destroy(pool->threadList, NULL);
+    rtList_Destroy(pool->taskList, NULL);
+    free(pool);
+    return rtErrorFromErrno(rc);
+  }
   pthread_condattr_t condAttr;
   rc = pthread_condattr_init(&condAttr);
   if(rc != 0)
