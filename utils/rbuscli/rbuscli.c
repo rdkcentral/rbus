@@ -2521,6 +2521,8 @@ static int construct_input_into_cmds(char* buff, int* pargc, char** argv)
     int len = (int)strlen(buff);
     int i, j, quote;
     int argc = 0;
+    if(argv == NULL)
+        return 1;
     argv[argc++] = "rbuscli";
     runSteps = __LINE__;
     for(i = 0; i < len; ++i)
@@ -2530,6 +2532,17 @@ static int construct_input_into_cmds(char* buff, int* pargc, char** argv)
             ++i;
         if(i == len)
             break;
+        /* keep the last slot NULL; handlers rely on argv[argc] == NULL */
+        if(argc >= RBUS_CLI_MAX_CMD_ARG - 1)
+        {
+            while(argc > 1)
+            {
+                --argc;
+                free(argv[argc]);
+                argv[argc] = NULL;
+            }
+            return 1;
+        }
         if(buff[i] == '\'')
             quote = 1;
         else if(buff[i] == '"')
@@ -2552,11 +2565,8 @@ static int construct_input_into_cmds(char* buff, int* pargc, char** argv)
             argc = 0;
             return 1;
         }
-        if(argv)
-        {
-            buff[i] = 0;
-            argv[argc] = strdup(buff+j);
-        }
+        buff[i] = 0;
+        argv[argc] = strdup(buff+j);
         argc++;
     }
     *pargc = argc;
