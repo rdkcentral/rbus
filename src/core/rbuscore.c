@@ -257,7 +257,7 @@ typedef struct _queued_request
     server_object_t obj;
 } *queued_request_t;
 
-void queued_request_create(queued_request_t* req, const rtMessageHeader hdr, rbusMessage msg, server_object_t obj)
+void queued_request_create(queued_request_t* req, rtMessageHeader hdr, rbusMessage msg, server_object_t obj)
 {
     (*req) = rt_malloc(sizeof(struct _queued_request));
     (*req)->hdr = hdr;
