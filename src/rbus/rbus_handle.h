@@ -120,9 +120,6 @@ struct _rbusHandle
   rbusHandleType_t      m_handleType;
   pthread_mutex_t       handle_eventSubsMutex;
   pthread_mutex_t       handle_subsMutex;
-  /* Protected by the process-wide rbus lifecycle mutex. */
-  size_t                eventUsers;
-  bool                  closing;
   rbusTimeoutValues_t   timeoutValues;
   void*                 userData;
 };
@@ -135,8 +132,6 @@ bool rbusHandleList_IsFull();
 void rbusHandleList_ClientDisconnect(char const* clientListener);
 struct _rbusHandle* rbusHandleList_GetByComponentID(int32_t componentId);
 struct _rbusHandle* rbusHandleList_GetByName(char const* componentName);
-bool rbusEvent_HandleRetain(rbusHandle_t handle);
-void rbusEvent_HandleRelease(rbusHandle_t handle);
 
 int rbusHandle_TimeoutValuesInit(rbusHandle_t handle);
 uint32_t rbusHandle_FetchGetTimeout(rbusHandle_t handle);

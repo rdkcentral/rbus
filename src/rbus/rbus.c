@@ -124,9 +124,6 @@ typedef struct _rbusEventSubscriptionInternal
 extern char* __progname;
 //******************************* GLOBALS *****************************************//
 static pthread_mutex_t gMutex = PTHREAD_MUTEX_INITIALIZER;
-static pthread_cond_t gEventUsersDone = PTHREAD_COND_INITIALIZER;
-static bool gBrokerClosing = false;
-static __thread unsigned int gEventCallbackDepth;
 
 //********************************************************************************//
 
@@ -137,42 +134,6 @@ static rbusError_t _rbus_AsyncSubscribe_remove_subscription(rbusHandle_t handle,
 static void _subscribe_rawdata_handler(rbusHandle_t handle, rbusMessage_t* msg, void * userData);
 
 //******************************* INTERNAL FUNCTIONS *****************************//
-bool rbusEvent_HandleRetain(rbusHandle_t handle)
-{
-    LockMutex();
-    if(!rbusHandleList_IsValidHandle(handle) || handle->closing)
-    {
-        UnlockMutex();
-        RBUSLOG_ERROR("Cannot use an invalid or closing event handle");
-        return false;
-    }
-    ++handle->eventUsers;
-    UnlockMutex();
-    return true;
-}
-
-void rbusEvent_HandleRelease(rbusHandle_t handle)
-{
-    LockMutex();
-    if(--handle->eventUsers == 0)
-        ERROR_CHECK(pthread_cond_broadcast(&gEventUsersDone));
-    UnlockMutex();
-}
-
-static rbusError_t rbus_waitForBrokerClose(void)
-{
-    while(gBrokerClosing)
-    {
-        int waitErr = pthread_cond_wait(&gEventUsersDone, &gMutex);
-        if(waitErr != 0)
-        {
-            RBUSLOG_ERROR("Waiting for broker close failed: %s", strerror(waitErr));
-            return RBUS_ERROR_BUS_ERROR;
-        }
-    }
-    return RBUS_ERROR_SUCCESS;
-}
-
 static rbusError_t rbusCoreError_to_rbusError(rtError e)
 {
   rbusError_t err;
@@ -1322,33 +1283,39 @@ static void unregisterTableRow (rbusHandle_t handle, elementNode* rowInstElem)
 }
 //******************************* CALLBACKS *************************************//
 
-void _subscribe_async_callback_handler(rbusEventSubscription_t* subscription, rbusError_t error)
+void _subscribe_async_callback_handler(rbusHandle_t handle, rbusEventSubscription_t* subscription, rbusError_t error, uint32_t subscriptionId)
 {
+    struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
+
     if(subscription)
     {
-        ++gEventCallbackDepth;
         subscription->asyncHandler(subscription->handle, subscription, error);
-        --gEventCallbackDepth;
+        if(error == RBUS_ERROR_SUCCESS)
+        {
+            HANDLE_EVENTSUBS_MUTEX_LOCK(handle);
+            rbusEventSubscriptionInternal_t* subInternal = NULL;
+            if ((subInternal = rbusEventSubscription_find(handleInfo->eventSubs, subscription->eventName,
+                            subscription->filter, subscription->interval, subscription->duration, false)) != NULL)
+            {
+                rtVector_RemoveItem(handleInfo->eventSubs, subInternal, rbusEventSubscriptionInternal_free);
+            }
+            subInternal = rt_malloc(sizeof(rbusEventSubscriptionInternal_t));
+            subInternal->sub = subscription;
+            subInternal->dirty = false;
+            subInternal->subscriptionId = subscriptionId;
+            subInternal->rawData = false;
+            rtVector_PushBack(handleInfo->eventSubs, subInternal);
+            HANDLE_EVENTSUBS_MUTEX_UNLOCK(handle);
+        }
+        else
+        {
+            rbusEventSubscription_free(subscription);
+        }
     }
     else
     {
         RBUSLOG_ERROR("Null subscription pointer in _subscribe_async_callback_handler");
     }
-}
-
-/* The caller holds the event-subscription and retry-queue mutexes. */
-void _subscribe_async_activate(rbusHandle_t handle, rbusEventSubscription_t* subscription, uint32_t subscriptionId)
-{
-    rbusEventSubscriptionInternal_t* subInternal = rbusEventSubscription_find(handle->eventSubs,
-        subscription->eventName, subscription->filter, subscription->interval, subscription->duration, false);
-    if(subInternal)
-        rtVector_RemoveItem(handle->eventSubs, subInternal, rbusEventSubscriptionInternal_free);
-    subInternal = rt_malloc(sizeof(rbusEventSubscriptionInternal_t));
-    subInternal->sub = subscription;
-    subInternal->dirty = false;
-    subInternal->subscriptionId = subscriptionId;
-    subInternal->rawData = false;
-    rtVector_PushBack(handle->eventSubs, subInternal);
 }
 
 int _event_callback_handler (char const* objectName, char const* eventName, rbusMessage message, void* userData)
@@ -1401,14 +1368,10 @@ static int _master_event_callback_handler(char const* sender, char const* eventN
 
     LockMutex();
     handleInfo = rbusHandleList_GetByComponentID(componentId);
-    if(handleInfo && handleInfo->componentId == componentId && !handleInfo->closing)
-        ++handleInfo->eventUsers;
-    else
-        handleInfo = NULL;
-    UnlockMutex();
 
     if(!handleInfo)
     {
+        UnlockMutex();
         RBUSLOG_ERROR("Received master event callback with invalid componentId: sender=%s eventName=%s componentId=%d", sender, eventName, componentId);
         if(event.data)
             rbusObject_Release(event.data);
@@ -1419,7 +1382,10 @@ static int _master_event_callback_handler(char const* sender, char const* eventN
 
     RBUSLOG_DEBUG("Received master event callback: sender=%s eventName=%s componentId=%d", sender, eventName, componentId);
 
+    /* Acquire the handle's lock before releasing gMutex so rbus_close, which
+       takes the same locks in this order, cannot free the handle in between. */
     HANDLE_EVENTSUBS_MUTEX_LOCK(handleInfo);
+    UnlockMutex();
     subInternal = rbusEventSubscription_find(handleInfo->eventSubs, eventName, filter, interval, duration, false);
 
     if(subInternal)
@@ -1438,9 +1404,7 @@ static int _master_event_callback_handler(char const* sender, char const* eventN
             rtVector_RemoveItem(handleInfo->eventSubs, subInternal, NULL);
             duration_complete = true;
         }
-        ++gEventCallbackDepth;
         ((rbusEventHandler_t)subInternal->sub->handler)(subInternal->sub->handle, &event, subInternal->sub);
-        --gEventCallbackDepth;
         if(duration_complete)
         {
             rbusEventSubscriptionInternal_free(subInternal);
@@ -1454,7 +1418,6 @@ static int _master_event_callback_handler(char const* sender, char const* eventN
             rbusObject_Release(event.data);
         if (filter)
             rbusFilter_Release(filter);
-        rbusEvent_HandleRelease(handleInfo);
         return RBUSCORE_ERROR_EVENT_NOT_HANDLED;
     }
 exit_1:
@@ -1462,7 +1425,6 @@ exit_1:
     rbusFilter_Release(filter);
 
     HANDLE_EVENTSUBS_MUTEX_UNLOCK(handleInfo);
-    rbusEvent_HandleRelease(handleInfo);
     return RBUSCORE_SUCCESS;
 }
 
@@ -2826,13 +2788,6 @@ rbusError_t rbus_open(rbusHandle_t* handle, char const* componentName)
 
     LockMutex();
 
-    ret = rbus_waitForBrokerClose();
-    if(ret != RBUS_ERROR_SUCCESS)
-    {
-        UnlockMutex();
-        return ret;
-    }
-
     /*
         Per spec: If a component calls this API more than once, any previous busHandle
         and all previous data element registrations will be canceled.
@@ -2843,22 +2798,8 @@ rbusError_t rbus_open(rbusHandle_t* handle, char const* componentName)
     {
         UnlockMutex();
         RBUSLOG_WARN("(%s): closing previously opened component with the same name", componentName);
-        ret = rbus_close(tmpHandle);
-        if(ret != RBUS_ERROR_SUCCESS)
-            return ret;
+        rbus_close(tmpHandle);
         LockMutex();
-        ret = rbus_waitForBrokerClose();
-        if(ret != RBUS_ERROR_SUCCESS)
-        {
-            UnlockMutex();
-            return ret;
-        }
-        if(rbusHandleList_GetByName(componentName))
-        {
-            RBUSLOG_ERROR("(%s): previous component close is still pending", componentName);
-            UnlockMutex();
-            return RBUS_ERROR_INVALID_OPERATION;
-        }
     }
 
     _rbus_open_pre_initialize(true);
@@ -2961,90 +2902,19 @@ exit_error0:
     return ret;
 }
 
-static rbusError_t rbus_closeInternal(rbusHandle_t handle, bool deferred);
-
-static void* rbus_closeDeferred(void* data)
+rbusError_t rbus_close(rbusHandle_t handle)
 {
-    rbusError_t ret = rbus_closeInternal((rbusHandle_t)data, true);
-    if(ret != RBUS_ERROR_SUCCESS)
-        RBUSLOG_ERROR("Deferred rbus close failed: %s", rbusError_ToString(ret));
-    return NULL;
-}
-
-static rbusError_t rbus_closeInternal(rbusHandle_t handle, bool deferred)
-{
-    VERIFY_NULL(handle);
+    VERIFY_HANDLE(handle);
     rbusError_t ret = RBUS_ERROR_SUCCESS;
     rbusCoreError_t err = RBUSCORE_SUCCESS;
     struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
     char* componentName = NULL;
 
-    LockMutex();
-    if(!rbusHandleList_IsValidHandle(handle))
-    {
-        UnlockMutex();
-        RBUSLOG_ERROR("rbus close: handle is invalid");
-        return RBUS_ERROR_INVALID_HANDLE;
-    }
-    if(!deferred)
-    {
-        if(handleInfo->closing)
-        {
-            UnlockMutex();
-            if(gEventCallbackDepth)
-                return RBUS_ERROR_SUCCESS;
-            RBUSLOG_ERROR("rbus close: handle close is already pending");
-            return RBUS_ERROR_INVALID_OPERATION;
-        }
-        handleInfo->closing = true;
-        if(gEventCallbackDepth)
-        {
-            pthread_attr_t attr;
-            pthread_t thread;
-            int threadErr = pthread_attr_init(&attr);
-            if(threadErr == 0)
-            {
-                threadErr = pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
-                if(threadErr == 0)
-                    threadErr = pthread_create(&thread, &attr, rbus_closeDeferred, handle);
-                int attrErr = pthread_attr_destroy(&attr);
-                if(attrErr != 0)
-                    RBUSLOG_WARN("Close thread attribute cleanup failed: %s", strerror(attrErr));
-            }
-            if(threadErr != 0)
-            {
-                handleInfo->closing = false;
-                UnlockMutex();
-                RBUSLOG_ERROR("Cannot defer rbus close: %s", strerror(threadErr));
-                return RBUS_ERROR_OUT_OF_RESOURCES;
-            }
-            UnlockMutex();
-            return RBUS_ERROR_SUCCESS;
-        }
-    }
-    while(handleInfo->eventUsers)
-    {
-        int waitErr = pthread_cond_wait(&gEventUsersDone, &gMutex);
-        if(waitErr != 0)
-        {
-            handleInfo->closing = false;
-            UnlockMutex();
-            RBUSLOG_ERROR("Waiting for event users failed: %s", strerror(waitErr));
-            return RBUS_ERROR_BUS_ERROR;
-        }
-    }
-
-    UnlockMutex();
-    ret = rbusAsyncSubscribe_CloseHandle(handle);
-    LockMutex();
-    if(ret != RBUS_ERROR_SUCCESS)
-    {
-        handleInfo->closing = false;
-        UnlockMutex();
-        return ret;
-    }
+    VERIFY_NULL(handle);
 
     RBUSLOG_INFO("rbus close for (%s)", handleInfo->componentName);
+
+    LockMutex();
     char filename[RTMSG_HEADER_MAX_TOPIC_LENGTH];
     snprintf(filename, RTMSG_HEADER_MAX_TOPIC_LENGTH-1, "%s%d_%d", "/tmp/.rbus/", getpid(), handleInfo->componentId);
     int removeRet = remove(filename);
@@ -3096,6 +2966,8 @@ static rbusError_t rbus_closeInternal(rbusHandle_t handle, bool deferred)
 
     rbusValueChange_CloseHandle(handle);//called before freeElementNode below
 
+    rbusAsyncSubscribe_CloseHandle(handle);
+
     if(handleInfo->elementRoot)
     {
         freeElementNode(handleInfo->elementRoot);
@@ -3126,16 +2998,7 @@ static rbusError_t rbus_closeInternal(rbusHandle_t handle, bool deferred)
             ret = RBUS_ERROR_BUS_ERROR;
         }
 #endif
-        /* Joining the transport callback thread must not hold its lookup mutex. */
-        gBrokerClosing = true;
-        UnlockMutex();
-        ret = rbusAsyncSubscribe_Destroy();
-        if(ret == RBUS_ERROR_SUCCESS)
-            err = rbus_closeBrokerConnection();
-        LockMutex();
-        gBrokerClosing = false;
-        ERROR_CHECK(pthread_cond_broadcast(&gEventUsersDone));
-        if(ret != RBUS_ERROR_SUCCESS || err != RBUSCORE_SUCCESS)
+        if((err = rbus_closeBrokerConnection()) != RBUSCORE_SUCCESS)
         {
             RBUSLOG_ERROR("(%s): rbus_closeBrokerConnection error %d", componentName, err);
             ret = RBUS_ERROR_BUS_ERROR;
@@ -3152,11 +3015,6 @@ static rbusError_t rbus_closeInternal(rbusHandle_t handle, bool deferred)
     free(componentName);
 
     return ret;
-}
-
-rbusError_t rbus_close(rbusHandle_t handle)
-{
-    return rbus_closeInternal(handle, false);
 }
 
 static struct _rbusHandle* _rbusHandle_GetValidUserDataHandle(rbusHandle_t handle)
@@ -4899,7 +4757,7 @@ static rbusError_t _rbus_event_unsubscribe(
     return errorcode;
 }
 
-static rbusError_t rbusEvent_SubscribeWithRetriesInternal(
+static rbusError_t rbusEvent_SubscribeWithRetries(
     rbusHandle_t                    handle,
     char const*                     eventName,
     rbusEventHandler_t              handler,
@@ -5101,27 +4959,6 @@ static rbusError_t rbusEvent_SubscribeWithRetriesInternal(
     }
 }
 
-static rbusError_t rbusEvent_SubscribeWithRetries(
-    rbusHandle_t                    handle,
-    char const*                     eventName,
-    rbusEventHandler_t              handler,
-    void*                           userData,
-    rbusFilter_t                    filter,
-    uint32_t                        interval,
-    uint32_t                        duration,
-    int                             timeout,
-    rbusSubscribeAsyncRespHandler_t async,
-    bool                            publishOnSubscribe,
-    bool                            rawData)
-{
-    if(!rbusEvent_HandleRetain(handle))
-        return RBUS_ERROR_INVALID_HANDLE;
-    rbusError_t ret = rbusEvent_SubscribeWithRetriesInternal(handle, eventName, handler,
-        userData, filter, interval, duration, timeout, async, publishOnSubscribe, rawData);
-    rbusEvent_HandleRelease(handle);
-    return ret;
-}
-
 static void _subscribe_rawdata_handler(rbusHandle_t handle, rbusMessage_t* msg, void * userData)
 {
     rbusEventRawData_t event = {0};
@@ -5188,13 +5025,8 @@ rbusError_t  rbusEvent_SubscribeRawData(
     VERIFY_NULL(eventName);
     VERIFY_NULL(handler);
 
-    if(!rbusEvent_HandleRetain(handle))
-        return RBUS_ERROR_INVALID_HANDLE;
     if (handleInfo->m_handleType != RBUS_HWDL_TYPE_REGULAR)
-    {
-        rbusEvent_HandleRelease(handle);
         return RBUS_ERROR_INVALID_HANDLE;
-    }
 
     RBUSLOG_DEBUG("SubscribeRawData for %s", eventName);
 
@@ -5202,7 +5034,6 @@ rbusError_t  rbusEvent_SubscribeRawData(
     if(errorcode != RBUS_ERROR_SUCCESS)
     {
         RBUSLOG_ERROR("Subscribe failed err: %d", errorcode);
-        rbusEvent_HandleRelease(handle);
         return errorcode;
     }
 
@@ -5224,7 +5055,6 @@ rbusError_t  rbusEvent_SubscribeRawData(
         errorcode = RBUS_ERROR_INVALID_INPUT;
     }
     HANDLE_EVENTSUBS_MUTEX_UNLOCK(handle);
-    rbusEvent_HandleRelease(handle);
     return errorcode;
 }
 
@@ -5395,6 +5225,7 @@ rbusError_t rbusEvent_SubscribeEx(
     int                         timeout)
 {
     rbusError_t errorcode = RBUS_ERROR_SUCCESS;
+    VERIFY_HANDLE(handle);
     struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
     int i;
 
@@ -5402,13 +5233,8 @@ rbusError_t rbusEvent_SubscribeEx(
     VERIFY_NULL(subscription);
     VERIFY_ZERO(numSubscriptions);
 
-    if(!rbusEvent_HandleRetain(handle))
-        return RBUS_ERROR_INVALID_HANDLE;
     if (handleInfo->m_handleType != RBUS_HWDL_TYPE_REGULAR)
-    {
-        rbusEvent_HandleRelease(handle);
         return RBUS_ERROR_INVALID_HANDLE;
-    }
 
     for(i = 0; i < numSubscriptions; ++i)
     {
@@ -5433,7 +5259,6 @@ rbusError_t rbusEvent_SubscribeEx(
         }
     }
 
-    rbusEvent_HandleRelease(handle);
     return errorcode;
 }
 
@@ -5453,13 +5278,8 @@ rbusError_t rbusEvent_SubscribeExRawData(
     VERIFY_NULL(subscription);
     VERIFY_ZERO(numSubscriptions);
 
-    if(!rbusEvent_HandleRetain(handle))
-        return RBUS_ERROR_INVALID_HANDLE;
     if (handleInfo->m_handleType != RBUS_HWDL_TYPE_REGULAR)
-    {
-        rbusEvent_HandleRelease(handle);
         return RBUS_ERROR_INVALID_HANDLE;
-    }
 
     for(i = 0; i < numSubscriptions; ++i)
     {
@@ -5510,7 +5330,6 @@ rbusError_t rbusEvent_SubscribeExRawData(
         }
     }
 
-    rbusEvent_HandleRelease(handle);
     return errorcode;
 }
 
@@ -5530,13 +5349,8 @@ rbusError_t rbusEvent_SubscribeExAsync(
     VERIFY_NULL(subscribeHandler);
     VERIFY_ZERO(numSubscriptions);
 
-    if(!rbusEvent_HandleRetain(handle))
-        return RBUS_ERROR_INVALID_HANDLE;
     if (handleInfo->m_handleType != RBUS_HWDL_TYPE_REGULAR)
-    {
-        rbusEvent_HandleRelease(handle);
         return RBUS_ERROR_INVALID_HANDLE;
-    }
 
     for(i = 0; i < numSubscriptions; ++i)
     {
@@ -5560,7 +5374,6 @@ rbusError_t rbusEvent_SubscribeExAsync(
         }
     }
 
-    rbusEvent_HandleRelease(handle);
     return errorcode;
 }
 
