@@ -432,6 +432,13 @@ rtConnection_ConnectAndRegister(rtConnection con, rtTime_t* reconnect_time)
     if (con->listeners[i].in_use)
     {
       expression = strdup(con->listeners[i].expression);
+      if (!expression)
+      {
+        pthread_mutex_unlock(&con->mutex);
+        rtLog_Error("failed to restore listener subscription on reconnect");
+        con->reconnect_in_progress = 0;
+        return rtErrorFromErrno(ENOMEM);
+      }
       subscription_id = con->listeners[i].subscription_id;
     }
     pthread_mutex_unlock(&con->mutex);
@@ -1600,7 +1607,7 @@ rtConnection_Read(rtConnection con, int32_t timeout)
     {
       itr = &con->recv_buffer[RTMESSAGEHEADER_HDR_LENGTH_OFFSET];
       rtEncoder_DecodeUInt16(&itr, &msginfo->header.header_length);
-      if (msginfo->header.header_length <= RTMESSAGEHEADER_PREAMBLE_LENGTH ||
+      if (msginfo->header.header_length < RTMESSAGEHEADER_MIN_LENGTH ||
           msginfo->header.header_length > con->recv_buffer_capacity)
       {
         rtLog_Error("Invalid header length %u (buffer capacity %d)",

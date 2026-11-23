@@ -41,6 +41,8 @@ extern "C" {
 #define RTMSG_HEADER_MARKER 0xAAAA
 #define RTMESSAGEHEADER_PREAMBLE_LENGTH 6
 #define RTMESSAGEHEADER_HDR_LENGTH_OFFSET 4
+/* Fixed fields, two string length prefixes and the closing marker. */
+#define RTMESSAGEHEADER_MIN_LENGTH 32
 typedef enum
 {
   rtMessageFlags_Request = 0x01,
