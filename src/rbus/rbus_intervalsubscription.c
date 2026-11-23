@@ -277,11 +277,18 @@ rbusError_t rbusInterval_AddSubscriptionRecord(
         rbusProperty_Init(&sub_rec->property, propNode->fullName, NULL);
         init_thread(sub_rec);
 
-        /* Thread create */
+        /* Register before starting the thread so the publisher always finds its record; held across create so rec->thread is set */
         sub_rec->running = 1;
-        pthread_create(&sub_rec->thread, NULL, PublishingThreadFunc, (void *)sub_rec);
-
+        ERROR_CHECK(pthread_mutex_lock(&gInternalSubMutex));
         rtVector_PushBack(gRecord, sub_rec);
+        if(pthread_create(&sub_rec->thread, NULL, PublishingThreadFunc, (void *)sub_rec) != 0)
+        {
+            RBUSLOG_ERROR("failed to create interval publishing thread");
+            rtVector_RemoveItem(gRecord, sub_rec, sub_Free);
+            ERROR_CHECK(pthread_mutex_unlock(&gInternalSubMutex));
+            return RBUS_ERROR_BUS_ERROR;
+        }
+        ERROR_CHECK(pthread_mutex_unlock(&gInternalSubMutex));
     }
     return RBUS_ERROR_SUCCESS; 
 }
