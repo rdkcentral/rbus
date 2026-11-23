@@ -331,6 +331,7 @@ static pthread_mutex_t g_eventCallbackMutex = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t g_eventCallbacksDone = PTHREAD_COND_INITIALIZER;
 static size_t g_eventCallbackCount = 0;
 static bool g_eventCallbacksClosing = false;
+static __thread unsigned int g_eventCallbackDepth;
 static rtVector g_event_subscriptions_for_client; /*client_subscription_t list. Used by the subscriber to track all active subscriptions. */
 static rtVector g_queued_requests; /*list of queued_request */
 
@@ -680,6 +681,12 @@ rbusCoreError_t rbus_closeBrokerConnection()
         RBUSCORELOG_DEBUG("Should not destroy/close connection when one or more active connection exits.");
         unlock();
         return RBUSCORE_SUCCESS;
+    }
+    if(g_eventCallbackDepth)
+    {
+        unlock();
+        RBUSCORELOG_ERROR("Cannot close the broker connection from its event callback");
+        return RBUSCORE_ERROR_INVALID_STATE;
     }
     unlock();
 
@@ -1511,6 +1518,7 @@ static void master_event_callback(rtMessageHeader const* hdr, uint8_t const* dat
         return;
     }
     ++g_eventCallbackCount;
+    ++g_eventCallbackDepth;
     pthread_mutex_unlock(&g_eventCallbackMutex);
 
    /*Sanitize the incoming data.*/
@@ -1585,6 +1593,7 @@ static void master_event_callback(rtMessageHeader const* hdr, uint8_t const* dat
     rbus_clearOpenTelemetryContext();
     rbusMessage_Release(msg);
 dispatch_done:
+    --g_eventCallbackDepth;
     pthread_mutex_lock(&g_eventCallbackMutex);
     if(--g_eventCallbackCount == 0)
     {

@@ -28,7 +28,9 @@ extern "C" {
 void rbusAsyncSubscribe_AddSubscription(rbusEventSubscription_t* subscription, rbusMessage payload);
 bool rbusAsyncSubscribe_RemoveSubscription(rbusEventSubscription_t* subscription);
 bool rbusAsyncSubscribe_GetSubscription(rbusHandle_t handle, char const* eventName, rbusFilter_t filter);
-void rbusAsyncSubscribe_CloseHandle(rbusHandle_t handle);
+rbusError_t rbusAsyncSubscribe_CloseHandle(rbusHandle_t handle);
+/* Call outside the lifecycle mutex after the last handle has been removed. */
+rbusError_t rbusAsyncSubscribe_Destroy(void);
 
 #ifdef __cplusplus
 }

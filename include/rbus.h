@@ -750,8 +750,9 @@ rbusError_t rbus_open(
  *  Note: In the case of multiple components that share a software process, the
  *  socket connection remains up until the last component in that software process
  *  closes its bus connection.                                                \n
- *  Close from a non-raw event callback defers cleanup until active event callbacks
- *  and subscription setup finish. Do not reuse the handle after requesting close.
+ *  Close from a non-raw event callback or an async subscription response callback
+ *  defers cleanup until active callbacks and subscription setup finish.
+ *  Do not reuse the handle after requesting close.
  *  Deferred cleanup failures are logged; reopening the same component before
  *  cleanup finishes returns RBUS_ERROR_INVALID_OPERATION.                    \n
  *  Used by:  All RBus components (multiple components may share a software process)

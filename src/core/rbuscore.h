@@ -60,7 +60,8 @@ typedef struct
 rbusCoreError_t rbus_openBrokerConnection(const char * component_name);
 rbusCoreError_t rbus_openBrokerConnection2(const char * component_name, const char * broker_address);
 
-/* Close connection with daemon. Messaging services will cease. */
+/* Close connection with daemon. Messaging services will cease.
+ * Returns RBUSCORE_ERROR_INVALID_STATE if teardown is requested from a core event callback. */
 rbusCoreError_t rbus_closeBrokerConnection(void);
 
 /* Get the underlying rtMessage connection handle */
