@@ -424,15 +424,28 @@ rtConnection_ConnectAndRegister(rtConnection con, rtTime_t* reconnect_time)
   /*on reconnect, add back all listeners */
   for (i = 0; i < RTMSG_LISTENERS_MAX; ++i)
   {
+    char* expression = NULL;
+    uint32_t subscription_id = 0;
+
+    /* Copy under the lock; sending takes con->mutex itself. */
+    pthread_mutex_lock(&con->mutex);
     if (con->listeners[i].in_use)
+    {
+      expression = strdup(con->listeners[i].expression);
+      subscription_id = con->listeners[i].subscription_id;
+    }
+    pthread_mutex_unlock(&con->mutex);
+
+    if (expression)
     {
       rtMessage m;
       rtMessage_Create(&m);
       rtMessage_SetInt32(m, "add", 1);
-      rtMessage_SetString(m, "topic", con->listeners[i].expression);
-      rtMessage_SetInt32(m, "route_id", con->listeners[i].subscription_id);
+      rtMessage_SetString(m, "topic", expression);
+      rtMessage_SetInt32(m, "route_id", subscription_id);
       rtConnection_SendMessage(con, m, "_RTROUTED.INBOX.SUBSCRIBE");
       rtMessage_Release(m);
+      free(expression);
 
       /*TODO: we need to readd all the aliases too -- would this allow rbus to recover from broker crash ?*/
     }
@@ -1333,7 +1346,7 @@ rtConnection_AddListenerWithId(rtConnection con, char const* expression, uint32_
   rtMessage_Create(&m);
   rtMessage_SetInt32(m, "add", 1);
   rtMessage_SetString(m, "topic", expression);
-  rtMessage_SetInt32(m, "route_id", con->listeners[i].subscription_id);
+  rtMessage_SetInt32(m, "route_id", expressionId);
   rtConnection_SendMessage(con, m, "_RTROUTED.INBOX.SUBSCRIBE");
   rtMessage_Release(m);
 
@@ -1423,42 +1436,46 @@ rtConnection_AddAlias(rtConnection con, char const* existing, const char *alias)
 {
   int i;
   rtError ret = RT_OK;
+  uint32_t subscription_id = 0;
 
   if (!con)
     return rtErrorFromErrno(EINVAL);
 
+  /* Find the listener under the lock; sending takes con->mutex itself. */
+  pthread_mutex_lock(&con->mutex);
   for (i = 0; i < RTMSG_LISTENERS_MAX; ++i)
   {
-    if (1 == con->listeners[i].in_use)
+    if (1 == con->listeners[i].in_use &&
+        0 == strncmp(con->listeners[i].expression, existing, (strlen(con->listeners[i].expression) + 1)))
     {
-      if(0 == strncmp(con->listeners[i].expression, existing, (strlen(con->listeners[i].expression) + 1)))
-      {
-        rtMessage m;
-        rtMessage res;
-        rtMessage_Create(&m);
-        rtMessage_SetInt32(m, "add", 1);
-        rtMessage_SetString(m, "topic", alias);
-        rtMessage_SetInt32(m, "route_id", con->listeners[i].subscription_id);
-        ret = rtConnection_SendRequest(con, m, "_RTROUTED.INBOX.SUBSCRIBE", &res, 6000);
-        if(RT_OK == ret)
-        {
-            int result = 0;
-            rtMessage_GetInt32(res, "result", &result);
-            ret = result;
-            if(RT_ERROR_DUPLICATE_ENTRY == result)
-                rtLog_Error("Failed to register %s. Duplicate entry", alias);
-            else if (RT_ERROR_PROTOCOL_ERROR == result)
-                rtLog_Error("Failed to register %s because the scaler or table is already registered", alias);
-            rtMessage_Release(res);
-        }
-        rtMessage_Release(m);
-        break;
-      }
+      subscription_id = con->listeners[i].subscription_id;
+      break;
     }
   }
+  pthread_mutex_unlock(&con->mutex);
 
   if (i >= RTMSG_LISTENERS_MAX)
     return rtErrorFromErrno(ENOMEM);
+
+  rtMessage m;
+  rtMessage res;
+  rtMessage_Create(&m);
+  rtMessage_SetInt32(m, "add", 1);
+  rtMessage_SetString(m, "topic", alias);
+  rtMessage_SetInt32(m, "route_id", subscription_id);
+  ret = rtConnection_SendRequest(con, m, "_RTROUTED.INBOX.SUBSCRIBE", &res, 6000);
+  if(RT_OK == ret)
+  {
+      int result = 0;
+      rtMessage_GetInt32(res, "result", &result);
+      ret = result;
+      if(RT_ERROR_DUPLICATE_ENTRY == result)
+          rtLog_Error("Failed to register %s. Duplicate entry", alias);
+      else if (RT_ERROR_PROTOCOL_ERROR == result)
+          rtLog_Error("Failed to register %s because the scaler or table is already registered", alias);
+      rtMessage_Release(res);
+  }
+  rtMessage_Release(m);
 
   return ret;
 }
@@ -1466,31 +1483,34 @@ rtError
 rtConnection_RemoveAlias(rtConnection con, char const* existing, const char *alias)
 {
   int i;
+  uint32_t subscription_id = 0;
 
   if (!con)
     return rtErrorFromErrno(EINVAL);
 
+  /* Find the listener under the lock; sending takes con->mutex itself. */
+  pthread_mutex_lock(&con->mutex);
   for (i = 0; i < RTMSG_LISTENERS_MAX; ++i)
   {
-    if (1 == con->listeners[i].in_use)
+    if (1 == con->listeners[i].in_use &&
+        0 == strncmp(con->listeners[i].expression, existing, (strlen(con->listeners[i].expression) + 1)))
     {
-      if(0 == strncmp(con->listeners[i].expression, existing, (strlen(con->listeners[i].expression) + 1)))
-      {
-        rtMessage m;
-        rtMessage_Create(&m);
-        rtMessage_SetInt32(m, "add", 0);
-        rtMessage_SetString(m, "topic", alias);
-        rtMessage_SetInt32(m, "route_id", con->listeners[i].subscription_id);
-        rtConnection_SendMessage(con, m, "_RTROUTED.INBOX.SUBSCRIBE");
-        rtMessage_Release(m);
-        break;
-      }
+      subscription_id = con->listeners[i].subscription_id;
+      break;
     }
-
   }
+  pthread_mutex_unlock(&con->mutex);
 
   if (i >= RTMSG_LISTENERS_MAX)
     return rtErrorFromErrno(ENOMEM);
+
+  rtMessage m;
+  rtMessage_Create(&m);
+  rtMessage_SetInt32(m, "add", 0);
+  rtMessage_SetString(m, "topic", alias);
+  rtMessage_SetInt32(m, "route_id", subscription_id);
+  rtConnection_SendMessage(con, m, "_RTROUTED.INBOX.SUBSCRIBE");
+  rtMessage_Release(m);
 
   return 0;
 }
@@ -1580,15 +1600,16 @@ rtConnection_Read(rtConnection con, int32_t timeout)
     {
       itr = &con->recv_buffer[RTMESSAGEHEADER_HDR_LENGTH_OFFSET];
       rtEncoder_DecodeUInt16(&itr, &msginfo->header.header_length);
-      if (msginfo->header.header_length < RTMESSAGEHEADER_PREAMBLE_LENGTH ||
-          msginfo->header.header_length > (uint16_t)con->recv_buffer_capacity)
+      if (msginfo->header.header_length <= RTMESSAGEHEADER_PREAMBLE_LENGTH ||
+          msginfo->header.header_length > con->recv_buffer_capacity)
       {
-      rtLog_Error("Invalid header length: %u", msginfo->header.header_length);
-      rtMessageInfo_Release(msginfo);
-      return RT_NO_CONNECTION;
+        rtLog_Error("Invalid header length %u (buffer capacity %d)",
+                    (unsigned int)msginfo->header.header_length, con->recv_buffer_capacity);
+        rtMessageInfo_Release(msginfo);
+        return RT_NO_CONNECTION;
       }
       err = rtConnection_ReadUntil(con, con->recv_buffer + RTMESSAGEHEADER_PREAMBLE_LENGTH,
-      (msginfo->header.header_length-RTMESSAGEHEADER_PREAMBLE_LENGTH), timeout);
+          (msginfo->header.header_length-RTMESSAGEHEADER_PREAMBLE_LENGTH), timeout);
     }
     else
     {
