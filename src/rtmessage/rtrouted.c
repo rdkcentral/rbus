@@ -908,6 +908,8 @@ rtRouted_OnMessageHello(rtConnectedClient* sender, rtMessageHeader* hdr, uint8_t
   subscription->id = 0;
   subscription->client = sender;
   rtRouted_AddRoute(rtRouted_ForwardMessage, inbox, subscription);
+  if(sender->inbox[0] == '\0')
+    rtString_Copy(sender->inbox, inbox, RTMSG_HEADER_MAX_TOPIC_LENGTH);
 
   rtMessage_Release(m);
 

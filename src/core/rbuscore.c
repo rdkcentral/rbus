@@ -2031,19 +2031,13 @@ rbusCoreError_t rbus_discoverObjectElements(const char * object, int * count, ch
 
         *elements = NULL;
 
-        rtMessage_GetInt32(msg, RTM_DISCOVERY_COUNT, &size);
-        rtMessage_GetArrayLength(msg, RTM_DISCOVERY_ITEMS, &length);
-
-        if(size != length)
-        {
-            RBUSCORELOG_DEBUG("rbus_GetElementsAddedByObject size missmatch");
-        }
-
-        if ((size < 0) || (length < 0) || (size != length))
+        if ((RT_OK != rtMessage_GetInt32(msg, RTM_DISCOVERY_COUNT, &size)) ||
+            (RT_OK != rtMessage_GetArrayLength(msg, RTM_DISCOVERY_ITEMS, &length)) ||
+            (size < 0) || (length < 0) || (size != length))
         {
             RBUSCORELOG_DEBUG("rbus_GetElementsAddedByObject size mismatch: count=%d array_len=%d", size, length);
-            rtMessage_Release(msg);
             ret = RBUSCORE_ERROR_GENERAL;
+            rtMessage_Release(msg);
             goto exit;
         }
 
