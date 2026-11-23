@@ -49,9 +49,11 @@ static int readInputLine(char* buff, int size)
     else
     {
         /* Line was longer than buff: drop the rest so the next prompt starts fresh. */
-        int ch;
-        while ((ch = getchar()) != '\n' && ch != EOF)
-            ;
+        int ch = getchar();
+        while (ch != '\n' && ch != EOF)
+        {
+            ch = getchar();   /* discard the rest of the over-long line */
+        }
     }
     return buff[0] != '\0';
 }
