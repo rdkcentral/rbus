@@ -136,7 +136,7 @@ rtRouteBase_BindListener(char const* socket_name, int no_delay, int indefinite_r
     struct sockaddr_un* endpoint = (struct sockaddr_un *)&listener->local_endpoint;
     /* Set this socket's permissions without changing the process-wide umask. */
     if (endpoint->sun_path[0] != '\0' &&
-        chmod(endpoint->sun_path, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH) == -1)
+        chmod(endpoint->sun_path, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP) == -1)
     {
       rtLog_Warn("failed to set socket permissions. %s", rtStrError(errno));
       rtRouteBase_CloseListener(listener);

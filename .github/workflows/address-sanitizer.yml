@@ -77,6 +77,7 @@ jobs:
           export LD_LIBRARY_PATH=$PREFIX/lib
           export ASAN_OPTIONS=log_path=/tmp/asan_logs/asan_log_rtrouted
           nohup ./bin/rtrouted -f -l DEBUG > /tmp/provider_logs/rtrouted_log.txt &
+          echo "RTROUTED_PID=$!" >> "$GITHUB_ENV"
       - name: Run RbusTestTimeoutValues Unit test
         run: |
           cd install/usr
@@ -170,7 +171,17 @@ jobs:
           cd install/usr
           export PREFIX=$PWD
           export LD_LIBRARY_PATH=$PREFIX/lib
-          nohup ./bin/rtrouted_diag shutdown
+          sudo env LD_LIBRARY_PATH="$LD_LIBRARY_PATH" ./bin/rtrouted_diag shutdown
+          for attempt in {1..30}; do
+            if ! kill -0 "$RTROUTED_PID" 2>/dev/null; then
+              break
+            fi
+            sleep 1
+          done
+          if kill -0 "$RTROUTED_PID" 2>/dev/null; then
+            echo "::error::rtrouted did not exit within 30 seconds; refusing to collect incomplete coverage."
+            exit 1
+          fi
           rm -rf /tmp/rtrouted*
           ls -lt
           if ls /tmp/asan_logs/asan_log_rtrouted.* 1> /dev/null 2>&1; then
