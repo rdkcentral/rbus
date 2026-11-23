@@ -34,8 +34,6 @@ rbusError_t method_handler(rbusHandle_t rbus, char const* methodName, rbusObject
   rbusObject_t outParams, rbusMethodAsyncHandle_t asyncHandle);
 
 int runtime = 20;
-
-
 int main(int argc, char *argv[])
 {
   (void) argv;
