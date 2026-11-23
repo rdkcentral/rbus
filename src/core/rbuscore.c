@@ -95,13 +95,6 @@ typedef struct _server_object
     void* subscribe_handler_data;
 } *server_object_t;
 
-/////////////
-extern char* __progname;
-static void _freePrivateServer(void* p);
-static void _rbuscore_destroy_clientPrivate_connections();
-const rtPrivateClientInfo* _rbuscore_find_server_privateconnection(const char *pParameterName, const char *pConsumerName);
-/////
-
 void server_method_create(server_method_t* meth, char const* name, rbus_callback_t callback, void* data)
 {
     (*meth) = rt_calloc(1, sizeof(struct _server_method));
@@ -586,7 +579,7 @@ rbusCoreError_t rbus_openBrokerConnection2(const char * component_name, const ch
         pthread_mutexattr_t attr;
         pthread_mutexattr_init(&attr); // No check needed 
         pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_ERRORCHECK); // No check needed 
-        rc = pthread_mutex_init(&g_mutex, &attr);
+        int rc = pthread_mutex_init(&g_mutex, &attr);
         pthread_mutexattr_destroy(&attr);
         if(rc != 0)
         {
