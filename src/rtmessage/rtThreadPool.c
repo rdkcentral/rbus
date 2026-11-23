@@ -210,7 +210,7 @@ rtError rtThreadPool_Create(rtThreadPool* ppool, size_t maxThreadCount, size_t s
   }
   pthread_cond_init(&pool->taskCond, &condAttr);
   pthread_cond_init(&pool->idleCond, &condAttr);
-  rc = pthread_condattr_destroy(&condAttr);
+  pthread_condattr_destroy(&condAttr);
   *ppool = pool;
   rtLog_Debug("%s exit", __FUNCTION__);
   return RT_OK;
