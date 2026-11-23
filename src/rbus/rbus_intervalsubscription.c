@@ -137,6 +137,19 @@ static void* PublishingThreadFunc(void* rec)
         rbusProperty_Init(&properties, "numberOfEntries", NULL);
         result = get_recursive_wildcard_handler(handleInfo, sub->eventName,
                 "IntervalThread", properties, &actualCount);
+        ERROR_CHECK(pthread_mutex_lock(&gInternalSubMutex));
+        bool removed = (sub_find(sub) != sub_rec);
+        ERROR_CHECK(pthread_mutex_unlock(&gInternalSubMutex));
+        if(removed)
+        {
+            /* Record was dropped from gRecord by this thread's own handler; sub is no longer valid */
+            /* Subscription was removed from within the handler on this thread; sub is no longer valid */
+            rbusProperty_Release(properties);
+            rbusObject_Release(data);
+            ERROR_CHECK(pthread_mutex_unlock(&sub_rec->mutex));
+            sub_Free(sub_rec);
+            return NULL;
+        }
         rbusProperty_SetInt32(properties, actualCount);
         tmpptr = strchr(sub->eventName, '*');
         if (tmpptr)
@@ -202,7 +215,18 @@ static void* PublishingThreadFunc(void* rec)
     }
     ERROR_CHECK(pthread_mutex_unlock(&sub_rec->mutex));
     if(duration_complete) {
-        ERROR_CHECK(pthread_mutex_lock(&handleInfo->handle_subsMutex));
+        /* A remover holding handle_subsMutex sets running=0 and joins us; don't block on the mutex or we deadlock */
+        while(pthread_mutex_trylock(&handleInfo->handle_subsMutex) != 0)
+        {
+            if(!sub_rec->running)
+                return NULL;
+            usleep(1000);
+        }
+        if(!sub_rec->running)
+        {
+            ERROR_CHECK(pthread_mutex_unlock(&handleInfo->handle_subsMutex));
+            return NULL;
+        }
         ERROR_CHECK(pthread_mutex_lock(&gInternalSubMutex));
         rbusSubscriptions_removeSubscription(handleInfo->subscriptions, sub);
         rtVector_RemoveItem(gRecord, sub_rec, sub_Free);
@@ -282,7 +306,16 @@ void rbusInterval_RemoveSubscriptionRecord(
     rec = sub_find(sub);
     ERROR_CHECK(pthread_mutex_unlock(&gInternalSubMutex));
 
-    if(rec)
+    if(rec && pthread_equal(pthread_self(), rec->thread))
+    {
+        /* Called from the publishing thread itself: can't join or free here. Thread frees the record. */
+        ERROR_CHECK(pthread_mutex_lock(&gInternalSubMutex));
+        rtVector_RemoveItem(gRecord, rec, NULL);
+        ERROR_CHECK(pthread_mutex_unlock(&gInternalSubMutex));
+        rec->running = 0;
+        ERROR_CHECK(pthread_detach(rec->thread));
+    }
+    else if(rec)
     {
         if(rec->running)
         {
