@@ -35,28 +35,6 @@ rbusError_t method_handler(rbusHandle_t rbus, char const* methodName, rbusObject
 
 int runtime = 20;
 
-/* Read one line into buff; returns 1 if a non-empty value was read. */
-static int readInputLine(char* buff, int size)
-{
-    if (fgets(buff, size, stdin) == NULL)
-        return 0;
-
-    char* newline = strchr(buff, '\n');
-    if (newline)
-    {
-        *newline = '\0';
-    }
-    else
-    {
-        /* Line was longer than buff: drop the rest so the next prompt starts fresh. */
-        int ch = getchar();
-        while (ch != '\n' && ch != EOF)
-        {
-            ch = getchar();   /* discard the rest of the over-long line */
-        }
-    }
-    return buff[0] != '\0';
-}
 
 int main(int argc, char *argv[])
 {
@@ -84,14 +62,14 @@ void GetTraceContextFromUser(char *traceparent, char *tracestate)
 
     memset(buff, '\0', 256);
     printf("Enter traceparent:");
-    if (readInputLine(buff, sizeof(buff)))
+    if (scanf("%s", buff) == 1)
         snprintf(traceparent, RBUS_OPEN_TELEMETRY_DATA_MAX, "traceparent:%s", buff);
     else
         memset(traceparent, '\0', RBUS_OPEN_TELEMETRY_DATA_MAX);
 
     memset(buff, '\0', 256);
     printf("Enter tracestate:");
-    if (readInputLine(buff, sizeof(buff)))
+    if (scanf("%s", buff) == 1)
         snprintf(tracestate, RBUS_OPEN_TELEMETRY_DATA_MAX, "tracestate:%s", buff);
     else
         memset(tracestate, '\0', RBUS_OPEN_TELEMETRY_DATA_MAX);
