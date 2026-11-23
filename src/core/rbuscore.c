@@ -472,7 +472,7 @@ static rbusCoreError_t translate_rt_error(rtError err)
         return RBUSCORE_ERROR_GENERAL;
 }
 
-static void dispatch_method_call(rbusMessage msg, const rtMessageHeader hdr, server_object_t obj)
+static void dispatch_method_call(rbusMessage msg, const rtMessageHeader *hdr, server_object_t obj)
 {
     rtError err = RT_OK;
     const char* method_name = NULL;
@@ -523,7 +523,7 @@ static void onMessage(rtMessageHeader const* hdr, uint8_t const* data, uint32_t 
     {
         //We're in the midst of handling another request. Queue this one for later.
         queued_request_t req;
-        queued_request_create(&req, hdr, msg, obj);
+        queued_request_create(&req, *hdr, msg, obj);
         rtVector_PushBack(g_queued_requests, req);
     }
     else
