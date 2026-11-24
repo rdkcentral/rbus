@@ -5041,8 +5041,9 @@ rbusError_t  rbusEvent_SubscribeRawData(
         return errorcode;
     }
 
-    subInternal = rbusEventSubscription_find(handleInfo->eventSubs, eventName, NULL, 0, 0, true);
     snprintf(rawDataTopic, RBUS_MAX_NAME_LENGTH, "rawdata.%s", eventName);
+    HANDLE_EVENTSUBS_MUTEX_LOCK(handle);
+    subInternal = rbusEventSubscription_find(handleInfo->eventSubs, eventName, NULL, 0, 0, true);
     if(subInternal)
     {
         errorcode = rbusMessage_AddListener(handle, rawDataTopic,
@@ -5057,6 +5058,7 @@ rbusError_t  rbusEvent_SubscribeRawData(
         RBUSLOG_ERROR("SubscribeRawData: subInternal is NULL for %s", eventName);
         errorcode = RBUS_ERROR_INVALID_INPUT;
     }
+    HANDLE_EVENTSUBS_MUTEX_UNLOCK(handle);
     return errorcode;
 }
 
