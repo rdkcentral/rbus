@@ -134,6 +134,7 @@ rtError rtBase64_decode(const unsigned char * in, const unsigned int in_size,  v
         rtLog_Error("Cannot decode more than %d bytes. Request for %d bytes is denied.", RBUS_BASE64_DATA_SIZE_LIMIT, in_size);
         return RT_ERROR;
     }
+    
     int num_padding_bytes = 0;
     if(0 != (in_size % 4))
     {
