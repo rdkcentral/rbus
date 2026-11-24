@@ -1151,10 +1151,11 @@ rtConnection_SendRequestInternal(rtConnection con, uint8_t const* pReq, uint32_t
       }
     
     }
-    pthread_mutex_unlock(&con->mutex);
+    goto dequeue_locked;
 
 dequeue_and_continue:
     pthread_mutex_lock(&con->mutex);
+dequeue_locked:
     rtList_RemoveItem(con->pending_requests_list, listItem, NULL);
     /* reply may have arrived after we stopped waiting; we still own it */
     if(ret != RT_OK && queue_entry.response)
