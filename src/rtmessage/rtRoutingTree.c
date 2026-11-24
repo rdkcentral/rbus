@@ -592,7 +592,10 @@ void rtRoutingTree_GetTopicRoutes(rtRoutingTree rt, const char* topic, rtList* r
     rtLog_Debug("%s: %s", __FUNCTION__, topic);
 
     if(tokenizeExpression(topic) < 0)
+    {
+        rtLog_Warn("%s: failed to tokenize topic '%s'", __FUNCTION__, topic ? topic : "(null)");
         return;
+    }
     if(workTokenCount == 0)
         return;
 
