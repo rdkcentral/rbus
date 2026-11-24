@@ -1340,7 +1340,7 @@ rtConnection_AddListenerWithId(rtConnection con, char const* expression, uint32_
   rtMessage_Create(&m);
   rtMessage_SetInt32(m, "add", 1);
   rtMessage_SetString(m, "topic", expression);
-  rtMessage_SetInt32(m, "route_id", con->listeners[i].subscription_id);
+  rtMessage_SetInt32(m, "route_id", expressionId);
   rtConnection_SendMessage(con, m, "_RTROUTED.INBOX.SUBSCRIBE");
   rtMessage_Release(m);
 
