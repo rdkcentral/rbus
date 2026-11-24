@@ -1368,10 +1368,10 @@ static int _master_event_callback_handler(char const* sender, char const* eventN
 
     LockMutex();
     handleInfo = rbusHandleList_GetByComponentID(componentId);
+    UnlockMutex();
 
     if(!handleInfo)
     {
-        UnlockMutex();
         RBUSLOG_ERROR("Received master event callback with invalid componentId: sender=%s eventName=%s componentId=%d", sender, eventName, componentId);
         if(event.data)
             rbusObject_Release(event.data);
@@ -1382,10 +1382,7 @@ static int _master_event_callback_handler(char const* sender, char const* eventN
 
     RBUSLOG_DEBUG("Received master event callback: sender=%s eventName=%s componentId=%d", sender, eventName, componentId);
 
-    /* Acquire the handle's lock before releasing gMutex so rbus_close, which
-       takes the same locks in this order, cannot free the handle in between. */
     HANDLE_EVENTSUBS_MUTEX_LOCK(handleInfo);
-    UnlockMutex();
     subInternal = rbusEventSubscription_find(handleInfo->eventSubs, eventName, filter, interval, duration, false);
 
     if(subInternal)
