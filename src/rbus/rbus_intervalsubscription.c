@@ -24,6 +24,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <pthread.h>
+#include <stdatomic.h>
 #include <unistd.h>
 //#include <assert.h>
 #include <errno.h>
@@ -46,7 +47,7 @@ rtVector gRecord = NULL;
 static pthread_mutex_t gInternalSubMutex = PTHREAD_MUTEX_INITIALIZER;
 typedef struct sRecord
 {
-    int running;
+    atomic_int running;
     pthread_mutex_t  mutex;
     pthread_t        thread;
     pthread_cond_t   cond;
@@ -63,7 +64,7 @@ static void init_thread(sRecord* sub_rec)
     pthread_mutexattr_t attrib;
     pthread_condattr_t cattrib;
 
-    sub_rec->running = 0;
+    atomic_init(&sub_rec->running, 0);
 
     ERROR_CHECK(pthread_mutexattr_init(&attrib));
     ERROR_CHECK(pthread_mutexattr_settype(&attrib, PTHREAD_MUTEX_ERRORCHECK));
@@ -113,7 +114,7 @@ static void* PublishingThreadFunc(void* rec)
     rbusSubscription_t* sub = sub_rec->sub;
     struct _rbusHandle* handleInfo = (struct _rbusHandle*)sub_rec->handle;
     ERROR_CHECK(pthread_mutex_lock(&sub_rec->mutex));
-    while(sub_rec->running)
+    while(atomic_load(&sub_rec->running))
     {
         int err;
         int actualCount = 0;
@@ -218,11 +219,11 @@ static void* PublishingThreadFunc(void* rec)
         /* A remover holding handle_subsMutex sets running=0 and joins us; don't block on the mutex or we deadlock */
         while(pthread_mutex_trylock(&handleInfo->handle_subsMutex) != 0)
         {
-            if(!sub_rec->running)
+            if(!atomic_load(&sub_rec->running))
                 return NULL;
             usleep(1000);
         }
-        if(!sub_rec->running)
+        if(!atomic_load(&sub_rec->running))
         {
             ERROR_CHECK(pthread_mutex_unlock(&handleInfo->handle_subsMutex));
             return NULL;
@@ -278,7 +279,7 @@ rbusError_t rbusInterval_AddSubscriptionRecord(
         init_thread(sub_rec);
 
         /* Register before starting the thread so the publisher always finds its record; held across create so rec->thread is set */
-        sub_rec->running = 1;
+        atomic_store(&sub_rec->running, 1);
         ERROR_CHECK(pthread_mutex_lock(&gInternalSubMutex));
         rtVector_PushBack(gRecord, sub_rec);
         if(pthread_create(&sub_rec->thread, NULL, PublishingThreadFunc, (void *)sub_rec) != 0)
@@ -319,20 +320,26 @@ void rbusInterval_RemoveSubscriptionRecord(
         ERROR_CHECK(pthread_mutex_lock(&gInternalSubMutex));
         rtVector_RemoveItem(gRecord, rec, NULL);
         ERROR_CHECK(pthread_mutex_unlock(&gInternalSubMutex));
-        rec->running = 0;
+        atomic_store(&rec->running, 0);
         ERROR_CHECK(pthread_detach(rec->thread));
     }
     else if(rec)
     {
-        if(rec->running)
-        {
-            rec->running = 0;
-            ERROR_CHECK(pthread_cond_signal(&rec->cond));
-            ERROR_CHECK(pthread_join(rec->thread, NULL));
-        }
+        /* Unlink from subscriptions while holding locks, but defer join to avoid deadlock
+           with publishers blocked in element tree traversal (wildcard lookup needs elmMutex). */
         ERROR_CHECK(pthread_mutex_lock(&gInternalSubMutex));
-        rtVector_RemoveItem(gRecord, rec, sub_Free);
+        rtVector_RemoveItem(gRecord, rec, NULL);
         ERROR_CHECK(pthread_mutex_unlock(&gInternalSubMutex));
+
+        if(atomic_load(&rec->running))
+        {
+            atomic_store(&rec->running, 0);
+            ERROR_CHECK(pthread_cond_signal(&rec->cond));
+        }
+        /* Join without holding any element or subscription locks.
+           Publisher may be in wildcard lookup holding elmMutex; join must wait without blocking it. */
+        ERROR_CHECK(pthread_join(rec->thread, NULL));
+        sub_Free(rec);
     }
     else
     {

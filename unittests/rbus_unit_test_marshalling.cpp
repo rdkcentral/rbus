@@ -74,6 +74,83 @@ static void TearDownTestCase()
 
 extern "C" rbusError_t _getExt_response_parser(rbusMessage response, int* numValues,
                                                rbusProperty_t* properties);
+extern "C" rbusError_t rbusObject_initFromMessage(rbusObject_t* obj, rbusMessage msg);
+
+TEST_F(TestMarshallingAPIs, Object_rejects_missing_or_unreadable_type)
+{
+    for(int unreadable = 0; unreadable < 2; ++unreadable)
+    {
+        rbusMessage message;
+        rbusMessage_Init(&message);
+        rbusMessage_SetString(message, "Device.Test");
+        if(unreadable)
+            rbusMessage_SetString(message, "invalid type");
+
+        rbusObject_t obj = NULL;
+        EXPECT_EQ(rbusObject_initFromMessage(&obj, message), RBUS_ERROR_INVALID_INPUT);
+        EXPECT_EQ(obj, nullptr);
+        rbusObject_Release(obj);
+        rbusMessage_Release(message);
+    }
+}
+
+TEST_F(TestMarshallingAPIs, Object_rejects_invalid_child_counts_after_properties)
+{
+    for(int testCase = 0; testCase < 4; ++testCase)
+    {
+        rbusMessage message;
+        rbusMessage_Init(&message);
+        rbusMessage_SetString(message, "Device.Test");
+        rbusMessage_SetInt32(message, RBUS_OBJECT_SINGLE_INSTANCE);
+        rbusMessage_SetInt32(message, 1);
+        rbusMessage_SetString(message, "Device.Test.Value");
+        rbusMessage_SetInt32(message, RBUS_INT32);
+        rbusMessage_SetInt32(message, 42);
+        if(testCase == 1)
+            rbusMessage_SetString(message, "invalid child count");
+        else if(testCase == 2)
+            rbusMessage_SetInt32(message, -1);
+        else if(testCase == 3)
+            rbusMessage_SetInt32(message, INT32_MIN);
+
+        rbusObject_t obj = NULL;
+        EXPECT_EQ(rbusObject_initFromMessage(&obj, message), RBUS_ERROR_INVALID_INPUT);
+        EXPECT_EQ(obj, nullptr);
+        rbusObject_Release(obj);
+        rbusMessage_Release(message);
+    }
+}
+
+TEST_F(TestMarshallingAPIs, Object_accepts_zero_child_count_with_properties)
+{
+    rbusMessage message;
+    rbusMessage_Init(&message);
+    rbusMessage_SetString(message, "Device.Test");
+    rbusMessage_SetInt32(message, RBUS_OBJECT_SINGLE_INSTANCE);
+    rbusMessage_SetInt32(message, 1);
+    rbusMessage_SetString(message, "Device.Test.Value");
+    rbusMessage_SetInt32(message, RBUS_INT32);
+    rbusMessage_SetInt32(message, 42);
+    rbusMessage_SetInt32(message, 0);
+
+    rbusObject_t obj = NULL;
+    EXPECT_EQ(rbusObject_initFromMessage(&obj, message), RBUS_ERROR_SUCCESS);
+    if(obj)
+    {
+        EXPECT_STREQ(rbusObject_GetName(obj), "Device.Test");
+        EXPECT_EQ(rbusObject_GetChildren(obj), nullptr);
+        rbusValue_t value = rbusObject_GetValue(obj, "Device.Test.Value");
+        EXPECT_NE(value, nullptr);
+        if(value)
+            EXPECT_EQ(rbusValue_GetInt32(value), 42);
+    }
+    else
+    {
+        ADD_FAILURE() << "Decoded object is NULL";
+    }
+    rbusObject_Release(obj);
+    rbusMessage_Release(message);
+}
 
 static void checkMalformedGetValue(int32_t type)
 {

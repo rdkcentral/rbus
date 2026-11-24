@@ -643,7 +643,8 @@ rbusError_t rbusPropertyList_initFromMessage(rbusProperty_t* prop, rbusMessage m
     rbusProperty_t previous = NULL, first = NULL;
     int numProps = 0;
     *prop = NULL;
-    rbusMessage_GetInt32(msg, (int*) &numProps);
+    if(rbusMessage_GetInt32(msg, &numProps) != RT_OK || numProps < 0)
+         return RBUS_ERROR_INVALID_INPUT;
 #if DEBUG_SERIALIZER
     RBUSLOG_INFO("> prop pop numProps=%d", numProps);
 #endif
@@ -721,7 +722,11 @@ rbusError_t rbusObject_initFromMessage(rbusObject_t* obj, rbusMessage msg)
         RBUSLOG_WARN("rbusObject_initFromMessage: invalid object name");
         return RBUS_ERROR_INVALID_INPUT;
     }
-    rbusMessage_GetInt32(msg, &type);
+    if(rbusMessage_GetInt32(msg, &type) != RT_OK)
+    {
+        RBUSLOG_WARN("rbusObject_initFromMessage: invalid object type");
+        return RBUS_ERROR_INVALID_INPUT;
+    }
 #if DEBUG_SERIALIZER
     RBUSLOG_INFO("> object pop name=%s type=%d", name, type);
 #endif
@@ -730,7 +735,12 @@ rbusError_t rbusObject_initFromMessage(rbusObject_t* obj, rbusMessage msg)
     if(err != RBUS_ERROR_SUCCESS)
         return err;
 
-    rbusMessage_GetInt32(msg, &numChild);
+    if(rbusMessage_GetInt32(msg, &numChild) != RT_OK || numChild < 0)
+    {
+        RBUSLOG_WARN("rbusObject_initFromMessage: invalid child count");
+        rbusProperty_Release(prop);
+        return RBUS_ERROR_INVALID_INPUT;
+    }
 #if DEBUG_SERIALIZER
     RBUSLOG_INFO("> object pop numChild=%d", numChild);
 #endif
@@ -4848,11 +4858,7 @@ rbusError_t rbusElementInfo_get(
             {
                 char const* providerErrMsg = NULL;
                 if(rbusMessage_GetString(response, &providerErrMsg) != RT_OK || !providerErrMsg)
-                {
-                    RBUSLOG_WARN("Element info failed: invalid provider error message");
-                    errorcode = RBUS_ERROR_INVALID_RESPONSE_FROM_DESTINATION;
-                    goto decode_error;
-                }
+                    providerErrMsg = rbusError_ToString(errorcode);
                 RBUSLOG_ERROR("invokeRemoteMethod %s %s got provider error:%d reason:%s", METHOD_GETPARAMETERNAMES, elemName, providerErr, providerErrMsg);
             }
             rbusMessage_Release(response);
