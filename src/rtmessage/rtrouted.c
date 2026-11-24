@@ -1857,7 +1857,6 @@ int main(int argc, char* argv[])
   char const* config_file;
   char const* temp;
   int num_listeners = 0;
-  int exit_status = EXIT_SUCCESS;
   rtRouteEntry* route;
 
   run_in_foreground = 0;
@@ -2058,8 +2057,8 @@ int main(int argc, char* argv[])
         if (rtRouted_PushFd(&read_fds, listener->fd, &max_fd) != RT_OK ||
             rtRouted_PushFd(&err_fds, listener->fd, &max_fd) != RT_OK)
         {
-          exit_status = EXIT_FAILURE;
-          goto cleanup;
+          rtLog_Warn("Failed to add listener fd %d to select set; skipping", listener->fd);
+          continue;
         }
       }
     }
@@ -2072,8 +2071,8 @@ int main(int argc, char* argv[])
         if (rtRouted_PushFd(&read_fds, clnt->fd, &max_fd) != RT_OK ||
             rtRouted_PushFd(&err_fds, clnt->fd, &max_fd) != RT_OK)
         {
-          exit_status = EXIT_FAILURE;
-          goto cleanup;
+          rtLog_Warn("Failed to add client fd %d (%s) to select set; skipping", clnt->fd, clnt->ident);
+          continue;
         }
       }
     }
@@ -2114,7 +2113,6 @@ int main(int argc, char* argv[])
     }
   }
 
-cleanup:
   rtVector_Destroy(gListeners, freeListener);
   rtVector_Destroy(gClients, freeClient);
   rtVector_Destroy(gRoutes, freeRoute);
@@ -2128,5 +2126,5 @@ cleanup:
     free(g_spake2_w0);
 #endif
 
-  return exit_status;
+  return EXIT_SUCCESS;
 }
