@@ -2058,7 +2058,6 @@ int main(int argc, char* argv[])
             rtRouted_PushFd(&err_fds, listener->fd, &max_fd) != RT_OK)
         {
           rtLog_Warn("Failed to add listener fd %d to select set; skipping", listener->fd);
-          continue;
         }
       }
     }
@@ -2072,7 +2071,6 @@ int main(int argc, char* argv[])
             rtRouted_PushFd(&err_fds, clnt->fd, &max_fd) != RT_OK)
         {
           rtLog_Warn("Failed to add client fd %d (%s) to select set; skipping", clnt->fd, clnt->ident);
-          continue;
         }
       }
     }
