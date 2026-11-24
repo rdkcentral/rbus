@@ -48,6 +48,7 @@ static pthread_mutex_t gInternalSubMutex = PTHREAD_MUTEX_INITIALIZER;
 typedef struct sRecord
 {
     atomic_int running;
+    atomic_int external_remove;  /* 1 if external thread unlinked; prevents publisher from self-freeing */
     pthread_mutex_t  mutex;
     pthread_t        thread;
     pthread_cond_t   cond;
@@ -65,6 +66,7 @@ static void init_thread(sRecord* sub_rec)
     pthread_condattr_t cattrib;
 
     atomic_init(&sub_rec->running, 0);
+    atomic_init(&sub_rec->external_remove, 0);
 
     ERROR_CHECK(pthread_mutexattr_init(&attrib));
     ERROR_CHECK(pthread_mutexattr_settype(&attrib, PTHREAD_MUTEX_ERRORCHECK));
@@ -143,12 +145,19 @@ static void* PublishingThreadFunc(void* rec)
         ERROR_CHECK(pthread_mutex_unlock(&gInternalSubMutex));
         if(removed)
         {
-            /* Record was dropped from gRecord by this thread's own handler; sub is no longer valid */
-            /* Subscription was removed from within the handler on this thread; sub is no longer valid */
+            /* Record was dropped from gRecord; check if external removal is in progress.
+               If external_remove=1, an external thread unlinked us and will handle cleanup after join.
+               If external_remove=0, we're doing self-removal and must clean up our own record. */
             rbusProperty_Release(properties);
             rbusObject_Release(data);
             ERROR_CHECK(pthread_mutex_unlock(&sub_rec->mutex));
-            sub_Free(sub_rec);
+
+            if(!atomic_load(&sub_rec->external_remove))
+            {
+                /* Self-removal: external removal was NOT initiated, so we own cleanup */
+                sub_Free(sub_rec);
+            }
+            /* else: external removal in progress; external thread will free after join */
             return NULL;
         }
         rbusProperty_SetInt32(properties, actualCount);
@@ -325,6 +334,10 @@ void rbusInterval_RemoveSubscriptionRecord(
     }
     else if(rec)
     {
+        /* Mark for external removal before unlink. If publisher thread is exiting, it will see
+           this flag and NOT free the record, leaving cleanup to this external remover. */
+        atomic_store(&rec->external_remove, 1);
+
         /* Unlink from subscriptions while holding locks, but defer join to avoid deadlock
            with publishers blocked in element tree traversal (wildcard lookup needs elmMutex). */
         ERROR_CHECK(pthread_mutex_lock(&gInternalSubMutex));
@@ -337,7 +350,8 @@ void rbusInterval_RemoveSubscriptionRecord(
             ERROR_CHECK(pthread_cond_signal(&rec->cond));
         }
         /* Join without holding any element or subscription locks.
-           Publisher may be in wildcard lookup holding elmMutex; join must wait without blocking it. */
+           Publisher may be in wildcard lookup holding elmMutex; join must wait without blocking it.
+           After join, only this thread can free rec since external_remove=1 prevented publisher self-free. */
         ERROR_CHECK(pthread_join(rec->thread, NULL));
         sub_Free(rec);
     }
