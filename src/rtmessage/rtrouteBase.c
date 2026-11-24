@@ -29,7 +29,6 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <sys/types.h>
-#include <sys/un.h>
 #include <unistd.h>
 #include <sys/file.h>
 #include <sys/stat.h>
@@ -135,7 +134,7 @@ rtRouteBase_BindListener(char const* socket_name, int no_delay, int indefinite_r
   {
     //skip the 7 letters from socket name as it points to `unix://`
     if (chmod(&socket_name[7], S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH) < 0)
-     rtLog_Warn("Failed to change socket's write permission for non-root listener");
+      rtLog_Warn("Failed to change socket's write permission for non-root listener");
   }
 
   ret = listen(listener->fd, 4);

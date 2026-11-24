@@ -855,7 +855,7 @@ rtRouted_OnMessageSubscribe(rtConnectedClient* sender, rtMessageHeader* hdr, uin
           if(route->subscription && route->subscription->client == sender &&
              route->subscription->id == route_id)
           {
-            if(0 == strcmp(route->expression, expression))
+            if(0 == strncmp(route->expression, expression, RTMSG_MAX_EXPRESSION_LEN))
             {
               rtRouted_ClearRoute(route);
               rc = RT_OK;
@@ -1214,38 +1214,11 @@ rtRouted_OnMessageDiscoverElementObjects(rtConnectedClient* sender, rtMessageHea
   (void)sender;
 }
 
-static int
-rtRouted_IsAuthorizedDiagnosticsClient(const rtConnectedClient* sender)
-{
-#ifdef SO_PEERCRED
-  struct ucred credentials;
-  socklen_t credentials_length = sizeof(credentials);
-
-  if (sender == NULL || sender->endpoint.ss_family != AF_UNIX ||
-      getsockopt(sender->fd, SOL_SOCKET, SO_PEERCRED, &credentials, &credentials_length) != 0)
-  {
-    return 0;
-  }
-
-  return credentials_length == sizeof(credentials) && credentials.uid == 0;
-#else
-  (void)sender;
-  return 0;
-#endif
-}
-
 static void
 rtRouted_OnMessageDiagnostics(rtConnectedClient* sender, rtMessageHeader* hdr, uint8_t const* buff, int n)
 {
   rtMessage msg = NULL;
   const char * cmd = NULL;
-
-  if (!rtRouted_IsAuthorizedDiagnosticsClient(sender))
-  {
-    rtLog_Warn("Rejected diagnostics request from unauthorized client %s",
-               sender ? sender->ident : "unknown");
-    return;
-  }
 
   if (rtMessage_FromBytes(&msg, buff, n) != RT_OK)
   {

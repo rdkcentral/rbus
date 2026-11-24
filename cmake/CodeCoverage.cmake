@@ -111,8 +111,6 @@
 #      make
 #      make my_coverage_target
 #
-# Coverage targets require root or sudo access for broker shutdown and wait up to
-# 30 seconds for the broker to exit before collecting counters.
 
 include(CMakeParseArguments)
 
@@ -245,7 +243,7 @@ function(setup_target_for_coverage_lcov)
         COMMAND "${CMAKE_CURRENT_BINARY_DIR}/src/session_manager/rbus_session_mgr" "daemon"
         COMMAND "${CMAKE_CURRENT_BINARY_DIR}/unittests/rbus_gtest.bin"
         COMMAND "/usr/bin/killall" "-15" "rbus_session_mgr"
-        COMMAND /bin/sh -c "pid=$(pgrep -x rtrouted) || { echo 'Cannot find rtrouted' >&2; exit 1; }; case \"$pid\" in *[!0-9]*) echo 'Expected exactly one rtrouted broker' >&2; exit 1 ;; esac; sudo env LD_LIBRARY_PATH=\"$LD_LIBRARY_PATH\" \"$1\" shutdown || exit 1; for attempt in $(seq 1 30); do kill -0 \"$pid\" 2>/dev/null || break; sleep 1; done; if kill -0 \"$pid\" 2>/dev/null; then echo 'rtrouted shutdown timed out; refusing to collect incomplete coverage.' >&2; exit 1; fi" sh "${CMAKE_CURRENT_BINARY_DIR}/src/rtmessage/rtrouted_diag"
+        COMMAND "${CMAKE_CURRENT_BINARY_DIR}/src/rtmessage/rtrouted_diag"  "shutdown"
         COMMAND "rm" "-rf" "/tmp/rtrouted*"
 
         # Capturing lcov counters and generating report
@@ -341,7 +339,7 @@ function(setup_target_for_coverage_gcovr_xml)
         COMMAND "${CMAKE_CURRENT_BINARY_DIR}/src/session_manager/rbus_session_mgr" "daemon"
         COMMAND "${CMAKE_CURRENT_BINARY_DIR}/unittests/rbus_gtest.bin"
         COMMAND "/usr/bin/killall" "-15" "rbus_session_mgr"
-        COMMAND /bin/sh -c "pid=$(pgrep -x rtrouted) || { echo 'Cannot find rtrouted' >&2; exit 1; }; case \"$pid\" in *[!0-9]*) echo 'Expected exactly one rtrouted broker' >&2; exit 1 ;; esac; sudo env LD_LIBRARY_PATH=\"$LD_LIBRARY_PATH\" \"$1\" shutdown || exit 1; for attempt in $(seq 1 30); do kill -0 \"$pid\" 2>/dev/null || break; sleep 1; done; if kill -0 \"$pid\" 2>/dev/null; then echo 'rtrouted shutdown timed out; refusing to collect incomplete coverage.' >&2; exit 1; fi" sh "${CMAKE_CURRENT_BINARY_DIR}/src/rtmessage/rtrouted_diag"
+        COMMAND "${CMAKE_CURRENT_BINARY_DIR}/src/rtmessage/rtrouted_diag" "shutdown"
         COMMAND "rm" "-rf" "/tmp/rtrouted*"
 
         # Running gcovr
@@ -418,7 +416,7 @@ function(setup_target_for_coverage_gcovr_html)
         COMMAND "${CMAKE_CURRENT_BINARY_DIR}/src/session_manager/rbus_session_mgr" "daemon"
         COMMAND "${CMAKE_CURRENT_BINARY_DIR}/unittests/rbus_gtest.bin"
         COMMAND "/usr/bin/killall" "-15" "rbus_session_mgr"
-        COMMAND /bin/sh -c "pid=$(pgrep -x rtrouted) || { echo 'Cannot find rtrouted' >&2; exit 1; }; case \"$pid\" in *[!0-9]*) echo 'Expected exactly one rtrouted broker' >&2; exit 1 ;; esac; sudo env LD_LIBRARY_PATH=\"$LD_LIBRARY_PATH\" \"$1\" shutdown || exit 1; for attempt in $(seq 1 30); do kill -0 \"$pid\" 2>/dev/null || break; sleep 1; done; if kill -0 \"$pid\" 2>/dev/null; then echo 'rtrouted shutdown timed out; refusing to collect incomplete coverage.' >&2; exit 1; fi" sh "${CMAKE_CURRENT_BINARY_DIR}/src/rtmessage/rtrouted_diag"
+        COMMAND "${CMAKE_CURRENT_BINARY_DIR}/src/rtmessage/rtrouted_diag"  "shutdown"
         COMMAND "/usr/bin/rm" "-rf" "/tmp/rtrouted*"
         COMMAND "/usr/bin/rm" "-rf" "/tmp/rbus_*"
 
