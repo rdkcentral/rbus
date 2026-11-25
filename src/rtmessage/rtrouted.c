@@ -1834,7 +1834,7 @@ static FILE* rtrouted_open_pid_file(const char* path)
 {
   int fd;
   struct stat st;
-  int flags = O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC;
+  int flags = O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC | O_NONBLOCK;
 
 #ifdef O_NOFOLLOW
   flags |= O_NOFOLLOW;
