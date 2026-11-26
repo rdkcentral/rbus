@@ -411,15 +411,32 @@ rtRouted_ParseConfig(char const* fname)
 }
 
 static rtError
+rtRouted_ClearRoute(rtRouteEntry* route);
+
+static rtError
 rtRouted_AddRoute(rtRouteMessageHandler handler, char const* exp, rtSubscription* subscription)
 {
+  rtError rc;
   rtRouteEntry* route = (rtRouteEntry *) rt_calloc(1, sizeof(rtRouteEntry));
   route->subscription = subscription;
   route->message_handler = handler;
   rtString_Copy(route->expression, exp, RTMSG_MAX_EXPRESSION_LEN);
-  rtVector_PushBack(gRoutes, route);
+  rc = rtVector_PushBack(gRoutes, route);
+  if (rc != RT_OK)
+  {
+    free(subscription);
+    free(route);
+    return rc;
+  }
+
+  rc = rtRoutingTree_AddTopicRoute(gRoutingTree, exp, (void *)route, 0/*ignfore duplicate entry*/);
+  if (rc != RT_OK)
+  {
+    rtRouted_ClearRoute(route);
+    return rc;
+  }
+
   rtLog_Debug("AddRoute route=[%p] address=[%s] expression=[%s]", route, subscription->client->ident, exp);
-  rtRoutingTree_AddTopicRoute(gRoutingTree, exp, (void *)route, 0/*ignfore duplicate entry*/);
   return RT_OK;
 }
 
@@ -845,7 +862,7 @@ rtRouted_OnMessageSubscribe(rtConnectedClient* sender, rtMessageHeader* hdr, uin
           subscription->client = sender;
           rc = rtRouted_AddRoute(rtRouted_ForwardMessage, expression, subscription);
 
-          if(strstr(expression, ".INBOX.") && sender->inbox[0] == '\0')
+          if(rc == RT_OK && strstr(expression, ".INBOX.") && sender->inbox[0] == '\0')
           {
             rtString_Copy(sender->inbox, expression, RTMSG_HEADER_MAX_TOPIC_LENGTH);
             rtLog_Debug("init client inbox to %s", sender->inbox);
@@ -906,6 +923,7 @@ rtRouted_OnMessageHello(rtConnectedClient* sender, rtMessageHeader* hdr, uint8_t
 {
   char const* inbox = NULL;
   rtMessage m;
+  rtError rc;
 
   if(RT_OK != rtMessage_FromBytes(&m, buff, n))
   {
@@ -918,7 +936,9 @@ rtRouted_OnMessageHello(rtConnectedClient* sender, rtMessageHeader* hdr, uint8_t
   rtSubscription* subscription = (rtSubscription *) rt_malloc(sizeof(rtSubscription));
   subscription->id = 0;
   subscription->client = sender;
-  rtRouted_AddRoute(rtRouted_ForwardMessage, inbox, subscription);
+  rc = rtRouted_AddRoute(rtRouted_ForwardMessage, inbox, subscription);
+  if (rc != RT_OK)
+    rtLog_Warn("Failed to add inbox route [%s] for [%s]: %d", inbox, sender->ident, rc);
 
   rtMessage_Release(m);
 
