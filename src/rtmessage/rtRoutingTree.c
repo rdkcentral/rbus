@@ -114,26 +114,29 @@ static void freeTreeRoute(void* p)
 
 static int validateExpression(const char* expr)
 {
-    int token_count = 0;
+    int token_count = 1;
     int token_length = 0;
     int result = 0;
+
+    if(!expr || !*expr)
+        return -1;
 
     while(*expr)
     {
         if(*expr == '.')
-	{
-	    if(*(expr + 1) == '.')
-	    {
-	       result = -1;
-	       break;
-	    }
-	    token_count++;
-	}
+        {
+            if(*(expr + 1) == '.')
+            {
+               result = -1;
+               break;
+            }
+            token_count++;
+        }
         token_length++;
-        expr++;	
+        expr++;
     }
 
-    if((token_length > MAX_TOKEN_BUFFER_SIZE) || (token_count > MAX_TOKENS))
+    if((token_length >= MAX_TOKEN_BUFFER_SIZE) || (token_count > MAX_TOKENS))
     {
         result = -1;
     }

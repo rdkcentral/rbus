@@ -41,6 +41,7 @@
   } \
 }
 #define VERIFY_NULL(T)      if(NULL == T){ return; }
+#define RBUS_INTERVAL_SUBSCRIPTION_MAX 256
 
 rtVector gRecord = NULL;
 static pthread_mutex_t gInternalSubMutex = PTHREAD_MUTEX_INITIALIZER;
@@ -220,6 +221,7 @@ rbusError_t rbusInterval_AddSubscriptionRecord(
         rbusSubscription_t* sub)
 {
     sRecord *sub_rec = NULL;
+    int err = 0;
     if(!propNode)
     {
         RBUSLOG_ERROR("propNode NULL error");
@@ -238,15 +240,34 @@ rbusError_t rbusInterval_AddSubscriptionRecord(
         return RBUS_ERROR_ACCESS_NOT_ALLOWED;
     }
 
-    ERROR_CHECK(pthread_mutex_lock(&gInternalSubMutex));
+    err = pthread_mutex_lock(&gInternalSubMutex);
+    if(err != 0)
+    {
+        RBUSLOG_ERROR("Error %d:%s running command pthread_mutex_lock", err, strerror(err));
+        return RBUS_ERROR_BUS_ERROR;
+    }
+
     if (!gRecord)
         rtVector_Create(&gRecord);
 
     sub_rec = sub_find(sub);
-    ERROR_CHECK(pthread_mutex_unlock(&gInternalSubMutex));
     if(!sub_rec)
     {
+        if(rtVector_Size(gRecord) >= RBUS_INTERVAL_SUBSCRIPTION_MAX)
+        {
+            RBUSLOG_ERROR("interval subscription limit reached: max=%d", RBUS_INTERVAL_SUBSCRIPTION_MAX);
+            ERROR_CHECK(pthread_mutex_unlock(&gInternalSubMutex));
+            return RBUS_ERROR_OUT_OF_RESOURCES;
+        }
         sub_rec = (sRecord*)rt_malloc(sizeof(sRecord));
+        if(!sub_rec)
+        {
+            RBUSLOG_ERROR("failed to allocate interval subscription record");
+            ERROR_CHECK(pthread_mutex_unlock(&gInternalSubMutex));
+            return RBUS_ERROR_OUT_OF_RESOURCES;
+        }
+
+        memset(sub_rec, 0, sizeof(*sub_rec));
         sub_rec->handle = handle;
         sub_rec->node = propNode;
         sub_rec->sub = sub;
@@ -255,11 +276,26 @@ rbusError_t rbusInterval_AddSubscriptionRecord(
 
         /* Thread create */
         sub_rec->running = 1;
-        pthread_create(&sub_rec->thread, NULL, PublishingThreadFunc, (void *)sub_rec);
+        if(pthread_create(&sub_rec->thread, NULL, PublishingThreadFunc, (void *)sub_rec) != 0)
+        {
+            RBUSLOG_ERROR("pthread_create failed for interval subscription");
+            ERROR_CHECK(pthread_mutex_destroy(&sub_rec->mutex));
+            ERROR_CHECK(pthread_cond_destroy(&sub_rec->cond));
+            rbusProperty_Release(sub_rec->property);
+            free(sub_rec);
+            ERROR_CHECK(pthread_mutex_unlock(&gInternalSubMutex));
+            return RBUS_ERROR_OUT_OF_RESOURCES;
+        }
 
         rtVector_PushBack(gRecord, sub_rec);
     }
-    return RBUS_ERROR_SUCCESS; 
+	    err = pthread_mutex_unlock(&gInternalSubMutex);
+    if(err != 0)
+    {
+        RBUSLOG_ERROR("Error %d:%s running command pthread_mutex_unlock", err, strerror(err));
+        return RBUS_ERROR_BUS_ERROR;
+    }   
+    return RBUS_ERROR_SUCCESS;
 }
 
 /* Delete Subscription Record from global record and stop it's running thread */
@@ -268,19 +304,37 @@ void rbusInterval_RemoveSubscriptionRecord(
         elementNode* propNode,
         rbusSubscription_t* sub)
 {
+    int err;
+    sRecord* rec;
+
     (void)(handle);
     (void)(propNode);
     VERIFY_NULL(sub);
 
-    if (!gRecord)
+    err = pthread_mutex_lock(&gInternalSubMutex);
+    if(err != 0)
     {
+        RBUSLOG_ERROR("Error %d:%s running command pthread_mutex_lock", err, strerror(err));
         return;
     }
 
-    sRecord* rec;
-    ERROR_CHECK(pthread_mutex_lock(&gInternalSubMutex));
+    if (!gRecord)
+    {
+        err = pthread_mutex_unlock(&gInternalSubMutex);
+        if(err != 0)
+        {
+            RBUSLOG_ERROR("Error %d:%s running command pthread_mutex_unlock", err, strerror(err));
+        }
+        return;
+    }
+
     rec = sub_find(sub);
-    ERROR_CHECK(pthread_mutex_unlock(&gInternalSubMutex));
+    err = pthread_mutex_unlock(&gInternalSubMutex);
+    if(err != 0)
+    {
+        RBUSLOG_ERROR("Error %d:%s running command pthread_mutex_unlock", err, strerror(err));
+        return;
+    }
 
     if(rec)
     {
@@ -290,9 +344,19 @@ void rbusInterval_RemoveSubscriptionRecord(
             ERROR_CHECK(pthread_cond_signal(&rec->cond));
             ERROR_CHECK(pthread_join(rec->thread, NULL));
         }
-        ERROR_CHECK(pthread_mutex_lock(&gInternalSubMutex));
+        err = pthread_mutex_lock(&gInternalSubMutex);
+        if(err != 0)
+        {
+            RBUSLOG_ERROR("Error %d:%s running command pthread_mutex_lock", err, strerror(err));
+            return;
+        }
         rtVector_RemoveItem(gRecord, rec, sub_Free);
-        ERROR_CHECK(pthread_mutex_unlock(&gInternalSubMutex));
+        err = pthread_mutex_unlock(&gInternalSubMutex);
+        if(err != 0)
+        {
+            RBUSLOG_ERROR("Error %d:%s running command pthread_mutex_unlock", err, strerror(err));
+            return;
+        }
     }
     else
     {
