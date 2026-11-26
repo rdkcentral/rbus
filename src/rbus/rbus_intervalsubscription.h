@@ -28,6 +28,8 @@ extern "C" {
 
 rbusError_t rbusInterval_AddSubscriptionRecord(rbusHandle_t handle, elementNode* propNode, rbusSubscription_t* sub);
 void rbusInterval_RemoveSubscriptionRecord(rbusHandle_t handle, elementNode* propNode, rbusSubscription_t* sub);
+/* Call before teardown, without bus/subscription locks; rejects its own worker. */
+rbusError_t rbusInterval_CloseHandle(rbusHandle_t handle);
 
 #ifdef __cplusplus
 }
