@@ -349,6 +349,10 @@ void rbusInterval_RemoveSubscriptionRecord(
             atomic_store(&rec->running, 0);
             ERROR_CHECK(pthread_cond_signal(&rec->cond));
         }
+
+        struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
+        pthread_mutex_unlock(&handleInfo->handle_subsMutex);
+
         /* Join without holding any element or subscription locks.
            Publisher may be in wildcard lookup holding elmMutex; join must wait without blocking it.
            After join, only this thread can free rec since external_remove=1 prevented publisher self-free. */

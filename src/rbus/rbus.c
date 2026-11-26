@@ -4246,6 +4246,7 @@ rbusError_t _setMultiInternal(rbusHandle_t handle, uint32_t numProps, rbusProper
                     else
                     {
                         char const* pErrorReason = NULL;
+                        bool validErrorReason = false;
                         rbusLegacyReturn_t legacyRetCode = RBUS_LEGACY_ERR_FAILURE;
                         int ret = -1;
                         rbusMessage_GetInt32(setResponse, &ret);
@@ -4256,21 +4257,27 @@ rbusError_t _setMultiInternal(rbusHandle_t handle, uint32_t numProps, rbusProper
                         {
                             errorcode = RBUS_ERROR_SUCCESS;
                             RBUSLOG_DEBUG("Successfully Set the Value");
-                            if(rbusPropertyList_initFromMessage(&cachedProperties, setResponse) != RBUS_ERROR_SUCCESS)
+                            rbusProperty_t batchProperties = NULL;
+                            if(rbusPropertyList_initFromMessage(&batchProperties, setResponse) != RBUS_ERROR_SUCCESS)
                             {
+                                RBUSLOG_WARN("Set Failed: invalid rollback properties in response");
                                 errorcode = RBUS_ERROR_INVALID_RESPONSE_FROM_DESTINATION;
-                                if(pFailedElement)
-                                    *pFailedElement = NULL;
-                                free(componentName);
-                                rbusMessage_Release(setResponse);
-                                break;
+                            }
+                            else if(cachedProperties)
+                            {
+                                rbusProperty_Append(cachedProperties, batchProperties);
+                                rbusProperty_Release(batchProperties);
+                            }
+                            else
+                            {
+                                cachedProperties = batchProperties;
                             }
                             if(pFailedElement)
                                 *pFailedElement = NULL;
                         }
                         else
                         {
-                            bool validErrorReason = rbusMessage_GetString(setResponse, &pErrorReason) == RT_OK && pErrorReason;
+                            validErrorReason = rbusMessage_GetString(setResponse, &pErrorReason) == RT_OK && pErrorReason;
                             if(!validErrorReason)
                             {
                                 RBUSLOG_WARN("Set Failed: invalid failed-parameter name in response");
@@ -4287,7 +4294,10 @@ rbusError_t _setMultiInternal(rbusHandle_t handle, uint32_t numProps, rbusProper
                             {
                                 RBUSLOG_WARN("Failed to Set the Value for %s", pErrorReason);
                             }
-                            if(rollBack)
+                        }
+                        if(errorcode != RBUS_ERROR_SUCCESS)
+                        {
+                            if(rollBack && cachedProperties)
                             {
                                 char *pTempFailedElement = NULL;
                                 rbusSetOptions_t revertOpts;
