@@ -50,6 +50,7 @@ typedef struct AsyncSubscribeRetrier_t
 {
     rtList items;
     pthread_cond_t condItemAdded;
+    pthread_cond_t condItemDone;
     pthread_mutex_t mutexQueue;
     int isRunning;
     pthread_t threadId;
@@ -62,6 +63,8 @@ typedef struct AsyncSubscription_t
     int nextWaitTime;
     rtTime_t startTime;
     rtTime_t nextRetryTime;
+    int inFlight;  /* worker is using this item without holding mutexQueue */
+    int cancelled; /* removed while in flight; the worker frees it */
 } AsyncSubscription_t;
 
 static AsyncSubscribeRetrier_t* gRetrier = NULL;
@@ -92,7 +95,7 @@ static int rbusAsyncSubscribeRetrier_CompareSubscription(const void *pitem, cons
 {
     AsyncSubscription_t* item = (AsyncSubscription_t*)pitem;
     rbusEventSubscription_t* sub = (rbusEventSubscription_t*)psub;
-    if((!item)||(!sub))
+    if((!item)||(!sub)||item->cancelled)
         return 1;
 
     if (item->subscription && (item->subscription->handle == sub->handle) &&
@@ -155,120 +158,138 @@ static int rbusAsyncSubscribeRetrier_DetermineNextSendTime(rtTime_t* nextSendTim
     return 0;//meaning there's nothing past due currently
 }
 
-static void rbusAsyncSubscribeRetrier_SendSubscriptionRequests()
+/* Sends one subscribe request for item. Called without mutexQueue held;
+   item->inFlight keeps other threads from freeing it.
+   Returns 1 when the item is finished (success or final failure), 0 to retry. */
+static int rbusAsyncSubscribeRetrier_TrySubscribe(AsyncSubscription_t* item, rbusError_t* responseErr, uint32_t* subscriptionId)
 {
-    rtListItem li;
+    rbusCoreError_t coreerr;
+    uint32_t elapsed;
+    int providerError;
+    rbusMessage response = NULL;
     rtTime_t now;
 
-    RBUSLOG_DEBUG("%s enter", __FUNCTION__);
+    RBUSLOG_INFO("%s subscribing", item->subscription->eventName);
+
+    coreerr = rbus_subscribeToEventTimeout(NULL, item->subscription->eventName,
+                _event_callback_handler, item->payload, item->subscription, &providerError, 0, false, &response, false);
 
     rtTime_Now(&now);
 
-    rtList_GetFront(gRetrier->items, &li);
+    elapsed = rtTime_Elapsed(&item->startTime, &now);
 
+    if(coreerr == RBUSCORE_ERROR_ENTRY_NOT_FOUND &&  /*the only error that means provider not found yet*/
+     elapsed < rbusHandle_FetchSubscribeTimeout(item->subscription->handle))    /*if we haven't timeout out yet*/
+    {
+        if(item->nextWaitTime == 0)
+            item->nextWaitTime = 1000; //miliseconds
+        else
+            item->nextWaitTime *= 2;//just double the time
+
+        //apply a limit to our doubling
+        if(item->nextWaitTime > RBUS_SUBSCRIBE_MAXWAIT)
+          item->nextWaitTime = RBUS_SUBSCRIBE_MAXWAIT;
+
+        //update nextRetryTime to nextWaitTime miliseconds from now, without exceeding subscribeTimeout
+        if(elapsed + item->nextWaitTime < rbusHandle_FetchSubscribeTimeout(item->subscription->handle))
+        {
+            rtTime_Later(&now, item->nextWaitTime, &item->nextRetryTime);
+        }
+        else
+        {
+            //its possible to have the odd situation, based on how subscribeTimeout/subscribeMaxWait are configured,
+            //where this final retry happens very close to the previous retry (e.g. ... wait 60, sub, wait 60, sub, wait 1, sub)
+            rtTime_Later(&item->startTime, rbusHandle_FetchSubscribeTimeout(item->subscription->handle), &item->nextRetryTime);
+        }
+
+        RBUSLOG_INFO("%s no provider. retry in %d ms with %d left",
+            item->subscription->eventName,
+            rtTime_Elapsed(&now, &item->nextRetryTime),
+            rbusHandle_FetchSubscribeTimeout(item->subscription->handle)- elapsed );
+        return 0;
+    }
+
+    if(coreerr == RBUSCORE_SUCCESS)
+    {
+        if(response)
+            rbusMessage_GetUInt32(response, subscriptionId);
+        RBUSLOG_INFO("%s subscribe retries succeeded", item->subscription->eventName);
+        *responseErr = RBUS_ERROR_SUCCESS;
+    }
+    else if(coreerr == RBUSCORE_ERROR_ENTRY_NOT_FOUND)
+    {
+        RBUSLOG_INFO("%s all subscribe retries failed and no provider found", item->subscription->eventName);
+        RBUSLOG_WARN("EVENT_SUBSCRIPTION_FAIL_NO_PROVIDER_COMPONENT  %s", item->subscription->eventName);/*RDKB-33658-AC7*/
+        *responseErr = RBUS_ERROR_TIMEOUT;
+    }
+    else if(providerError != RBUS_ERROR_SUCCESS)
+    {
+        RBUSLOG_INFO("%s subscribe retries failed due provider error %d", item->subscription->eventName, providerError);
+        RBUSLOG_WARN("EVENT_SUBSCRIPTION_FAIL_INVALID_INPUT  %s", item->subscription->eventName);/*RDKB-33658-AC9*/
+        *responseErr = providerError;
+    }
+    else
+    {
+        RBUSLOG_INFO("%s subscribe retries failed due to core error %d", item->subscription->eventName, coreerr);
+        *responseErr = RBUS_ERROR_BUS_ERROR;
+    }
+    if(response)
+        rbusMessage_Release(response);
+    return 1;
+}
+
+static void rbusAsyncSubscribeRetrier_SendSubscriptionRequests()
+{
+    rtListItem li;
+    rtTime_t start;
+
+    RBUSLOG_DEBUG("%s enter", __FUNCTION__);
+
+    rtTime_Now(&start);
+
+    LOCK();
+    rtList_GetFront(gRetrier->items, &li);
     while(li)
     {
         AsyncSubscription_t* item = NULL;
+        rbusError_t responseErr = RBUS_ERROR_SUCCESS;
+        uint32_t subscriptionId = 0;
+        int done;
 
         rtListItem_GetData(li, (void**)&item);
-
-        if(rtTime_Compare(&item->nextRetryTime, &now) <= 0)
+        if(!item || item->cancelled || rtTime_Compare(&item->nextRetryTime, &start) > 0)
         {
-            rbusCoreError_t coreerr;
-            uint32_t elapsed;
-            int providerError;
-            rbusMessage response = NULL;
-            uint32_t subscriptionId = 0;
-
-
-            RBUSLOG_INFO("%s subscribing", item->subscription->eventName);
-
-            coreerr = rbus_subscribeToEventTimeout(NULL, item->subscription->eventName,
-                        _event_callback_handler, item->payload, item->subscription, &providerError, 0, false, &response, false);
-
-            rtTime_Now(&now);
-
-            elapsed = rtTime_Elapsed(&item->startTime, &now);
-
-            if(coreerr == RBUSCORE_ERROR_ENTRY_NOT_FOUND &&  /*the only error that means provider not found yet*/
-             elapsed < rbusHandle_FetchSubscribeTimeout(item->subscription->handle))    /*if we haven't timeout out yet*/
-            {
-                if(item->nextWaitTime == 0)
-                    item->nextWaitTime = 1000; //miliseconds
-                else
-                    item->nextWaitTime *= 2;//just double the time
-
-                //apply a limit to our doubling
-                if(item->nextWaitTime > RBUS_SUBSCRIBE_MAXWAIT)
-                  item->nextWaitTime = RBUS_SUBSCRIBE_MAXWAIT;
-
-                //update nextRetryTime to nextWaitTime miliseconds from now, without exceeding subscribeTimeout
-                if(elapsed + item->nextWaitTime < rbusHandle_FetchSubscribeTimeout(item->subscription->handle))
-                {
-                    rtTime_Later(&now, item->nextWaitTime, &item->nextRetryTime);
-                }
-                else
-                {
-                    //its possible to have the odd situation, based on how subscribeTimeout/subscribeMaxWait are configured, 
-                    //where this final retry happens very close to the previous retry (e.g. ... wait 60, sub, wait 60, sub, wait 1, sub)
-                    rtTime_Later(&item->startTime, rbusHandle_FetchSubscribeTimeout(item->subscription->handle), &item->nextRetryTime);
-                }
-
-                RBUSLOG_INFO("%s no provider. retry in %d ms with %d left",
-                    item->subscription->eventName, 
-                    rtTime_Elapsed(&now, &item->nextRetryTime), 
-                    rbusHandle_FetchSubscribeTimeout(item->subscription->handle)- elapsed );
-            }
-            else
-            {
-                rbusError_t responseErr;
-                rtListItem tmp;
-
-                if(coreerr == RBUSCORE_SUCCESS)
-                {
-                    if(response)
-                        rbusMessage_GetUInt32(response, &subscriptionId);
-                    RBUSLOG_INFO("%s subscribe retries succeeded", item->subscription->eventName);
-                    responseErr = RBUS_ERROR_SUCCESS;
-                    if(response)
-                        rbusMessage_Release(response);
-                }
-                else
-                {
-                    if(coreerr == RBUSCORE_ERROR_ENTRY_NOT_FOUND)
-                    {
-                        RBUSLOG_INFO("%s all subscribe retries failed and no provider found", item->subscription->eventName);
-                        RBUSLOG_WARN("EVENT_SUBSCRIPTION_FAIL_NO_PROVIDER_COMPONENT  %s", item->subscription->eventName);/*RDKB-33658-AC7*/
-                        responseErr = RBUS_ERROR_TIMEOUT;
-                    }
-                    else if(providerError != RBUS_ERROR_SUCCESS)
-                    {
-                        RBUSLOG_INFO("%s subscribe retries failed due provider error %d", item->subscription->eventName, providerError);
-                        RBUSLOG_WARN("EVENT_SUBSCRIPTION_FAIL_INVALID_INPUT  %s", item->subscription->eventName);/*RDKB-33658-AC9*/
-                        responseErr = providerError;
-                    }
-                    else
-                    {  
-                        RBUSLOG_INFO("%s subscribe retries failed due to core error %d", item->subscription->eventName, coreerr);
-                        responseErr = RBUS_ERROR_BUS_ERROR;
-                    }
-                    if(response)
-                        rbusMessage_Release(response);
-                }
-
-                _subscribe_async_callback_handler(item->subscription->handle, item->subscription, responseErr, subscriptionId);
-                //store the next item, because we are removing this li item from list
-                LOCK();
-                item->subscription = NULL;
-                rtListItem_GetNext(li, &tmp); 
-                rtList_RemoveItem(gRetrier->items, li, rbusAsyncSubscribeRetrier_FreeSubscription);
-                UNLOCK();
-                li = tmp;
-                continue;//li is already the next item so avoid GetNext below
-            }
+            rtListItem_GetNext(li, &li);
+            continue;
         }
-        rtListItem_GetNext(li, &li);    
+
+        item->inFlight = 1;
+        UNLOCK();
+        done = rbusAsyncSubscribeRetrier_TrySubscribe(item, &responseErr, &subscriptionId);
+        LOCK();
+
+        if(done && !item->cancelled)
+        {
+            /* item stays in the list and in flight during the callback, as before */
+            rbusEventSubscription_t* subscription = item->subscription;
+            UNLOCK();
+            _subscribe_async_callback_handler(subscription->handle, subscription, responseErr, subscriptionId);
+            LOCK();
+            item->subscription = NULL;/*ownership passed to the callback handler*/
+        }
+
+        item->inFlight = 0;
+        ERROR_CHECK(pthread_cond_broadcast(&gRetrier->condItemDone));
+
+        if(done || item->cancelled)
+            rtList_RemoveItem(gRetrier->items, li, rbusAsyncSubscribeRetrier_FreeSubscription);
+
+        /* li may be stale after unlocking, so restart from the front. Items already
+           tried have nextRetryTime > start or were removed, so each due item is
+           processed at most once per call. */
+        rtList_GetFront(gRetrier->items, &li);
     }
+    UNLOCK();
     RBUSLOG_DEBUG("%s exit", __FUNCTION__);
 }
 
@@ -332,6 +353,7 @@ static void rbusAsyncSubscribeRetrier_Create()
     ERROR_CHECK(pthread_condattr_init(&cattrib));
     ERROR_CHECK(pthread_condattr_setclock(&cattrib, CLOCK_MONOTONIC));
     ERROR_CHECK(pthread_cond_init(&gRetrier->condItemAdded, &cattrib));
+    ERROR_CHECK(pthread_cond_init(&gRetrier->condItemDone, &cattrib));
     ERROR_CHECK(pthread_condattr_destroy(&cattrib));
 
     ERROR_CHECK(pthread_create(&gRetrier->threadId, NULL, AsyncSubscribeRetrier_threadFunc, NULL));
@@ -353,6 +375,7 @@ static void rbusAsyncSubscribeRetrier_Destroy()
 
     ERROR_CHECK(pthread_mutex_destroy(&gRetrier->mutexQueue));
     ERROR_CHECK(pthread_cond_destroy(&gRetrier->condItemAdded));
+    ERROR_CHECK(pthread_cond_destroy(&gRetrier->condItemDone));
     rtList_Destroy(gRetrier->items, rbusAsyncSubscribeRetrier_FreeSubscription);
 
     free(gRetrier);
@@ -379,6 +402,8 @@ void rbusAsyncSubscribe_AddSubscription(rbusEventSubscription_t* subscription, r
     item->subscription = subscription;
     item->payload = payload;
     item->nextWaitTime = 0;
+    item->inFlight = 0;
+    item->cancelled = 0;
 
     rtTime_Now(&item->startTime);
     item->nextRetryTime = item->startTime; /*set to now also so we do our first sub immediately*/
@@ -396,15 +421,20 @@ void rbusAsyncSubscribe_AddSubscription(rbusEventSubscription_t* subscription, r
 
 bool rbusAsyncSubscribe_RemoveSubscription(rbusEventSubscription_t* subscription)
 {
-    rtError err = RT_OK;
+    AsyncSubscription_t* item;
     bool sub_removed = false;
     if(!gRetrier || subscription == NULL)
         return false;
     LOCK();
-    err = rtList_RemoveItemByCompare(gRetrier->items, subscription,
-        rbusAsyncSubscribeRetrier_CompareSubscription, rbusAsyncSubscribeRetrier_FreeSubscription);
-    if(err == RT_OK)
+    item = rtList_Find(gRetrier->items, subscription, rbusAsyncSubscribeRetrier_CompareSubscription);
+    if(item)
+    {
+        if(item->inFlight)
+            item->cancelled = 1;/*the worker frees it when its request completes*/
+        else
+            rtList_RemoveItemWithData(gRetrier->items, item, rbusAsyncSubscribeRetrier_FreeSubscription);
         sub_removed = true;
+    }
     UNLOCK();
     return sub_removed;
 }
@@ -444,6 +474,29 @@ void rbusAsyncSubscribe_CloseHandle(rbusHandle_t handle)
     LOCK();
 
     rtList_GetSize(gRetrier->items, &size1);
+
+    /* the worker may be using one of this handle's items without the lock;
+       cancel it and wait until the worker is done before the handle goes away */
+    for(;;)
+    {
+        rtListItem li;
+        int busy = 0;
+        rtList_GetFront(gRetrier->items, &li);
+        while(li)
+        {
+            AsyncSubscription_t* item = NULL;
+            rtListItem_GetData(li, (void**)&item);
+            if(item && item->inFlight && item->subscription && item->subscription->handle == handle)
+            {
+                item->cancelled = 1;
+                busy = 1;
+            }
+            rtListItem_GetNext(li, &li);
+        }
+        if(!busy)
+            break;
+        ERROR_CHECK(pthread_cond_wait(&gRetrier->condItemDone, &gRetrier->mutexQueue));
+    }
 
     //remove all items with this handle
     rtList_RemoveItemByCompare(gRetrier->items, handle, 
