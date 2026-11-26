@@ -249,8 +249,16 @@ rtRouted_ReadTextFile(char const* fname, char** content)
   pf = fopen(fname, "r");
   if (pf)
   {
-    fseek(pf, 0L, SEEK_END);
-    sz = (size_t)ftell(pf);
+    long fileSize = -1;
+    if (fseek(pf, 0L, SEEK_END) == 0)
+      fileSize = ftell(pf);
+    if (fileSize < 0)
+    {
+      rtLog_Error("failed to get size of file %s. %s", fname, strerror(errno));
+      fclose(pf);
+      return RT_FAIL;
+    }
+    sz = (size_t)fileSize;
     rewind(pf);
     *content = rt_malloc(sz+1);
     if(fread(*content, 1, sz, pf) != sz)
