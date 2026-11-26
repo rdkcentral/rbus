@@ -41,4 +41,27 @@
 #define RTROUTER_DIAG_CMD_SHUTDOWN                  "shutdown"
 #define RTROUTER_DIAG_CMD_HEARTBEAT                 "heartbeat"
 
+#include <time.h>
+
+#define RTROUTER_DIAG_KEY_FILE "/etc/rtrouted-diag.key"
+#define RTROUTER_DIAG_CHALLENGE "authChallenge"
+#define RTROUTER_DIAG_NONCE "_RTROUTED.INBOX.DIAG.NONCE"
+#define RTROUTER_DIAG_MAC "_RTROUTED.INBOX.DIAG.MAC"
+#define RTROUTER_DIAG_COMMAND_MAX 64
+#define RTROUTER_DIAG_VALUE_MAX 127
+
+typedef struct
+{
+  char nonce[65];
+  struct timespec issued;
+} rtDiagChallenge;
+
+int rtDiagAuth_LoadKey(const char* path, unsigned char key[32]);
+int rtDiagAuth_EnsureKey(const char* path);
+int rtDiagAuth_Challenge(rtDiagChallenge* state);
+int rtDiagAuth_Sign(const unsigned char key[32], const char* nonce,
+    const char* command, const char* value, char mac[65]);
+int rtDiagAuth_Verify(rtDiagChallenge* state, const unsigned char key[32],
+    const char* command, const char* value, const char* mac);
+
 #endif

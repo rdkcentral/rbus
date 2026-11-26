@@ -6,6 +6,7 @@
 #include "rtMessageHeader.h"
 #include "rtSocket.h"
 #include "rtConnection.h"
+#include "rtrouter_diag.h"
 
 
 #ifndef SOL_TCP
@@ -35,6 +36,7 @@ typedef struct
   size_t                    bytes_to_read;
   size_t                    read_buffer_capacity;
   rtMessageHeader           header;
+  rtDiagChallenge           diag_challenge;
 #ifdef WITH_SPAKE2
   rtCipher*                 cipher;
   uint8_t*                  encryption_key;

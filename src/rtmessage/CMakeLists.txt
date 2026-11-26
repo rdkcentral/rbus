@@ -17,7 +17,7 @@
 # limitations under the License.
 ##########################################################################
 
-set(OPENSSL_REQUIRED FALSE)
+set(OPENSSL_REQUIRED ${BUILD_RBUS_DAEMON})
 
 if (WITH_SPAKE2)
   message("spake2 enabled")
@@ -106,9 +106,12 @@ endif (WITH_SPAKE2)
 
 
 if (BUILD_RBUS_DAEMON)
+    add_library(rtDiagAuth STATIC rtDiagAuth.c)
+    target_link_libraries(rtDiagAuth rtMessage ${OPENSSL_CRYPTO_LIBRARY})
+
     message ("Building rtrouted")
     add_executable(rtrouted rtrouted.c rtRoutingTree.c)
-    target_link_libraries(rtrouted rtMessage)
+    target_link_libraries(rtrouted rtDiagAuth)
 
     if (INCLUDE_BREAKPAD)
 	find_package(breakpad REQUIRED)
@@ -119,7 +122,13 @@ if (BUILD_RBUS_DAEMON)
     # rtrouted_diag
     add_executable(rtrouted_diag diag_probe.c)
     add_dependencies(rtrouted_diag rtMessage)
-    target_link_libraries(rtrouted_diag rtMessage)
+    target_link_libraries(rtrouted_diag rtDiagAuth)
+
+    if (BUILD_RBUS_TEST_APPS)
+        add_executable(rtDiagAuthTest ../../unittests/rtDiagAuthTest.c)
+        target_link_libraries(rtDiagAuthTest rtDiagAuth)
+        add_test(NAME rtDiagAuthTest COMMAND rtDiagAuthTest)
+    endif()
 
     install (TARGETS rtMessage rtrouted rtrouted_diag RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 endif (BUILD_RBUS_DAEMON)

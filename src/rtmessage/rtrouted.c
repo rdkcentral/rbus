@@ -55,6 +55,7 @@
 #include <sys/stat.h>
 #include <time.h>
 #include <cjson/cJSON.h>
+#include <openssl/crypto.h>
 
 #ifdef ENABLE_RDKLOGGER
 #include "rdk_debug.h"
@@ -1190,12 +1191,47 @@ rtRouted_OnMessageDiscoverElementObjects(rtConnectedClient* sender, rtMessageHea
 static void
 rtRouted_OnMessageDiagnostics(rtConnectedClient* sender, rtMessageHeader* hdr, uint8_t const* buff, int n)
 {
-  rtMessage msg;
-  const char * cmd;
+  rtMessage msg = NULL;
+  rtMessage response = NULL;
+  const char* cmd = NULL;
+  const char* value = NULL;
+  const char* mac = NULL;
+  const char* key_file = getenv("RTROUTER_DIAG_KEY_FILE");
+  unsigned char key[32] = {0};
+  char payload[4097];
+  int32_t result = RT_ERROR;
 
-  rtMessage_FromBytes(&msg, buff, n);
+  if (rtMessage_Create(&response) != RT_OK)
+  {
+    rtLog_Error("Cannot create diagnostic response");
+    return;
+  }
+  if (n <= 0 || (size_t)n >= sizeof(payload))
+    goto done;
+  memcpy(payload, buff, (size_t)n);
+  payload[n] = '\0';
+  if (rtMessage_FromBytes(&msg, (const uint8_t*)payload, n + 1) != RT_OK ||
+      rtMessage_GetString(msg, RTROUTER_DIAG_CMD_KEY, &cmd) != RT_OK || !cmd ||
+      !*cmd || strlen(cmd) > RTROUTER_DIAG_COMMAND_MAX ||
+      (rtMessage_GetString(msg, RTROUTER_DIAG_CMD_VALUE, &value) == RT_OK &&
+       (!value || strlen(value) > RTROUTER_DIAG_VALUE_MAX)) ||
+      rtDiagAuth_LoadKey(key_file ? key_file : RTROUTER_DIAG_KEY_FILE, key) != 0)
+    goto done;
 
-  rtMessage_GetString(msg, RTROUTER_DIAG_CMD_KEY, &cmd);
+  if (strcmp(cmd, RTROUTER_DIAG_CHALLENGE) == 0)
+  {
+    if ((hdr->flags & rtMessageFlags_Request) &&
+        rtDiagAuth_Challenge(&sender->diag_challenge) == 0)
+    {
+      rtMessage_SetString(response, RTROUTER_DIAG_NONCE, sender->diag_challenge.nonce);
+      result = RT_OK;
+    }
+    goto done;
+  }
+  rtMessage_GetString(msg, RTROUTER_DIAG_MAC, &mac);
+  if (rtDiagAuth_Verify(&sender->diag_challenge, key, cmd, value, mac) != 0)
+    goto done;
+  result = RT_OK;
 
   if(0 == strncmp(RTROUTER_DIAG_CMD_ENABLE_VERBOSE_LOGS, cmd, sizeof(RTROUTER_DIAG_CMD_ENABLE_VERBOSE_LOGS)))
     rtLog_SetLevel(RT_LOG_DEBUG);
@@ -1213,11 +1249,8 @@ rtRouted_OnMessageDiagnostics(rtConnectedClient* sender, rtMessageHeader* hdr, u
     g_enable_traffic_monitor = 0;
   else if(0 == strncmp(RTROUTER_DIAG_CMD_ADD_NEW_LISTENER, cmd, sizeof(RTROUTER_DIAG_CMD_ADD_NEW_LISTENER)))
   {
-    const char* socket = NULL;
+    const char* socket = value;
     rtListener* listener = NULL;
-
-    /* Get the socket */
-    rtMessage_GetString(msg, RTROUTER_DIAG_CMD_VALUE, &socket);
 
     if (NULL != socket)
     {
@@ -1229,7 +1262,11 @@ rtRouted_OnMessageDiagnostics(rtConnectedClient* sender, rtMessageHeader* hdr, u
         rtLog_Warn("Updated rtrouted to listen additionally on %s", socket);
         rtVector_PushBack(gListeners, listener);
       }
+      else
+        result = RT_ERROR;
     }
+    else
+      result = RT_ERROR;
   }
   else if(0 == strncmp(RTROUTER_DIAG_CMD_HEARTBEAT, cmd, sizeof(RTROUTER_DIAG_CMD_HEARTBEAT)))
   {
@@ -1260,10 +1297,28 @@ rtRouted_OnMessageDiagnostics(rtConnectedClient* sender, rtMessageHeader* hdr, u
     is_running = 0;
   }
   else
+  {
     rtLog_Error("Unknown diag command: %s", cmd);
-  rtMessage_Release(msg);
-  (void)sender;
-  (void)hdr;
+    result = RT_ERROR;
+  }
+done:
+  OPENSSL_cleanse(key, sizeof(key));
+  if (result != RT_OK)
+  {
+    memset(&sender->diag_challenge, 0, sizeof(sender->diag_challenge));
+    rtLog_Warn("Diagnostic request rejected or failed");
+  }
+  rtMessage_SetInt32(response, "result", result);
+  if (hdr->flags & rtMessageFlags_Request)
+  {
+    rtMessageHeader reply;
+    prep_reply_header_from_request(&reply, hdr);
+    if (rtRouted_SendMessage(&reply, response, NULL) != RT_OK)
+      rtLog_Error("Cannot send diagnostic response");
+  }
+  rtMessage_Release(response);
+  if (msg)
+    rtMessage_Release(msg);
 }
 
 static void
@@ -1432,6 +1487,7 @@ rtConnectedClient_Init(rtConnectedClient* clnt, int fd, struct sockaddr_storage*
   memset(clnt->read_buffer, 0, RTMSG_CLIENT_READ_BUFFER_SIZE);
   memset(clnt->send_buffer, 0, RTMSG_CLIENT_READ_BUFFER_SIZE);
   clnt->read_buffer_capacity = RTMSG_CLIENT_READ_BUFFER_SIZE;
+  memset(&clnt->diag_challenge, 0, sizeof(clnt->diag_challenge));
 #ifdef WITH_SPAKE2
   clnt->cipher = NULL;
   clnt->encryption_key = NULL;
@@ -1922,6 +1978,10 @@ int main(int argc, char* argv[])
         fprintf(stderr, "?? getopt returned character code 0%o ??\n", c);
     }
   }
+  temp = getenv("RTROUTER_DIAG_KEY_FILE");
+  if (rtDiagAuth_EnsureKey(temp ? temp : RTROUTER_DIAG_KEY_FILE) != 0)
+    rtLog_Error("Automatic diagnostic key provisioning failed; diagnostics require a valid key file");
+
   /* Array manipulation for making unix socket as the first element of the socket_name array */
   for (i = 0; (num_listeners > 0 && i < num_listeners); i++)
   {
