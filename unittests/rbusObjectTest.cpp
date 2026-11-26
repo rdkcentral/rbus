@@ -287,6 +287,62 @@ TEST(rbusObjectTestCompare, testCompare4)
   rbusObject_Release(obj2);
 }
 
+static rbusObject_t createObjectWithProp(const char* objName, const char* propName, const char* propVal)
+{
+  rbusObject_t obj;
+  rbusProperty_t prop;
+  rbusValue_t val;
+
+  rbusValue_Init(&val);
+  EXPECT_EQ(rbusValue_SetFromString(val,RBUS_STRING,propVal),true);
+  rbusProperty_Init(&prop, propName, val);
+  rbusValue_Release(val);
+
+  rbusObject_Init(&obj, objName);
+  rbusObject_SetProperty(obj, prop);
+  rbusProperty_Release(prop);
+  return obj;
+}
+
+TEST(rbusObjectTestCompare, testCompareNullNamesEqualProperties)
+{
+  rbusObject_t obj1 = createObjectWithProp(NULL, "gTestProp1", "string1");
+  rbusObject_t obj2 = createObjectWithProp(NULL, "gTestProp1", "string1");
+
+  EXPECT_EQ(rbusObject_Compare(obj1, obj2, true),0);
+  EXPECT_EQ(rbusObject_Compare(obj2, obj1, true),0);
+
+  rbusObject_Release(obj1);
+  rbusObject_Release(obj2);
+}
+
+TEST(rbusObjectTestCompare, testCompareNullNamesDifferentProperties)
+{
+  rbusObject_t obj1 = createObjectWithProp(NULL, "gTestProp1", "string1");
+  rbusObject_t obj2 = createObjectWithProp(NULL, "gTestProp1", "string2");
+  rbusObject_t obj3 = createObjectWithProp(NULL, "gTestProp2", "string1");
+
+  /* null names must not short-circuit the property comparison */
+  EXPECT_NE(rbusObject_Compare(obj1, obj2, true),0);
+  EXPECT_NE(rbusObject_Compare(obj1, obj3, true),0);
+
+  rbusObject_Release(obj1);
+  rbusObject_Release(obj2);
+  rbusObject_Release(obj3);
+}
+
+TEST(rbusObjectTestCompare, testCompareNullAndNonNullNames)
+{
+  rbusObject_t objNull = createObjectWithProp(NULL, "gTestProp1", "string1");
+  rbusObject_t objNamed = createObjectWithProp("gTestObject1", "gTestProp1", "string1");
+
+  EXPECT_LT(rbusObject_Compare(objNull, objNamed, true),0);
+  EXPECT_GT(rbusObject_Compare(objNamed, objNull, true),0);
+
+  rbusObject_Release(objNull);
+  rbusObject_Release(objNamed);
+}
+
 TEST(rbusObjectTest, testFwrite)
 {
   FILE *stream;

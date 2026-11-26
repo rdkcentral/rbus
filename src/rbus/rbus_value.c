@@ -1160,7 +1160,7 @@ bool rbusValue_SetFromString(rbusValue_t value, rbusValueType_t type, const char
         break;
     case RBUS_INT64:
         tmpLL = strtoll (pStringInput, &endptr, 10);
-        if ((pStringInput == endptr) || (*endptr != 0) || (errno == ERANGE && (tmpLL == LLONG_MAX || tmpLL == LLONG_MIN)) ||  (tmpLL < INT64_MIN))
+        if ((pStringInput == endptr) || (*endptr != 0) || (errno == ERANGE && (tmpLL == LLONG_MAX || tmpLL == LLONG_MIN)))
         {
             RBUSLOG_INFO ("Invalid input string");
             return false;

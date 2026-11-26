@@ -193,12 +193,30 @@ rtError rtThreadPool_Create(rtThreadPool* ppool, size_t maxThreadCount, size_t s
   pool->isRunning = 1;
   pool->isShutdown = 0;
   pthread_mutexattr_t mutAttr;
-  pthread_mutexattr_init(&mutAttr);
-  pthread_mutexattr_settype(&mutAttr, PTHREAD_MUTEX_NORMAL);
-  pthread_mutex_init(&pool->poolLock, &mutAttr);
-  pthread_mutexattr_destroy(&mutAttr);
+  int rc;
+  pthread_mutexattr_init(&mutAttr);// No check needed 
+  pthread_mutexattr_settype(&mutAttr, PTHREAD_MUTEX_NORMAL);// No check needed 
+  rc = pthread_mutex_init(&pool->poolLock, &mutAttr);
+  pthread_mutexattr_destroy(&mutAttr);// No check needed 
+  if(rc != 0)
+  {
+    rtLog_Error("%s pthread_mutex_init failed: %s", __FUNCTION__, strerror(rc));
+    rtList_Destroy(pool->threadList, NULL);
+    rtList_Destroy(pool->taskList, NULL);
+    free(pool);
+    return rtErrorFromErrno(rc);
+  }
   pthread_condattr_t condAttr;
-  pthread_condattr_init(&condAttr);
+  rc = pthread_condattr_init(&condAttr);
+  if(rc != 0)
+  {
+    rtLog_Error("%s pthread_condattr_init failed: %s", __FUNCTION__, strerror(rc));
+    pthread_mutex_destroy(&pool->poolLock);
+    rtList_Destroy(pool->threadList, NULL);
+    rtList_Destroy(pool->taskList, NULL);
+    free(pool);
+    return rtErrorFromErrno(rc);
+  }
   pthread_cond_init(&pool->taskCond, &condAttr);
   pthread_cond_init(&pool->idleCond, &condAttr);
   pthread_condattr_destroy(&condAttr);
