@@ -357,6 +357,11 @@ void rbusInterval_RemoveSubscriptionRecord(
            Publisher may be in wildcard lookup holding elmMutex; join must wait without blocking it.
            After join, only this thread can free rec since external_remove=1 prevented publisher self-free. */
         ERROR_CHECK(pthread_join(rec->thread, NULL));
+
+	/* Reacquire caller's lock before returning to maintain lock invariant.
+           Callers (subscribeHandlerImpl, unregisterTableRow) expect to hold handle_subsMutex
+           throughout subscription cleanup. */
+        ERROR_CHECK(pthread_mutex_lock(&handleInfo->handle_subsMutex));
         sub_Free(rec);
     }
     else

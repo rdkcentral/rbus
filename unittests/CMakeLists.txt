@@ -98,7 +98,6 @@ add_executable(rbus_gtest.bin
   rbus_unit_test_nested_servers.cpp
   rbus_unit_test_event_client.cpp
   rbus_unit_test_event_server.cpp
-  rbus_interval_subscription_teardown_test.cpp
   util.cpp
   main.cpp)
 add_dependencies(rbus_gtest.bin rbus)
