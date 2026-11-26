@@ -350,18 +350,11 @@ void rbusInterval_RemoveSubscriptionRecord(
             ERROR_CHECK(pthread_cond_signal(&rec->cond));
         }
 
-        struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
-        pthread_mutex_unlock(&handleInfo->handle_subsMutex);
-
-        /* Join without holding any element or subscription locks.
-           Publisher may be in wildcard lookup holding elmMutex; join must wait without blocking it.
-           After join, only this thread can free rec since external_remove=1 prevented publisher self-free. */
+        /* Join without releasing caller's lock to prevent concurrent removal
+           from accessing the subscription. The publisher thread must NOT
+           acquire handle_subsMutex during cleanup (it uses trylock in rbus.c:228). */
         ERROR_CHECK(pthread_join(rec->thread, NULL));
-
-	/* Reacquire caller's lock before returning to maintain lock invariant.
-           Callers (subscribeHandlerImpl, unregisterTableRow) expect to hold handle_subsMutex
-           throughout subscription cleanup. */
-        ERROR_CHECK(pthread_mutex_lock(&handleInfo->handle_subsMutex));
+        
         sub_Free(rec);
     }
     else
