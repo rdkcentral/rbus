@@ -94,24 +94,34 @@ rtMessageHeader_Decode(rtMessageHeader* hdr, uint8_t const* buff)
     return RT_ERROR;
   rtEncoder_DecodeUInt16(&ptr, &hdr->version);
   rtEncoder_DecodeUInt16(&ptr, &hdr->header_length);
+  if(hdr->header_length < RTMESSAGEHEADER_MIN_LENGTH) {
+    rtLog_Warn("RTROUTED_INVALID_LENGTH: rtMessageHeader_Decode() - header_length %u", (unsigned int)hdr->header_length);
+    return RT_ERROR;
+  }
   rtEncoder_DecodeUInt32(&ptr, &hdr->sequence_number);
   rtEncoder_DecodeUInt32(&ptr, &hdr->flags);
   rtEncoder_DecodeUInt32(&ptr, &hdr->control_data);
   rtEncoder_DecodeUInt32(&ptr, &hdr->payload_length);
 
+  /* Keep every read inside the received header: topic, reply-topic length
+     prefix and closing marker must fit in header_length. */
   rtEncoder_DecodeUInt32(&ptr, &hdr->topic_length);
-  if(hdr->topic_length >= sizeof(hdr->topic)) {
+  if(hdr->topic_length >= sizeof(hdr->topic) ||
+     hdr->topic_length > hdr->header_length - (size_t)(ptr - buff) - sizeof(uint32_t) - sizeof(uint16_t)) {
     rtLog_Warn("RTROUTED_INVALID_LENGTH: rtMessageHeader_Decode() - topic_length %d", hdr->topic_length);
     return RT_ERROR;
   }
   rtEncoder_DecodeStr(&ptr, hdr->topic, hdr->topic_length);
+  hdr->topic[hdr->topic_length] = '\0';
 
   rtEncoder_DecodeUInt32(&ptr, &hdr->reply_topic_length);
-  if(hdr->reply_topic_length >= sizeof(hdr->reply_topic)) {
+  if(hdr->reply_topic_length >= sizeof(hdr->reply_topic) ||
+     hdr->reply_topic_length > hdr->header_length - (size_t)(ptr - buff) - sizeof(uint16_t)) {
     rtLog_Warn("RTROUTED_INVALID_LENGTH: rtMessageHeader_Decode() - reply_topic_length %d", hdr->reply_topic_length);
     return RT_ERROR;
   }
   rtEncoder_DecodeStr(&ptr, hdr->reply_topic, hdr->reply_topic_length);
+  hdr->reply_topic[hdr->reply_topic_length] = '\0';
 #ifdef MSG_ROUNDTRIP_TIME
   /* The timestamp block is optional on older header formats. Use header_length
      to detect whether the 5x uint64 timestamp fields are present to avoid
@@ -152,6 +162,8 @@ rtMessageHeader_Decode(rtMessageHeader* hdr, uint8_t const* buff)
   }
 #endif
 
+  if((size_t)(ptr - buff) + sizeof(uint16_t) > hdr->header_length)
+    return RT_ERROR;
   rtEncoder_DecodeUInt16(&ptr, &marker);
   if(RTMSG_HEADER_MARKER != marker)
     return RT_ERROR;
