@@ -65,7 +65,7 @@ int main(int argc, char * argv[])
     {
         rtConnection con;
         rtLog_SetLevel(RT_LOG_INFO);
-        rtConnection_Create(&con, "APP2", "unix:///tmp/rtrouted");
+        rtConnection_Create(&con, "rt_diag", "unix:///tmp/rtrouted");
         rtMessage out;
         rtMessage_Create(&out);
         rtMessage_SetString(out, RTROUTER_DIAG_CMD_KEY, argv[1]);

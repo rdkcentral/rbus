@@ -18,6 +18,9 @@
 # limitations under the License.
 ##########################################################################
 */
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE 1
+#endif
 #include "rtMessage.h"
 #include "rtTime.h"
 #include "rtCipher.h"
@@ -1199,11 +1202,47 @@ static void
 rtRouted_OnMessageDiagnostics(rtConnectedClient* sender, rtMessageHeader* hdr, uint8_t const* buff, int n)
 {
   rtMessage msg;
-  const char * cmd;
+  const char * cmd = NULL;
 
-  rtMessage_FromBytes(&msg, buff, n);
+  if (!sender || strncmp(sender->inbox, "rt_diag.", sizeof("rt_diag.") - 1) != 0)
+  {
+    rtLog_Warn("Rejected diagnostics: rt_diag client prefix is required");
+    return;
+  }
 
-  rtMessage_GetString(msg, RTROUTER_DIAG_CMD_KEY, &cmd);
+  if (rtMessage_FromBytes(&msg, buff, n) != RT_OK)
+  {
+    rtLog_Warn("Rejected diagnostics: invalid message");
+    return;
+  }
+
+  if (rtMessage_GetString(msg, RTROUTER_DIAG_CMD_KEY, &cmd) != RT_OK || !cmd || !*cmd)
+  {
+    rtLog_Warn("Rejected diagnostics: missing or invalid command");
+    rtMessage_Release(msg);
+    return;
+  }
+
+  if (strcmp(cmd, RTROUTER_DIAG_CMD_HEARTBEAT) != 0)
+  {
+#if defined(__linux__) && defined(SO_PEERCRED)
+    struct ucred credentials;
+    socklen_t credentials_size = sizeof(credentials);
+    if (sender->endpoint.ss_family != AF_UNIX ||
+        getsockopt(sender->fd, SOL_SOCKET, SO_PEERCRED, &credentials, &credentials_size) != 0 ||
+        credentials_size != sizeof(credentials) ||
+        (credentials.uid != 0 && credentials.uid != geteuid()))
+    {
+      rtLog_Warn("Rejected administrative diagnostics: a Unix peer running as root or the broker user is required");
+      rtMessage_Release(msg);
+      return;
+    }
+#else
+    rtLog_Warn("Rejected administrative diagnostics: Unix peer credential verification is unavailable");
+    rtMessage_Release(msg);
+    return;
+#endif
+  }
 
   if(0 == strncmp(RTROUTER_DIAG_CMD_ENABLE_VERBOSE_LOGS, cmd, sizeof(RTROUTER_DIAG_CMD_ENABLE_VERBOSE_LOGS)))
     rtLog_SetLevel(RT_LOG_DEBUG);
