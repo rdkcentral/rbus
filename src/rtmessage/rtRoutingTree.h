@@ -158,6 +158,8 @@ void rtRoutingTree_GetTopicRoutes(rtRoutingTree rt, const char* topic, rtList* r
 void rtRoutingTree_GetRouteTopics(rtRoutingTree rt, const void* route, rtList* topics);
 void rtRoutingTree_RemoveRoute(rtRoutingTree rt, const void* route);
 void rtRoutingTree_RemoveTopic(rtRoutingTree rt, const char* topic);
+/* Remove only the exact topic association belonging to route, not its subtree. */
+rtError rtRoutingTree_RemoveTopicRoute(rtRoutingTree rt, const char* topic, const void* route);
 void rtRoutingTree_ResolvePartialPath(rtRoutingTree rt, const char* partialPath, rtList topics);
 void rtRoutingTree_LogStats(rtRoutingTree rt);
 void rtRoutingTree_LogTopicTree(rtRoutingTree rt);

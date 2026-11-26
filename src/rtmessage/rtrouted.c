@@ -18,6 +18,7 @@
 # limitations under the License.
 ##########################################################################
 */
+#define _GNU_SOURCE 1
 #include "rtMessage.h"
 #include "rtTime.h"
 #include "rtCipher.h"
@@ -39,6 +40,7 @@
 #include "local_benchmarking.h"
 #include <arpa/inet.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <getopt.h>
 #include <sys/select.h>
 #include <sys/wait.h>
@@ -409,15 +411,32 @@ rtRouted_ParseConfig(char const* fname)
 }
 
 static rtError
+rtRouted_ClearRoute(rtRouteEntry* route);
+
+static rtError
 rtRouted_AddRoute(rtRouteMessageHandler handler, char const* exp, rtSubscription* subscription)
 {
+  rtError rc;
   rtRouteEntry* route = (rtRouteEntry *) rt_calloc(1, sizeof(rtRouteEntry));
   route->subscription = subscription;
   route->message_handler = handler;
   rtString_Copy(route->expression, exp, RTMSG_MAX_EXPRESSION_LEN);
-  rtVector_PushBack(gRoutes, route);
+  rc = rtVector_PushBack(gRoutes, route);
+  if (rc != RT_OK)
+  {
+    free(subscription);
+    free(route);
+    return rc;
+  }
+
+  rc = rtRoutingTree_AddTopicRoute(gRoutingTree, exp, (void *)route, 0/*ignfore duplicate entry*/);
+  if (rc != RT_OK)
+  {
+    rtRouted_ClearRoute(route);
+    return rc;
+  }
+
   rtLog_Debug("AddRoute route=[%p] address=[%s] expression=[%s]", route, subscription->client->ident, exp);
-  rtRoutingTree_AddTopicRoute(gRoutingTree, exp, (void *)route, 0/*ignfore duplicate entry*/);
   return RT_OK;
 }
 
@@ -544,7 +563,7 @@ rtRouted_SendMessage(rtMessageHeader * request_hdr, rtMessage message, rtConnect
       rtListItem_GetData(item, (void**)&treeRoute);
       rtListItem_GetNext(item, &item);
       route = treeRoute->route;
-      if(route)
+      if(route && route->subscription && route->subscription->client)
       {
         rtLog_Debug("SendMessage topic=%s expression=%s", request_hdr->topic, route->expression);
         found_dest = 1;
@@ -601,10 +620,30 @@ rtError rtRouted_TrafficMonitorLog(rtConnectedClient* sender, rtMessageHeader* h
 
   if(!file)
   {
-    file = fopen("/tmp/rtrouted_traffic_monitor", "a");
+    int fd = open("/tmp/rtrouted_traffic_monitor",
+                  O_WRONLY | O_APPEND | O_CREAT | O_CLOEXEC | O_NOFOLLOW | O_NONBLOCK,
+                  S_IRUSR | S_IWUSR);
+    if(fd < 0)
+    {
+      rtLog_Warn("Failed to open traffic monitor log: %s", strerror(errno));
+      return RT_FAIL;
+    }
+
+    struct stat status;
+    if(fstat(fd, &status) != 0 || !S_ISREG(status.st_mode) ||
+       status.st_uid != geteuid() || status.st_nlink != 1 ||
+       fchmod(fd, S_IRUSR | S_IWUSR) != 0)
+    {
+      rtLog_Warn("Refusing unsafe traffic monitor log file");
+      close(fd);
+      return RT_FAIL;
+    }
+
+    file = fdopen(fd, "a");
     if(!file)
     {
-      rtLog_Warn("Failed to open traffix monitor log");
+      rtLog_Warn("Failed to create traffic monitor stream: %s", strerror(errno));
+      close(fd);
       return RT_FAIL;
     }
   }
@@ -823,7 +862,7 @@ rtRouted_OnMessageSubscribe(rtConnectedClient* sender, rtMessageHeader* hdr, uin
           subscription->client = sender;
           rc = rtRouted_AddRoute(rtRouted_ForwardMessage, expression, subscription);
 
-          if(strstr(expression, ".INBOX.") && sender->inbox[0] == '\0')
+          if(rc == RT_OK && strstr(expression, ".INBOX.") && sender->inbox[0] == '\0')
           {
             rtString_Copy(sender->inbox, expression, RTMSG_HEADER_MAX_TOPIC_LENGTH);
             rtLog_Debug("init client inbox to %s", sender->inbox);
@@ -833,23 +872,28 @@ rtRouted_OnMessageSubscribe(rtConnectedClient* sender, rtMessageHeader* hdr, uin
       }
       else
       {
-        int route_removed = 0;
+        rc = RT_ERROR_INVALID_ARG;
         for (i = 0; i < rtVector_Size(gRoutes); i++)
         {
           rtRouteEntry* route = (rtRouteEntry *) rtVector_At(gRoutes, i);
 
-          if((route->subscription) && (0 == strncmp(route->expression, expression, RTMSG_MAX_EXPRESSION_LEN)) && (route->subscription->client == sender))
+          if(route->subscription && route->subscription->client == sender &&
+             route->subscription->id == route_id)
           {
-            rtRouted_ClearRoute(route);
-            route_removed = 1;
+            if(0 == strncmp(route->expression, expression, RTMSG_MAX_EXPRESSION_LEN))
+            {
+              rtRouted_ClearRoute(route);
+              rc = RT_OK;
+            }
+            else
+              rc = rtRoutingTree_RemoveTopicRoute(gRoutingTree, expression, route);
             break;
           }
         }
-        if(0 == route_removed)
+        if(rc != RT_OK)
         {
-          //Not a route. Is it an alias?
-          rtLog_Debug("Removing alias %s", expression);
-          rtRoutingTree_RemoveTopic(gRoutingTree, expression);
+          rtLog_Warn("Rejected unsubscribe for unowned topic %s from %s (route %u)",
+                     expression, sender->ident, route_id);
         }
       }
     }
@@ -879,6 +923,7 @@ rtRouted_OnMessageHello(rtConnectedClient* sender, rtMessageHeader* hdr, uint8_t
 {
   char const* inbox = NULL;
   rtMessage m;
+  rtError rc;
 
   if(RT_OK != rtMessage_FromBytes(&m, buff, n))
   {
@@ -891,7 +936,9 @@ rtRouted_OnMessageHello(rtConnectedClient* sender, rtMessageHeader* hdr, uint8_t
   rtSubscription* subscription = (rtSubscription *) rt_malloc(sizeof(rtSubscription));
   subscription->id = 0;
   subscription->client = sender;
-  rtRouted_AddRoute(rtRouted_ForwardMessage, inbox, subscription);
+  rc = rtRouted_AddRoute(rtRouted_ForwardMessage, inbox, subscription);
+  if (rc != RT_OK)
+    rtLog_Warn("Failed to add inbox route [%s] for [%s]: %d", inbox, sender->ident, rc);
 
   rtMessage_Release(m);
 
@@ -1198,12 +1245,21 @@ rtRouted_OnMessageDiscoverElementObjects(rtConnectedClient* sender, rtMessageHea
 static void
 rtRouted_OnMessageDiagnostics(rtConnectedClient* sender, rtMessageHeader* hdr, uint8_t const* buff, int n)
 {
-  rtMessage msg;
-  const char * cmd;
+  rtMessage msg = NULL;
+  const char * cmd = NULL;
 
-  rtMessage_FromBytes(&msg, buff, n);
+  if (rtMessage_FromBytes(&msg, buff, n) != RT_OK)
+  {
+    rtLog_Warn("Failed to parse diagnostics request from %s", sender->ident);
+    return;
+  }
 
-  rtMessage_GetString(msg, RTROUTER_DIAG_CMD_KEY, &cmd);
+  if (rtMessage_GetString(msg, RTROUTER_DIAG_CMD_KEY, &cmd) != RT_OK || cmd == NULL)
+  {
+    rtLog_Warn("Diagnostics request from %s has no command", sender->ident);
+    rtMessage_Release(msg);
+    return;
+  }
 
   if(0 == strncmp(RTROUTER_DIAG_CMD_ENABLE_VERBOSE_LOGS, cmd, sizeof(RTROUTER_DIAG_CMD_ENABLE_VERBOSE_LOGS)))
     rtLog_SetLevel(RT_LOG_DEBUG);
@@ -1564,10 +1620,15 @@ rtConnectedClient_Read(rtConnectedClient* clnt)
   ssize_t bytes_read;
   if (clnt->bytes_read > clnt->bytes_to_read)
   {
-    rtLog_Warn("rtConnectedClient_Read: bytes_read=%zu > bytes_to_read=%zu, clamping to expected size",
+    rtLog_Warn("rtConnectedClient_Read: bytes_read=%zu > bytes_to_read=%zu",
                clnt->bytes_read, clnt->bytes_to_read);
-    rtConnectedClient_Reset(clnt);
-    return RT_OK; 
+    return RT_ERROR_INVALID_ARG;
+  }
+  if (clnt->bytes_to_read > clnt->read_buffer_capacity)
+  {
+    rtLog_Warn("rtConnectedClient_Read: requested size %zu exceeds buffer capacity %zu",
+               clnt->bytes_to_read, clnt->read_buffer_capacity);
+    return RT_ERROR_INVALID_ARG;
   }
   size_t bytes_to_read = clnt->bytes_to_read - clnt->bytes_read;
   if (bytes_to_read == 0)
@@ -1626,7 +1687,14 @@ rtConnectedClient_Read(rtConnectedClient* clnt)
           break;
         }
         rtEncoder_DecodeUInt16(&itr, &header_length);
-        clnt->bytes_to_read += (header_length - RTMESSAGEHEADER_PREAMBLE_LENGTH);
+        if (header_length <= RTMESSAGEHEADER_PREAMBLE_LENGTH ||
+            (size_t)header_length > clnt->read_buffer_capacity)
+        {
+          rtLog_Warn("Invalid header length %u from %s (buffer capacity %zu)",
+                     header_length, clnt->ident, clnt->read_buffer_capacity);
+          return RT_ERROR_INVALID_ARG;
+        }
+        clnt->bytes_to_read = (size_t)header_length;
         clnt->state = rtConnectionState_ReadHeader;
       }
     }
@@ -1717,15 +1785,18 @@ rtConnectedClient_Read(rtConnectedClient* clnt)
   return RT_OK;
 }
 
-static void
+static rtError
 rtRouted_PushFd(fd_set* fds, int fd, int* maxFd)
 {
-  if (fd != RTMSG_INVALID_FD)
+  if (fd < 0 || fd >= FD_SETSIZE)
   {
-    FD_SET(fd, fds);
-    if (maxFd && fd > *maxFd)
-      *maxFd = fd;
+    rtLog_Error("Descriptor %d is outside select range [0, %d)", fd, FD_SETSIZE);
+    return RT_ERROR_INVALID_ARG;
   }
+  FD_SET(fd, fds);
+  if (maxFd && fd > *maxFd)
+    *maxFd = fd;
+  return RT_OK;
 }
 
 static void
@@ -1763,6 +1834,13 @@ rtRouted_AcceptClientConnection(rtListener* listener)
   if (fd == -1)
   {
     rtLog_Warn("accept:%s", rtStrError(errno));
+    return;
+  }
+
+  if (fd >= FD_SETSIZE)
+  {
+    rtLog_Warn("Rejecting client descriptor %d: select limit is %d", fd, FD_SETSIZE);
+    close(fd);
     return;
   }
 
@@ -2004,8 +2082,11 @@ int main(int argc, char* argv[])
       rtListener* listener = (rtListener *) rtVector_At(gListeners, i);
       if (listener)
       {
-        rtRouted_PushFd(&read_fds, listener->fd, &max_fd);
-        rtRouted_PushFd(&err_fds, listener->fd, &max_fd);
+        if (rtRouted_PushFd(&read_fds, listener->fd, &max_fd) != RT_OK ||
+            rtRouted_PushFd(&err_fds, listener->fd, &max_fd) != RT_OK)
+        {
+          rtLog_Warn("Failed to add listener fd %d to select set; skipping", listener->fd);
+        }
       }
     }
 
@@ -2014,8 +2095,11 @@ int main(int argc, char* argv[])
       rtConnectedClient* clnt = (rtConnectedClient *) rtVector_At(gClients, i);
       if (clnt)
       {
-        rtRouted_PushFd(&read_fds, clnt->fd, &max_fd);
-        rtRouted_PushFd(&err_fds, clnt->fd, &max_fd);
+        if (rtRouted_PushFd(&read_fds, clnt->fd, &max_fd) != RT_OK ||
+            rtRouted_PushFd(&err_fds, clnt->fd, &max_fd) != RT_OK)
+        {
+          rtLog_Warn("Failed to add client fd %d (%s) to select set; skipping", clnt->fd, clnt->ident);
+        }
       }
     }
 
@@ -2068,5 +2152,5 @@ int main(int argc, char* argv[])
     free(g_spake2_w0);
 #endif
 
-  return 0;
+  return EXIT_SUCCESS;
 }
