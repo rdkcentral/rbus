@@ -33,7 +33,7 @@
 
 #define SLEEP_TABLE_ROWS 1
 #define SLEEP_VALUE_CHANGE 3
-#define NUM_ROW_TESTS 17
+#define NUM_ROW_TESTS 20
 #define NUM_VC_TESTS 34
 
 int getDurationEvents()
@@ -265,6 +265,25 @@ static void testTableRemoveAllEvents(rbusHandle_t handle)
     rbusEvent_Unsubscribe(handle, "Device.TestProvider.Table1.*.Table2.");
 }
 
+static void testTableSubscriptionOrderOnRowDelete(rbusHandle_t handle)
+{
+    rbusValue_t val;
+
+    rbusValue_Init(&val);
+    rbusValue_SetBoolean(val, true);
+    rbus_set(handle, "Device.TestProvider.ResetTables", val, NULL);
+    rbusValue_Release(val);
+
+    TESTRC(rbusTable_addRow(handle, "Device.TestProvider.Table1.", "r_1", NULL));
+    SUBSCRIBE("Device.TestProvider.Table1.1.data");
+    SUBSCRIBE("Device.TestProvider.Table1.");
+    testAddRow(handle, "Device.TestProvider.Table1.", "Device.TestProvider.Table1.", "Device.TestProvider.Table1.2", "r_2");
+    testRemoveRow(handle, "Device.TestProvider.Table1.", "Device.TestProvider.Table1.", "Device.TestProvider.Table1.1");
+    testAddRow(handle, "Device.TestProvider.Table1.", "Device.TestProvider.Table1.", "Device.TestProvider.Table1.3", "r_3");
+    rbusEvent_Unsubscribe(handle, "Device.TestProvider.Table1.1.data");
+    TESTRC(rbusEvent_Unsubscribe(handle, "Device.TestProvider.Table1."));
+}
+
 static void testSingleValueChange(rbusHandle_t handle, char const* user, char const* name, char const* value, bool ok)
 {
     SUBSCRIBE((char*)user);
@@ -371,6 +390,7 @@ void testEvents(rbusHandle_t handle, int* countPass, int* countFail)
     testAllSingleValueChange(handle);
     testAllMultiValueChange(handle);
     testTableRemoveAllEvents(handle);
+    testTableSubscriptionOrderOnRowDelete(handle);
     testAllProviderRegisterRows(handle);
 
     rtList_Destroy(gResultList,freeResult);
