@@ -23,6 +23,7 @@ Test Case : Testing Marshalling APIs
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <rbus.h>
 #include "rbuscore_message.h"
 
 extern "C" {
@@ -71,9 +72,182 @@ static void TearDownTestCase()
 
 };
 
+extern "C" rbusError_t _getExt_response_parser(rbusMessage response, int* numValues,
+                                               rbusProperty_t* properties);
+extern "C" rbusError_t rbusObject_initFromMessage(rbusObject_t* obj, rbusMessage msg);
+
+TEST_F(TestMarshallingAPIs, Object_rejects_missing_or_unreadable_type)
+{
+    for(int unreadable = 0; unreadable < 2; ++unreadable)
+    {
+        rbusMessage message;
+        rbusMessage_Init(&message);
+        rbusMessage_SetString(message, "Device.Test");
+        if(unreadable)
+            rbusMessage_SetString(message, "invalid type");
+
+        rbusObject_t obj = NULL;
+        EXPECT_EQ(rbusObject_initFromMessage(&obj, message), RBUS_ERROR_INVALID_INPUT);
+        EXPECT_EQ(obj, nullptr);
+        rbusObject_Release(obj);
+        rbusMessage_Release(message);
+    }
+}
+
+TEST_F(TestMarshallingAPIs, Object_rejects_invalid_child_counts_after_properties)
+{
+    for(int testCase = 0; testCase < 4; ++testCase)
+    {
+        rbusMessage message;
+        rbusMessage_Init(&message);
+        rbusMessage_SetString(message, "Device.Test");
+        rbusMessage_SetInt32(message, RBUS_OBJECT_SINGLE_INSTANCE);
+        rbusMessage_SetInt32(message, 1);
+        rbusMessage_SetString(message, "Device.Test.Value");
+        rbusMessage_SetInt32(message, RBUS_INT32);
+        rbusMessage_SetInt32(message, 42);
+        if(testCase == 1)
+            rbusMessage_SetString(message, "invalid child count");
+        else if(testCase == 2)
+            rbusMessage_SetInt32(message, -1);
+        else if(testCase == 3)
+            rbusMessage_SetInt32(message, INT32_MIN);
+
+        rbusObject_t obj = NULL;
+        EXPECT_EQ(rbusObject_initFromMessage(&obj, message), RBUS_ERROR_INVALID_INPUT);
+        EXPECT_EQ(obj, nullptr);
+        rbusObject_Release(obj);
+        rbusMessage_Release(message);
+    }
+}
+
+TEST_F(TestMarshallingAPIs, Object_accepts_zero_child_count_with_properties)
+{
+    rbusMessage message;
+    rbusMessage_Init(&message);
+    rbusMessage_SetString(message, "Device.Test");
+    rbusMessage_SetInt32(message, RBUS_OBJECT_SINGLE_INSTANCE);
+    rbusMessage_SetInt32(message, 1);
+    rbusMessage_SetString(message, "Device.Test.Value");
+    rbusMessage_SetInt32(message, RBUS_INT32);
+    rbusMessage_SetInt32(message, 42);
+    rbusMessage_SetInt32(message, 0);
+
+    rbusObject_t obj = NULL;
+    EXPECT_EQ(rbusObject_initFromMessage(&obj, message), RBUS_ERROR_SUCCESS);
+    if(obj)
+    {
+        EXPECT_STREQ(rbusObject_GetName(obj), "Device.Test");
+        EXPECT_EQ(rbusObject_GetChildren(obj), nullptr);
+        rbusValue_t value = rbusObject_GetValue(obj, "Device.Test.Value");
+        EXPECT_NE(value, nullptr);
+        if(value)
+            EXPECT_EQ(rbusValue_GetInt32(value), 42);
+    }
+    else
+    {
+        ADD_FAILURE() << "Decoded object is NULL";
+    }
+    rbusObject_Release(obj);
+    rbusMessage_Release(message);
+}
+
+static void checkMalformedGetValue(int32_t type)
+{
+    for(int validPrefix = 0; validPrefix < 2; ++validPrefix)
+    {
+        rbusMessage response;
+        rbusMessage_Init(&response);
+        rbusMessage_SetInt32(response, RBUS_ERROR_SUCCESS);
+        rbusMessage_SetInt32(response, validPrefix + 1);
+        if(validPrefix)
+        {
+            rbusMessage_SetString(response, "Device.Test.Valid");
+            rbusMessage_SetInt32(response, RBUS_INT32);
+            rbusMessage_SetInt32(response, 42);
+        }
+        rbusMessage_SetString(response, "Device.Test.Invalid");
+        rbusMessage_SetInt32(response, type);
+        const uint8_t invalidData[] = {0};
+        rbusMessage_SetBytes(response, invalidData, sizeof(invalidData));
+
+        int count = -1;
+        rbusProperty_t properties = NULL;
+        EXPECT_EQ(_getExt_response_parser(response, &count, &properties),
+                  RBUS_ERROR_INVALID_RESPONSE_FROM_DESTINATION);
+        EXPECT_EQ(count, 0);
+        EXPECT_EQ(properties, nullptr);
+        rbusProperty_Release(properties);
+    }
+}
+
+TEST_F(TestMarshallingAPIs, GetExt_rejects_invalid_datetime_and_discards_partial_results)
+{
+    checkMalformedGetValue(RBUS_DATETIME);
+}
+
+TEST_F(TestMarshallingAPIs, GetExt_rejects_unsupported_type_and_discards_partial_results)
+{
+    checkMalformedGetValue(INT32_MAX);
+}
+
 TEST_F(TestMarshallingAPIs, sample_test)
 {
     EXPECT_EQ(1, 1);
+}
+
+TEST_F(TestMarshallingAPIs, GetString_rejects_unterminated_string_before_next_token)
+{
+    const uint8_t bytes[] = {0xA3, 'a', 'b', 'c', 0xA3, 'd', 'e', '\0'};
+    rbusMessage message;
+    rbusMessage_FromBytes(&message, bytes, sizeof(bytes));
+    const char* first = NULL;
+    const char* second = NULL;
+    EXPECT_EQ(rbusMessage_GetString(message, &first), RT_FAIL);
+    EXPECT_EQ(first, nullptr);
+    EXPECT_EQ(rbusMessage_GetString(message, &second), RT_OK);
+    EXPECT_STREQ(second, "de");
+
+    rbusMessage_Release(message);
+}
+
+TEST_F(TestMarshallingAPIs, GetString_rejects_unterminated_string_at_end_of_message)
+{
+    const uint8_t bytes[] = {0xA3, 'e', 'n', 'd'};
+    rbusMessage message;
+    rbusMessage_FromBytes(&message, bytes, sizeof(bytes));
+    const char* value = NULL;
+
+    EXPECT_EQ(rbusMessage_GetString(message, &value), RT_FAIL);
+    EXPECT_EQ(value, nullptr);
+
+    rbusMessage_Release(message);
+}
+
+TEST_F(TestMarshallingAPIs, GetString_rejects_zero_length_string)
+{
+    const uint8_t bytes[] = {0xA0};
+    rbusMessage message;
+    rbusMessage_FromBytes(&message, bytes, sizeof(bytes));
+    const char* value = "previous";
+
+    EXPECT_EQ(rbusMessage_GetString(message, &value), RT_FAIL);
+    EXPECT_EQ(value, nullptr);
+
+    rbusMessage_Release(message);
+}
+
+TEST_F(TestMarshallingAPIs, GetString_accepts_terminated_empty_string)
+{
+    const uint8_t bytes[] = {0xA1, '\0'};
+    rbusMessage message;
+    rbusMessage_FromBytes(&message, bytes, sizeof(bytes));
+    const char* value = NULL;
+
+    EXPECT_EQ(rbusMessage_GetString(message, &value), RT_OK);
+    EXPECT_STREQ(value, "");
+
+    rbusMessage_Release(message);
 }
 
 TEST_F(TestMarshallingAPIs, rbusMessage_SetString_test1)

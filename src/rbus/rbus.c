@@ -21,6 +21,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <limits.h>
 #include <assert.h>
 #include <pthread.h>
 #include <unistd.h>
@@ -410,14 +411,50 @@ static bool _parse_rbusData_to_value (char const* pBuff, rbusLegacyDataType_t le
 //*************************** SERIALIZE/DERIALIZE FUNCTIONS ***************************//
 #define DEBUG_SERIALIZER 0
 
+static bool _isValidTLV(rbusValueType_t type, uint32_t length, uint8_t const* value)
+{
+    size_t expectedLength;
+
+    if(type == RBUS_NONE)
+        return length == 0;
+    if(!value)
+        return false;
+
+    switch(type)
+    {
+    case RBUS_STRING:
+        return length > 0 && length <= INT_MAX &&
+            memchr(value, '\0', length) == value + length - 1;
+    case RBUS_BYTES:
+        return length <= INT_MAX;
+    case RBUS_BOOLEAN:  expectedLength = sizeof(bool); break;
+    case RBUS_CHAR:     expectedLength = sizeof(char); break;
+    case RBUS_BYTE:     expectedLength = sizeof(unsigned char); break;
+    case RBUS_INT8:     expectedLength = sizeof(int8_t); break;
+    case RBUS_UINT8:    expectedLength = sizeof(uint8_t); break;
+    case RBUS_INT16:    expectedLength = sizeof(int16_t); break;
+    case RBUS_UINT16:   expectedLength = sizeof(uint16_t); break;
+    case RBUS_INT32:    expectedLength = sizeof(int32_t); break;
+    case RBUS_UINT32:   expectedLength = sizeof(uint32_t); break;
+    case RBUS_INT64:    expectedLength = sizeof(int64_t); break;
+    case RBUS_UINT64:   expectedLength = sizeof(uint64_t); break;
+    case RBUS_SINGLE:   expectedLength = sizeof(float); break;
+    case RBUS_DOUBLE:   expectedLength = sizeof(double); break;
+    case RBUS_DATETIME: expectedLength = sizeof(rbusDateTime_t); break;
+    default:
+        return false;
+    }
+    return length == expectedLength;
+}
+
 rbusError_t rbusValue_initFromMessage(rbusValue_t* value, rbusMessage msg);
 void rbusValue_appendToMessage(char const* name, rbusValue_t value, rbusMessage msg);
 rbusError_t rbusProperty_initFromMessage(rbusProperty_t* property, rbusMessage msg);
-void rbusPropertyList_initFromMessage(rbusProperty_t* prop, rbusMessage msg);
+rbusError_t rbusPropertyList_initFromMessage(rbusProperty_t* prop, rbusMessage msg);
 void rbusPropertyList_appendToMessage(rbusProperty_t prop, rbusMessage msg);
-void rbusObject_initFromMessage(rbusObject_t* obj, rbusMessage msg);
+rbusError_t rbusObject_initFromMessage(rbusObject_t* obj, rbusMessage msg);
 void rbusObject_appendToMessage(rbusObject_t obj, rbusMessage msg);
-void rbusEventData_updateFromMessage(rbusEvent_t* event, rbusFilter_t* filter, uint32_t* interval,
+rbusError_t rbusEventData_updateFromMessage(rbusEvent_t* event, rbusFilter_t* filter, uint32_t* interval,
         uint32_t* duration, int32_t* componentId, rbusMessage msg);
 void rbusEventData_appendToMessage(rbusEvent_t* event, rbusFilter_t filter, uint32_t interval,
         uint32_t duration, int32_t componentId, rbusMessage msg);
@@ -426,10 +463,10 @@ void rbusFilter_InitFromMessage(rbusFilter_t* filter, rbusMessage msg);
 
 rbusError_t rbusValue_initFromMessage(rbusValue_t* value, rbusMessage msg)
 {
-    uint8_t const* data;
+    uint8_t const* data = NULL;
     bool rc = true;
-    uint32_t length;
-    int type;
+    uint32_t length = 0;
+    int32_t type;
     char const* pBuffer = NULL;
 
     if (!value)
@@ -440,13 +477,21 @@ rbusError_t rbusValue_initFromMessage(rbusValue_t* value, rbusMessage msg)
 
     rbusValue_Init(value);
 
-    rbusMessage_GetInt32(msg, (int*) &type);
+    if(rbusMessage_GetInt32(msg, &type) != RT_OK)
+    {
+        RBUSLOG_WARN("rbusValue_initFromMessage: failed to read value type");
+        return RBUS_ERROR_INVALID_INPUT;
+    }
 #if DEBUG_SERIALIZER
     RBUSLOG_INFO("> value pop type=%d", type);
 #endif
     if(type>=RBUS_LEGACY_STRING && type<=RBUS_LEGACY_NONE)
     {
-        rbusMessage_GetString(msg, &pBuffer);
+        if(rbusMessage_GetString(msg, &pBuffer) != RT_OK || !pBuffer)
+        {
+            RBUSLOG_WARN("rbusValue_initFromMessage: failed to read legacy value");
+            return RBUS_ERROR_INVALID_INPUT;
+        }
         RBUSLOG_DEBUG("Received Param Value in string : [%s]", pBuffer);
         rc = _parse_rbusData_to_value (pBuffer, type, *value);
         if(!rc)
@@ -460,7 +505,9 @@ rbusError_t rbusValue_initFromMessage(rbusValue_t* value, rbusMessage msg)
         if(type == RBUS_OBJECT)
         {
             rbusObject_t obj;
-            rbusObject_initFromMessage(&obj, msg);
+            rbusError_t err = rbusObject_initFromMessage(&obj, msg);
+            if(err != RBUS_ERROR_SUCCESS)
+                return err;
             rbusValue_SetObject(*value, obj);
             rbusObject_Release(obj);
         }
@@ -468,7 +515,9 @@ rbusError_t rbusValue_initFromMessage(rbusValue_t* value, rbusMessage msg)
         if(type == RBUS_PROPERTY)
         {
             rbusProperty_t prop;
-            rbusPropertyList_initFromMessage(&prop, msg);
+            rbusError_t err = rbusPropertyList_initFromMessage(&prop, msg);
+            if(err != RBUS_ERROR_SUCCESS)
+                return err;
             rbusValue_SetProperty(*value, prop);
             rbusProperty_Release(prop);
         }
@@ -518,11 +567,13 @@ rbusError_t rbusValue_initFromMessage(rbusValue_t* value, rbusMessage msg)
                     rbusValue_SetDouble(*value, (double)fval);
                     break;
                 case RBUS_DATETIME:
-                    rbusMessage_GetBytes(msg, &data, &length);
-                    rbusValue_SetTLV(*value, type, length, data);
-                    break;
                 default:
-                    rbusMessage_GetBytes(msg, &data, &length);
+                    if(rbusMessage_GetBytes(msg, &data, &length) != RT_OK ||
+                       !_isValidTLV(type, length, data))
+                    {
+                        RBUSLOG_WARN("rbusValue_initFromMessage: invalid value data for type %d", type);
+                        return RBUS_ERROR_INVALID_INPUT;
+                    }
                     rbusValue_SetTLV(*value, type, length, data);
                     break;
             }
@@ -539,20 +590,25 @@ rbusError_t rbusValue_initFromMessage(rbusValue_t* value, rbusMessage msg)
 
 rbusError_t rbusProperty_initFromMessage(rbusProperty_t* property, rbusMessage msg)
 {
-    char const* name;
+    char const* name = NULL;
     rbusValue_t value;
     rbusError_t err = RBUS_ERROR_SUCCESS;
-
-    rbusMessage_GetString(msg, (char const**) &name);
-#if DEBUG_SERIALIZER
-    RBUSLOG_INFO("> prop pop name=%s", name);
-#endif
 
     if (!property)
     {
         RBUSLOG_ERROR("rbusProperty_initFromMessage: property is NULL");
         return RBUS_ERROR_INVALID_INPUT;
     }
+
+    *property = NULL;
+    if(rbusMessage_GetString(msg, &name) != RT_OK || !name)
+    {
+        RBUSLOG_WARN("rbusProperty_initFromMessage: invalid property name");
+        return RBUS_ERROR_INVALID_INPUT;
+    }
+#if DEBUG_SERIALIZER
+    RBUSLOG_INFO("> prop pop name=%s", name);
+#endif
 
     rbusProperty_Init(property, name, NULL);
     err= rbusValue_initFromMessage(&value, msg);
@@ -582,18 +638,26 @@ void rbusPropertyList_appendToMessage(rbusProperty_t prop, rbusMessage msg)
     }
 }
 
-void rbusPropertyList_initFromMessage(rbusProperty_t* prop, rbusMessage msg)
+rbusError_t rbusPropertyList_initFromMessage(rbusProperty_t* prop, rbusMessage msg)
 {
     rbusProperty_t previous = NULL, first = NULL;
     int numProps = 0;
-    rbusMessage_GetInt32(msg, (int*) &numProps);
+    *prop = NULL;
+    if(rbusMessage_GetInt32(msg, &numProps) != RT_OK || numProps < 0)
+         return RBUS_ERROR_INVALID_INPUT;
 #if DEBUG_SERIALIZER
     RBUSLOG_INFO("> prop pop numProps=%d", numProps);
 #endif
     while(--numProps >= 0)
     {
-        rbusProperty_t nextProp;
-        rbusProperty_initFromMessage(&nextProp, msg);
+        rbusProperty_t nextProp = NULL;
+        rbusError_t err = rbusProperty_initFromMessage(&nextProp, msg);
+        if(err != RBUS_ERROR_SUCCESS)
+        {
+            rbusProperty_Release(nextProp);
+            rbusProperty_Release(first);
+            return err;
+        }
         if(first == NULL)
             first = nextProp;
         if(previous != NULL)
@@ -605,6 +669,7 @@ void rbusPropertyList_initFromMessage(rbusProperty_t* prop, rbusMessage msg)
     }
     /*TODO we need to release the props we inited*/
     *prop = first;
+    return RBUS_ERROR_SUCCESS;
 }
 
 void rbusObject_appendToMessage(rbusObject_t obj, rbusMessage msg)
@@ -642,31 +707,54 @@ void rbusObject_appendToMessage(rbusObject_t obj, rbusMessage msg)
     }
 }
 
-void rbusObject_initFromMessage(rbusObject_t* obj, rbusMessage msg)
+rbusError_t rbusObject_initFromMessage(rbusObject_t* obj, rbusMessage msg)
 {
     char const* name = NULL;
     int type = 0;
     int numChild = 0;
-    rbusProperty_t prop;
+    rbusProperty_t prop = NULL;
     rbusObject_t children=NULL, previous=NULL;
+    rbusError_t err;
 
-    rbusMessage_GetString(msg, &name);
-    rbusMessage_GetInt32(msg, &type);
+    *obj = NULL;
+    if(rbusMessage_GetString(msg, &name) != RT_OK || !name)
+    {
+        RBUSLOG_WARN("rbusObject_initFromMessage: invalid object name");
+        return RBUS_ERROR_INVALID_INPUT;
+    }
+    if(rbusMessage_GetInt32(msg, &type) != RT_OK)
+    {
+        RBUSLOG_WARN("rbusObject_initFromMessage: invalid object type");
+        return RBUS_ERROR_INVALID_INPUT;
+    }
 #if DEBUG_SERIALIZER
     RBUSLOG_INFO("> object pop name=%s type=%d", name, type);
 #endif
 
-    rbusPropertyList_initFromMessage(&prop, msg);
+    err = rbusPropertyList_initFromMessage(&prop, msg);
+    if(err != RBUS_ERROR_SUCCESS)
+        return err;
 
-    rbusMessage_GetInt32(msg, &numChild);
+    if(rbusMessage_GetInt32(msg, &numChild) != RT_OK || numChild < 0)
+    {
+        RBUSLOG_WARN("rbusObject_initFromMessage: invalid child count");
+        rbusProperty_Release(prop);
+        return RBUS_ERROR_INVALID_INPUT;
+    }
 #if DEBUG_SERIALIZER
     RBUSLOG_INFO("> object pop numChild=%d", numChild);
 #endif
 
     while(--numChild >= 0)
     {
-        rbusObject_t next;
-        rbusObject_initFromMessage(&next, msg);/*object child object*/
+        rbusObject_t next = NULL;
+        err = rbusObject_initFromMessage(&next, msg);/*object child object*/
+        if(err != RBUS_ERROR_SUCCESS)
+        {
+            rbusProperty_Release(prop);
+            rbusObject_Release(children);
+            return err;
+        }
         if(children == NULL)
             children = next;
         if(previous != NULL)
@@ -686,6 +774,7 @@ void rbusObject_initFromMessage(rbusObject_t* obj, rbusMessage msg)
     rbusProperty_Release(prop);
     rbusObject_SetChildren(*obj, children);
     rbusObject_Release(children);
+    return RBUS_ERROR_SUCCESS;
 }
 
 void rbusValue_appendToMessage(char const* name, rbusValue_t value, rbusMessage msg)
@@ -816,23 +905,31 @@ void rbusFilter_InitFromMessage(rbusFilter_t* filter, rbusMessage msg)
     }
 }
 
-void rbusEventData_updateFromMessage(rbusEvent_t* event, rbusFilter_t* filter,
+rbusError_t rbusEventData_updateFromMessage(rbusEvent_t* event, rbusFilter_t* filter,
         uint32_t* interval, uint32_t* duration, int32_t* componentId, rbusMessage msg)
 {
-    char const* name;
+    char const* name = NULL;
     int type;
     rbusObject_t data = NULL;
     int hasFilter = false;
     int hasEventData =  false;
 
-    rbusMessage_GetString(msg, (char const**) &name);
+    if(rbusMessage_GetString(msg, &name) != RT_OK || !name)
+    {
+        RBUSLOG_WARN("rbusEventData_updateFromMessage: invalid event name");
+        return RBUS_ERROR_INVALID_INPUT;
+    }
     rbusMessage_GetInt32(msg, (int*) &type);
 #if DEBUG_SERIALIZER
     RBUSLOG_INFO("> event pop name=%s type=%d", name, type);
 #endif
     rbusMessage_GetInt32(msg, &hasEventData);
     if (hasEventData)
-        rbusObject_initFromMessage(&data, msg);
+    {
+        rbusError_t err = rbusObject_initFromMessage(&data, msg);
+        if(err != RBUS_ERROR_SUCCESS)
+            return err;
+    }
 
     rbusMessage_GetInt32(msg, &hasFilter);
     if(hasFilter)
@@ -846,6 +943,7 @@ void rbusEventData_updateFromMessage(rbusEvent_t* event, rbusFilter_t* filter,
     rbusMessage_GetUInt32(msg, interval);
     rbusMessage_GetUInt32(msg, duration);
     rbusMessage_GetInt32(msg, componentId);
+    return RBUS_ERROR_SUCCESS;
 }
 
 void rbusEventData_appendToMessage(rbusEvent_t* event, rbusFilter_t filter,
@@ -1340,7 +1438,8 @@ int _event_callback_handler (char const* objectName, char const* eventName, rbus
 
     handler = (rbusEventHandler_t)subscription->handler;
 
-    rbusEventData_updateFromMessage(&event, &filter, &interval, &duration, &componentId, message);
+    if(rbusEventData_updateFromMessage(&event, &filter, &interval, &duration, &componentId, message) != RBUS_ERROR_SUCCESS)
+        return RBUS_ERROR_INVALID_INPUT;
 
     (*handler)(subscription->handle, &event, subscription);
 
@@ -1364,7 +1463,8 @@ static int _master_event_callback_handler(char const* sender, char const* eventN
     UNUSED1(userData);
     rbusError_t errorcode = RBUS_ERROR_SUCCESS;
 
-    rbusEventData_updateFromMessage(&event, &filter, &interval, &duration, &componentId, message);
+    if(rbusEventData_updateFromMessage(&event, &filter, &interval, &duration, &componentId, message) != RBUS_ERROR_SUCCESS)
+        return RBUSCORE_ERROR_EVENT_NOT_HANDLED;
 
     LockMutex();
     handleInfo = rbusHandleList_GetByComponentID(componentId);
@@ -1433,7 +1533,7 @@ static void _set_callback_handler (rbusHandle_t handle, rbusMessage request, rbu
     int numVals = 0;
     int loopCnt = 0;
     int rollBack = 0;
-    char* pCompName = NULL;
+    char const* pCompName = NULL;
     char* pIsCommit = NULL;
     bool isCommit = false;
     char const* pFailedElement = NULL;
@@ -1447,10 +1547,16 @@ static void _set_callback_handler (rbusHandle_t handle, rbusMessage request, rbu
     memset(&options, 0, sizeof(rbusGetHandlerOptions_t));
 
     rbusMessage_GetInt32(request, &sessionId);
-    rbusMessage_GetString(request, (char const**) &pCompName);
+    if(rbusMessage_GetString(request, &pCompName) != RT_OK || !pCompName)
+    {
+        RBUSLOG_WARN("Set Failed: invalid requesting component");
+        rc = RBUS_ERROR_INVALID_INPUT;
+        goto exit;
+    }
     rbusMessage_GetInt32(request, &rollBack);
-    rbusMessage_GetInt32(request, &numVals);
-    if(numVals > 0)
+    if(rbusMessage_GetInt32(request, &numVals) != RT_OK)
+        numVals = 0;
+    if(numVals > 0 && sizeof(*pProperties) <= SIZE_MAX / (size_t)numVals)
     {
         /* Update the Get Handler input options */
         opts.sessionId = sessionId;
@@ -1458,16 +1564,24 @@ static void _set_callback_handler (rbusHandle_t handle, rbusMessage request, rbu
 
         elementNode* el = NULL;
 
-        pProperties = (rbusProperty_t*)rt_try_malloc(numVals*sizeof(rbusProperty_t));
+        pProperties = (rbusProperty_t*)rt_try_calloc((size_t)numVals, sizeof(*pProperties));
         if(pProperties)
         {
             for (loopCnt = 0; loopCnt < numVals; loopCnt++)
             {
                 rc = rbusProperty_initFromMessage(&pProperties[loopCnt], request);
+                if(rc != RBUS_ERROR_SUCCESS)
+                {
+                    RBUSLOG_WARN("Set Failed: invalid property at index %d", loopCnt);
+                    goto exit;
+                }
             }
-            if(rc != RBUS_ERROR_SUCCESS)
+            if(rbusMessage_GetString(request, (char const**) &pIsCommit) != RT_OK)
+            {
+                RBUSLOG_WARN("Set Failed: invalid commit string");
+                rc = RBUS_ERROR_INVALID_INPUT;
                 goto exit;
-            rbusMessage_GetString(request, (char const**) &pIsCommit);
+            }
 
             /* Since we set as string, this needs to compared with string..
             * Otherwise, just the #define in the top for TRUE/FALSE should be used.
@@ -1582,7 +1696,7 @@ static void _set_callback_handler (rbusHandle_t handle, rbusMessage request, rbu
     }
     else
     {
-        RBUSLOG_WARN("Set Failed as %s did not send any input", pCompName);
+        RBUSLOG_WARN("Set Failed: invalid property count %d", numVals);
         rc = RBUS_ERROR_INVALID_INPUT;
         pFailedElement = pCompName;
     }
@@ -1950,16 +2064,17 @@ static void _get_callback_handler (rbusHandle_t handle, rbusMessage request, rbu
 
     memset(&options, 0, sizeof(options));
     rbusMessage_GetString(request, &pCompName);
-    rbusMessage_GetInt32(request, &paramSize);
+    if(rbusMessage_GetInt32(request, &paramSize) != RT_OK)
+        paramSize = 0;
 
     RBUSLOG_DEBUG("Param Size [%d]", paramSize);
 
-    if(paramSize > 0)
+    if(paramSize > 0 && sizeof(*properties) <= SIZE_MAX / (size_t)paramSize)
     {
         /* Update the Get Handler input options */
         options.requestingComponent = pCompName;
 
-        properties = rt_try_malloc(paramSize*sizeof(rbusProperty_t));
+        properties = rt_try_malloc((size_t)paramSize * sizeof(*properties));
         if(properties)
         {
             for(i = 0; i < paramSize; i++)
@@ -1970,7 +2085,12 @@ static void _get_callback_handler (rbusHandle_t handle, rbusMessage request, rbu
             for(i = 0; i < paramSize; i++)
             {
                 parameterName = NULL;
-                rbusMessage_GetString(request, &parameterName);
+                if(rbusMessage_GetString(request, &parameterName) != RT_OK || !parameterName)
+                {
+                    RBUSLOG_WARN("Get Failed: invalid parameter name at index %d", i);
+                    result = RBUS_ERROR_INVALID_INPUT;
+                    break;
+                }
 
                 RBUSLOG_DEBUG("Param Name [%d]:[%s]", i, parameterName);
 
@@ -2050,7 +2170,7 @@ static void _get_callback_handler (rbusHandle_t handle, rbusMessage request, rbu
     }
     else
     {
-        RBUSLOG_WARN("Get Failed as %s did not send any input", pCompName);
+        RBUSLOG_WARN("Get Failed: invalid property count %d", paramSize);
         result = RBUS_ERROR_INVALID_INPUT;
         rbusMessage_Init(response);
         rbusMessage_SetInt32(*response, (int) result);
@@ -2141,7 +2261,13 @@ static void _get_parameter_names_handler (rbusHandle_t handle, rbusMessage reque
     //int32_t isCcsp = 0;
     elementNode* el = NULL;
 
-    rbusMessage_GetString(request, &objName);
+    if(rbusMessage_GetString(request, &objName) != RT_OK || !objName)
+    {
+        RBUSLOG_WARN("Get names failed: invalid object name");
+        rbusMessage_Init(response);
+        rbusMessage_SetInt32(*response, RBUS_ERROR_INVALID_INPUT);
+        return;
+    }
     rbusMessage_GetInt32(request, &requestedDepth);
     if(rbusMessage_GetInt32(request, &getRowNamesOnly) != RT_OK)/*set to 1 by rbusTable_GetRowNames and 0 by rbus_getNames, but unset by ccsp*/
     {
@@ -2281,13 +2407,20 @@ static void _table_add_row_callback_handler (rbusHandle_t handle, rbusMessage re
     struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
     rbusError_t result = RBUS_ERROR_BUS_ERROR;
     int sessionId;
-    char const* tableName;
+    char const* tableName = NULL;
     char const* aliasName = NULL;
     int err;
     uint32_t instNum = 0;
 
     rbusMessage_GetInt32(request, &sessionId);
-    rbusMessage_GetString(request, &tableName);
+    if(rbusMessage_GetString(request, &tableName) != RT_OK || !tableName)
+    {
+        RBUSLOG_WARN("Add row failed: invalid table name");
+        rbusMessage_Init(response);
+        rbusMessage_SetInt32(*response, RBUS_ERROR_INVALID_INPUT);
+        rbusMessage_SetInt32(*response, (int32_t)instNum);
+        return;
+    }
     err = rbusMessage_GetString(request, &aliasName); /*this presumes rbus_updateTable sent the alias.
                                                  if CCSP/dmcli is calling us, then this will be NULL*/
     if(err != RT_OK || (aliasName && strlen(aliasName)==0))
@@ -2339,10 +2472,16 @@ static void _table_remove_row_callback_handler (rbusHandle_t handle, rbusMessage
     struct _rbusHandle* handleInfo = (struct _rbusHandle*)handle;
     rbusError_t result = RBUS_ERROR_BUS_ERROR;
     int sessionId;
-    char const* rowName;
+    char const* rowName = NULL;
 
     rbusMessage_GetInt32(request, &sessionId);
-    rbusMessage_GetString(request, &rowName);
+    if(rbusMessage_GetString(request, &rowName) != RT_OK || !rowName)
+    {
+        RBUSLOG_WARN("Remove row failed: invalid row name");
+        rbusMessage_Init(response);
+        rbusMessage_SetInt32(*response, RBUS_ERROR_INVALID_INPUT);
+        return;
+    }
 
     RBUSLOG_DEBUG("row [%s]", rowName);
 
@@ -2403,20 +2542,29 @@ static int _method_callback_handler(rbusHandle_t handle, rbusMessage request, rb
     rbusError_t result = RBUS_ERROR_BUS_ERROR;
     int sessionId;
     int hasInParam = 0;
-    char const* methodName;
-    rbusObject_t inParams, outParams;
+    char const* methodName = NULL;
+    rbusObject_t inParams = NULL, outParams;
     rbusValue_t value1, value2;
     rbusValue_t outParamsVal = NULL;
 
     rbusValue_Init(&value1);
     rbusValue_Init(&value2);
+    rbusObject_Init(&outParams, NULL);
 
     rbusMessage_GetInt32(request, &sessionId);
-    rbusMessage_GetString(request, &methodName);
+    if(rbusMessage_GetString(request, &methodName) != RT_OK || !methodName)
+    {
+        RBUSLOG_WARN("Method invocation failed: invalid method name");
+        result = RBUS_ERROR_INVALID_INPUT;
+        goto exit;
+    }
+
     rbusMessage_GetInt32(request, &hasInParam);
     if (hasInParam)
     {
-        rbusObject_initFromMessage(&inParams, request);
+        result = rbusObject_initFromMessage(&inParams, request);
+        if(result != RBUS_ERROR_SUCCESS)
+            goto exit;
     }
     else
     {
@@ -2425,7 +2573,6 @@ static int _method_callback_handler(rbusHandle_t handle, rbusMessage request, rb
 
     RBUSLOG_DEBUG("%s [%s]", __FUNCTION__, methodName);
 
-    rbusObject_Init(&outParams, NULL);
     /*get the element for the row */
     elementNode* methRegElem = retrieveElement(handleInfo->elementRoot, methodName);
     elementNode* methInstElem = retrieveInstanceElementEx(handle, handleInfo->elementRoot, methodName, true);
@@ -2485,6 +2632,7 @@ static int _method_callback_handler(rbusHandle_t handle, rbusMessage request, rb
         rbusObject_SetValue(outParams, "error_string", value2);
     }
 
+exit:
     if (inParams)
         rbusObject_Release(inParams);
     rbusValue_Release(value1);
@@ -2802,7 +2950,9 @@ rbusError_t rbus_open(rbusHandle_t* handle, char const* componentName)
     {
         UnlockMutex();
         RBUSLOG_WARN("(%s): closing previously opened component with the same name", componentName);
-        rbus_close(tmpHandle);
+        ret = rbus_close(tmpHandle);
+        if(ret != RBUS_ERROR_SUCCESS)
+            return ret;
         LockMutex();
     }
 
@@ -2917,6 +3067,7 @@ rbusError_t rbus_close(rbusHandle_t handle)
     VERIFY_NULL(handle);
 
     RBUSLOG_INFO("rbus close for (%s)", handleInfo->componentName);
+
 
     LockMutex();
     char filename[RTMSG_HEADER_MAX_TOPIC_LENGTH];
@@ -3267,6 +3418,9 @@ rbusError_t rbus_get(rbusHandle_t handle, char const* name, rbusValue_t* value)
         return RBUS_ERROR_ACCESS_NOT_ALLOWED;
     }
 
+    VERIFY_NULL(value);
+    *value = NULL;
+
     rbusMessage_Init(&request);
     /* Set the Component name that invokes the set */
     rbusMessage_SetString(request, handleInfo->componentName);
@@ -3311,7 +3465,13 @@ rbusError_t rbus_get(rbusHandle_t handle, char const* name, rbusValue_t* value)
                 rbusMessage_GetString(response, &buff);
                 if(buff && (strcmp(name, buff) == 0))
                 {
-                    rbusValue_initFromMessage(value, response);
+                    if(rbusValue_initFromMessage(value, response) != RBUS_ERROR_SUCCESS)
+                    {
+                        RBUSLOG_WARN("Get Failed: invalid value in response for %s", name);
+                        rbusValue_Release(*value);
+                        *value = NULL;
+                        errorcode = RBUS_ERROR_INVALID_RESPONSE_FROM_DESTINATION;
+                    }
                 }
                 else
                 {
@@ -3342,42 +3502,59 @@ rbusError_t _getExt_response_parser(rbusMessage response, int *numValues, rbusPr
     int i = 0;
     RBUSLOG_DEBUG("Received response for remote method invocation!");
 
-    rbusMessage_GetInt32(response, &ret);
+    *numValues = 0;
+    *retProperties = NULL;
+    if(rbusMessage_GetInt32(response, &ret) != RT_OK)
+    {
+        RBUSLOG_WARN("Get Failed: invalid response status");
+        errorcode = RBUS_ERROR_INVALID_RESPONSE_FROM_DESTINATION;
+        goto exit;
+    }
     RBUSLOG_DEBUG("Response from the remote method is [%d]!",ret);
 
     errorcode = (rbusError_t) ret;
     legacyRetCode = (rbusLegacyReturn_t) ret;
 
-    *numValues = 0;
     if((errorcode == RBUS_ERROR_SUCCESS) || (legacyRetCode == RBUS_LEGACY_ERR_SUCCESS))
     {
         errorcode = RBUS_ERROR_SUCCESS;
         RBUSLOG_DEBUG("Received valid response!");
-        rbusMessage_GetInt32(response, &numOfVals);
-        *numValues = numOfVals;
+        if(rbusMessage_GetInt32(response, &numOfVals) != RT_OK || numOfVals < 0)
+        {
+            RBUSLOG_WARN("Get Failed: invalid response property count");
+            errorcode = RBUS_ERROR_INVALID_RESPONSE_FROM_DESTINATION;
+            goto exit;
+        }
         RBUSLOG_DEBUG("Number of return params = %d", numOfVals);
 
         if(numOfVals)
         {
-            rbusProperty_t last;
+            rbusProperty_t last = NULL;
             for(i = 0; i < numOfVals; i++)
             {
-                /* For the first instance, lets use the given pointer */
-                if (0 == i)
+                rbusProperty_t property = NULL;
+                if(rbusProperty_initFromMessage(&property, response) != RBUS_ERROR_SUCCESS)
                 {
-                    rbusProperty_initFromMessage(retProperties, response);
-                    last = *retProperties;
+                    RBUSLOG_WARN("Get Failed: invalid property in response at index %d", i);
+                    rbusProperty_Release(property);
+                    rbusProperty_Release(*retProperties);
+                    *retProperties = NULL;
+                    errorcode = RBUS_ERROR_INVALID_RESPONSE_FROM_DESTINATION;
+                    goto exit;
+                }
+                if(!last)
+                {
+                    *retProperties = property;
                 }
                 else
                 {
-                    rbusProperty_t tmpProperties;
-                    rbusProperty_initFromMessage(&tmpProperties, response);
-                    rbusProperty_SetNext(last, tmpProperties);
-                    rbusProperty_Release(tmpProperties);
-                    last = tmpProperties;
+                    rbusProperty_SetNext(last, property);
+                    rbusProperty_Release(property);
                 }
+                last = property;
             }
         }
+        *numValues = numOfVals;
     }
     else
     {
@@ -3386,6 +3563,7 @@ rbusError_t _getExt_response_parser(rbusMessage response, int *numValues, rbusPr
             errorcode = CCSPError_to_rbusError(legacyRetCode);
         }
     }
+exit:
     rbusMessage_Release(response);
 
     return errorcode;
@@ -3407,16 +3585,15 @@ rbusError_t rbus_getExt(rbusHandle_t handle, int paramCount, char const** pParam
     if (handleInfo->m_handleType != RBUS_HWDL_TYPE_REGULAR)
         return RBUS_ERROR_INVALID_HANDLE;
 
+    *retProperties = NULL;
+    *numValues = 0;
+
     if ((1 == paramCount))
     {
         if (!_is_wildcard_query(pParamNames[0]))
         {
             rbusProperty_t outputVals = NULL;
             rbusValue_t getVal = NULL;
-
-            /* Initialize */
-            *retProperties = NULL;
-            *numValues = 0;
 
             /*Do get the single param */
             errorcode = rbus_get(handle, pParamNames[0], &getVal);
@@ -3444,7 +3621,6 @@ rbusError_t rbus_getExt(rbusHandle_t handle, int paramCount, char const** pParam
             {
                 RBUSLOG_DEBUG("Query for expression %s was successful. See result below:", pParamNames[0]);
                 rbusProperty_t last = NULL;
-                *numValues = 0;
                 if (0 == numDestinations)
                 {
                     RBUSLOG_DEBUG("It is possibly a table entry from single component.");
@@ -3526,6 +3702,13 @@ rbusError_t rbus_getExt(rbusHandle_t handle, int paramCount, char const** pParam
                     for(i = 0; i < numDestinations; i++)
                         free(destinations[i]);
                     free(destinations);
+                    if(errorcode == RBUS_ERROR_INVALID_RESPONSE_FROM_DESTINATION)
+                    {
+                        rbusProperty_Release(*retProperties);
+                        *retProperties = NULL;
+                        *numValues = 0;
+                        return errorcode;
+                    }
                     if ((*retProperties != NULL) && (errorcode != RBUS_ERROR_SUCCESS))
                     {
                         RBUSLOG_WARN("Query for expression %s was partially successful", pParamNames[0]);
@@ -3575,9 +3758,6 @@ rbusError_t rbus_getExt(rbusHandle_t handle, int paramCount, char const** pParam
                 free(componentNames);
                 return RBUS_ERROR_INVALID_INPUT;
             }
-
-            *retProperties = NULL;/*NULL to mark first batch*/
-            *numValues = 0;
 
             /*batch by component*/
             for(;;)
@@ -3641,6 +3821,7 @@ rbusError_t rbus_getExt(rbusHandle_t handle, int paramCount, char const** pParam
                         if((errorcode = _getExt_response_parser(response, &batchNumVals, &batchResult)) != RBUS_ERROR_SUCCESS)
                         {
                             RBUSLOG_ERROR("error parsing response %d", errorcode);
+                            break;
                         }
                         else
                         {
@@ -3670,7 +3851,17 @@ rbusError_t rbus_getExt(rbusHandle_t handle, int paramCount, char const** pParam
             RBUSLOG_ERROR("Discover component names failed with error %d and counts %d/%d", errorcode, paramCount, numComponents);
         }
         if(componentNames)
+        {
+            for(i = 0; i < numComponents; ++i)
+                free(componentNames[i]);
             free(componentNames);
+        }
+    }
+    if(errorcode == RBUS_ERROR_INVALID_RESPONSE_FROM_DESTINATION)
+    {
+        rbusProperty_Release(*retProperties);
+        *retProperties = NULL;
+        *numValues = 0;
     }
     return errorcode;
 }
@@ -3919,7 +4110,7 @@ rbusError_t _setMultiInternal(rbusHandle_t handle, uint32_t numProps, rbusProper
         }
 
         char const** pParamNames;
-        int numComponents;
+        int numComponents = 0;
         char** componentNames = NULL;
         uint32_t i;
 
@@ -4055,6 +4246,7 @@ rbusError_t _setMultiInternal(rbusHandle_t handle, uint32_t numProps, rbusProper
                     else
                     {
                         char const* pErrorReason = NULL;
+                        bool validErrorReason = false;
                         rbusLegacyReturn_t legacyRetCode = RBUS_LEGACY_ERR_FAILURE;
                         int ret = -1;
                         rbusMessage_GetInt32(setResponse, &ret);
@@ -4065,23 +4257,47 @@ rbusError_t _setMultiInternal(rbusHandle_t handle, uint32_t numProps, rbusProper
                         {
                             errorcode = RBUS_ERROR_SUCCESS;
                             RBUSLOG_DEBUG("Successfully Set the Value");
-                            rbusPropertyList_initFromMessage(&cachedProperties, setResponse);
-                            pFailedElement = NULL;
+                            rbusProperty_t batchProperties = NULL;
+                            if(rbusPropertyList_initFromMessage(&batchProperties, setResponse) != RBUS_ERROR_SUCCESS)
+                            {
+                                RBUSLOG_WARN("Set Failed: invalid rollback properties in response");
+                                errorcode = RBUS_ERROR_INVALID_RESPONSE_FROM_DESTINATION;
+                            }
+                            else if(cachedProperties)
+                            {
+                                rbusProperty_Append(cachedProperties, batchProperties);
+                                rbusProperty_Release(batchProperties);
+                            }
+                            else
+                            {
+                                cachedProperties = batchProperties;
+                            }
+                            if(pFailedElement)
+                                *pFailedElement = NULL;
                         }
                         else
                         {
-                            if(pFailedElement)
+                            validErrorReason = rbusMessage_GetString(setResponse, &pErrorReason) == RT_OK && pErrorReason;
+                            if(!validErrorReason)
                             {
-                                rbusMessage_GetString(setResponse, &pErrorReason);
-                                *pFailedElement = strdup((char*)pErrorReason);
+                                RBUSLOG_WARN("Set Failed: invalid failed-parameter name in response");
+                                errorcode = RBUS_ERROR_INVALID_RESPONSE_FROM_DESTINATION;
+                                if(pFailedElement)
+                                    *pFailedElement = NULL;
+                            }
+                            else if(pFailedElement)
+                            {
+                                *pFailedElement = strdup(pErrorReason);
                                 RBUSLOG_WARN("Failed to Set the Value For %s", *pFailedElement);
                             }
                             else
                             {
-                                rbusMessage_GetString(setResponse, &pErrorReason);
                                 RBUSLOG_WARN("Failed to Set the Value for %s", pErrorReason);
                             }
-                            if(rollBack)
+                        }
+                        if(errorcode != RBUS_ERROR_SUCCESS)
+                        {
+                            if(rollBack && cachedProperties)
                             {
                                 char *pTempFailedElement = NULL;
                                 rbusSetOptions_t revertOpts;
@@ -4107,7 +4323,7 @@ rbusError_t _setMultiInternal(rbusHandle_t handle, uint32_t numProps, rbusProper
                                     free(pTempFailedElement);
                                 }
                             }
-                            if(legacyRetCode > RBUS_LEGACY_ERR_SUCCESS)
+                            if(validErrorReason && legacyRetCode > RBUS_LEGACY_ERR_SUCCESS)
                             {
                                 errorcode = CCSPError_to_rbusError(legacyRetCode);
                             }
@@ -4133,19 +4349,15 @@ rbusError_t _setMultiInternal(rbusHandle_t handle, uint32_t numProps, rbusProper
         {
             errorcode = RBUS_ERROR_DESTINATION_NOT_FOUND;
             RBUSLOG_ERROR("Discover component names failed with error %d and counts %d/%d", errorcode, numProps, numComponents);
-            for(int i = 0; i < numComponents; i++)
-            {
-                if(componentNames[i])
-                {
-                    free(componentNames[i]);
-                    componentNames[i] = NULL;
-                }
-            }
         }
         if(pParamNames)
             free(pParamNames);
         if(componentNames)
+        {
+            for(int j = 0; j < numComponents; ++j)
+                free(componentNames[j]);
             free(componentNames);
+        }
     }
     if(cachedProperties)
         rbusProperty_Release(cachedProperties);
@@ -4599,7 +4811,12 @@ rbusError_t rbusElementInfo_get(
 
             RBUSLOG_DEBUG("invokeRemoteMethod %s destination=%s object=%s success", METHOD_GETPARAMETERNAMES, destinations[d], elemName);
 
-            rbusMessage_GetInt32(response, &providerErr);
+            if(rbusMessage_GetInt32(response, &providerErr) != RT_OK)
+            {
+                RBUSLOG_WARN("Element info failed: invalid provider status");
+                errorcode = RBUS_ERROR_INVALID_RESPONSE_FROM_DESTINATION;
+                goto decode_error;
+            }
             errorcode = providerErr < (int)RBUS_LEGACY_ERR_SUCCESS ? (rbusError_t)providerErr :CCSPError_to_rbusError((rbusLegacyReturn_t)providerErr);
             if(errorcode == RBUS_ERROR_SUCCESS)
             {
@@ -4607,20 +4824,32 @@ rbusError_t rbusElementInfo_get(
                 int count = 0;
                 int i;
 
-                rbusMessage_GetInt32(response, &count);
+                if(rbusMessage_GetInt32(response, &count) != RT_OK || count < 0 ||
+                   count > INT_MAX - runningCount ||
+                   (size_t)(runningCount + count) > SIZE_MAX / sizeof(**elemInfo))
+                {
+                    RBUSLOG_WARN("Element info failed: invalid element count");
+                    errorcode = RBUS_ERROR_INVALID_RESPONSE_FROM_DESTINATION;
+                    goto decode_error;
+                }
                 RBUSLOG_DEBUG("invokeRemoteMethod %s %s success: count=%d", METHOD_GETPARAMETERNAMES, elemName, count);
                 if(count > 0)
                 {
-                    runningCount += count;
+                    int newCount = runningCount + count;
+                    rbusElementInfo_t* newInfo;
                     if(*elemInfo == NULL)
-                        *elemInfo = rt_try_malloc(runningCount * sizeof(rbusElementInfo_t));
+                        newInfo = rt_try_malloc((size_t)newCount * sizeof(*newInfo));
                     else
-                        *elemInfo = rt_try_realloc(*elemInfo, runningCount * sizeof(rbusElementInfo_t));
-                    if(!*elemInfo)
+                        newInfo = rt_try_realloc(*elemInfo, (size_t)newCount * sizeof(*newInfo));
+                    if(!newInfo)
                     {
-                        RBUSLOG_ERROR("failed to malloc %d element infos", runningCount);
-                        return RBUS_ERROR_OUT_OF_RESOURCES;
+                        RBUSLOG_ERROR("failed to malloc %d element infos", newCount);
+                        errorcode = RBUS_ERROR_OUT_OF_RESOURCES;
+                        goto decode_error;
                     }
+                    *elemInfo = newInfo;
+                    memset(&newInfo[startIndex], 0, (size_t)count * sizeof(*newInfo));
+                    runningCount = newCount;
                     for(i = 0; i < runningCount-1; ++i)
                        (*elemInfo)[i].next = &(*elemInfo)[i+1];
                     (*elemInfo)[runningCount-1].next = NULL;
@@ -4628,10 +4857,16 @@ rbusError_t rbusElementInfo_get(
 
                 for(i = startIndex; i < runningCount; ++i)
                 {
-                    rbusMessage_GetString(response, (char const**)&(*elemInfo)[i].name);
-                    rbusMessage_GetInt32(response, (int32_t*)&(*elemInfo)[i].type);
-                    rbusMessage_GetInt32(response, (int32_t*)&(*elemInfo)[i].access);
-                    (*elemInfo)[i].name = strdup((*elemInfo)[i].name);
+                    char const* name = NULL;
+                    if(rbusMessage_GetString(response, &name) != RT_OK || !name ||
+                       rbusMessage_GetInt32(response, (int32_t*)&(*elemInfo)[i].type) != RT_OK ||
+                       rbusMessage_GetInt32(response, (int32_t*)&(*elemInfo)[i].access) != RT_OK)
+                    {
+                        RBUSLOG_WARN("Element info failed: invalid element at index %d", i);
+                        errorcode = RBUS_ERROR_INVALID_RESPONSE_FROM_DESTINATION;
+                        goto decode_error;
+                    }
+                    (*elemInfo)[i].name = strdup(name);
                     (*elemInfo)[i].component = strdup(destinations[d]);
                     RBUSLOG_DEBUG("adding name %s", (*elemInfo)[i].name);
                 }
@@ -4639,13 +4874,22 @@ rbusError_t rbusElementInfo_get(
             else
             {
                 char const* providerErrMsg = NULL;
-                rbusMessage_GetString(response, &providerErrMsg);
+                if(rbusMessage_GetString(response, &providerErrMsg) != RT_OK || !providerErrMsg)
+                    providerErrMsg = rbusError_ToString(errorcode);
                 RBUSLOG_ERROR("invokeRemoteMethod %s %s got provider error:%d reason:%s", METHOD_GETPARAMETERNAMES, elemName, providerErr, providerErrMsg);
             }
             rbusMessage_Release(response);
         }
     }
 
+    goto exit;
+
+decode_error:
+    rbusMessage_Release(response);
+    rbusElementInfo_free(handle, *elemInfo);
+    *elemInfo = NULL;
+
+exit:
     for(d = 0; d < numDestinations; d++)
         free(destinations[d]);
     free(destinations);
@@ -5791,7 +6035,11 @@ rbusError_t rbusMethod_InvokeInternal(
     rbusMessage_GetInt32(response, &returnCode);
     legacyRetCode = (rbusLegacyReturn_t)returnCode;
 
-    rbusObject_initFromMessage(outParams, response);
+    if(rbusObject_initFromMessage(outParams, response) != RBUS_ERROR_SUCCESS)
+    {
+        rbusMessage_Release(response);
+        return RBUS_ERROR_INVALID_RESPONSE_FROM_DESTINATION;
+    }
     if(legacyRetCode > RBUS_LEGACY_ERR_SUCCESS)
     {
         returnCode = CCSPError_to_rbusError(legacyRetCode);

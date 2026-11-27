@@ -24,6 +24,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <pthread.h>
+#include <stdatomic.h>
 #include <unistd.h>
 //#include <assert.h>
 #include <errno.h>
@@ -46,7 +47,8 @@ rtVector gRecord = NULL;
 static pthread_mutex_t gInternalSubMutex = PTHREAD_MUTEX_INITIALIZER;
 typedef struct sRecord
 {
-    int running;
+    atomic_int running;
+    atomic_int external_remove;  /* 1 if external thread unlinked; prevents publisher from self-freeing */
     pthread_mutex_t  mutex;
     pthread_t        thread;
     pthread_cond_t   cond;
@@ -63,7 +65,8 @@ static void init_thread(sRecord* sub_rec)
     pthread_mutexattr_t attrib;
     pthread_condattr_t cattrib;
 
-    sub_rec->running = 0;
+    atomic_init(&sub_rec->running, 0);
+    atomic_init(&sub_rec->external_remove, 0);
 
     ERROR_CHECK(pthread_mutexattr_init(&attrib));
     ERROR_CHECK(pthread_mutexattr_settype(&attrib, PTHREAD_MUTEX_ERRORCHECK));
@@ -113,7 +116,7 @@ static void* PublishingThreadFunc(void* rec)
     rbusSubscription_t* sub = sub_rec->sub;
     struct _rbusHandle* handleInfo = (struct _rbusHandle*)sub_rec->handle;
     ERROR_CHECK(pthread_mutex_lock(&sub_rec->mutex));
-    while(sub_rec->running)
+    while(atomic_load(&sub_rec->running))
     {
         int err;
         int actualCount = 0;
@@ -137,6 +140,26 @@ static void* PublishingThreadFunc(void* rec)
         rbusProperty_Init(&properties, "numberOfEntries", NULL);
         result = get_recursive_wildcard_handler(handleInfo, sub->eventName,
                 "IntervalThread", properties, &actualCount);
+        ERROR_CHECK(pthread_mutex_lock(&gInternalSubMutex));
+        bool removed = (sub_find(sub) != sub_rec);
+        ERROR_CHECK(pthread_mutex_unlock(&gInternalSubMutex));
+        if(removed)
+        {
+            /* Record was dropped from gRecord; check if external removal is in progress.
+               If external_remove=1, an external thread unlinked us and will handle cleanup after join.
+               If external_remove=0, we're doing self-removal and must clean up our own record. */
+            rbusProperty_Release(properties);
+            rbusObject_Release(data);
+            ERROR_CHECK(pthread_mutex_unlock(&sub_rec->mutex));
+
+            if(!atomic_load(&sub_rec->external_remove))
+            {
+                /* Self-removal: external removal was NOT initiated, so we own cleanup */
+                sub_Free(sub_rec);
+            }
+            /* else: external removal in progress; external thread will free after join */
+            return NULL;
+        }
         rbusProperty_SetInt32(properties, actualCount);
         tmpptr = strchr(sub->eventName, '*');
         if (tmpptr)
@@ -202,7 +225,18 @@ static void* PublishingThreadFunc(void* rec)
     }
     ERROR_CHECK(pthread_mutex_unlock(&sub_rec->mutex));
     if(duration_complete) {
-        ERROR_CHECK(pthread_mutex_lock(&handleInfo->handle_subsMutex));
+        /* A remover holding handle_subsMutex sets running=0 and joins us; don't block on the mutex or we deadlock */
+        while(pthread_mutex_trylock(&handleInfo->handle_subsMutex) != 0)
+        {
+            if(!atomic_load(&sub_rec->running))
+                return NULL;
+            usleep(1000);
+        }
+        if(!atomic_load(&sub_rec->running))
+        {
+            ERROR_CHECK(pthread_mutex_unlock(&handleInfo->handle_subsMutex));
+            return NULL;
+        }
         ERROR_CHECK(pthread_mutex_lock(&gInternalSubMutex));
         rbusSubscriptions_removeSubscription(handleInfo->subscriptions, sub);
         rtVector_RemoveItem(gRecord, sub_rec, sub_Free);
@@ -253,11 +287,18 @@ rbusError_t rbusInterval_AddSubscriptionRecord(
         rbusProperty_Init(&sub_rec->property, propNode->fullName, NULL);
         init_thread(sub_rec);
 
-        /* Thread create */
-        sub_rec->running = 1;
-        pthread_create(&sub_rec->thread, NULL, PublishingThreadFunc, (void *)sub_rec);
-
+        /* Register before starting the thread so the publisher always finds its record; held across create so rec->thread is set */
+        atomic_store(&sub_rec->running, 1);
+        ERROR_CHECK(pthread_mutex_lock(&gInternalSubMutex));
         rtVector_PushBack(gRecord, sub_rec);
+        if(pthread_create(&sub_rec->thread, NULL, PublishingThreadFunc, (void *)sub_rec) != 0)
+        {
+            RBUSLOG_ERROR("failed to create interval publishing thread");
+            rtVector_RemoveItem(gRecord, sub_rec, sub_Free);
+            ERROR_CHECK(pthread_mutex_unlock(&gInternalSubMutex));
+            return RBUS_ERROR_BUS_ERROR;
+        }
+        ERROR_CHECK(pthread_mutex_unlock(&gInternalSubMutex));
     }
     return RBUS_ERROR_SUCCESS; 
 }
@@ -272,27 +313,49 @@ void rbusInterval_RemoveSubscriptionRecord(
     (void)(propNode);
     VERIFY_NULL(sub);
 
-    if (!gRecord)
-    {
-        return;
-    }
-
     sRecord* rec;
     ERROR_CHECK(pthread_mutex_lock(&gInternalSubMutex));
+    if (!gRecord)
+    {
+        ERROR_CHECK(pthread_mutex_unlock(&gInternalSubMutex));
+        return;
+    }
     rec = sub_find(sub);
     ERROR_CHECK(pthread_mutex_unlock(&gInternalSubMutex));
 
-    if(rec)
+    if(rec && pthread_equal(pthread_self(), rec->thread))
     {
-        if(rec->running)
-        {
-            rec->running = 0;
-            ERROR_CHECK(pthread_cond_signal(&rec->cond));
-            ERROR_CHECK(pthread_join(rec->thread, NULL));
-        }
+        /* Called from the publishing thread itself: can't join or free here. Thread frees the record. */
         ERROR_CHECK(pthread_mutex_lock(&gInternalSubMutex));
-        rtVector_RemoveItem(gRecord, rec, sub_Free);
+        rtVector_RemoveItem(gRecord, rec, NULL);
         ERROR_CHECK(pthread_mutex_unlock(&gInternalSubMutex));
+        atomic_store(&rec->running, 0);
+        ERROR_CHECK(pthread_detach(rec->thread));
+    }
+    else if(rec)
+    {
+        /* Mark for external removal before unlink. If publisher thread is exiting, it will see
+           this flag and NOT free the record, leaving cleanup to this external remover. */
+        atomic_store(&rec->external_remove, 1);
+
+        /* Unlink from subscriptions while holding locks, but defer join to avoid deadlock
+           with publishers blocked in element tree traversal (wildcard lookup needs elmMutex). */
+        ERROR_CHECK(pthread_mutex_lock(&gInternalSubMutex));
+        rtVector_RemoveItem(gRecord, rec, NULL);
+        ERROR_CHECK(pthread_mutex_unlock(&gInternalSubMutex));
+
+        if(atomic_load(&rec->running))
+        {
+            atomic_store(&rec->running, 0);
+            ERROR_CHECK(pthread_cond_signal(&rec->cond));
+        }
+
+        /* Join without releasing caller's lock to prevent concurrent removal
+           from accessing the subscription. The publisher thread must NOT
+           acquire handle_subsMutex during cleanup (it uses trylock in rbus.c:228). */
+        ERROR_CHECK(pthread_join(rec->thread, NULL));
+        
+        sub_Free(rec);
     }
     else
     {
